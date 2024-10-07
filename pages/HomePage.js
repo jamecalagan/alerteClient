@@ -18,7 +18,8 @@ export default function HomePage({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false); 
   const [selectedClientId, setSelectedClientId] = useState(null); 
   const [alertVisible, setAlertVisible] = useState(false);
-  // Pagination states
+  const [transportModalVisible, setTransportModalVisible] = useState(false);
+const [selectedCommande, setSelectedCommande] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const handleLogout = async () => {
@@ -246,13 +247,17 @@ export default function HomePage({ navigation }) {
   <Text style={styles.title}>Fiches clients</Text>
   <Text style={styles.pageNumberText}>Page {currentPage} / {totalPages}</Text>
 </View>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Rechercher par nom, téléphone, ou statut"
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={filterClients}
-        />
+    <View style={styles.searchContainer}>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Rechercher par nom, téléphone, ou statut"
+        placeholderTextColor="#999"
+        value={searchText}
+        onChangeText={filterClients}
+      />
+      <Ionicons name="search" size={24} color="#999" style={styles.searchIcon} />
+    </View>
+
 <View style={styles.sortButtonContainer}>
   <RoundedButton 
     title={`Trier par ${sortBy === 'createdAt' ? 'date de modification' : 'date de création'}`} 
@@ -337,6 +342,12 @@ export default function HomePage({ navigation }) {
           <Text style={styles.totalInterventionsText}>Interventions : {totalInterventions}</Text>
         </View>
         <View style={styles.topRightButtons}>
+        <TouchableOpacity style={styles.transportButton} onPress={() => {
+          setSelectedCommande(commande);
+          setTransportModalVisible(true);
+        }}>
+          <FontAwesome5 name="shipping-fast" size={20} color="#000000" /> 
+      </TouchableOpacity>
         <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditClient', { client: item })}>
         <Ionicons name="create-outline" size={20} color="#000" />
       </TouchableOpacity>
@@ -363,6 +374,27 @@ export default function HomePage({ navigation }) {
             </View>
           </>
         )}
+        <Modal
+  transparent={true}
+  visible={transportModalVisible}
+  animationType="fade"
+  onRequestClose={() => setTransportModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Text style={styles.alertTitle}>Commande en cours</Text>
+      {selectedCommande ? (
+        <Text style={styles.alertMessage}>Élément en commande : {selectedCommande}</Text>
+      ) : (
+        <Text style={styles.alertMessage}>Aucune commande en cours</Text>
+      )}
+      <TouchableOpacity style={styles.button} onPress={() => setTransportModalVisible(false)}>
+        <Text style={styles.buttonText}>Fermer</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
         <Modal
           transparent={true}
           visible={modalVisible}
@@ -409,6 +441,28 @@ export default function HomePage({ navigation }) {
   );
 }
 const styles = StyleSheet.create({
+  searchContainer: {
+  position: 'relative',  // Pour permettre le positionnement absolu de l'icône
+  height: 80,            // Hauteur du champ de recherche
+  borderWidth: 1,
+  borderColor: '#cccccc',
+  borderRadius: 8,
+  backgroundColor: '#e0e0e0',
+  justifyContent: 'center', // Centre verticalement
+},
+searchIcon: {
+  position: 'absolute',
+  right: 10,             // Positionné à droite à 10px du bord
+  zIndex: 1,             // Place l'icône au-dessus du TextInput
+},
+searchInput: {
+  paddingRight: 50,      // Ajoute un espace à droite pour l'icône
+  height: '100%',        // Prend toute la hauteur du conteneur
+  color: '#333333',
+  fontSize: 20,
+  paddingLeft: 10,       // Un petit padding à gauche pour l'esthétique
+},
+
   backgroundImage: {
     flex: 1,
     resizeMode: 'cover',  // L'image couvre toute la page
@@ -532,6 +586,13 @@ const styles = StyleSheet.create({
     borderColor: '#000',  // Couleur de la bordure (noire)
     borderWidth: 2,       // Épaisseur de la bordure
   },
+  transportButton: {
+  padding: 10,
+  borderRadius: 5,
+  marginRight: 10,
+  borderColor: '#000',  // Couleur de la bordure (noire)
+  borderWidth: 2,       // Épaisseur de la bordure
+},
   rightSection: {
     flexDirection: 'column',
     alignItems: 'flex-end', 

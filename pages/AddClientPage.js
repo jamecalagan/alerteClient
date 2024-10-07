@@ -9,6 +9,7 @@ const backgroundImage = require('../assets/inscriptions.jpg');
 export default function AddClientPage({ navigation, route }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(''); // Ajout de l'email
   const [loading, setLoading] = useState(false); // Gestion de l'état de chargement
 
   const validateFields = () => {
@@ -44,13 +45,13 @@ export default function AddClientPage({ navigation, route }) {
       const { data: existingClient, error: checkError } = await supabase
         .from('clients')
         .select('ficheNumber') // Sélectionne uniquement le numéro de fiche si le client existe
-        .or(`name.eq.${name},phone.eq.${phone}`); // Vérifie si le nom ou le téléphone existe
+        .or(`name.eq.${name},phone.eq.${phone}`);
   
       if (checkError) throw checkError;
   
       // Si le client existe, afficher son numéro de fiche
       if (existingClient && existingClient.length > 0) {
-        const ficheNumber = existingClient[0].ficheNumber; // Récupère le numéro de fiche du client existant
+        const ficheNumber = existingClient[0].ficheNumber;
         Alert.alert(
           'Client déjà existant',
           `Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`,
@@ -62,7 +63,7 @@ export default function AddClientPage({ navigation, route }) {
       // Si le client n'existe pas, ajouter le nouveau client
       const { error } = await supabase
         .from('clients')
-        .insert([{ name, phone, createdAt: new Date().toISOString(), interventions: [] }]);
+        .insert([{ name, phone, email: email || null, createdAt: new Date().toISOString(), interventions: [] }]);
   
       if (error) throw error;
   
@@ -71,12 +72,14 @@ export default function AddClientPage({ navigation, route }) {
       // Réinitialiser les champs après succès
       setName('');
       setPhone('');
+      setEmail(''); // Réinitialiser le champ e-mail aussi
   
       navigation.navigate('Home', { reloadClients: true });
     } catch (error) {
       console.error('Erreur lors de l\'ajout du client', error);
     }
   };
+  
   
 
   useEffect(() => {
@@ -106,6 +109,14 @@ export default function AddClientPage({ navigation, route }) {
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
+          <TextInput
+            style={styles.input}
+            placeholder="Adresse e-mail (optionnel)"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+
           <RoundedButton
             title={loading ? 'En cours...' : 'Ajouter le client'}
             onPress={handleAddClient}

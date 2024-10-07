@@ -10,6 +10,8 @@ export default function EditClientPage({ route, navigation }) {
   // États pour gérer les informations du client
   const [name, setName] = useState(client.name || '');
   const [phone, setPhone] = useState(client.phone || '');
+  const [email, setEmail] = useState(client.email || ''); // Ajoute l'état pour l'email
+
   const [interventions, setInterventions] = useState(client.interventions || []);
 
   // États pour gérer l'affichage de l'alerte
@@ -62,21 +64,22 @@ export default function EditClientPage({ route, navigation }) {
       showAlert('Erreur', 'Le nom et le numéro de téléphone doivent être remplis.');
       return;
     }
-
+  
     try {
       const { error } = await supabase
         .from('clients')
-        .update({ name, phone, updatedAt: new Date().toISOString() })
+        .update({ name, phone, email: email || null, updatedAt: new Date().toISOString() }) // Inclure l'email
         .eq('id', client.id);
-
+  
       if (error) throw error;
-
+  
       showAlert('Succès', 'Client modifié avec succès.');
       navigation.goBack();
     } catch (error) {
       showAlert('Erreur', 'Erreur lors de la modification du client');
     }
   };
+  
 
   const handleDeleteIntervention = (interventionId) => {
     // Afficher une alerte pour confirmer la suppression
@@ -134,6 +137,13 @@ export default function EditClientPage({ route, navigation }) {
         onChangeText={setPhone}
         keyboardType="phone-pad"
       />
+      <TextInput
+  style={styles.input}
+  value={email}
+  onChangeText={setEmail}
+  keyboardType="email-address"
+  placeholder="Adresse e-mail (optionnel)"
+/>
 
       {interventions.length > 0 ? (
         <FlatList

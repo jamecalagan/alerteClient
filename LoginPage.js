@@ -9,6 +9,7 @@ const backgroundImage = require('./assets/signInUp.jpg');
 export default function LoginPage({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false); // Contrôle la visibilité du mot de passe
   
   // États pour gérer l'affichage de l'alerte
   const [alertVisible, setAlertVisible] = useState(false);
@@ -61,13 +62,20 @@ export default function LoginPage({ navigation }) {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        
+        {/* Champ mot de passe avec icône eye */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!passwordVisible}  // Bascule entre masqué/visible
+          />
+          <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
+            <Icon name={passwordVisible ? 'eye-off' : 'eye'} size={24} color="gray" />
+          </TouchableOpacity>
+        </View>
 
         {/* Container pour les deux boutons côte à côte */}
         <View style={styles.buttonContainer}>
@@ -99,17 +107,13 @@ const styles = StyleSheet.create({
     flex: 1,
     resizeMode: 'cover',  // L'image couvre toute la page
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',  // Voile sombre pour améliorer la lisibilité
-    padding: 20,
-  },
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
   },
   input: {
+    height: 40,  // Fixe une hauteur pour les champs
     borderWidth: 1,
     borderColor: '#cccccc',
     padding: 10,
@@ -118,12 +122,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     color: '#333333',
   },
+  inputContainer: {
+    flexDirection: 'row',  // Aligne le champ mot de passe et l'icône eye
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cccccc',
+    borderRadius: 5,
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    height: 40,  // Fixe la hauteur de l'ensemble du container
+  },
+  passwordInput: {
+    flex: 1,  // Le TextInput prend tout l'espace disponible
+    padding: 10,
+    color: '#333333',
+    height: 40,  // Assure une hauteur contrôlée pour le champ mot de passe
+  },
   logo: {
     width: 250,
     height: 250,
     resizeMode: 'contain',
     alignSelf: 'center',
-    marginBottom: 250,
+    marginBottom: 50,  // Ajuste l'espacement
   },
   buttonContainer: {
     flexDirection: 'row',  // Les boutons sont alignés en ligne

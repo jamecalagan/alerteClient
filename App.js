@@ -18,7 +18,7 @@ import LoginPage from './LoginPage';
 import SignUpPage from './SignUpPage';
 import ClientPreviewPage from './pages/ClientPreviewPage';
 import SignatureClient from './pages/SignatureClient';
-
+import ImageGallery from './pages/ImageGallery';  // Chemin correct pour ton fichier
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -159,6 +159,10 @@ function MainStack() {
         component={SignatureClient} 
         options={{ headerTitle: 'Réception du Matériel' }}
       />
+      <Stack.Screen 
+      name="ImageGallery" 
+      component={ImageGallery}
+       />
     </Stack.Navigator>
   );
 }

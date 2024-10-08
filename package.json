@@ -36,7 +36,8 @@
     "react-native-signature-canvas": "^4.7.2",
     "react-native-signature-capture": "^0.4.12",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-webview": "13.8.6"
+    "react-native-webview": "13.8.6",
+    "expo-image-picker": "~15.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0"

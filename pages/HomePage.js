@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Modal, ImageBackground } from 'react-native';
 import { supabase } from '../supabaseClient';  
-import { useFocusEffect } from '@react-navigation/native';  
+import { useFocusEffect, useNavigation } from '@react-navigation/native';  
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Icon from 'react-native-vector-icons/FontAwesome';   
 import RoundedButton from '../components/RoundedButton';
@@ -19,9 +19,15 @@ export default function HomePage({ navigation }) {
   const [selectedClientId, setSelectedClientId] = useState(null); 
   const [alertVisible, setAlertVisible] = useState(false);
   const [transportModalVisible, setTransportModalVisible] = useState(false);
-const [selectedCommande, setSelectedCommande] = useState(null);
+  const [selectedCommande, setSelectedCommande] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  // Fonction pour naviguer vers la page de visualisation des images
+  const goToImageGallery = (clientId) => {
+    navigation.navigate('ImageGallery', { clientId });
+  };
+
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -38,7 +44,7 @@ const [selectedCommande, setSelectedCommande] = useState(null);
     try {
       const { data, error } = await supabase
         .from('clients')
-        .select('*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande)');
+        .select('*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos)');
   
       if (error) throw error;
   
@@ -50,6 +56,7 @@ const [selectedCommande, setSelectedCommande] = useState(null);
   
           if (relevantInterventions.length > 0) {
             client.latestIntervention = relevantInterventions[relevantInterventions.length - 1];
+            client.latestIntervention.photos = client.latestIntervention.photos || [];
           } else {
             client.latestIntervention = null;
           }
@@ -136,53 +143,55 @@ const [selectedCommande, setSelectedCommande] = useState(null);
       timeZone: 'Europe/Paris',
     });
   };
-  const filterClients = (text) => {
-    setSearchText(text);
-  
-    if (text.trim() === '') {
-      setFilteredClients(clients); // Si aucun texte de recherche n'est entré, montrer tous les clients
-    } else {
-      const filtered = clients.filter(client => {
-        // Recherche par nom (sans distinction de majuscules/minuscules)
-        const nameMatch = client.name && client.name.toLowerCase().includes(text.toLowerCase());
-  
-        // Vérifie si le texte est un nombre
-        const isNumber = !isNaN(text);
-  
-        // Recherche par numéro de téléphone (si le texte fait plus de 4 chiffres)
-        const phoneMatch = isNumber && client.phone && client.phone.includes(text) && text.length >= 4;
-  
-        // Recherche par numéro de fiche : exact match uniquement si c'est un nombre et si la longueur est plus courte (ex. max 3 chiffres)
-        const ficheNumberMatch = isNumber && client.ficheNumber && client.ficheNumber.toString() === text;
-  
-        // Recherche par statut (si le texte correspond à un statut)
-        const statusMatch = client.interventions.length > 0 &&
-          client.interventions[client.interventions.length - 1].status.toLowerCase().includes(text.toLowerCase());
-  
-        // Retourne vrai si au moins un des champs correspond
-        return nameMatch || phoneMatch || statusMatch || ficheNumberMatch;
-      });
-  
-      setFilteredClients(filtered); // Met à jour la liste des clients filtrés
-    }
-  };
+const filterClients = (text) => {
+  setSearchText(text);
+
+  if (text.trim() === '') {
+    setFilteredClients(clients); // Si aucun texte de recherche n'est entré, montrer tous les clients
+  } else {
+    const filtered = clients.filter(client => {
+      // Recherche par nom (sans distinction de majuscules/minuscules)
+      const nameMatch = client.name && client.name.toLowerCase().includes(text.toLowerCase());
+
+      // Vérifie si le texte est un nombre
+      const isNumber = !isNaN(text);
+
+      // Recherche par numéro de téléphone (si le texte fait plus de 4 chiffres)
+      const phoneMatch = isNumber && client.phone && client.phone.includes(text) && text.length >= 4;
+
+      // Recherche par numéro de fiche : exact match uniquement si c'est un nombre
+      const ficheNumberMatch = isNumber && client.ficheNumber && client.ficheNumber.toString() === text;
+
+      // Recherche par statut (si le texte correspond à un statut d'intervention)
+      const statusMatch = client.interventions.some(intervention =>
+        intervention.status && intervention.status.toLowerCase().includes(text.toLowerCase())
+      );
+
+      // Retourne vrai si au moins un des champs correspond
+      return nameMatch || phoneMatch || ficheNumberMatch || statusMatch;
+    });
+
+    setFilteredClients(filtered); // Met à jour la liste des clients filtrés
+  }
+};
+
   
   
   
   const getStatusStyle = (status) => {
     switch (status) {
       case 'En attente de pièces':
-        return { borderColor: '#270381', borderWidth: 4 };
+        return { borderColor: '#270381', borderWidth: 2 };
       case 'Devis accepté':
-        return { borderColor: '#FFD700', borderWidth: 4 };
+        return { borderColor: '#FFD700', borderWidth: 2 };
       case 'Réparation en cours':
-        return { borderColor: '#528fe0', borderWidth: 4 };
+        return { borderColor: '#528fe0', borderWidth: 2 };
       case 'Réparé':
-        return { borderColor: '#98fb98', borderWidth: 4 };
+        return { borderColor: '#98fb98', borderWidth: 2 };
       case 'Non réparable':
-        return { borderColor: '#e9967a', borderWidth: 4 };
+        return { borderColor: '#e9967a', borderWidth: 2 };
       default:
-        return { borderColor: '#e0e0e0', borderWidth: 4 };
+        return { borderColor: '#e0e0e0', borderWidth: 2 };
     }
   };
   const getDeviceIcon = (deviceType) => {
@@ -285,6 +294,10 @@ const [selectedCommande, setSelectedCommande] = useState(null);
     const status = latestIntervention ? latestIntervention.status : 'Aucun statut';
     const deviceType = latestIntervention?.deviceType; // Récupère le type d'appareil
     const commande = latestIntervention?.commande; // Récupérer le nom de la commande
+
+
+    // Calculer le nombre de photos pour la dernière intervention
+    const totalImages = latestIntervention?.photos?.length || 0;
     // *** Si le client n'a pas d'interventions en cours, afficher seulement les informations basiques ***
     if (!latestIntervention) {
       return (
@@ -312,6 +325,23 @@ const [selectedCommande, setSelectedCommande] = useState(null);
         </TouchableOpacity>
       );
     }
+    const getProgressStatus = (status) => {
+  switch (status) {
+    case 'En attente de pièces':
+      return { percentage: 25, color: '#270381' }; // Orange pour "En attente de pièces"
+    case 'Devis accepté':
+      return { percentage: 50, color: '#FFD700' }; // Jaune pour "Devis accepté"
+    case 'Réparation en cours':
+      return { percentage: 75, color: '#1E90FF' }; // Bleu pour "Réparation en cours"
+    case 'Réparé':
+      return { percentage: 100, color: '#32CD32' }; // Vert pour "Réparé"
+    case 'Non réparable':
+      return { percentage: 0, color: '#ff0000' }; // Rouge pour "Non réparable"
+    default:
+      return { percentage: 0, color: '#e0e0e0' }; // Gris pour le statut par défaut
+  }
+};
+
     // *** Si le client a une intervention en cours, afficher les informations complètes ***
     return (
       <View style={[styles.clientCard, getStatusStyle(status)]}>
@@ -327,10 +357,17 @@ const [selectedCommande, setSelectedCommande] = useState(null);
             <Text style={styles.clientText}>Dernière modification : {formatDateTime(item.updatedAt)}</Text>
           )}
           <Text style={styles.statusText}>Statut : {status}</Text>
+          <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBar, { 
+          width: `${getProgressStatus(status).percentage}%`, 
+          backgroundColor: getProgressStatus(status).color 
+        }]} />
+      </View>
           {status === 'En attente de pièces' && commande && (
             <Text style={styles.commandeText}>En commande : {commande}</Text>
           )}
           <Text style={styles.clientText}>Montant : {latestIntervention?.cost?.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</Text>
+          <Text style={styles.clientText}>Nombre d'images : {totalImages}</Text>
         </TouchableOpacity>
        
         <View style={styles.deviceIconContainer}>
@@ -342,18 +379,25 @@ const [selectedCommande, setSelectedCommande] = useState(null);
           <Text style={styles.totalInterventionsText}>Interventions : {totalInterventions}</Text>
         </View>
         <View style={styles.topRightButtons}>
+        {commande && (
         <TouchableOpacity style={styles.transportButton} onPress={() => {
           setSelectedCommande(commande);
           setTransportModalVisible(true);
         }}>
           <FontAwesome5 name="shipping-fast" size={20} color="#000000" /> 
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
         <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditClient', { client: item })}>
         <Ionicons name="create-outline" size={20} color="#000" />
       </TouchableOpacity>
         <TouchableOpacity style={styles.printButton} onPress={() => navigation.navigate('ClientPreviewPage', { clientId: item.id })}>
           <Ionicons name="print" size={20} color="#000000" /> 
         </TouchableOpacity>
+        {totalImages > 0 && (
+          <TouchableOpacity style={styles.photoButton} onPress={() => goToImageGallery(item.id)}>
+            <FontAwesome5 name="image" size={20} color="#000000" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.trashButton} onPress={() => confirmDeleteClient(item.id)}>
           <Ionicons name="trash" size={20} color="#000" /> 
         </TouchableOpacity>
@@ -510,6 +554,18 @@ searchInput: {
     alignItems: 'center',
     position: 'relative', 
   },
+  progressBarContainer: {
+    height: 3,
+    width: '100%',
+    backgroundColor: '#e0e0e0',  // Couleur de fond de la barre (pour le reste non rempli)
+    borderRadius: 5,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 5,
+  },
   deviceIconContainer: {
     position: 'absolute',  
     bottom: 10,  
@@ -563,6 +619,13 @@ searchInput: {
     right: 10,
     flexDirection: 'row',
   },
+  photoButton: {
+    padding: 10,
+    borderRadius: 5,
+    borderColor: '#000',
+    borderWidth: 2,
+    marginRight: 10,
+  },
   editButton: {
     //backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
     padding: 10,
@@ -599,8 +662,9 @@ searchInput: {
   },
   totalInterventionsText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007BFF',
+    fontWeight: 'light',
+    fontStyle:'italic',
+    color: '#5e5e5e',
   },
   commandeText: {
     fontSize: 16,

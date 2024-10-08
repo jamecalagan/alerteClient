@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ScrollView, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Text, ScrollView, KeyboardAvoidingView, Platform, Modal, Image, TouchableWithoutFeedback } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../supabaseClient';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params;
   const [reference, setReference] = useState('');
-  const [brand, setBrand] = useState('');  // Nouvel état pour la marque
+  const [brand, setBrand] = useState('');
   const [description, setDescription] = useState('');
   const [cost, setCost] = useState('');
   const [status, setStatus] = useState('default');  
@@ -14,9 +16,49 @@ export default function AddInterventionPage({ route, navigation }) {
   const [password, setPassword] = useState('');
   const [commande, setCommande] = useState('');
   const [chargeur, setChargeur] = useState('Non');  
-  const [alertVisible, setAlertVisible] = useState(false);  // Pour gérer l'affichage de l'alerte
-  const [alertMessage, setAlertMessage] = useState('');  // Message d'alerte à afficher
-  const [alertTitle, setAlertTitle] = useState('');  // Titre de l'alerte
+  const [alertVisible, setAlertVisible] = useState(false);  
+  const [alertMessage, setAlertMessage] = useState('');  
+  const [alertTitle, setAlertTitle] = useState('');  
+  const [photos, setPhotos] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null); // Pour afficher l'image sélectionnée en plein écran
+
+  const pickImage = async () => {
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.5,
+      });
+
+      console.log('Résultat complet de la capture d\'image :', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        console.log('URI de l\'image capturée :', imageUri);
+
+        const base64Image = await convertImageToBase64(imageUri); // Convertir en base64
+        if (base64Image) {
+          setPhotos([...photos, base64Image]);  // Ajouter l'image à la liste
+        }
+      } else {
+        console.log('Aucune image capturée ou opération annulée.');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la capture d\'image :', error);
+    }
+  };
+
+  const convertImageToBase64 = async (uri) => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return base64;
+    } catch (error) {
+      console.error('Erreur lors de la conversion de l\'image en base64 :', error);
+      return null;
+    }
+  };
 
   const handleSaveIntervention = async () => {
     if (!reference || !brand || !description || !cost || deviceType === 'default' || status === 'default') {
@@ -31,7 +73,7 @@ export default function AddInterventionPage({ route, navigation }) {
         .from('interventions')
         .insert({
           reference,
-          brand,  // Ajout de la marque
+          brand,
           description,
           cost,
           status,
@@ -41,6 +83,7 @@ export default function AddInterventionPage({ route, navigation }) {
           chargeur: chargeur === 'Oui',  
           createdAt: new Date().toISOString(),
           client_id: clientId,
+          photos: photos.length > 0 ? photos : [],
         });
 
       if (error) throw error;
@@ -56,10 +99,15 @@ export default function AddInterventionPage({ route, navigation }) {
     }
   };
 
+  // Fonction pour agrandir l'image lorsqu'elle est cliquée
+  const handleImagePress = (photo) => {
+    setSelectedImage(photo);  // Sélectionner l'image pour l'afficher en plein écran
+  };
+
   const closeAlert = () => {
     setAlertVisible(false);
     if (alertTitle === 'Succès') {
-      navigation.goBack();  // Revenir à la page précédente seulement après un succès
+      navigation.goBack();
     }
   };
 
@@ -156,12 +204,43 @@ export default function AddInterventionPage({ route, navigation }) {
           <Picker.Item label="Oui" value="Oui" />
         </Picker>
 
+        {/* Affichage des images capturées */}
+        {photos.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {photos.map((photo, index) => (
+              <TouchableWithoutFeedback key={index} onPress={() => handleImagePress(photo)}>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${photo}` }}  // Afficher les images en base64
+                  style={{ width: 100, height: 100, margin: 5 }}
+                />
+              </TouchableWithoutFeedback>
+            ))}
+          </View>
+        )}
+
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveIntervention}>
           <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.button} onPress={pickImage}>
+          <Text style={styles.buttonText}>Prendre une photo</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      
+      {/* Modal pour afficher l'image en taille réelle */}
+      {selectedImage && (
+        <Modal visible={true} transparent={true} onRequestClose={() => setSelectedImage(null)}>
+          <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+            <View style={styles.modalBackground}>
+              <Image
+                source={{ uri: `data:image/jpeg;base64,${selectedImage}` }}
+                style={styles.fullImage}
+              />
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
+
       <Modal
         transparent={true}
         visible={alertVisible}
@@ -221,6 +300,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  button: {
+    backgroundColor: '#007BFF',
+    padding: 10,
+    borderRadius: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  fullImage: {
+    width: '90%',
+    height: '90%',
+    resizeMode: 'contain',
+  },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -245,14 +344,5 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 });

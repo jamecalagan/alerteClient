@@ -6,6 +6,7 @@ export default function ImageGallery({ route }) {
   const { clientId } = route.params;
   const [photos, setPhotos] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null); // Pour agrandir l'image sélectionnée
+  const [labelPhotoIndex, setLabelPhotoIndex] = useState(null); // Indice pour la photo de l'étiquette
 
   useEffect(() => {
     const loadImages = async () => {
@@ -13,7 +14,7 @@ export default function ImageGallery({ route }) {
         // Récupérer les interventions du client
         const { data, error } = await supabase
           .from('interventions')
-          .select('photos')
+          .select('photos, label_photo') // Récupérer les photos et l'indicateur de la photo de l'étiquette
           .eq('client_id', clientId);
 
         if (error) throw error;
@@ -23,7 +24,11 @@ export default function ImageGallery({ route }) {
           return [...acc, ...intervention.photos];
         }, []);
 
+        // Récupérer l'index de la photo de l'étiquette
+        const labelIndex = data.find(intervention => intervention.label_photo) ? data.findIndex(intervention => intervention.label_photo) : null;
+
         setPhotos(allPhotos);
+        setLabelPhotoIndex(labelIndex); // Mettre à jour l'indice de la photo de l'étiquette
       } catch (error) {
         console.error('Erreur lors du chargement des photos :', error);
       }
@@ -47,7 +52,10 @@ export default function ImageGallery({ route }) {
             <TouchableOpacity key={index} onPress={() => handleImagePress(photo)}>
               <Image
                 source={{ uri: `data:image/jpeg;base64,${photo}` }} // Affichage en base64
-                style={styles.thumbnail}
+                style={[
+                  styles.thumbnail,
+                  index === labelPhotoIndex ? styles.labelPhoto : null, // Bordure verte pour l'étiquette
+                ]}
               />
             </TouchableOpacity>
           ))}
@@ -99,6 +107,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#000',
+  },
+  labelPhoto: {
+    borderColor: 'green', // Bordure verte pour la photo de l'étiquette
   },
   noImagesText: {
     textAlign: 'center',

@@ -21,7 +21,7 @@ export default function HomePage({ navigation }) {
   const [transportModalVisible, setTransportModalVisible] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 3;
 
   // Fonction pour naviguer vers la page de visualisation des images
   const goToImageGallery = (clientId) => {
@@ -675,6 +675,7 @@ searchInput: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 15,
+    marginTop: 15,
   },
   noClientsText: {
     textAlign: 'center',

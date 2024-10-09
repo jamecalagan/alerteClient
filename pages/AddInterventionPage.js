@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../supabaseClient';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { MaterialIcons } from '@expo/vector-icons'; // Pour l'icône de coche
 
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params;
@@ -21,8 +22,11 @@ export default function AddInterventionPage({ route, navigation }) {
   const [alertTitle, setAlertTitle] = useState('');  
   const [photos, setPhotos] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null); // Pour afficher l'image sélectionnée en plein écran
+  const [isPhotoTaken, setIsPhotoTaken] = useState(false); // État pour savoir si la photo a été prise
+  const [labelPhoto, setLabelPhoto] = useState(null); // Pour identifier la photo de l'étiquette
 
-  const pickImage = async () => {
+  // Fonction pour prendre la photo de l'étiquette
+  const pickLabelImage = async () => {
     try {
       let result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -30,12 +34,38 @@ export default function AddInterventionPage({ route, navigation }) {
         quality: 0.5,
       });
 
-      console.log('Résultat complet de la capture d\'image :', result);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        const base64Image = await convertImageToBase64(imageUri); // Convertir en base64
+        if (base64Image) {
+          setPhotos([...photos, base64Image]);  // Ajouter l'image à la liste
+          setIsPhotoTaken(true);  // Marquer que la photo a été prise
+          setLabelPhoto(base64Image); // Marquer cette photo comme l'étiquette
+
+          // Si le champ référence est vide, afficher "Voir photo pour référence produit"
+          if (!reference) {
+            setReference('Voir photo pour référence produit');
+          }
+        }
+      } else {
+        console.log('Aucune image capturée ou opération annulée.');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la capture d\'image :', error);
+    }
+  };
+
+  // Fonction pour prendre une autre photo (pas l'étiquette)
+  const pickAdditionalImage = async () => {
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.5,
+      });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
-        console.log('URI de l\'image capturée :', imageUri);
-
         const base64Image = await convertImageToBase64(imageUri); // Convertir en base64
         if (base64Image) {
           setPhotos([...photos, base64Image]);  // Ajouter l'image à la liste
@@ -67,24 +97,34 @@ export default function AddInterventionPage({ route, navigation }) {
       setAlertVisible(true);
       return;
     }
-
+    if (!labelPhoto) {
+      setAlertTitle('Erreur');
+      setAlertMessage('Veuillez prendre une photo d\'étiquette.');
+      setAlertVisible(true);
+      return;
+    }
     try {
+      console.log("Label photo avant insertion :", labelPhoto);
+      // Préparer les données à insérer
+      const interventionData = {
+        reference,
+        brand,
+        description,
+        cost,
+        status,
+        deviceType,
+        password,
+        commande,
+        chargeur: chargeur === 'Oui',  
+        createdAt: new Date().toISOString(),
+        client_id: clientId,
+        photos: photos.length > 0 ? photos : [],
+        label_photo: labelPhoto, // Photo marquée comme étiquette
+      };
+
       const { error } = await supabase
         .from('interventions')
-        .insert({
-          reference,
-          brand,
-          description,
-          cost,
-          status,
-          deviceType,
-          password,
-          commande,
-          chargeur: chargeur === 'Oui',  
-          createdAt: new Date().toISOString(),
-          client_id: clientId,
-          photos: photos.length > 0 ? photos : [],
-        });
+        .insert(interventionData);
 
       if (error) throw error;
 
@@ -97,11 +137,6 @@ export default function AddInterventionPage({ route, navigation }) {
       setAlertVisible(true);
       console.error("Erreur lors de l'ajout de l'intervention :", error);
     }
-  };
-
-  // Fonction pour agrandir l'image lorsqu'elle est cliquée
-  const handleImagePress = (photo) => {
-    setSelectedImage(photo);  // Sélectionner l'image pour l'afficher en plein écran
   };
 
   const closeAlert = () => {
@@ -139,12 +174,23 @@ export default function AddInterventionPage({ route, navigation }) {
           onChangeText={setBrand}
         />
 
-        <Text style={styles.label}>Référence du produit</Text>
-        <TextInput
-          style={styles.input}
-          value={reference}
-          onChangeText={setReference}
-        />
+        <View style={styles.referenceContainer}>
+          <TextInput
+            style={styles.referenceInput}
+            value={reference}
+            onChangeText={setReference}
+            placeholder="Référence du produit"
+          />
+          {/* Afficher la coche verte si la photo est prise */}
+          {isPhotoTaken && (
+            <MaterialIcons name="check-circle" size={24} color="green" style={styles.checkIcon} />
+          )}
+        </View>
+
+        {/* Ajout du bouton pour prendre une photo de l'étiquette */}
+        <TouchableOpacity style={styles.button} onPress={pickLabelImage}>
+          <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
+        </TouchableOpacity>
 
         <Text style={styles.label}>Description de la panne</Text>
         <TextInput
@@ -208,10 +254,13 @@ export default function AddInterventionPage({ route, navigation }) {
         {photos.length > 0 && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {photos.map((photo, index) => (
-              <TouchableWithoutFeedback key={index} onPress={() => handleImagePress(photo)}>
+              <TouchableWithoutFeedback key={index} onPress={() => setSelectedImage(photo)}>
                 <Image
                   source={{ uri: `data:image/jpeg;base64,${photo}` }}  // Afficher les images en base64
-                  style={{ width: 100, height: 100, margin: 5 }}
+                  style={[
+                    styles.photo, 
+                    photo === labelPhoto ? styles.labelPhoto : null  // Bordure verte pour la photo de l'étiquette
+                  ]}
                 />
               </TouchableWithoutFeedback>
             ))}
@@ -222,8 +271,9 @@ export default function AddInterventionPage({ route, navigation }) {
           <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={pickImage}>
-          <Text style={styles.buttonText}>Prendre une photo</Text>
+        {/* Ajout du bouton pour prendre des photos supplémentaires en bas */}
+        <TouchableOpacity style={styles.button} onPress={pickAdditionalImage}>
+          <Text style={styles.buttonText}>Prendre une autre photo</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -304,10 +354,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#007BFF',
     padding: 10,
     borderRadius: 10,
+    marginVertical: 10,
+    alignSelf: 'center',
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  referenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '90%',
+    alignSelf: 'center',
+  },
+  referenceInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    width: '80%',
+  },
+  checkIcon: {
+    marginLeft: 10,
   },
   modalBackground: {
     flex: 1,
@@ -325,6 +395,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  photo: {
+    width: 100,
+    height: 100,
+    margin: 5,
+  },
+  labelPhoto: {
+    borderWidth: 3,
+    borderColor: 'green',
   },
   alertBox: {
     width: 300,

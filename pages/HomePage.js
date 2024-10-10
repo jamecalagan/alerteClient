@@ -428,7 +428,10 @@ const filterClients = (text) => {
     <View style={styles.alertBox}>
       <Text style={styles.alertTitle}>Commande en cours</Text>
       {selectedCommande ? (
-        <Text style={styles.alertMessage}>Élément en commande : {selectedCommande}</Text>
+        <>
+          {/* <Text style={styles.alertMessage}>Élément en commande :</Text> */}
+          <Text style={[styles.alertMessage, { fontWeight: 'bold', fontSize: 25 }]}>{selectedCommande}</Text>
+        </>
       ) : (
         <Text style={styles.alertMessage}>Aucune commande en cours</Text>
       )}
@@ -438,6 +441,7 @@ const filterClients = (text) => {
     </View>
   </View>
 </Modal>
+
 
         <Modal
           transparent={true}

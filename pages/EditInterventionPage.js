@@ -179,90 +179,93 @@ export default function EditInterventionPage({ route, navigation }) {
       keyboardVerticalOffset={80}
     >
       <ScrollView>
-        <Text style={styles.label}>Type de produit</Text>
-        <Picker
-          selectedValue={deviceType}
-          style={styles.input}
-          onValueChange={(itemValue) => setDeviceType(itemValue)}
-        >
-          <Picker.Item label="Sélectionnez un type de produit..." value="default" />
-          <Picker.Item label="PC portable" value="PC portable" />
-          <Picker.Item label="PC Fixe" value="PC Fixe" />
-          <Picker.Item label="Tablette" value="Tablette" />
-          <Picker.Item label="Smartphone" value="Smartphone" />
-          <Picker.Item label="Console" value="Console" />
-        </Picker>
+      <Text style={styles.label}>Type de produit</Text>
+  <Picker
+    selectedValue={deviceType}
+    style={styles.input}
+    onValueChange={(itemValue) => setDeviceType(itemValue)}
+  >
+    <Picker.Item label="Sélectionnez un type de produit..." value="default" />
+    <Picker.Item label="PC portable" value="PC portable" />
+    <Picker.Item label="PC Fixe" value="PC Fixe" />
+    <Picker.Item label="Tablette" value="Tablette" />
+    <Picker.Item label="Smartphone" value="Smartphone" />
+    <Picker.Item label="Console" value="Console" />
+  </Picker>
 
-        <Text style={styles.label}>Marque du produit</Text>
-        <TextInput
-          style={styles.input}
-          value={brand}
-          onChangeText={setBrand}
-        />
+  <Text style={styles.label}>Marque du produit</Text>
+  <TextInput
+    style={styles.input}
+    value={brand.toUpperCase()}  // Afficher en majuscules
+    onChangeText={(text) => setBrand(text.toUpperCase())}  // Forcer la saisie en majuscules
+    autoCapitalize="characters"  // Forcer la saisie en majuscules
+  />
 
-        <View style={styles.referenceContainer}>
-          <TextInput
-            style={styles.referenceInput}
-            value={reference}
-            onChangeText={setReference}
-            placeholder="Référence du produit"
-          />
-          {labelPhoto && (
-            <MaterialIcons name="check-circle" size={24} color="green" style={styles.checkIcon} />
-          )}
-        </View>
+  <View style={styles.referenceContainer}>
+    <TextInput
+      style={styles.referenceInput}
+      value={reference.toUpperCase()}  // Afficher en majuscules
+      onChangeText={(text) => setReference(text.toUpperCase())}  // Forcer la saisie en majuscules
+      autoCapitalize="characters"  // Forcer la saisie en majuscules
+      placeholder="Référence du produit"
+    />
+    {labelPhoto && (
+      <MaterialIcons name="check-circle" size={24} color="green" style={styles.checkIcon} />
+    )}
+  </View>
 
-        <TouchableOpacity style={styles.button} onPress={pickLabelImage}>
-          <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
-        </TouchableOpacity>
+  <TouchableOpacity style={styles.button} onPress={pickLabelImage}>
+    <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
+  </TouchableOpacity>
 
-        <Text style={styles.label}>Description de la panne</Text>
-        <TextInput
-          style={styles.input}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-        />
+  <Text style={styles.label}>Description de la panne</Text>
+  <TextInput
+    style={styles.input}
+    value={description.toUpperCase()}  // Afficher en majuscules
+    onChangeText={(text) => setDescription(text.toUpperCase())}  // Forcer la saisie en majuscules
+    multiline
+    autoCapitalize="characters"  // Forcer la saisie en majuscules
+  />
 
-        <Text style={styles.label}>Mot de passe (si applicable)</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-        />
+<Text style={styles.label}>Mot de passe (si applicable)</Text>
+<TextInput
+  style={styles.input}
+  value={password}  // Pas de transformation en majuscules
+  onChangeText={setPassword}  // Pas de forçage en majuscules
+/>
 
-        <Text style={styles.label}>Coût de la réparation (€)</Text>
-        <TextInput
-          style={styles.input}
-          value={cost}
-          value={cost ? cost.toString() : ''}  // Convertir en string pour affichage
-          keyboardType="numeric"
-        />
+  <Text style={styles.label}>Coût de la réparation (€)</Text>
+  <TextInput
+    style={styles.input}
+    value={cost ? cost.toString() : ''}  // Convertir en string pour affichage
+    keyboardType="numeric"
+  />
 
-        <Text style={styles.label}>Statut</Text>
-        <Picker
-          selectedValue={status}
-          style={styles.input}
-          onValueChange={(itemValue) => setStatus(itemValue)}
-        >
-          <Picker.Item label="Sélectionnez un statut..." value="default" />
-          <Picker.Item label="En attente de pièces" value="En attente de pièces" />
-          <Picker.Item label="Devis accepté" value="Devis accepté" />
-          <Picker.Item label="Réparation en cours" value="Réparation en cours" />
-          <Picker.Item label="Réparé" value="Réparé" />
-          <Picker.Item label="Non réparable" value="Non réparable" />
-        </Picker>
+  <Text style={styles.label}>Statut</Text>
+  <Picker
+    selectedValue={status}
+    style={styles.input}
+    onValueChange={(itemValue) => setStatus(itemValue)}
+  >
+    <Picker.Item label="Sélectionnez un statut..." value="default" />
+    <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+    <Picker.Item label="Devis accepté" value="Devis accepté" />
+    <Picker.Item label="Réparation en cours" value="Réparation en cours" />
+    <Picker.Item label="Réparé" value="Réparé" />
+    <Picker.Item label="Non réparable" value="Non réparable" />
+  </Picker>
 
-        {status === 'En attente de pièces' && (
-          <>
-            <Text style={styles.label}>Commande</Text>
-            <TextInput
-              style={styles.input}
-              value={commande}
-              onChangeText={setCommande}
-            />
-          </>
-        )}
+  {status === 'En attente de pièces' && (
+    <>
+      <Text style={styles.label}>Commande</Text>
+      <TextInput
+        style={styles.input}
+        value={commande.toUpperCase()}  // Afficher en majuscules
+        onChangeText={(text) => setCommande(text.toUpperCase())}  // Forcer la saisie en majuscules
+        autoCapitalize="characters"  // Forcer la saisie en majuscules
+      />
+    </>
+  )}
 
         <Text style={styles.label}>Chargeur</Text>
         <Picker
@@ -302,14 +305,15 @@ export default function EditInterventionPage({ route, navigation }) {
   </Modal>
 )}
 
+        <TouchableOpacity style={styles.button} onPress={pickAdditionalImage}>
+          <Text style={styles.buttonText}>Prendre une autre photo</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveIntervention}>
           <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={pickAdditionalImage}>
-          <Text style={styles.buttonText}>Prendre une autre photo</Text>
-        </TouchableOpacity>
+
       </ScrollView>
 
       <Modal
@@ -378,6 +382,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     margin: 5,
+    borderRadius: 10,
   },
   labelPhoto: {
     borderWidth: 3,
@@ -385,23 +390,28 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 10,
-    marginVertical: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40%',
     alignSelf: 'center',
+    marginBottom: 20,
+    marginTop: 20,
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
   saveButton: {
-    backgroundColor: '#4f4f4f',
-    paddingVertical: 10,
+    backgroundColor: '#0d790a',
+    paddingVertical: 20,
     paddingHorizontal: 20,
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '60%',
+    width: '40%',
     alignSelf: 'center',
   },
   saveButtonText: {

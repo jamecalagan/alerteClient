@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
+import AlertBox from '../components/AlertBox'; // Assure-toi que le chemin est correct
 
 export default function ImageGallery({ route }) {
   const { clientId } = route.params;
   const [photos, setPhotos] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null); // Pour agrandir l'image sélectionnée
   const [labelPhotoIndex, setLabelPhotoIndex] = useState(null); // Indice pour la photo de l'étiquette
+  const [alertVisible, setAlertVisible] = useState(false); // Contrôle de la visibilité de l'alerte
+  const [imageToDelete, setImageToDelete] = useState(null); // Image sélectionnée pour la suppression
 
   useEffect(() => {
     const loadImages = async () => {
@@ -41,6 +44,31 @@ export default function ImageGallery({ route }) {
     setSelectedImage(imageUri); // Agrandir l'image
   };
 
+  const handleDeleteRequest = (photo, index) => {
+    setImageToDelete({ photo, index });
+    setAlertVisible(true); // Affiche l'alerte
+  };
+
+  const handleConfirmDelete = async () => {
+    const { photo, index } = imageToDelete;
+    try {
+      // Supprimer l'image de la base de données
+      const { data, error } = await supabase
+        .from('interventions')
+        .update({ photos: photos.filter((_, i) => i !== index) }) // Retirer la photo de la liste
+        .eq('client_id', clientId);
+
+      if (error) throw error;
+
+      // Mettre à jour la vue après suppression
+      setPhotos(photos.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'image :', error);
+    } finally {
+      setAlertVisible(false); // Ferme l'alerte après la suppression
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Galerie d'images</Text>
@@ -49,15 +77,24 @@ export default function ImageGallery({ route }) {
       {photos.length > 0 ? (
         <ScrollView contentContainerStyle={styles.imageGrid}>
           {photos.map((photo, index) => (
-            <TouchableOpacity key={index} onPress={() => handleImagePress(photo)}>
-              <Image
-                source={{ uri: `data:image/jpeg;base64,${photo}` }} // Affichage en base64
-                style={[
-                  styles.thumbnail,
-                  index === labelPhotoIndex ? styles.labelPhoto : null, // Bordure verte pour l'étiquette
-                ]}
-              />
-            </TouchableOpacity>
+            <View key={index} style={styles.imageContainer}>
+              <TouchableOpacity onPress={() => handleImagePress(photo)}>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${photo}` }} // Affichage en base64
+                  style={[
+                    styles.thumbnail,
+                    index === labelPhotoIndex ? styles.labelPhoto : null, // Bordure verte pour l'étiquette
+                  ]}
+                />
+              </TouchableOpacity>
+              {/* Bouton de suppression */}
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleDeleteRequest(photo, index)}
+              >
+                <Text style={styles.deleteButtonText}>Supprimer</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       ) : (
@@ -79,6 +116,17 @@ export default function ImageGallery({ route }) {
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* AlertBox pour la suppression */}
+      <AlertBox
+        visible={alertVisible}
+        title="Confirmer la suppression"
+        message="Êtes-vous sûr de vouloir supprimer cette image ?"
+        confirmText="Supprimer"
+        cancelText="Annuler"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -100,16 +148,29 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
+  imageContainer: {
+    margin: 10,
+    alignItems: 'center',
+  },
   thumbnail: {
     width: 100,
     height: 100,
-    margin: 10,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#000',
   },
   labelPhoto: {
     borderColor: 'green', // Bordure verte pour la photo de l'étiquette
+  },
+  deleteButton: {
+    marginTop: 5,
+    padding: 5,
+    backgroundColor: 'red',
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   noImagesText: {
     textAlign: 'center',

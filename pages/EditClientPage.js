@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text } from 'react-native';
 import { supabase } from '../supabaseClient'; // Import du client Supabase
 import Icon from 'react-native-vector-icons/FontAwesome'; // Pour les icônes
-import CustomAlert from '../components/CustomAlert'; // Import du composant d'alerte personnalisé
+import AlertBox from '../components/AlertBox'; // Import du composant AlertBox
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+
 export default function EditClientPage({ route, navigation }) {
   const { client } = route.params;
 
@@ -38,48 +39,46 @@ export default function EditClientPage({ route, navigation }) {
       .from('clients')
       .select('*, interventions(*)')  // Sélectionne également les interventions liées
       .eq('id', client.id);
-  
+
     if (error) {
       showAlert('Erreur', 'Erreur lors du chargement du client');
       return;
     }
-  
+
     if (data && data.length > 0) {
       const updatedClient = data[0];
-  
+
       // Filtrer les interventions pour exclure celles avec le statut 'Récupéré'
       const filteredInterventions = updatedClient.interventions.filter(
         (intervention) => intervention.status !== 'Récupéré'
       );
-  
+
       setName(updatedClient.name);
       setPhone(updatedClient.phone);
       setInterventions(filteredInterventions || []);  // Mettre à jour avec les interventions filtrées
     }
   };
-  
 
   const handleSaveClient = async () => {
     if (!name || !phone) {
       showAlert('Erreur', 'Le nom et le numéro de téléphone doivent être remplis.');
       return;
     }
-  
+
     try {
       const { error } = await supabase
         .from('clients')
         .update({ name, phone, email: email || null, updatedAt: new Date().toISOString() }) // Inclure l'email
         .eq('id', client.id);
-  
+
       if (error) throw error;
-  
+
       showAlert('Succès', 'Client modifié avec succès.');
       navigation.goBack();
     } catch (error) {
       showAlert('Erreur', 'Erreur lors de la modification du client');
     }
   };
-  
 
   const handleDeleteIntervention = (interventionId) => {
     // Afficher une alerte pour confirmer la suppression
@@ -124,12 +123,12 @@ export default function EditClientPage({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Interventions</Text>
-<TextInput
-  style={styles.input}
-  value={name}
-  onChangeText={(text) => setName(text.toUpperCase())} // Convertit en majuscules à chaque changement
-  autoCapitalize="characters"  // Force les majuscules lors de la saisie
-/>
+      <TextInput
+        style={styles.input}
+        value={name}
+        onChangeText={(text) => setName(text.toUpperCase())} // Convertit en majuscules à chaque changement
+        autoCapitalize="characters"  // Force les majuscules lors de la saisie
+      />
 
       <TextInput
         style={styles.input}
@@ -138,82 +137,89 @@ export default function EditClientPage({ route, navigation }) {
         keyboardType="phone-pad"
       />
       <TextInput
-  style={styles.input}
-  value={email}
-  onChangeText={setEmail}
-  keyboardType="email-address"
-  placeholder="Adresse e-mail (optionnel)"
-/>
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        placeholder="Adresse e-mail (optionnel)"
+      />
 
       {interventions.length > 0 ? (
         <FlatList
-  data={interventions}
-  keyExtractor={(item, idx) => idx.toString()}
-  renderItem={({ item, index }) => (
-    <TouchableOpacity
-      style={[styles.interventionCard, getStatusStyle(item.status)]}
-      onPress={() =>
-        navigation.navigate('EditIntervention', {
-          clientId: client.id,
-          interventionId: item.id,
-        })
-      }
-    >
-      <Text style={styles.interventionText}>Intervention N° {index + 1}</Text>
-      <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
-      <Text style={styles.interventionText}>Marque: {item.brand}</Text> 
-      <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
-      <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
-      <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
-      <Text style={styles.interventionText}>Statut: {item.status}</Text>
-      
-      <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
-      <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
-
-      {/* Affichage du produit en commande si le statut est "En attente de pièces" */}
-      {item.status === 'En attente de pièces' && (
-        <>
-          <Text style={styles.interventionText}>Produit en commande: {item.commande}</Text>
-          <TouchableOpacity
-            style={styles.commandeRecuButton}
-            onPress={async () => {
-              try {
-                const { error } = await supabase
-                  .from('interventions')
-                  .update({ status: 'Réparation en cours' })
-                  .eq('id', item.id);
-
-                if (error) {
-                  console.error('Erreur lors de la mise à jour du statut', error);
-                  return;
-                }
-
-                // Met à jour le statut localement pour qu'il change immédiatement dans l'UI
-                const updatedInterventions = interventions.map((intervention) =>
-                  intervention.id === item.id
-                    ? { ...intervention, status: 'Réparation en cours' }
-                    : intervention
-                );
-                setInterventions(updatedInterventions);
-
-                alert('Statut mis à jour à "Réparation en cours".');
-              } catch (error) {
-                console.error('Erreur lors de la mise à jour du statut', error);
+          data={interventions}
+          keyExtractor={(item, idx) => idx.toString()}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity
+              style={[styles.interventionCard, getStatusStyle(item.status)]}
+              onPress={() =>
+                navigation.navigate('EditIntervention', {
+                  clientId: client.id,
+                  interventionId: item.id,
+                })
               }
-            }}
-          >
-            <Text style={styles.commandeRecuButtonText}>Commande reçue</Text>
-          </TouchableOpacity>
-        </>
-      )}
+            >
+              <Text style={styles.interventionText}>Intervention N° {index + 1}</Text>
+              <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
+              <Text style={styles.interventionText}>Marque: {item.brand}</Text> 
+              <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
+              <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
+              <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
+              <Text style={styles.interventionText}>Statut: {item.status}</Text>
 
-      <TouchableOpacity style={styles.trashButton} onPress={() => handleDeleteIntervention(item.id)}>
-        <Icon name="trash" size={20} color="#000" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  )}
-/>
+              <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
+              <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
 
+              {/* Affichage du produit en commande si le statut est "En attente de pièces" */}
+              {item.status === 'En attente de pièces' && (
+  <>
+    <Text style={styles.interventionText}>Produit en commande: {item.commande}</Text>
+    <TouchableOpacity
+  style={styles.commandeRecuButton}
+  onPress={() => {
+    // Afficher une alerte de confirmation avant de mettre à jour le statut
+    showAlert(
+      'Confirmer la réception de la commande',
+      'Êtes-vous sûr de vouloir passer le statut à "Réparation en cours" ?',
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('interventions')
+            .update({ status: 'Réparation en cours' })
+            .eq('id', item.id);
+
+          if (error) {
+            console.error('Erreur lors de la mise à jour du statut', error);
+            return;
+          }
+
+          // Met à jour le statut localement pour qu'il change immédiatement dans l'UI
+          const updatedInterventions = interventions.map((intervention) =>
+            intervention.id === item.id
+              ? { ...intervention, status: 'Réparation en cours' }
+              : intervention
+          );
+          setInterventions(updatedInterventions);
+
+          // Afficher une alerte de succès après confirmation
+          showAlert('Succès', 'Statut mis à jour à "Réparation en cours".');
+        } catch (error) {
+          console.error('Erreur lors de la mise à jour du statut', error);
+        }
+      }
+    );
+  }}
+>
+  <Text style={styles.commandeRecuButtonText}>Commande reçue</Text>
+</TouchableOpacity>
+
+  </>
+)}
+              <TouchableOpacity style={styles.trashButton} onPress={() => handleDeleteIntervention(item.id)}>
+                <Icon name="trash" size={20} color="#000" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+        />
       ) : (
         <Text>Aucune intervention trouvée.</Text>
       )}
@@ -233,16 +239,18 @@ export default function EditClientPage({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      
-      <CustomAlert
+      {/* AlertBox pour les alertes */}
+      <AlertBox
         visible={alertVisible}
         title={alertTitle}
         message={alertMessage}
-        onClose={() => setAlertVisible(false)}
+        confirmText="Confirmer"
+        cancelText="Annuler"
         onConfirm={() => {
           setAlertVisible(false);
           if (onConfirmAction) onConfirmAction();
         }}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );

@@ -10,7 +10,7 @@ export default function SignaturePage({ route, navigation }) {
   const [clientInfo, setClientInfo] = useState(null); // Stocke les infos du client et de l'intervention
   const [orientation, setOrientation] = useState('portrait'); // Gérer l'orientation
   const ref = useRef(null); // Référence pour le composant de signature
-
+  const [receiverName, setReceiverName] = useState('');
   // Fonction pour détecter l'orientation
   const detectOrientation = () => {
     const dim = Dimensions.get('window');
@@ -61,6 +61,7 @@ export default function SignaturePage({ route, navigation }) {
           status: 'Récupéré', // Mise à jour du statut à "Récupéré"
           signature,
           guarantee: guaranteeText,
+		  receiver_name: receiverName, // Enregistrer le nom de la personne récupérant
           updatedAt: new Date().toISOString(),
         })
         .eq('id', interventionId);
@@ -80,7 +81,7 @@ export default function SignaturePage({ route, navigation }) {
 
   // Gestion de la signature capturée
   const handleSignature = (sig) => {
-    console.log('Signature capturée :', sig);  // Affiche la signature capturée
+    // console.log('Signature capturée :', sig);  // Affiche la signature capturée
     setSignature(sig); // Mettre à jour la signature capturée
   };
 
@@ -109,6 +110,7 @@ export default function SignaturePage({ route, navigation }) {
   `;
 
   return (
+	
     <View style={styles.container}>
       <Text style={styles.title}>Signature de restitution</Text>
 
@@ -129,6 +131,28 @@ export default function SignaturePage({ route, navigation }) {
         value={guaranteeText}
         onChangeText={setGuaranteeText}
       />
+	        <TextInput
+        style={styles.input}
+        placeholder="Nom de la personne récupérant le matériel"
+        value={receiverName}
+        onChangeText={setReceiverName}
+      />
+	   <Text style={styles.fixedText}>
+        Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+        AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
+
+Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
+
+Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel. Le prix indiqué est donc indicatif, basé sur les informations fournies. En cas de remplacement de bloc vitre tactile ou d’écran LCD sur smartphone ou tablette, seuls les éléments remplacés seront couverts par la garantie. Vous demeurez responsable des autres problèmes éventuels qui pourraient survenir après la réparation.
+
+Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
+
+En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
+
+Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
+
+En signant ce document, vous acceptez les conditions ci-dessus.
+      </Text>
 
       <View
         style={[
@@ -136,6 +160,7 @@ export default function SignaturePage({ route, navigation }) {
           orientation === 'portrait' ? styles.portraitSignature : styles.landscapeSignature,
         ]}
       >
+	  
         <Signature
           ref={ref}
           onOK={handleSignature}
@@ -156,23 +181,6 @@ export default function SignaturePage({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Champ pour le texte non modifiable récupéré depuis la BDD */}
-      <Text style={styles.fixedText}>
-        Je soussigné(e), M. {clientInfo?.clients?.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
-        AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
-
-Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
-
-Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel. Le prix indiqué est donc indicatif, basé sur les informations fournies. En cas de remplacement de bloc vitre tactile ou d’écran LCD sur smartphone ou tablette, seuls les éléments remplacés seront couverts par la garantie. Vous demeurez responsable des autres problèmes éventuels qui pourraient survenir après la réparation.
-
-Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
-
-En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
-
-Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
-
-En signant ce document, vous acceptez les conditions ci-dessus.
-      </Text>
     </View>
   );
 }
@@ -195,7 +203,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   infoContainer: {
-    marginBottom: 20,
+    marginBottom: 10,
   },
   infoText: {
     fontSize: 16,
@@ -206,14 +214,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     padding: 10,
-    marginBottom: 20,
+    marginBottom: 10,
     borderRadius: 5,
     backgroundColor: '#fff',
   },
   signatureContainer: {
     borderColor: '#007BFF',
     borderWidth: 2,
-    marginTop: 20,
+    marginTop: 30,
     marginBottom: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -224,7 +232,7 @@ const styles = StyleSheet.create({
   },
   portraitSignature: {
     width: '95%',  // Réduit légèrement la largeur pour éviter les débordements en mode portrait
-    height: '30%',
+    height: '20%',
   },
   landscapeSignature: {
     width: '100%',  // Largeur légèrement réduite en mode paysage

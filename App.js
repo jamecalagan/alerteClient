@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Alert,TouchableOpacity } from 'react-native';
 import { supabase } from './supabaseClient';
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
+import AdminPage from './pages/AdminPage';
 // Import des pages
 import HomePage from './pages/HomePage';
 import AddClientPage from './pages/AddClientPage';
@@ -19,6 +20,7 @@ import SignUpPage from './SignUpPage';
 import ClientPreviewPage from './pages/ClientPreviewPage';
 import SignatureClient from './pages/SignatureClient';
 import ImageGallery from './pages/ImageGallery';  // Chemin correct pour ton fichier
+import ClientInterventionsPage from './pages/ClientInterventionsPage';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -60,58 +62,66 @@ function MainTabs({ navigation }) {
   };
 
   return (
-    <Tab.Navigator  screenOptions={{ headerShown: false }}>
-      <Tab.Screen 
-        name="Home" 
-        component={HomePage} 
-        options={{ 
-          title: 'Accueil', 
-          tabBarIcon: ({ color, size }) => (<Icon name="home" color={color} size={size} />)
-        }} 
-      />
-      <Tab.Screen 
-        name="AddClient" 
-        component={AddClientPage} 
-        options={{ 
-          title: 'Ajouter Client', 
-          tabBarIcon: ({ color, size }) => (<Icon name="person-add" color={color} size={size} />)
-        }} 
-      />
-      <Tab.Screen 
-        name="RepairedInterventions" 
-        component={RepairedInterventionsPage} 
-        options={{ 
-          title: 'Réparé', 
-          tabBarIcon: ({ color, size }) => (<Icon name="construct" color={color} size={size} />)
-        }} 
-      />
-      <Tab.Screen
-        name="RecoveredClients"
-        component={RecoveredClientsPage}
-        options={{
-          tabBarLabel: 'Récupéré',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="checkmark-done" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen 
-        name="Logout" 
-        component={HomePage}  // Remplacez HomePage ou tout autre composant par défaut
-        options={{ 
-          title: 'Déconnexion', 
-          tabBarIcon: ({ color, size }) => (<Icon name="log-out" color={color} size={size} />),
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              {...props}
-              onPress={() => {
-                confirmLogout();
-              }}
-            />
-          )
-        }}
-      />
-    </Tab.Navigator>
+	<Tab.Navigator screenOptions={{ headerShown: false }}>
+	  <Tab.Screen 
+		name="Home" 
+		component={HomePage} 
+		options={{ 
+		  title: 'Accueil', 
+		  tabBarIcon: ({ color, size }) => (<Icon name="home" color={color} size={size} />)
+		}} 
+	  />
+	  <Tab.Screen 
+		name="AddClient" 
+		component={AddClientPage} 
+		options={{ 
+		  title: 'Ajouter Client', 
+		  tabBarIcon: ({ color, size }) => (<Icon name="person-add" color={color} size={size} />)
+		}} 
+	  />
+	  <Tab.Screen 
+		name="RepairedInterventions" 
+		component={RepairedInterventionsPage} 
+		options={{ 
+		  title: 'Réparé', 
+		  tabBarIcon: ({ color, size }) => (<Icon name="construct" color={color} size={size} />)
+		}} 
+	  />
+	  <Tab.Screen
+		name="RecoveredClients"
+		component={RecoveredClientsPage}
+		options={{
+		  tabBarLabel: 'Récupéré',
+		  tabBarIcon: ({ color, size }) => (
+			<Icon name="checkmark-done" color={color} size={size} />
+		  ),
+		}}
+	  />
+	  <Tab.Screen 
+		name="Admin" 
+		component={AdminPage}  // Votre nouvelle page d'administration
+		options={{ 
+		  title: 'Administration', 
+		  tabBarIcon: ({ color, size }) => (<Icon name="settings" color={color} size={size} />)
+		}} 
+	  />
+	  <Tab.Screen 
+		name="Logout" 
+		component={HomePage}  // Remplacez HomePage ou tout autre composant par défaut
+		options={{ 
+		  title: 'Déconnexion', 
+		  tabBarIcon: ({ color, size }) => (<Icon name="log-out" color={color} size={size} />),
+		  tabBarButton: (props) => (
+			<TouchableOpacity
+			  {...props}
+			  onPress={() => {
+				confirmLogout();
+			  }}
+			/>
+		  )
+		}}
+	  />
+	</Tab.Navigator>
   );
 }
 
@@ -163,6 +173,12 @@ function MainStack() {
       name="ImageGallery" 
       component={ImageGallery}
        />
+      <Stack.Screen 
+      name="ClientInterventionsPage" 
+      component={ClientInterventionsPage} />
+      <Stack.Screen 
+      name="RepairedInterventionsPage" 
+      component={RepairedInterventionsPage} /> 
     </Stack.Navigator>
   );
 }

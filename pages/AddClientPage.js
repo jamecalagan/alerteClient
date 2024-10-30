@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, Alert, ImageBackground } from 'react-native';
+import { View, TextInput, StyleSheet, ImageBackground } from 'react-native';
 import { supabase } from '../supabaseClient';
 import RoundedButton from '../components/RoundedButton';
+import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
 
 // Import de l'image depuis le dossier assets
 const backgroundImage = require('../assets/inscriptions.jpg');
@@ -12,74 +13,65 @@ export default function AddClientPage({ navigation, route }) {
   const [email, setEmail] = useState(''); // Ajout de l'email
   const [loading, setLoading] = useState(false); // Gestion de l'état de chargement
 
+  const [alertVisible, setAlertVisible] = useState(false); // État pour gérer la visibilité de CustomAlert
+  const [alertMessage, setAlertMessage] = useState(''); // Message de CustomAlert
+  const [alertTitle, setAlertTitle] = useState(''); // Titre de CustomAlert
+
   const validateFields = () => {
     if (!name || !phone) {
-      Alert.alert('Erreur', 'Le nom et le numéro de téléphone doivent être remplis.');
+      setAlertTitle('Erreur');
+      setAlertMessage('Le nom et le numéro de téléphone doivent être remplis.');
+      setAlertVisible(true);
       return false;
     }
     return true;
-  };
-
-  // Fonction pour vérifier si un client existe déjà dans la base de données
-  const checkIfClientExists = async (phone) => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('phone', phone); // Vérifier si le client avec ce numéro de téléphone existe
-
-      if (error) throw error;
-
-      return data.length > 0; // Retourne true si le client existe déjà
-    } catch (error) {
-      console.error('Erreur lors de la vérification du client', error);
-      return false; // Si une erreur survient, on considère que le client n'existe pas
-    }
   };
 
   const handleAddClient = async () => {
     if (!validateFields()) return;
   
     try {
-      // Vérifier si un client avec le même nom ou numéro de téléphone existe déjà
       const { data: existingClient, error: checkError } = await supabase
         .from('clients')
-        .select('ficheNumber') // Sélectionne uniquement le numéro de fiche si le client existe
+        .select('ficheNumber')
         .or(`name.eq.${name},phone.eq.${phone}`);
   
       if (checkError) throw checkError;
   
-      // Si le client existe, afficher son numéro de fiche
       if (existingClient && existingClient.length > 0) {
         const ficheNumber = existingClient[0].ficheNumber;
-        Alert.alert(
-          'Client déjà existant',
-          `Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`,
-          [{ text: 'OK' }]
-        );
+        setAlertTitle('Client déjà existant');
+        setAlertMessage(`Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`);
+        setAlertVisible(true);
         return;
       }
   
-      // Si le client n'existe pas, ajouter le nouveau client
       const { error } = await supabase
         .from('clients')
         .insert([{ name, phone, email: email || null, createdAt: new Date().toISOString(), interventions: [] }]);
   
       if (error) throw error;
   
-      Alert.alert('Succès', 'Client ajouté avec succès.');
+      setAlertTitle('Succès');
+      setAlertMessage('Client ajouté avec succès.');
+      setAlertVisible(true);
   
-      // Réinitialiser les champs après succès
+      // Réinitialiser les champs après l'ajout du client
       setName('');
       setPhone('');
-      setEmail(''); // Réinitialiser le champ e-mail aussi
+      setEmail('');
   
-      navigation.navigate('Home', { reloadClients: true });
+      // Rediriger seulement après la fermeture de la modale
     } catch (error) {
       console.error('Erreur lors de l\'ajout du client', error);
     }
   };
   
+  const handleCloseAlert = () => {
+    // Fermer l'alerte et ensuite naviguer vers la page Home
+    setAlertVisible(false);
+    navigation.navigate('Home', { reloadClients: true });
+  };
   
 
   useEffect(() => {
@@ -120,9 +112,17 @@ export default function AddClientPage({ navigation, route }) {
           <RoundedButton
             title={loading ? 'En cours...' : 'Ajouter le client'}
             onPress={handleAddClient}
-            disabled={loading} // Désactiver le bouton pendant le chargement
+            disabled={loading}
           />
         </View>
+
+        <CustomAlert
+  visible={alertVisible}
+  title={alertTitle}
+  message={alertMessage}
+  onClose={handleCloseAlert} // Utilise handleCloseAlert pour naviguer après fermeture
+/>
+
       </View>
     </ImageBackground>
   );

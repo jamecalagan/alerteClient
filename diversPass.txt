@@ -11,4 +11,6 @@ git add .
 git commit -m "Message décrivant les modifications"
 git push origin main
 
-
+expo calagan_james@yahoo.fr
+calagan
+_^XwXK)6JiYF7*z

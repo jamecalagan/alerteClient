@@ -8,16 +8,16 @@ export default function SignatureClient() {
   const ref = useRef(null);
   const navigation = useNavigation();
   const route = useRoute();
-  const { clientId } = route.params;
+  const { interventionId } = route.params;  // Assurez-vous que l'ID de l'intervention est passé
 
   const { width } = Dimensions.get('window'); // Obtenir la largeur de l'écran
 
   const handleSignature = async (signature) => {
     try {
       const { error } = await supabase
-        .from('clients')
-        .update({ signature })
-        .eq('id', clientId);
+        .from('interventions')
+        .update({ signatureIntervention: signature })  // Mise à jour de la colonne signatureIntervention
+        .eq('id', interventionId);  // Assurez-vous d'utiliser l'ID de l'intervention
 
       if (error) {
         throw error;
@@ -53,36 +53,32 @@ export default function SignatureClient() {
         clearText="Effacer"
         confirmText="Enregistrer"
         webStyle={`
-          .m-signature-pad {
-            box-shadow: none;
-            border: 1px solid #000;
-            width: 100%;
-            height: 100%; 
-          }
-          .m-signature-pad--body {
-            border: none;
-            margin: 0;
+          .m-signature-pad--footer {display: none; margin: 0px;}
+          body,html {
+            width: 100%; 
+            height: 50%;  /* Réduit la hauteur pour le mode portrait */
+            margin: 0; 
             padding: 0;
           }
-          .m-signature-pad--footer {
-            display: none;
-          }
-          body, html, .m-signature-pad--body canvas {
-            width: ${width}px;
-            height: 250px;
+          .m-signature-pad {
+            box-shadow: none; 
+            border: 3px solid black;
+            width: 100%; /* Prendre 100% de la largeur de l'écran */
+            height: 100%;  /* Réduit la hauteur de la zone de signature */
+            margin: 0 auto;
           }
         `}
         style={styles.signature}
       />
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={handleClear}>
+        <TouchableOpacity style={styles.buttonClear} onPress={handleClear}>
           <Text style={styles.buttonText}>Effacer</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleCancel}>
+        <TouchableOpacity style={styles.buttonCancel} onPress={handleCancel}>
           <Text style={styles.buttonText}>Annuler</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleSave}>
+        <TouchableOpacity style={styles.buttonSave} onPress={handleSave}>
           <Text style={styles.buttonText}>Sauvegarder</Text>
         </TouchableOpacity>
       </View>
@@ -97,21 +93,27 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
-  signature: {
-    width: '100%',
-    height: 250,  // Fixe la hauteur de la zone de signature
-    borderWidth: 1,
-    borderColor: '#000',
-    borderRadius: 10,
-    backgroundColor: '#f9f9f9',
-  },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
   },
-  button: {
-    backgroundColor: '#007BFF',
+  buttonClear: {
+    backgroundColor: '#986b03',
+    padding: 10,
+    borderRadius: 5,
+    width: '30%',
+    alignItems: 'center',
+  },
+  buttonCancel: {
+    backgroundColor: '#ff2a00',
+    padding: 10,
+    borderRadius: 5,
+    width: '30%',
+    alignItems: 'center',
+  },
+  buttonSave: {
+    backgroundColor: '#007219',
     padding: 10,
     borderRadius: 5,
     width: '30%',

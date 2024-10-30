@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 
-const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConfirm }) => {
+const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConfirm, cancelText = "Annuler" }) => {
   return (
     <Modal
       transparent={true}
@@ -14,9 +14,17 @@ const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConf
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
-          <TouchableOpacity style={styles.confirmButton} onPress={onConfirm || onClose}>
-            <Text style={styles.confirmButtonText}>{confirmText}</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            {/* Bouton Annuler */}
+            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
+              <Text style={styles.buttonText}>{cancelText}</Text>
+            </TouchableOpacity>
+
+            {/* Bouton Confirmer */}
+            <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={onConfirm}>
+              <Text style={styles.buttonText}>{confirmText}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -54,13 +62,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
   confirmButton: {
     backgroundColor: '#007BFF',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 20,
   },
-  confirmButtonText: {
+  cancelButton: {
+    backgroundColor: '#CCCCCC',
+  },
+  buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

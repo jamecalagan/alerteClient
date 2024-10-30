@@ -2,24 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
-import * as Print from 'expo-print';  // Importation d'expo-print
+import * as Print from 'expo-print';
+
 export default function ClientPreviewPage() {
   const [clientInfo, setClientInfo] = useState(null);
   const route = useRoute();
   const navigation = useNavigation();
   const { clientId } = route.params;
 
+  // Fonction pour récupérer les informations du client et la dernière intervention
   const fetchClientInfo = async () => {
     try {
       const { data, error } = await supabase
         .from('clients')
-        .select('name, phone, createdAt, ficheNumber, signature, interventions(deviceType, brand, reference, serialnumber, description, cost, password, chargeur)')
+        .select(`
+          name, 
+          phone, 
+          createdAt, 
+          ficheNumber, 
+          interventions (
+            id, 
+            deviceType, 
+            brand, 
+			model,
+            reference, 
+            serialnumber, 
+            description, 
+            cost, 
+            password, 
+            chargeur, 
+            signatureIntervention,
+            createdAt
+          )
+        `)
         .eq('id', clientId)
         .single();
 
       if (error) throw error;
 
+      // Trier les interventions par date de création (plus récentes en premier)
       const latestIntervention = data.interventions?.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      // console.log('Dernière intervention:', latestIntervention); // Vérifiez ici si la signature est bien récupérée
       setClientInfo({ ...data, latestIntervention });
     } catch (error) {
       console.error('Erreur lors du chargement du client', error);
@@ -30,7 +53,6 @@ export default function ClientPreviewPage() {
     fetchClientInfo();
   }, [clientId]);
 
-  // Rafraîchir automatiquement la page lorsque la page devient active
   useFocusEffect(
     React.useCallback(() => {
       fetchClientInfo();  // Recharger les données à chaque focus
@@ -46,7 +68,7 @@ export default function ClientPreviewPage() {
   }
 
   const handleOpenSignaturePage = () => {
-    navigation.navigate('SignatureClient', { clientId });
+    navigation.navigate('SignatureClient', { interventionId: clientInfo.latestIntervention.id });
   };
 
   const handlePrint = async () => {
@@ -56,8 +78,8 @@ export default function ClientPreviewPage() {
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; margin: 0; }
             .section-title { font-size: 18px; font-weight: bold; margin-top: 20px; color: #2C3E50; }
-            .info { margin-bottom: 8px; font-size: 16px; }
-            .cost { font-size: 30px; color: green; font-weight: bold; text-align: right; margin-top: 10px; }
+            .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
+            .cost { font-size: 30px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
             .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
             .logo { width: 180px; }
             .signature { width: 300px; height: 80px; margin-top: 20px; }
@@ -91,18 +113,19 @@ export default function ClientPreviewPage() {
           <div class="border-box">
             <div class="info"><strong>Type d'appareil:</strong> ${clientInfo.latestIntervention.deviceType}</div>
             <div class="info"><strong>Marque:</strong> ${clientInfo.latestIntervention.brand}</div>
+			<div class="info"><strong>Modèle:</strong> ${clientInfo.latestIntervention.model}</div>
             <div class="info"><strong>Référence:</strong> ${clientInfo.latestIntervention.reference}</div>
-            <div class="info"><strong>Numéro de série:</strong> ${clientInfo.latestIntervention.serialNumber}</div>
+            <div class="info"><strong>Numéro de série:</strong> ${clientInfo.latestIntervention.serialnumber}</div>
             <div class="info"><strong>Mot de passe:</strong> ${clientInfo.latestIntervention.password}</div>
             <div class="info"><strong>Chargeur:</strong> ${clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</div>
           </div>
   
-          <div class="section-title">Réparation à effectuer</div>
+          <div class="section-title">Détail du problème</div>
           <div class="border-box">
-            <div class="info"><strong>Description:</strong> ${clientInfo.latestIntervention.description}</div>
-            <div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
+            <div class="info"><strong>--></strong> ${clientInfo.latestIntervention.description}</div>
+            
           </div>
-  
+  			<div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
           <div class="terms-section">
             <p class="terms-text">
               Je soussigné(e), M. ${clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
@@ -122,16 +145,10 @@ export default function ClientPreviewPage() {
             <p class="terms-text">
               Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
             </p>
-            <p class="terms-text">
-              En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
-            </p>
-            <p class="terms-text">
-              Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
-            </p>
           </div>
   
           <div class="section-title">Signature du Client</div>
-          ${clientInfo.signature ? `<img src="${clientInfo.signature}" class="signature" alt="Signature du client"/>` : '<p>Aucune signature fournie</p>'}
+          ${clientInfo.latestIntervention.signatureIntervention ? `<img src="${clientInfo.latestIntervention.signatureIntervention}" class="signature" alt="Signature du client"/>` : '<p>Aucune signature fournie</p>'}
         </body>
       </html>
     `;
@@ -142,7 +159,6 @@ export default function ClientPreviewPage() {
       Alert.alert('Erreur', 'Erreur lors de l\'impression : ' + error.message);
     }
   };
-  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -161,7 +177,7 @@ export default function ClientPreviewPage() {
         <Text style={styles.ficheNumber}>Numéro de Fiche: {clientInfo.ficheNumber}</Text>
         <Text>Date de création: {new Date(clientInfo.createdAt).toLocaleDateString('fr-FR')}</Text>
         <Text style={styles.sectionTitle}>Informations du Client</Text>
-        <Text>Nom: {clientInfo.name}</Text>
+        <Text style={styles.nameText}>Nom: {clientInfo.name}</Text>
         <Text style={styles.phoneText}>Téléphone: {formatPhoneNumber(clientInfo.phone)}</Text>
       </View>
 
@@ -171,8 +187,9 @@ export default function ClientPreviewPage() {
           <Text style={styles.sectionTitle}>Détails du Matériel</Text>
           <Text>Type d'appareil: {clientInfo.latestIntervention.deviceType}</Text>
           <Text>Marque: {clientInfo.latestIntervention.brand}</Text>
+		  <Text>Modèle: {clientInfo.latestIntervention.model}</Text>
           <Text>Référence: {clientInfo.latestIntervention.reference}</Text>
-          <Text>Numéro de série: {clientInfo.latestIntervention.serialNumber}</Text>
+          <Text>Numéro de série: {clientInfo.latestIntervention.serialnumber}</Text>
           <Text>Chargeur: {clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</Text>
         </View>
       )}
@@ -180,8 +197,8 @@ export default function ClientPreviewPage() {
       {/* Informations sur la réparation */}
       {clientInfo.latestIntervention && (
         <View style={styles.repairSection}>
-          <Text style={styles.sectionTitle}>Réparation à effectuer</Text>
-          <Text>Description: {clientInfo.latestIntervention.description}</Text>
+          <Text style={styles.sectionTitle}>Détail du problème</Text>
+          <Text>--> {clientInfo.latestIntervention.description}</Text>
           <Text style={styles.costText}>Coût: {clientInfo.latestIntervention.cost} €</Text>
           <Text>Mot de passe: {clientInfo.latestIntervention.password}</Text>
         </View>
@@ -190,10 +207,10 @@ export default function ClientPreviewPage() {
       {/* Signature du client */}
       <View style={styles.signatureSection}>
         <Text>Signature du client:</Text>
-        {clientInfo.signature ? (
+        {clientInfo.latestIntervention.signatureIntervention ? (
           <>
             <Image
-              source={{ uri: clientInfo.signature }}
+              source={{ uri: clientInfo.latestIntervention.signatureIntervention }}
               style={styles.signatureImage}  // Taille réduite de la signature
             />
             <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
@@ -213,23 +230,6 @@ export default function ClientPreviewPage() {
       </View>
 
       {/* Conditions Générales */}
-{/*       <View style={styles.termsSection}>
-        <Text style={styles.sectionTitle}>Conditions Générales</Text>
-        <Text style={styles.termsText}>
-          La société n'est pas responsable des données perdues lors de la réparation.
-        </Text>
-        <Text style={styles.termsText}>
-          Le client doit vérifier le bon fonctionnement du matériel avant de quitter le point de réparation.
-        </Text>
-        <Text style={styles.termsText}>
-          Les pièces remplacées sont garanties 3 mois.
-        </Text>
-        <Text style={styles.termsText}>
-          Aucun remboursement après service rendu.
-        </Text>
-      </View> */}
-
-      {/* Nouveau texte ajouté après les conditions générales */}
       <View style={styles.termsSection}>
         <Text style={styles.termsText}>
           Je soussigné(e), M. {clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
@@ -260,6 +260,7 @@ export default function ClientPreviewPage() {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     padding: 20,
@@ -308,6 +309,12 @@ const styles = StyleSheet.create({
   phoneText: {
     fontWeight: 'bold',
     fontSize: 16,
+	marginTop: 10,
+  },
+  nameText: {
+    fontWeight: 'bold',
+    fontSize: 20,
+	marginTop: 2,
   },
   deviceSection: {
     marginBottom: 20,

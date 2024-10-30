@@ -11,10 +11,10 @@ export default function RoundedButton({ title, onPress, style }) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#4f4f4f', // Couleur gris foncé pour le bouton
+    backgroundColor: '#707070', // Couleur gris foncé pour le bouton
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 30, // Bord arrondi
+    borderRadius: 5, // Bord arrondi
     alignItems: 'center',
     justifyContent: 'center',
   },

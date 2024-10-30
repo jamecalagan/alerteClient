@@ -1,64 +1,144 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
+import AlertBox from '../components/AlertBox';
 
 export default function ImageGallery({ route }) {
   const { clientId } = route.params;
-  const [photos, setPhotos] = useState([]);
+  const [interventions, setInterventions] = useState([]); // Stocker les interventions avec leurs photos
   const [selectedImage, setSelectedImage] = useState(null); // Pour agrandir l'image sélectionnée
-  const [labelPhotoIndex, setLabelPhotoIndex] = useState(null); // Indice pour la photo de l'étiquette
+  const [alertVisible, setAlertVisible] = useState(false); // Contrôle de la visibilité de l'alerte
+  const [imageToDelete, setImageToDelete] = useState(null); // Image sélectionnée pour la suppression
 
   useEffect(() => {
     const loadImages = async () => {
       try {
-        // Récupérer les interventions du client
+        // Récupérer les interventions du client avec les photos
         const { data, error } = await supabase
           .from('interventions')
-          .select('photos, label_photo') // Récupérer les photos et l'indicateur de la photo de l'étiquette
+          .select('id, photos, label_photo') // Récupérer aussi l'ID des interventions
           .eq('client_id', clientId);
-
+  
         if (error) throw error;
-
-        // Récupérer les images des différentes interventions
-        const allPhotos = data.reduce((acc, intervention) => {
-          return [...acc, ...intervention.photos];
-        }, []);
-
-        // Récupérer l'index de la photo de l'étiquette
-        const labelIndex = data.find(intervention => intervention.label_photo) ? data.findIndex(intervention => intervention.label_photo) : null;
-
-        setPhotos(allPhotos);
-        setLabelPhotoIndex(labelIndex); // Mettre à jour l'indice de la photo de l'étiquette
+  
+       
+  
+        setInterventions(data); // Stocker les interventions et leurs photos
       } catch (error) {
         console.error('Erreur lors du chargement des photos :', error);
       }
     };
-
+  
     loadImages();
   }, [clientId]);
+  
 
   const handleImagePress = (imageUri) => {
     setSelectedImage(imageUri); // Agrandir l'image
   };
 
+  const handleDeleteRequest = (photo, interventionIndex, photoIndex) => {
+    const interventionToDelete = interventions[interventionIndex]; // Récupérer l'intervention à partir de l'index
+    const interventionId = interventionToDelete.id; // Utiliser l'ID de l'intervention au lieu de l'index
+  
+  
+  
+    setImageToDelete({ photo, interventionId, photoIndex });
+    setAlertVisible(true); // Affiche l'alerte
+  };
+  
+  
+  
+
+  const handleConfirmDelete = async () => {
+    const { photo, interventionId, photoIndex } = imageToDelete;
+    try {
+     
+  
+      // Récupérer l'intervention à partir de l'ID
+      const interventionToUpdate = interventions.find(intervention => intervention.id === interventionId);
+  
+      if (!interventionToUpdate) {
+        throw new Error('Intervention introuvable');
+      }
+  
+      // Supprimer l'image sélectionnée de la liste des photos
+      const updatedPhotos = interventionToUpdate.photos.filter((_, i) => i !== photoIndex);
+  
+      // Mettre à jour les photos dans la base de données
+      const { data, error } = await supabase
+        .from('interventions')
+        .update({ photos: updatedPhotos }) // Mettre à jour les photos sans celle supprimée
+        .eq('id', interventionId); // Utiliser l'ID de l'intervention
+  
+      if (error) throw error;
+  
+      // Mettre à jour l'état local après suppression
+      setInterventions(interventions.map(intervention => 
+        intervention.id === interventionId 
+        ? { ...intervention, photos: updatedPhotos }
+        : intervention
+      ));
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'image :', error.message);
+    } finally {
+      setAlertVisible(false); // Ferme l'alerte après la suppression
+    }
+  };
+  
+  
+  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Galerie d'images</Text>
 
-      {/* Affichage des images sous forme de miniatures */}
-      {photos.length > 0 ? (
-        <ScrollView contentContainerStyle={styles.imageGrid}>
-          {photos.map((photo, index) => (
-            <TouchableOpacity key={index} onPress={() => handleImagePress(photo)}>
-              <Image
-                source={{ uri: `data:image/jpeg;base64,${photo}` }} // Affichage en base64
-                style={[
-                  styles.thumbnail,
-                  index === labelPhotoIndex ? styles.labelPhoto : null, // Bordure verte pour l'étiquette
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
+      {/* Affichage des images triées par intervention */}
+      {interventions.length > 0 ? (
+        <ScrollView>
+          {interventions.map((intervention, index) => {
+            // Séparer les photos en plaçant la photo de l'étiquette en premier
+            let photos = intervention.photos || [];
+            const labelPhoto = intervention.label_photo;
+            
+            if (labelPhoto) {
+              photos = photos.filter(photo => photo !== labelPhoto); // Supprimer l'étiquette des autres photos
+              photos.unshift(labelPhoto); // Ajouter l'étiquette au début du tableau
+            }
+
+            return (
+              <View key={index} style={styles.interventionSection}>
+                {/* Affichage du numéro d'intervention basé sur l'index */}
+                <Text style={styles.interventionTitle}>Intervention N° {index + 1}</Text>
+                <View style={styles.imageRow}>
+                  {photos && photos.length > 0 ? (
+                    photos.map((photo, photoIndex) => (
+                      <View key={photoIndex} style={styles.imageContainer}>
+                        <TouchableOpacity onPress={() => handleImagePress(photo)}>
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                            style={[
+                              styles.thumbnail,
+                              photo === labelPhoto ? styles.labelPhoto : null, // Bordure verte pour la photo de l'étiquette
+                            ]}
+                          />
+                        </TouchableOpacity>
+                        {/* Bouton de suppression */}
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => handleDeleteRequest(photo, index, photoIndex)}
+                        >
+                          <Text style={styles.deleteButtonText}>Supprimer</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.noImagesText}>Aucune image pour cette intervention.</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
         </ScrollView>
       ) : (
         <Text style={styles.noImagesText}>Aucune image disponible.</Text>
@@ -79,6 +159,17 @@ export default function ImageGallery({ route }) {
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* AlertBox pour la suppression */}
+      <AlertBox
+        visible={alertVisible}
+        title="Confirmer la suppression"
+        message="Êtes-vous sûr de vouloir supprimer cette image ?"
+        confirmText="Supprimer"
+        cancelText="Annuler"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -95,21 +186,42 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  imageGrid: {
+  interventionSection: {
+    marginBottom: 20,
+  },
+  interventionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  imageRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+  },
+  imageContainer: {
+    margin: 10,
+    alignItems: 'center',
   },
   thumbnail: {
     width: 100,
     height: 100,
-    margin: 10,
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#000',
   },
   labelPhoto: {
     borderColor: 'green', // Bordure verte pour la photo de l'étiquette
+  },
+  deleteButton: {
+    marginTop: 5,
+    padding: 5,
+    backgroundColor: 'red',
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   noImagesText: {
     textAlign: 'center',

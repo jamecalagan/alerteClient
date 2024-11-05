@@ -8,7 +8,7 @@ https://fncgffajwabqrnhumgzd.supabase.co
 
 
 git add .
-git commit -m "Message décrivant les modifications"
+git commit -m "complet 30/10/24_17h31"
 git push origin main
 
 expo calagan_james@yahoo.fr

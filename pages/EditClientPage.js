@@ -56,6 +56,7 @@ export default function EditClientPage({ route, navigation }) {
       setName(updatedClient.name);
       setPhone(updatedClient.phone);
       setInterventions(filteredInterventions || []);  // Mettre à jour avec les interventions filtrées
+	  console.log("Interventions", interventions)
     }
   };
 
@@ -252,11 +253,12 @@ export default function EditClientPage({ route, navigation }) {
                 })
               }
             >
+			
               <Text style={styles.interventionText}>Intervention N° {index + 1}</Text>
               <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
               <Text style={styles.interventionText}>Marque: {item.brand}</Text>
 			  <Text style={styles.interventionText}>Modèle: {item.model}</Text>
-              <Text style={styles.interventionText}>Numéro de série: {item.serialnumber}</Text> 
+              <Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text> 
               <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
               <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>

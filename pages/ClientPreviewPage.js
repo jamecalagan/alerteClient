@@ -26,7 +26,7 @@ export default function ClientPreviewPage() {
             brand, 
 			model,
             reference, 
-            serialnumber, 
+            serial_number, 
             description, 
             cost, 
             password, 
@@ -115,7 +115,7 @@ export default function ClientPreviewPage() {
             <div class="info"><strong>Marque:</strong> ${clientInfo.latestIntervention.brand}</div>
 			<div class="info"><strong>Modèle:</strong> ${clientInfo.latestIntervention.model}</div>
             <div class="info"><strong>Référence:</strong> ${clientInfo.latestIntervention.reference}</div>
-            <div class="info"><strong>Numéro de série:</strong> ${clientInfo.latestIntervention.serialnumber}</div>
+            <div class="info"><strong>Numéro de série:</strong> ${clientInfo.latestIntervention.serial_number}</div>
             <div class="info"><strong>Mot de passe:</strong> ${clientInfo.latestIntervention.password}</div>
             <div class="info"><strong>Chargeur:</strong> ${clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</div>
           </div>
@@ -189,7 +189,7 @@ export default function ClientPreviewPage() {
           <Text>Marque: {clientInfo.latestIntervention.brand}</Text>
 		  <Text>Modèle: {clientInfo.latestIntervention.model}</Text>
           <Text>Référence: {clientInfo.latestIntervention.reference}</Text>
-          <Text>Numéro de série: {clientInfo.latestIntervention.serialnumber}</Text>
+          <Text>Numéro de série: {clientInfo.latestIntervention.serial_number}</Text>
           <Text>Chargeur: {clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</Text>
         </View>
       )}

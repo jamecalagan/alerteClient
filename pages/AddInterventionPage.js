@@ -11,7 +11,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params;
   const [reference, setReference] = useState('');
   const [brand, setBrand] = useState('');
-  const [serialNumber, setSerialNumber] = useState('');
+  const [serial_number, setSerial_number] = useState('');
   const [description, setDescription] = useState('');
   const [cost, setCost] = useState('');
   const [status, setStatus] = useState('default');
@@ -40,7 +40,7 @@ export default function AddInterventionPage({ route, navigation }) {
   }, []);
 
   const loadProducts = async () => {
-    const { data, error } = await supabase.from('listProduit').select('*');
+    const { data, error } = await supabase.from('article').select('*');
     if (error) {
       console.error("Erreur lors du chargement des produits:", error.message);
     } else {
@@ -50,10 +50,11 @@ export default function AddInterventionPage({ route, navigation }) {
 
   const loadBrands = async (selectedProductType) => {
     if (selectedProductType && selectedProductType !== "default" && selectedProductType !== "Autre") {
+		console.log("Valeur de selectedProductType :", selectedProductType);
       const { data, error } = await supabase
-        .from('listMarque')
+        .from('marque')
         .select('*')
-        .eq('produit_id', selectedProductType);
+        .eq('article_id', selectedProductType);
 
       if (error) {
         console.error("Erreur lors du chargement des marques :", error);
@@ -64,24 +65,34 @@ export default function AddInterventionPage({ route, navigation }) {
       setBrands([]);
     }
   };
-
+ 
   const loadModels = async (selectedBrand) => {
-    if (selectedBrand && selectedBrand !== "Autre") {
-      const { data, error } = await supabase
-        .from('listModel')
-        .select('*')
-        .eq('marque_id', selectedBrand);
-
-      if (error) {
-        console.error("Erreur lors du chargement des modèles :", error);
-      } else {
-        setModels(data);
-      }
-    } else {
-      setModels([]);
-    }
+	console.log("Fonction loadModels appelée avec la marque :", selectedBrand);
+  
+	try {
+	  if (selectedBrand && selectedBrand !== "Autre") {
+		const { data, error } = await supabase
+		  .from('modele')
+		  .select('*')
+		  .eq('marque_id', selectedBrand);
+  
+		console.log("Données récupérées de la base :", data);
+  
+		if (error) {
+		  console.error("Erreur lors du chargement des modèles :", error);
+		} else {
+		  setModels(data);
+		  console.log("Modèles définis avec succès :", data);
+		}
+	  } else {
+		setModels([]);
+		console.log("Marque non valide, liste des modèles réinitialisée.");
+	  }
+	} catch (err) {
+	  console.error("Erreur inattendue dans loadModels :", err);
+	}
   };
-
+  
   const pickLabelImage = async () => {
     try {
       let result = await ImagePicker.launchCameraAsync({
@@ -145,40 +156,57 @@ export default function AddInterventionPage({ route, navigation }) {
 
   const handleDeviceTypeChange = (value) => {
     setDeviceType(value);
-    setBrand('');
-    setModel('');
-    setCustomDeviceType('');
-    loadBrands(value); // Appelle la fonction seulement si 'value' est valide
-  };
+    const selectedArticle = products.find((product) => product.nom === value);
+    if (selectedArticle) {
+        loadBrands(selectedArticle.id);
+    } else {
+        console.warn("Aucun article trouvé avec ce nom :", value);
+        setBrands([]);
+    }
+};
 
-  const handleBrandChange = (selectedBrand) => {
-    setBrand(selectedBrand);
-    setModel('');
-    setCustomModel('');
-    loadModels(selectedBrand); // Appelle la fonction seulement si 'selectedBrand' est valide
-  };
 
-  const handleSaveIntervention = async () => {
+
+
+const [selectedBrandName, setSelectedBrandName] = useState(''); // Nouvel état pour stocker le nom
+
+const handleBrandChange = (selectedBrandId) => {
+  setBrand(selectedBrandId);
+  setModel('');
+  setCustomModel('');
+
+  // Trouver le nom correspondant à l'ID sélectionné
+  const brandName = brands.find((b) => b.id === selectedBrandId)?.nom || '';
+  setSelectedBrandName(brandName); // Stocke le nom de la marque
+  
+  loadModels(selectedBrandId);
+};
+
+const handleSaveIntervention = async () => {
     if (!reference || (!brand && !customBrand) || (!model && !customModel) || !description || !cost || deviceType === 'default' || status === 'default') {
-      setAlertTitle('Erreur');
-      setAlertMessage('Tous les champs doivent être remplis et une option doit être sélectionnée.');
-      setAlertVisible(true);
-      return;
+        setAlertTitle('Erreur');
+        setAlertMessage('Tous les champs doivent être remplis et une option doit être sélectionnée.');
+        setAlertVisible(true);
+        return;
     }
 
     if (!labelPhoto) {
-      setAlertTitle('Erreur');
-      setAlertMessage('Veuillez prendre une photo d\'étiquette.');
-      setAlertVisible(true);
-      return;
+        setAlertTitle('Erreur');
+        setAlertMessage('Veuillez prendre une photo d\'étiquette.');
+        setAlertVisible(true);
+        return;
     }
 
-    try {
-      const interventionData = {
+    // Obtenir les noms et les IDs pour la sauvegarde
+    const selectedArticle = products.find(product => product.nom === deviceType);
+    const selectedBrand = brands.find(b => b.id === brand);
+    const selectedModel = models.find(m => m.id === model);
+
+    const interventionData = {
         reference,
-        brand: brand === "Autre" ? customBrand : brand,
-        model: model === "Autre" ? customModel : model,
-        serialnumber: serialNumber,
+        brand: selectedBrand ? selectedBrand.nom : customBrand,
+        model: selectedModel ? selectedModel.nom : customModel,
+        serial_number,
         description,
         cost,
         status,
@@ -191,24 +219,31 @@ export default function AddInterventionPage({ route, navigation }) {
         photos: photos.length > 0 ? photos : [],
         label_photo: labelPhoto,
         signature: null,
-      };
+        // Ajouter les IDs dans les nouvelles colonnes
+        article_id: selectedArticle ? selectedArticle.id : null,
+        marque_id: selectedBrand ? selectedBrand.id : null,
+        modele_id: selectedModel ? selectedModel.id : null,
+    };
 
-      const { data, error } = await supabase
-        .from('interventions')
-        .insert(interventionData);
+    try {
+        const { data, error } = await supabase
+            .from('interventions')
+            .insert(interventionData);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setAlertTitle('Succès');
-      setAlertMessage('Intervention ajoutée avec succès.');
-      setAlertVisible(true);
+        setAlertTitle('Succès');
+        setAlertMessage('Intervention ajoutée avec succès.');
+        setAlertVisible(true);
     } catch (error) {
-      setAlertTitle('Erreur');
-      setAlertMessage("Erreur lors de l'ajout de l'intervention.");
-      setAlertVisible(true);
-      console.error("Erreur lors de l'ajout de l'intervention :", error);
+        setAlertTitle('Erreur');
+        setAlertMessage("Erreur lors de l'ajout de l'intervention.");
+        setAlertVisible(true);
+        console.error("Erreur lors de l'ajout de l'intervention :", error);
     }
-  };
+};
+
+  
 
   const closeAlert = () => {
     setAlertVisible(false);
@@ -232,7 +267,7 @@ export default function AddInterventionPage({ route, navigation }) {
         >
           <Picker.Item label="Sélectionnez un type de produit..." value="default" />
           {products.map((product) => (
-            <Picker.Item key={product.id} label={product.name} value={product.id} />
+            <Picker.Item key={product.id} label={product.nom} value={product.nom} />
           ))}
           <Picker.Item label="Autre" value="Autre" />
         </Picker>
@@ -255,7 +290,8 @@ export default function AddInterventionPage({ route, navigation }) {
         >
           <Picker.Item label="Sélectionnez une marque..." value="" />
           {brands.map((brandOption) => (
-            <Picker.Item key={brandOption.id} label={brandOption.name} value={brandOption.id} />
+            <Picker.Item key={brandOption.id} label={brandOption.nom} value={brandOption.id} />
+
           ))}
           <Picker.Item label="Autre" value="Autre" />
         </Picker>
@@ -270,33 +306,34 @@ export default function AddInterventionPage({ route, navigation }) {
         )}
 
         {/* Sélection du Modèle */}
-        <Text style={styles.label}>Modèle</Text>
-        <Picker
-          selectedValue={model}
-          style={styles.input}
-          onValueChange={(itemValue) => setModel(itemValue)}
-        >
-          <Picker.Item label="Sélectionnez un modèle..." value="" />
-          {models.map((modelOption) => (
-            <Picker.Item key={modelOption.id} label={modelOption.name} value={modelOption.id} />
-          ))}
-          <Picker.Item label="Autre" value="Autre" />
-        </Picker>
+		<Text style={styles.label}>Modèle</Text>
+<Picker
+  selectedValue={model}
+  style={styles.input}
+  onValueChange={(itemValue) => setModel(itemValue)}
+>
+  <Picker.Item label="Sélectionnez un modèle..." value="" />
+  {models.map((modelOption) => (
+    <Picker.Item key={modelOption.id} label={modelOption.nom} value={modelOption.id} />
+  ))}
+  <Picker.Item label="Autre" value="Autre" />
+</Picker>
 
-        {model === "Autre" && (
-          <TextInput
-            style={styles.input}
-            placeholder="Entrez le modèle"
-            value={customModel}
-            onChangeText={setCustomModel}
-          />
-        )}
+{model === "Autre" && (
+  <TextInput
+    style={styles.input}
+    placeholder="Entrez le modèle"
+    value={customModel}
+    onChangeText={setCustomModel}
+  />
+)}
+
 
         <Text style={styles.label}>Numéro de série</Text>
         <TextInput
           style={styles.input}
-          value={serialNumber.toUpperCase()}
-          onChangeText={(text) => setSerialNumber(text.toUpperCase())}
+          value={serial_number.toUpperCase()}
+          onChangeText={(text) => setSerial_number(text.toUpperCase())}
           autoCapitalize="characters"
           placeholder="Numéro de série"
         />

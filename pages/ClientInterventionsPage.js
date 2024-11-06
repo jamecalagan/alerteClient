@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { supabase } from '../supabaseClient';
 
 export default function ClientInterventionsPage({ route, navigation }) {
@@ -8,7 +8,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
-
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [deviceType, setDeviceType] = useState('default');
   // Récupérer le client sélectionné au départ
   useEffect(() => {
     const fetchClient = async () => {
@@ -77,7 +78,9 @@ export default function ClientInterventionsPage({ route, navigation }) {
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.phone.includes(searchQuery)
   );
-
+  const handleImagePress = (imageUri) => {
+    setSelectedImage(imageUri);
+  };
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -111,7 +114,9 @@ export default function ClientInterventionsPage({ route, navigation }) {
                 >
                   <View style={styles.interventionDetails}>
                     <Text>Référence : {item.reference || 'N/A'}</Text>
+					<Text>Produit : {item.deviceType || 'N/A'}</Text>
                     <Text>Marque : {item.brand || 'N/A'}</Text>
+					<Text>Modèle : {item.model || 'N/A'}</Text>
                     <Text>Description : {item.description}</Text>
                     <Text>Statut : {item.status}</Text>
                     <Text>Coût : {item.cost} €</Text>
@@ -128,10 +133,13 @@ export default function ClientInterventionsPage({ route, navigation }) {
                   {/* Affichage à droite de l'image de l'étiquette ou de la référence */}
                   <View style={styles.labelContainer}>
                     {item.label_photo ? (
-                      <Image
-                        source={{ uri: `data:image/jpeg;base64,${item.label_photo}` }} // Affiche l'image encodée en base64
-                        style={styles.labelImage}
-                      />
+						<TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
+                        <Image
+                          source={{ uri: `data:image/jpeg;base64,${item.label_photo}` }}
+                          style={styles.labelImage}
+                        />
+                      </TouchableOpacity>
+					  
                     ) : (
                       <Text style={styles.referenceText}>{item.reference || 'Référence manquante'}</Text>  // Affiche la référence si pas d'image
                     )}
@@ -161,6 +169,20 @@ export default function ClientInterventionsPage({ route, navigation }) {
           />
         )}
       </View>
+      {selectedImage && (
+        <Modal
+          transparent={true}
+          visible={true}
+          onRequestClose={() => setSelectedImage(null)}
+        >
+          <TouchableOpacity style={styles.modalBackground} onPress={() => setSelectedImage(null)}>
+            <Image
+              source={{ uri: `data:image/jpeg;base64,${selectedImage}` }}
+              style={styles.fullImage}
+            />
+          </TouchableOpacity>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -235,5 +257,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  fullImage: {
+    width: '90%',
+    height: '90%',
+    resizeMode: 'contain',
   },
 });

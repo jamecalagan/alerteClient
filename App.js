@@ -21,7 +21,10 @@ import ClientPreviewPage from './pages/ClientPreviewPage';
 import SignatureClient from './pages/SignatureClient';
 import ImageGallery from './pages/ImageGallery';  // Chemin correct pour ton fichier
 import ClientInterventionsPage from './pages/ClientInterventionsPage';
-
+import ListingProduits from './pages/ListingProduits'
+import ArticlesPage from './pages/ArticlesPage';
+import BrandsPage from './pages/BrandsPage';
+import ModelsPage from './pages/ModelsPage';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -175,10 +178,20 @@ function MainStack() {
        />
       <Stack.Screen 
       name="ClientInterventionsPage" 
-      component={ClientInterventionsPage} />
+      component={ClientInterventionsPage} 
+		/>
       <Stack.Screen 
       name="RepairedInterventionsPage" 
-      component={RepairedInterventionsPage} /> 
+      component={RepairedInterventionsPage}
+		/> 
+		<Stack.Screen 
+        name="ListingProduits" 
+         component={ListingProduits} 
+        options={{ title: 'Gestion des Produits' }} 
+        />
+		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
+        <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />
+        <Stack.Screen name="ModelsPage" component={ModelsPage} options={{ title: 'Modèles' }} />
     </Stack.Navigator>
   );
 }

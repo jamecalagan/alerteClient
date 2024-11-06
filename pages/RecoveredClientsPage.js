@@ -1,48 +1,33 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet, ImageBackground, TextInput, Modal, TouchableWithoutFeedback } from 'react-native';
 import { supabase } from '../supabaseClient';
-import Icon from 'react-native-vector-icons/FontAwesome';  
-import { useFocusEffect } from '@react-navigation/native';  
+import Icon from 'react-native-vector-icons/FontAwesome';
+import { useFocusEffect } from '@react-navigation/native';
 
 const backgroundImage = require('../assets/computer-background.jpg');
 
 export default function RecoveredClientsPage() {
   const [recoveredClients, setRecoveredClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]); // Pour stocker les résultats filtrés
-  const [searchQuery, setSearchQuery] = useState('');  // État pour la recherche
+  const [filteredClients, setFilteredClients] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [visibleSignatures, setVisibleSignatures] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
 
   const loadRecoveredClients = async () => {
     try {
-      const { data: interventionsData, error } = await supabase
+      const { data, error } = await supabase
         .from('interventions')
         .select(`
           *,
-          clients (name, ficheNumber)
+          clients (name, ficheNumber, phone)
         `)
         .eq('status', 'Récupéré')
-        .order('updatedAt', { ascending: false }); // Récupérer toutes les fiches triées par date
+        .order('updatedAt', { ascending: false });
 
       if (error) throw error;
 
-      // Récupérer les images associées aux interventions
-      const { data: imagesData, error: imagesError } = await supabase
-        .from('intervention_images')
-        .select('*');
-
-      if (imagesError) throw imagesError;
-
-      // Associer les images aux interventions
-      const interventionsWithImages = interventionsData.map(intervention => {
-        const images = imagesData.filter(image => image.intervention_id === intervention.id);
-        return { ...intervention, intervention_images: images };
-      });
-
-      // Mettre à jour l'état avec toutes les fiches récupérées
-      setRecoveredClients(interventionsWithImages);
-      // Afficher les trois dernières fiches par défaut
-      setFilteredClients(interventionsWithImages.slice(0, 3));
+      setRecoveredClients(data);
+      setFilteredClients(data.slice(0, 3));
     } catch (error) {
       console.error('Erreur lors du chargement des clients récupérés :', error);
     }
@@ -50,12 +35,12 @@ export default function RecoveredClientsPage() {
 
   useFocusEffect(
     React.useCallback(() => {
-      loadRecoveredClients(); // Charger les données chaque fois que la page est mise au point
+      loadRecoveredClients();
     }, [])
   );
 
   const toggleSignatureVisibility = (id) => {
-    setVisibleSignatures((prevState) => ({
+    setVisibleSignatures(prevState => ({
       ...prevState,
       [id]: !prevState[id],
     }));
@@ -64,13 +49,11 @@ export default function RecoveredClientsPage() {
   const handleSearch = (query) => {
     setSearchQuery(query);
     if (query.trim() === '') {
-      // Si la recherche est vide, afficher les trois dernières fiches par défaut
       setFilteredClients(recoveredClients.slice(0, 3));
     } else {
-      // Filtrer les résultats en fonction de la recherche
-      const filtered = recoveredClients.filter((client) => {
+      const filtered = recoveredClients.filter(client => {
         const clientName = client.clients?.name?.toLowerCase() || '';
-        const clientPhone = client.clients?.phone ? client.clients.phone.toString() : ''; // Vérifier si défini
+        const clientPhone = client.clients?.phone ? client.clients.phone.toString() : '';
 
         return clientName.includes(query.toLowerCase()) || clientPhone.includes(query);
       });
@@ -101,26 +84,31 @@ export default function RecoveredClientsPage() {
               <Text style={styles.clientInfo}>Téléphone: {item.clients.phone}</Text>
               <Text style={styles.interventionInfo}>Type d'appareil: {item.deviceType}</Text>
               <Text style={styles.interventionInfo}>Marque: {item.brand}</Text>
+			  <Text style={styles.interventionInfo}>Modèle: {item.model}</Text>
               <Text style={styles.interventionInfo}>Référence: {item.reference}</Text>
               <Text style={styles.interventionInfo}>Description du problème: {item.description}</Text>
               <Text style={styles.interventionInfo}>Coût: {item.cost} €</Text>
               <Text style={styles.interventionInfo}>Date de récupération: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
               <Text style={styles.interventionInfo}>Détail de l'intervention: {item.detailIntervention}</Text>
-			  {item.receiver_name && (
-              <Text style={styles.receiverText}>Récupéré par : {item.receiver_name}</Text>
-            )}
-			  <Text style={styles.interventionInfo}>Remarques: {item.guarantee}</Text>
-      
-              {item.intervention_images && item.intervention_images.length > 0 && (
+              {item.receiver_name && (
+                <Text style={styles.receiverText}>Récupéré par : {item.receiver_name}</Text>
+              )}
+              <Text style={styles.interventionInfo}>Remarques: {item.guarantee}</Text>
+
+              {/* Affichage des images d'intervention depuis la table interventions */}
+              {item.photos && item.photos.length > 0 && (
                 <View style={styles.imageContainer}>
-                  {item.intervention_images.map((image, index) => (
+                  {item.photos.map((photo, index) => (
                     <TouchableOpacity
                       key={index}
-                      onPress={() => setSelectedImage(`data:image/jpeg;base64,${image.image_data}`)}
+                      onPress={() => setSelectedImage(`data:image/jpeg;base64,${photo}`)}
                     >
                       <Image
-                        source={{ uri: `data:image/jpeg;base64,${image.image_data}` }}
-                        style={styles.imageThumbnail}
+                        source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                        style={[
+                          styles.imageThumbnail,
+                          item.label_photo === photo ? styles.labelImage : null,
+                        ]}
                       />
                     </TouchableOpacity>
                   ))}
@@ -170,6 +158,7 @@ export default function RecoveredClientsPage() {
     </ImageBackground>
   );
 }
+
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
@@ -241,29 +230,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginTop: 10,
   },
-imageThumbnail: {
-  width: 80,
-  height: 80,
-  margin: 5,
-  borderRadius: 5,
-  resizeMode: 'cover', // S'assurer que l'image couvre la zone de la miniature
-},
-modalBackground: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: 'rgba(0, 0, 0, 0.8)', // Fond sombre
-},
-fullImage: {
-  width: '90%',
-  height: '90%',
-  resizeMode: 'contain', // Pour que l'image s'adapte à l'écran
-},
-receiverText: {
+  imageThumbnail: {
+    width: 80,
+    height: 80,
+    margin: 5,
+    borderRadius: 5,
+    resizeMode: 'cover',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  fullImage: {
+    width: '90%',
+    height: '90%',
+    resizeMode: 'contain',
+  },
+  receiverText: {
     fontSize: 18,
     color: "#571515",
     marginTop: 5,
   },
+  labelImage: {
+    borderWidth: 2,
+    borderColor: 'green',
+  },
 });
-
- 

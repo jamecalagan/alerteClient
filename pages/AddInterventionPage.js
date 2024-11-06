@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, ScrollView, KeyboardAvoidingView, Platform, Modal, Image, TouchableWithoutFeedback } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Text, ScrollView, KeyboardAvoidingView, Platform, Modal, Image, TouchableWithoutFeedback, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../supabaseClient';
 import * as ImagePicker from 'expo-image-picker';
@@ -34,64 +34,36 @@ export default function AddInterventionPage({ route, navigation }) {
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
 
-  // Charger les produits au démarrage
   useEffect(() => {
-    loadProducts();
-  }, []);
+	loadProducts();
+}, []);
 
-  const loadProducts = async () => {
-    const { data, error } = await supabase.from('article').select('*');
-    if (error) {
-      console.error("Erreur lors du chargement des produits:", error.message);
-    } else {
-      setProducts(data);
-    }
-  };
-
-  const loadBrands = async (selectedProductType) => {
-    if (selectedProductType && selectedProductType !== "default" && selectedProductType !== "Autre") {
-		console.log("Valeur de selectedProductType :", selectedProductType);
-      const { data, error } = await supabase
-        .from('marque')
-        .select('*')
-        .eq('article_id', selectedProductType);
-
-      if (error) {
-        console.error("Erreur lors du chargement des marques :", error);
-      } else {
-        setBrands(data);
-      }
-    } else {
-      setBrands([]);
-    }
-  };
- 
-  const loadModels = async (selectedBrand) => {
-	console.log("Fonction loadModels appelée avec la marque :", selectedBrand);
-  
-	try {
-	  if (selectedBrand && selectedBrand !== "Autre") {
-		const { data, error } = await supabase
-		  .from('modele')
-		  .select('*')
-		  .eq('marque_id', selectedBrand);
-  
-		console.log("Données récupérées de la base :", data);
-  
-		if (error) {
-		  console.error("Erreur lors du chargement des modèles :", error);
-		} else {
-		  setModels(data);
-		  console.log("Modèles définis avec succès :", data);
-		}
-	  } else {
-		setModels([]);
-		console.log("Marque non valide, liste des modèles réinitialisée.");
-	  }
-	} catch (err) {
-	  console.error("Erreur inattendue dans loadModels :", err);
+const loadProducts = async () => {
+	const { data, error } = await supabase.from('article').select('*');
+	if (error) {
+		console.error("Erreur lors du chargement des produits:", error.message);
+	} else {
+		setProducts(data);
 	}
-  };
+};
+
+const loadBrands = async (articleId) => {
+	const { data, error } = await supabase.from('marque').select('*').eq('article_id', articleId);
+	if (error) {
+		console.error("Erreur lors du chargement des marques :", error);
+	} else {
+		setBrands(data);
+	}
+};
+
+const loadModels = async (brandId) => {
+	const { data, error } = await supabase.from('modele').select('*').eq('marque_id', brandId);
+	if (error) {
+		console.error("Erreur lors du chargement des modèles :", error);
+	} else {
+		setModels(data);
+	}
+};
   
   const pickLabelImage = async () => {
     try {
@@ -154,15 +126,15 @@ export default function AddInterventionPage({ route, navigation }) {
     }
   };
 
-  const handleDeviceTypeChange = (value) => {
-    setDeviceType(value);
-    const selectedArticle = products.find((product) => product.nom === value);
-    if (selectedArticle) {
-        loadBrands(selectedArticle.id);
-    } else {
-        console.warn("Aucun article trouvé avec ce nom :", value);
-        setBrands([]);
-    }
+  const handleDeviceTypeChange = async (value) => {
+	setDeviceType(value);
+	setCustomDeviceType('');
+	const selectedProduct = products.find((product) => product.nom === value);
+	if (selectedProduct) {
+		await loadBrands(selectedProduct.id);
+	} else {
+		setBrands([]);
+	}
 };
 
 
@@ -170,25 +142,83 @@ export default function AddInterventionPage({ route, navigation }) {
 
 const [selectedBrandName, setSelectedBrandName] = useState(''); // Nouvel état pour stocker le nom
 
-const handleBrandChange = (selectedBrandId) => {
-  setBrand(selectedBrandId);
-  setModel('');
-  setCustomModel('');
+const handleBrandChange = async (value) => {
+	setBrand(value);
+	setCustomBrand('');
+	const selectedBrand = brands.find((b) => b.id === value);
+	if (selectedBrand) {
+		await loadModels(selectedBrand.id);
+	} else {
+		setModels([]);
+	}
+};
+const addArticleIfNeeded = async () => {
+	if (deviceType === 'Autre' && customDeviceType) {
+		const { data, error } = await supabase
+			.from('article')
+			.insert([{ nom: customDeviceType }])
+			.select();
 
-  // Trouver le nom correspondant à l'ID sélectionné
-  const brandName = brands.find((b) => b.id === selectedBrandId)?.nom || '';
-  setSelectedBrandName(brandName); // Stocke le nom de la marque
-  
-  loadModels(selectedBrandId);
+		if (error) {
+			console.error("Erreur lors de l'ajout de l'article :", error);
+			Alert.alert("Erreur", "Impossible d'ajouter le nouvel article.");
+			return null;
+		}
+		if (data) {
+			setProducts([...products, data[0]]);
+			return data[0].id;
+		}
+	}
+	return products.find((product) => product.nom === deviceType)?.id || null;
 };
 
+const addBrandIfNeeded = async (articleId) => {
+	if (brand === 'Autre' && customBrand) {
+		const { data, error } = await supabase
+			.from('marque')
+			.insert([{ nom: customBrand, article_id: articleId }])
+			.select();
+
+		if (error) {
+			console.error("Erreur lors de l'ajout de la marque :", error);
+			Alert.alert("Erreur", "Impossible d'ajouter la nouvelle marque.");
+			return null;
+		}
+		if (data) {
+			setBrands([...brands, data[0]]);
+			return data[0].id;
+		}
+	}
+	return brands.find((b) => b.id === brand)?.id || null;
+};
+
+const addModelIfNeeded = async (brandId, articleId) => {
+	if (model === 'Autre' && customModel) {
+		const { data, error } = await supabase
+			.from('modele')
+			.insert([{ nom: customModel, marque_id: brandId, article_id: articleId }]) // Ajout de article_id ici
+			.select();
+
+		if (error) {
+			console.error("Erreur lors de l'ajout du modèle :", error);
+			Alert.alert("Erreur", "Impossible d'ajouter le nouveau modèle.");
+			return null;
+		}
+		if (data) {
+			setModels([...models, data[0]]);
+			return data[0].id;
+		}
+	}
+	return models.find((m) => m.id === model)?.id || null;
+};
+
+
+
 const handleSaveIntervention = async () => {
-    if (!reference || (!brand && !customBrand) || (!model && !customModel) || !description || !cost || deviceType === 'default' || status === 'default') {
-        setAlertTitle('Erreur');
-        setAlertMessage('Tous les champs doivent être remplis et une option doit être sélectionnée.');
-        setAlertVisible(true);
-        return;
-    }
+	if (!reference || !brand || !model || !description || !cost || deviceType === 'default' || status === 'default') {
+		Alert.alert('Erreur', 'Tous les champs doivent être remplis et une option doit être sélectionnée.');
+		return;
+	}
 
     if (!labelPhoto) {
         setAlertTitle('Erreur');
@@ -197,52 +227,41 @@ const handleSaveIntervention = async () => {
         return;
     }
 
-    // Obtenir les noms et les IDs pour la sauvegarde
-    const selectedArticle = products.find(product => product.nom === deviceType);
-    const selectedBrand = brands.find(b => b.id === brand);
-    const selectedModel = models.find(m => m.id === model);
+	const articleId = await addArticleIfNeeded();
+	const brandId = await addBrandIfNeeded(articleId);
+	const modelId = await addModelIfNeeded(brandId, articleId);
 
-    const interventionData = {
-        reference,
-        brand: selectedBrand ? selectedBrand.nom : customBrand,
-        model: selectedModel ? selectedModel.nom : customModel,
-        serial_number,
-        description,
-        cost,
-        status,
-        deviceType: deviceType === "Autre" ? customDeviceType : deviceType,
-        password,
-        commande,
-        chargeur: chargeur === 'Oui',
-        createdAt: new Date().toISOString(),
-        client_id: clientId,
-        photos: photos.length > 0 ? photos : [],
-        label_photo: labelPhoto,
-        signature: null,
-        // Ajouter les IDs dans les nouvelles colonnes
-        article_id: selectedArticle ? selectedArticle.id : null,
-        marque_id: selectedBrand ? selectedBrand.id : null,
-        modele_id: selectedModel ? selectedModel.id : null,
-    };
+	const interventionData = {
+		reference,
+		brand: customBrand || brands.find((b) => b.id === brand)?.nom,
+		model: customModel || models.find((m) => m.id === model)?.nom,
+		serial_number,
+		description,
+		cost,
+		status,
+		deviceType: customDeviceType || deviceType,
+		password,
+		commande,
+		chargeur: chargeur === 'Oui',
+		client_id: clientId,
+		photos: photos.length > 0 ? photos : [],
+		label_photo: labelPhoto,
+		article_id: articleId,
+		marque_id: brandId,
+		modele_id: modelId,
+	};
 
-    try {
-        const { data, error } = await supabase
-            .from('interventions')
-            .insert(interventionData);
+	try {
+		const { error } = await supabase.from('interventions').insert(interventionData);
+		if (error) throw error;
 
-        if (error) throw error;
-
-        setAlertTitle('Succès');
-        setAlertMessage('Intervention ajoutée avec succès.');
-        setAlertVisible(true);
-    } catch (error) {
-        setAlertTitle('Erreur');
-        setAlertMessage("Erreur lors de l'ajout de l'intervention.");
-        setAlertVisible(true);
-        console.error("Erreur lors de l'ajout de l'intervention :", error);
-    }
+		Alert.alert('Succès', 'Intervention ajoutée avec succès.');
+		navigation.goBack();
+	} catch (error) {
+		Alert.alert('Erreur', "Erreur lors de l'ajout de l'intervention.");
+		console.error("Erreur lors de l'ajout de l'intervention :", error);
+	}
 };
-
   
 
   const closeAlert = () => {
@@ -259,74 +278,58 @@ const handleSaveIntervention = async () => {
       keyboardVerticalOffset={80}
     >
       <ScrollView>
-        <Text style={styles.label}>Type de produit</Text>
-        <Picker
-          selectedValue={deviceType}
-          style={styles.input}
-          onValueChange={handleDeviceTypeChange}
-        >
-          <Picker.Item label="Sélectionnez un type de produit..." value="default" />
-          {products.map((product) => (
-            <Picker.Item key={product.id} label={product.nom} value={product.nom} />
-          ))}
-          <Picker.Item label="Autre" value="Autre" />
-        </Picker>
-
-        {deviceType === "Autre" && (
-          <TextInput
-            style={styles.input}
-            placeholder="Entrez le type de produit"
-            value={customDeviceType}
-            onChangeText={setCustomDeviceType}
-          />
-        )}
+	  <Text style={styles.label}>Type de produit</Text>
+                <Picker selectedValue={deviceType} style={styles.input} onValueChange={handleDeviceTypeChange}>
+                    <Picker.Item label="Sélectionnez un type de produit..." value="default" />
+                    {products.map((product) => (
+                        <Picker.Item key={product.id} label={product.nom} value={product.nom} />
+                    ))}
+                    <Picker.Item label="Autre" value="Autre" />
+                </Picker>
+                {deviceType === 'Autre' && (
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Entrez le type de produit"
+                        value={customDeviceType}
+                        onChangeText={setCustomDeviceType}
+                    />
+                )}
 
         {/* Sélection de la Marque */}
-        <Text style={styles.label}>Marque</Text>
-        <Picker
-          selectedValue={brand}
-          style={styles.input}
-          onValueChange={handleBrandChange}
-        >
-          <Picker.Item label="Sélectionnez une marque..." value="" />
-          {brands.map((brandOption) => (
-            <Picker.Item key={brandOption.id} label={brandOption.nom} value={brandOption.id} />
-
-          ))}
-          <Picker.Item label="Autre" value="Autre" />
-        </Picker>
-
-        {brand === "Autre" && (
-          <TextInput
-            style={styles.input}
-            placeholder="Entrez la marque"
-            value={customBrand}
-            onChangeText={setCustomBrand}
-          />
-        )}
+		<Text style={styles.label}>Marque</Text>
+                <Picker selectedValue={brand} style={styles.input} onValueChange={handleBrandChange}>
+                    <Picker.Item label="Sélectionnez une marque..." value="" />
+                    {brands.map((brandOption) => (
+                        <Picker.Item key={brandOption.id} label={brandOption.nom} value={brandOption.id} />
+                    ))}
+                    <Picker.Item label="Autre" value="Autre" />
+                </Picker>
+                {brand === 'Autre' && (
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Entrez la marque"
+                        value={customBrand}
+                        onChangeText={setCustomBrand}
+                    />
+                )}
 
         {/* Sélection du Modèle */}
 		<Text style={styles.label}>Modèle</Text>
-<Picker
-  selectedValue={model}
-  style={styles.input}
-  onValueChange={(itemValue) => setModel(itemValue)}
->
-  <Picker.Item label="Sélectionnez un modèle..." value="" />
-  {models.map((modelOption) => (
-    <Picker.Item key={modelOption.id} label={modelOption.nom} value={modelOption.id} />
-  ))}
-  <Picker.Item label="Autre" value="Autre" />
-</Picker>
-
-{model === "Autre" && (
-  <TextInput
-    style={styles.input}
-    placeholder="Entrez le modèle"
-    value={customModel}
-    onChangeText={setCustomModel}
-  />
-)}
+                <Picker selectedValue={model} style={styles.input} onValueChange={(itemValue) => setModel(itemValue)}>
+                    <Picker.Item label="Sélectionnez un modèle..." value="" />
+                    {models.map((modelOption) => (
+                        <Picker.Item key={modelOption.id} label={modelOption.nom} value={modelOption.id} />
+                    ))}
+                    <Picker.Item label="Autre" value="Autre" />
+                </Picker>
+                {model === 'Autre' && (
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Entrez le modèle"
+                        value={customModel}
+                        onChangeText={setCustomModel}
+                    />
+                )}
 
 
         <Text style={styles.label}>Numéro de série</Text>

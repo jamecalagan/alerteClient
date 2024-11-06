@@ -85,7 +85,7 @@ export default function ClientPreviewPage() {
             .signature { width: 300px; height: 80px; margin-top: 20px; }
             .company-details { text-align: center; }
             .single-line-details { text-align: center; font-size: 14px; color: #333; }
-            .border-box { border: 2px solid #ddd; padding: 10px; border-radius: 10px; margin-bottom: 20px; background-color: #fff; }
+            .border-box { border: 2px solid #494848; padding: 10px; border-radius: 10px; margin-bottom: 20px; background-color: #fff; }
             .terms-section { margin-top: 10px; padding: 5px; background-color: #EFEFEF; border-radius: 10px; }
             .terms-text { font-size: 10px; color: #333; margin-bottom: 5px; }
           </style>

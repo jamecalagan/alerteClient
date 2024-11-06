@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Alert, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Alert, FlatList, StyleSheet, TouchableOpacity, Button } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 export default function AdminPage() {
+	const navigation = useNavigation();
     const [productType, setProductType] = useState('');
     const [brand, setBrand] = useState('');
     const [model, setModel] = useState('');
@@ -14,6 +16,8 @@ export default function AdminPage() {
     const [brands, setBrands] = useState([]);
     const [models, setModels] = useState([]);
     const [clients, setClients] = useState([]);
+	const [newProductType, setNewProductType] = useState(''); // Nouveau champ pour un type de produit
+    const [newBrand, setNewBrand] = useState(''); // Nouveau champ pour une marque
     const [showAddFields, setShowAddFields] = useState(false);
 
     useEffect(() => {
@@ -32,7 +36,11 @@ export default function AdminPage() {
     };
 
     const loadBrands = async (productTypeId) => {
-        const { data, error } = await supabase.from('marque').select('*').eq('article_id', productTypeId);
+        const { data, error } = await supabase
+            .from('marque')
+            .select('*')
+            .eq('article_id', productTypeId);
+
         if (error) {
             console.log('Erreur chargement marques:', error.message);
             Alert.alert("Erreur", "Erreur lors du chargement des marques.");
@@ -71,149 +79,96 @@ export default function AdminPage() {
     };
 
     const addProductType = async () => {
-        if (!productType.trim()) {
-            Alert.alert("Erreur", "Le type de produit ne peut pas être vide.");
+        if (!newProductType.trim()) {
+            Alert.alert("Erreur", "Le nom du produit ne peut pas être vide.");
             return;
         }
+        
+        try {
+            const { data, error } = await supabase
+                .from('article')
+                .insert([{ nom: newProductType }])
+                .select();
+            
+            if (error) throw error;
 
-        const { data: existingProducts, error: checkError } = await supabase
-            .from('article')
-            .select('*')
-            .eq('nom', productType);
-
-        if (checkError) {
-            console.log('Erreur vérification produit:', checkError);
-            Alert.alert("Erreur", "Erreur lors de la vérification du produit.");
-            return;
-        }
-
-        if (existingProducts && existingProducts.length > 0) {
-            Alert.alert("Information", "Ce type de produit existe déjà.");
-            return;
-        }
-
-        const { data, error } = await supabase
-            .from('article')
-            .insert([{ nom: productType }])
-            .select();
-
-        if (error) {
-            console.log('Erreur ajout produit:', error.message);
-            Alert.alert("Erreur", "Erreur lors de l'ajout du produit.");
-        } else {
             setProductTypes([...productTypes, data[0]]);
-            setProductType('');
+            setNewProductType('');
             Alert.alert("Succès", "Produit ajouté avec succès.");
+        } catch (error) {
+            console.error("Erreur lors de l'ajout du produit :", error);
+            Alert.alert("Erreur", "Erreur lors de l'ajout du produit.");
         }
     };
+
 
     const addBrand = async () => {
         if (!selectedProductType) {
             Alert.alert("Erreur", "Sélectionnez un type de produit avant d'ajouter une marque.");
             return;
         }
-        if (!brand.trim()) {
+        if (!newBrand.trim()) {
             Alert.alert("Erreur", "Le nom de la marque ne peut pas être vide.");
             return;
         }
 
-        const { data: existingBrands, error: checkError } = await supabase
-            .from('marque')
-            .select('*')
-            .eq('nom', brand)
-            .eq('article_id', selectedProductType);
+        try {
+            const { data, error } = await supabase
+                .from('marque')
+                .insert([{ nom: newBrand, article_id: selectedProductType }])
+                .select();
+            
+            if (error) throw error;
 
-        if (checkError) {
-            console.log('Erreur vérification marque:', checkError);
-            Alert.alert("Erreur", "Erreur lors de la vérification de la marque.");
-            return;
-        }
-
-        if (existingBrands && existingBrands.length > 0) {
-            Alert.alert("Information", "Cette marque existe déjà pour le type de produit sélectionné.");
-            return;
-        }
-
-        const { data, error } = await supabase
-            .from('marque')
-            .insert([{ nom: brand, article_id: selectedProductType }])
-            .select();
-
-        if (error) {
-            console.log('Erreur ajout marque:', error.message);
-            Alert.alert("Erreur", "Erreur lors de l'ajout de la marque.");
-        } else {
             setBrands([...brands, data[0]]);
-            setBrand('');
+            setNewBrand('');
             Alert.alert("Succès", "Marque ajoutée avec succès.");
+        } catch (error) {
+            console.error("Erreur lors de l'ajout de la marque :", error);
+            Alert.alert("Erreur", "Erreur lors de l'ajout de la marque.");
         }
     };
 
     const addModel = async () => {
-		if (!selectedBrand) {
-			Alert.alert("Erreur", "Sélectionnez une marque avant d'ajouter un modèle.");
-			return;
-		}
-		if (!model.trim()) {
-			Alert.alert("Erreur", "Le nom du modèle ne peut pas être vide.");
-			return;
-		}
-	
-		// Recherchez l'ID de l'article associé à la marque sélectionnée
-		const selectedArticleId = productTypes.find(
-			(product) => product.id === selectedProductType
-		)?.id;
-	
-		if (!selectedArticleId) {
-			Alert.alert("Erreur", "Impossible de trouver l'article associé.");
-			return;
-		}
-	
-		try {
-			// Vérifiez si le modèle existe déjà
-			const { data: existingModels, error: checkError } = await supabase
-				.from('modele')
-				.select('*')
-				.eq('nom', model)
-				.eq('marque_id', selectedBrand);
-	
-			if (checkError) {
-				console.log('Erreur vérification modèle:', checkError);
-				Alert.alert("Erreur", "Erreur lors de la vérification du modèle.");
-				return;
-			}
-	
-			if (existingModels && existingModels.length > 0) {
-				Alert.alert("Information", "Ce modèle existe déjà pour la marque sélectionnée.");
-				return;
-			}
-	
-			// Insérez le modèle avec l'article associé
-			const { data, error } = await supabase
-				.from('modele')
-				.insert([{ 
-					nom: model, 
-					marque_id: selectedBrand, 
-					article_id: selectedArticleId 
-				}])
-				.select();
-	
-			if (error) {
-				console.log('Erreur ajout modèle:', error.message);
-				Alert.alert("Erreur", "Erreur lors de l'ajout du modèle.");
-			} else {
-				setModel('');
-				Alert.alert("Succès", "Modèle ajouté avec succès.");
-			}
-		} catch (err) {
-			console.error("Erreur inattendue :", err);
-			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-		}
-	};
-	
+        if (!selectedProductType) {
+            Alert.alert("Erreur", "Sélectionnez un type de produit avant d'ajouter un modèle.");
+            return;
+        }
+        if (!selectedBrand) {
+            Alert.alert("Erreur", "Sélectionnez une marque avant d'ajouter un modèle.");
+            return;
+        }
+        if (!model.trim()) {
+            Alert.alert("Erreur", "Le nom du modèle ne peut pas être vide.");
+            return;
+        }
 
+        try {
+            const { data, error } = await supabase
+                .from('modele')
+                .insert([{ nom: model, marque_id: selectedBrand, article_id: selectedProductType }])
+                .select();
+            
+            if (error) throw error;
+
+            setModel('');
+            Alert.alert("Succès", "Modèle ajouté avec succès.");
+        } catch (error) {
+            console.error("Erreur lors de l'ajout du modèle :", error);
+            Alert.alert("Erreur", "Erreur lors de l'ajout du modèle.");
+        }
+    };
     return (
         <View style={styles.container}>
+
+		        <TouchableOpacity
+                style={styles.navigateButton}
+                onPress={() => navigation.navigate("ArticlesPage")}
+            >
+                <MaterialIcons name="list" size={24} color="#fff" style={styles.icon} />
+                <Text style={styles.buttonText}>Gérer Produits, Marques et Modèles</Text>
+            </TouchableOpacity>
+            {/* Bouton pour afficher/masquer les champs d'ajout */}
             <TouchableOpacity
                 style={styles.toggleButton}
                 onPress={() => setShowAddFields(!showAddFields)}
@@ -228,20 +183,11 @@ export default function AdminPage() {
                 />
             </TouchableOpacity>
 
+            {/* Section d'ajout de produit, marque, modèle */}
             {showAddFields && (
                 <>
-                    <Text style={styles.sectionTitle}>Ajouter un type de produit</Text>
-                    <TextInput
-                        value={productType}
-                        onChangeText={setProductType}
-                        placeholder="Type de produit"
-                        style={styles.input}
-                    />
-                    <TouchableOpacity style={styles.addButton} onPress={addProductType}>
-                        <Text style={styles.buttonText}>Ajouter Produit</Text>
-                    </TouchableOpacity>
-
-                    <Text style={styles.sectionTitle}>Ajouter une marque</Text>
+                    {/* Sélection ou ajout d'un produit */}
+                    <Text style={styles.sectionTitle}>Sélectionner ou ajouter un produit</Text>
                     <Picker
                         selectedValue={selectedProductType}
                         onValueChange={(value) => {
@@ -256,22 +202,20 @@ export default function AdminPage() {
                         ))}
                     </Picker>
                     <TextInput
-                        value={brand}
-                        onChangeText={setBrand}
-                        placeholder="Nom de la marque"
+                        value={newProductType}
+                        onChangeText={setNewProductType}
+                        placeholder="Ajouter un nouveau produit"
                         style={styles.input}
                     />
-                    <TouchableOpacity style={styles.addButton} onPress={addBrand}>
-                        <Text style={styles.buttonText}>Ajouter Marque</Text>
+                    <TouchableOpacity style={styles.addButton} onPress={addProductType}>
+                        <Text style={styles.buttonText}>Ajouter Produit</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.sectionTitle}>Ajouter un modèle</Text>
+                    {/* Sélection ou ajout d'une marque */}
+                    <Text style={styles.sectionTitle}>Sélectionner ou ajouter une marque</Text>
                     <Picker
                         selectedValue={selectedBrand}
-                        onValueChange={(value) => {
-                            setSelectedBrand(value);
-                            loadModels(value);
-                        }}
+                        onValueChange={setSelectedBrand}
                         style={styles.picker}
                     >
                         <Picker.Item label="Sélectionnez une marque" value={null} />
@@ -279,6 +223,18 @@ export default function AdminPage() {
                             <Picker.Item key={brand.id} label={brand.nom} value={brand.id} />
                         ))}
                     </Picker>
+                    <TextInput
+                        value={newBrand}
+                        onChangeText={setNewBrand}
+                        placeholder="Ajouter une nouvelle marque"
+                        style={styles.input}
+                    />
+                    <TouchableOpacity style={styles.addButton} onPress={addBrand}>
+                        <Text style={styles.buttonText}>Ajouter Marque</Text>
+                    </TouchableOpacity>
+
+                    {/* Ajout d'un modèle */}
+                    <Text style={styles.sectionTitle}>Ajouter un modèle</Text>
                     <TextInput
                         value={model}
                         onChangeText={setModel}
@@ -289,7 +245,7 @@ export default function AdminPage() {
                         <Text style={styles.buttonText}>Ajouter Modèle</Text>
                     </TouchableOpacity>
                 </>
-            )}
+		)}
 
             <Text style={styles.sectionTitle}>Liste des Clients</Text>
             <FlatList
@@ -305,6 +261,7 @@ export default function AdminPage() {
                             </Text>
                         )}
                     </View>
+					
                 )}
             />
         </View>
@@ -365,5 +322,16 @@ const styles = StyleSheet.create({
     },
     clientText: {
         fontSize: 16,
+    },
+	navigateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#007BFF',
+        padding: 15,
+        borderRadius: 5,
+        marginBottom: 20,
+    },
+    icon: {
+        marginRight: 10,
     },
 });

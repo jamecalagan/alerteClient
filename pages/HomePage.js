@@ -100,60 +100,67 @@ export default function HomePage({ navigation, route }) {
         }
     };
     const loadClients = async () => {
-        setIsLoading(true); // Démarre le loader au début du chargement des clients
-        try {
-            const { data, error } = await supabase
-                .from("clients")
-                .select(
-                    "*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)"
-                );
-
-            if (error) throw error;
-
-            if (data) {
-                // Filtrer les clients avec des interventions en cours
-                const filteredData = data
-                    .map((client) => {
-                        const ongoingInterventions =
-                            client.interventions?.filter(
-                                (intervention) =>
-                                    intervention.status !== "Réparé" &&
-                                    intervention.status !== "Récupéré"
-                            );
-
-                        // Si le client a des interventions en cours, on les garde
-                        if (ongoingInterventions.length > 0) {
-                            client.latestIntervention =
-                                ongoingInterventions[
-                                    ongoingInterventions.length - 1
-                                ];
-                            client.latestIntervention.photos =
-                                client.latestIntervention.photos || [];
-                            return client;
-                        } else {
-                            // On ne garde pas les clients sans interventions en cours
-                            return null;
-                        }
-                    })
-                    .filter((client) => client !== null); // Retirer les clients sans interventions en cours
-
-                // Tri par date de la dernière intervention en cours
-                let sortedClients = filteredData.sort((a, b) => {
-                    const dateA = new Date(a.latestIntervention.createdAt);
-                    const dateB = new Date(b.latestIntervention.createdAt);
-                    return orderAsc ? dateA - dateB : dateB - dateA;
-                });
-
-                setClients(sortedClients);
-                setFilteredClients(sortedClients);
-            }
-        } catch (error) {
-            console.error("Erreur lors du chargement des clients:", error);
-        } finally {
-            setIsLoading(false); // Arrête le loader
-        }
-    };
-
+		setIsLoading(true); // Démarre le loader au début du chargement des clients
+		try {
+			const { data, error } = await supabase
+				.from("clients")
+				.select(
+					"*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)"
+				);
+	
+			if (error) throw error;
+	
+			if (data) {
+				// Trouver le dernier client créé
+				const latestClient = data.reduce((latest, client) => {
+					return new Date(client.createdAt) > new Date(latest.createdAt) ? client : latest;
+				}, data[0]);
+	
+				// Filtrer les clients ayant des interventions en cours
+				const clientsWithOngoingInterventions = data
+					.filter((client) => 
+						client.interventions?.some(
+							(intervention) => 
+								intervention.status !== "Réparé" && 
+								intervention.status !== "Récupéré"
+						)
+					)
+					.map((client) => {
+						// Trier les interventions en cours par date décroissante
+						client.interventions = client.interventions
+							.filter((intervention) => 
+								intervention.status !== "Réparé" && 
+								intervention.status !== "Récupéré"
+							)
+							.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Tri décroissant
+	
+						// Définir la dernière intervention en cours (la plus récente)
+						client.latestIntervention = client.interventions[0];
+						return client;
+					});
+	
+				// Assurez-vous que le dernier client possède ses interventions complètes
+				if (latestClient.interventions?.length) {
+					// Trier les interventions du dernier client pour avoir la plus récente en premier
+					latestClient.interventions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+					latestClient.latestIntervention = latestClient.interventions[0];
+				} else {
+					latestClient.latestIntervention = null; // Aucun intervention en cours pour ce client
+				}
+	
+				// Combiner le dernier client et les clients avec interventions en cours
+				const sortedClients = [latestClient, ...clientsWithOngoingInterventions.filter(c => c.id !== latestClient.id)];
+	
+				setClients(sortedClients);
+				setFilteredClients(sortedClients);
+			}
+		} catch (error) {
+			console.error("Erreur lors du chargement des clients:", error);
+		} finally {
+			setIsLoading(false); // Arrête le loader
+		}
+	};
+	
     useEffect(() => {
         loadRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
@@ -258,68 +265,66 @@ export default function HomePage({ navigation, route }) {
             timeZone: "Europe/Paris",
         });
     };
-    const filterClients = async (text) => {
-        setSearchText(text);
-
-        if (text.trim() === "") {
-            setFilteredClients(clients); // Réinitialise la liste si aucun texte n'est entré
-        } else {
-            try {
-                setIsLoading(true); // Active le loader pendant la recherche
-
-                // Contrôle pour savoir si l'entrée est un nombre (pour téléphone ou numéro de fiche)
-                const isNumber = !isNaN(text);
-
-                // Requête pour rechercher dans la base de données selon si l'entrée est un texte ou un nombre
-                const { data, error } = await supabase
-                    .from("clients")
-                    .select(
-                        "*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)"
-                    )
-                    .or(
-                        isNumber
-                            ? `ficheNumber.eq.${text}, phone.ilike.%${text}%` // Recherche par numéro de fiche ou téléphone si c'est un nombre
-                            : `name.ilike.%${text}%` // Recherche par nom si c'est un texte
-                    );
-
-                if (error) {
-                    console.error("Erreur lors de la recherche :", error);
-                    return;
-                }
-
-                // Appliquer un filtrage local sur les résultats récupérés
-                const filteredData = data.map((client) => {
-                    const relevantInterventions = client.interventions?.filter(
-                        (intervention) =>
-                            intervention.status !== "Réparé" &&
-                            intervention.status !== "Récupéré"
-                    );
-
-                    if (relevantInterventions.length > 0) {
-                        client.latestIntervention =
-                            relevantInterventions[
-                                relevantInterventions.length - 1
-                            ];
-                        client.latestIntervention.photos =
-                            client.latestIntervention.photos || [];
-                    } else {
-                        client.latestIntervention = null;
-                    }
-
-                    return client;
-                });
-
-                setFilteredClients(filteredData); // Met à jour la liste des clients filtrés
-            } catch (error) {
-                console.error(
-                    "Erreur lors de la recherche des clients:",
-                    error
-                );
-            } finally {
-                setIsLoading(false); // Désactive le loader
-            }
-        }
-    };
+	const filterClients = async (text) => {
+		setSearchText(text);
+	
+		if (text.trim() === "") {
+			setFilteredClients(clients); // Réinitialise la liste si aucun texte n'est entré
+		} else {
+			try {
+				setIsLoading(true); // Active le loader pendant la recherche
+	
+				// Vérification de l'entrée comme nombre entier pour ficheNumber uniquement
+				const isNumber = /^\d+$/.test(text.trim()); // Vérifie si le texte est composé uniquement de chiffres
+	
+				// Construction de la requête selon la nature de l'entrée
+				const { data, error } = await supabase
+					.from("clients")
+					.select(
+						"*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)"
+					)
+					.or(
+						isNumber
+							? `ficheNumber.eq.${parseInt(text, 10)}, phone.ilike.%${text}%`
+							: `name.ilike.%${text}%`
+					);
+	
+				if (error) {
+					console.error("Erreur lors de la recherche :", error);
+					return;
+				}
+	
+				// Appliquer un filtrage local sur les résultats récupérés
+				const filteredData = data.map((client) => {
+					const relevantInterventions = client.interventions?.filter(
+						(intervention) =>
+							intervention.status !== "Réparé" &&
+							intervention.status !== "Récupéré"
+					);
+	
+					if (relevantInterventions.length > 0) {
+						client.latestIntervention =
+							relevantInterventions[
+								relevantInterventions.length - 1
+							];
+						client.latestIntervention.photos =
+							client.latestIntervention.photos || [];
+					} else {
+						client.latestIntervention = null;
+					}
+	
+					return client;
+				});
+	
+				setFilteredClients(filteredData); // Met à jour la liste des clients filtrés
+			} catch (error) {
+				console.error("Erreur lors de la recherche des clients:", error);
+			} finally {
+				setIsLoading(false); // Désactive le loader
+			}
+		}
+	};
+	
 
     const getStatusStyle = (status) => {
         switch (status) {
@@ -1264,7 +1269,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.6)", // Voile sombre pour améliorer la lisibilité
+        backgroundColor: "rgba(39, 39, 39, 0.863)", // Voile sombre pour améliorer la lisibilité
         padding: 20,
     },
     headerContainer: {

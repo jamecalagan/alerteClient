@@ -50,7 +50,7 @@ export default function ArticlesPage({ navigation }) {
             <FlatList
                 data={articles}
                 keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
+                renderItem={({ item, index  }) => (
                     <View style={styles.itemContainer}>
                         <TouchableOpacity onPress={() => handleSelectArticle(item.id)}>
                             <Text style={styles.itemText}>{item.nom}</Text>

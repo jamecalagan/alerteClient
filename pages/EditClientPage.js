@@ -263,6 +263,7 @@ export default function EditClientPage({ route, navigation }) {
               <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
+			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
 
               <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
               <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>

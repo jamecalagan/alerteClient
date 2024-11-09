@@ -122,7 +122,7 @@ export default function RecoveredClientsPage() {
                 <Icon
                   name={visibleSignatures[item.id] ? 'eye-slash' : 'eye'}
                   size={20}
-                  color="#fff"
+                  color="#202020"
                   style={styles.icon}
                 />
                 <Text style={styles.toggleButtonText}>
@@ -206,11 +206,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     padding: 10,
-    backgroundColor: '#464545',
+    backgroundColor: '#a8a8a8',
+	borderWidth: 1,
     borderRadius: 5,
   },
   toggleButtonText: {
-    color: '#fff',
+    color: '#202020',
     fontWeight: 'bold',
     marginLeft: 10,
   },

@@ -33,7 +33,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
-
+  const [remarks, setRemarks] = useState(''); // État pour les remarques
   useEffect(() => {
 	loadProducts();
 }, []);
@@ -249,6 +249,7 @@ const handleSaveIntervention = async () => {
 		article_id: articleId,
 		marque_id: brandId,
 		modele_id: modelId,
+		remarks, // Ajoute les remarques ici
 	};
 
 	try {
@@ -414,6 +415,14 @@ const handleSaveIntervention = async () => {
       </View>
     )}
   </View>
+  <Text style={styles.label}>Remarques</Text>
+<TextInput
+    style={styles.input}
+    value={remarks}
+    onChangeText={setRemarks}
+    placeholder="Ajoutez des remarques ici..."
+    multiline
+/>
 
   <Text style={styles.label}>Chargeur</Text>
   <Picker

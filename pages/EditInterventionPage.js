@@ -43,6 +43,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const [articles, setArticles] = useState([]);
     const [brands, setBrands] = useState([]);
     const [models, setModels] = useState([]);
+	const [remarks, setRemarks] = useState(''); // État pour les remarques
 
     useEffect(() => {
         loadIntervention();
@@ -53,7 +54,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos")
+            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, remarks")
             .eq("id", interventionId)
             .single();
 
@@ -71,6 +72,7 @@ export default function EditInterventionPage({ route, navigation }) {
             setPassword(data.password);
             setPhotos(data.photos);
 			setCommande(data.commande || "");
+			setRemarks(data.remarques || ""); // Charge les remarques
 
             if (data.article_id) loadBrands(data.article_id);
             if (data.marque_id) loadModels(data.marque_id);
@@ -448,7 +450,14 @@ export default function EditInterventionPage({ route, navigation }) {
                         </View>
                     )}
                 </View>
-
+				<Text style={styles.label}>Remarques</Text>
+<TextInput
+    style={styles.input}
+    value={remarks}
+    onChangeText={setRemarks}
+    placeholder="Ajoutez des remarques ici..."
+    multiline
+/>
                 <Text style={styles.label}>Chargeur</Text>
                 <Picker
                     selectedValue={chargeur}
@@ -471,9 +480,12 @@ export default function EditInterventionPage({ route, navigation }) {
                     >
                         {photos.map((photo, index) => (
 							<TouchableOpacity key={index} onPress={() => handleImagePress(photo)}>
-        <Image
-          source={{ uri: `data:image/jpeg;base64,${photo}` }} // Afficher les images en base64
-          style={[styles.thumbnail, labelPhoto === photo && styles.labelPhoto]} // Bordure verte si c'est l'étiquette
+							<Image
+          source={{ uri: `data:image/jpeg;base64,${photo}` }}
+          style={[
+            { width: 100, height: 100, margin: 5, borderRadius: 10 },
+            photo === labelPhoto && { borderWidth: 2, borderColor: '#43ec86' } // Applique le contour vert uniquement pour la photo d'étiquette
+          ]}
         />
       </TouchableOpacity>
                         ))}

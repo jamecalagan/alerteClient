@@ -19,6 +19,13 @@ export default function AdminPage() {
 	const [newProductType, setNewProductType] = useState(''); // Nouveau champ pour un type de produit
     const [newBrand, setNewBrand] = useState(''); // Nouveau champ pour une marque
     const [showAddFields, setShowAddFields] = useState(false);
+	const [showPending, setShowPending] = useState(false);
+    const [showInProgress, setShowInProgress] = useState(false);
+    const [showRepaired, setShowRepaired] = useState(false);
+    const [showRecovered, setShowRecovered] = useState(false);
+	const [showEstimate, setShowEstimate] = useState(false);
+	const [showNot, setShowNot] = useState(false);
+
 
     useEffect(() => {
         loadProductTypes();
@@ -59,24 +66,57 @@ export default function AdminPage() {
         }
     };
 
-    const loadClients = async () => {
-        const { data, error } = await supabase
-            .from('clients')
-            .select(`
-                *,
-                interventions (
-                    id,
-                    status
-                )
-            `);
-
-        if (error) {
-            console.log('Erreur chargement clients:', error.message);
-            Alert.alert("Erreur", "Erreur lors du chargement des clients.");
-        } else {
-            setClients(data);
-        }
-    };
+	const loadClients = async () => {
+		try {
+			const { data, error } = await supabase
+				.from('clients')
+				.select(`
+					*,
+					interventions (
+						id,
+						status,
+						createdAt
+					)
+				`);
+	
+			if (error) throw error;
+	
+			if (data) {
+				// Filtrer les clients par statut des interventions
+				const pendingClients = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "En attente de pièces")
+				);
+				const notClients = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Non réparable")
+				);
+				const estimateClient = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Devis accepté")
+				);
+				const inProgressClients = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Réparation en cours")
+				);
+				const repairedClients = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Réparé")
+				);
+				const recoveredClients = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Récupéré")
+				);
+	
+				// Logs pour vérifier les données
+				console.log("Pending clients:", pendingClients);
+				console.log("In Progress clients:", inProgressClients);
+				console.log("Repaired clients:", repairedClients);
+				console.log("Recovered clients:", recoveredClients);
+	
+				// Affectez les clients filtrés dans l'état
+				setClients({ pending: pendingClients, estimate: estimateClient, not: notClients, inProgress: inProgressClients, repaired: repairedClients, recovered: recoveredClients });
+			}
+		} catch (error) {
+			console.error("Erreur lors du chargement des clients:", error);
+			Alert.alert("Erreur", "Erreur lors du chargement des clients.");
+		}
+	};
+	
 
     const addProductType = async () => {
         if (!newProductType.trim()) {
@@ -166,11 +206,11 @@ export default function AdminPage() {
                 onPress={() => navigation.navigate("ArticlesPage")}
             >
                 <MaterialIcons name="list" size={24} color="#fff" style={styles.icon} />
-                <Text style={styles.buttonText}>Gérer Produits, Marques et Modèles</Text>
+                <Text style={styles.buttonTextGestion}>Gérer Produits, Marques et Modèles</Text>
             </TouchableOpacity>
             {/* Bouton pour afficher/masquer les champs d'ajout */}
             <TouchableOpacity
-                style={styles.toggleButton}
+                style={styles.toggleButtonCreer}
                 onPress={() => setShowAddFields(!showAddFields)}
             >
                 <Text style={styles.buttonText}>
@@ -179,7 +219,7 @@ export default function AdminPage() {
                 <MaterialIcons
                     name={showAddFields ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
                     size={24}
-                    color="#fff"
+                    color="#202020"
                 />
             </TouchableOpacity>
 
@@ -188,6 +228,7 @@ export default function AdminPage() {
                 <>
                     {/* Sélection ou ajout d'un produit */}
                     <Text style={styles.sectionTitle}>Sélectionner ou ajouter un produit</Text>
+					<View style={styles.pickerContainer}>
                     <Picker
                         selectedValue={selectedProductType}
                         onValueChange={(value) => {
@@ -201,6 +242,7 @@ export default function AdminPage() {
                             <Picker.Item key={type.id} label={type.nom} value={type.id} />
                         ))}
                     </Picker>
+					</View>
                     <TextInput
                         value={newProductType}
                         onChangeText={setNewProductType}
@@ -213,6 +255,7 @@ export default function AdminPage() {
 
                     {/* Sélection ou ajout d'une marque */}
                     <Text style={styles.sectionTitle}>Sélectionner ou ajouter une marque</Text>
+					<View style={styles.pickerContainer}>
                     <Picker
                         selectedValue={selectedBrand}
                         onValueChange={setSelectedBrand}
@@ -223,6 +266,7 @@ export default function AdminPage() {
                             <Picker.Item key={brand.id} label={brand.nom} value={brand.id} />
                         ))}
                     </Picker>
+					</View>
                     <TextInput
                         value={newBrand}
                         onChangeText={setNewBrand}
@@ -247,23 +291,149 @@ export default function AdminPage() {
                 </>
 		)}
 
-            <Text style={styles.sectionTitle}>Liste des Clients</Text>
-            <FlatList
-                data={clients}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.clientItem}>
-                        <Text style={styles.clientText}>Nom : {item.name}</Text>
-                        <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
-                        {item.interventions && item.interventions.length > 0 && (
-                            <Text style={styles.clientText}>
-                                Statut : {item.interventions[0].status}
-                            </Text>
-                        )}
-                    </View>
-					
-                )}
-            />
+		<Text style={styles.sectionTitle}>Liste des Clients</Text>
+
+{/* Toggle pour les clients "En attente de pièces" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowPending(!showPending)}>
+    <Text style={styles.buttonText}>Clients En attente de pièces</Text>
+    <MaterialIcons name={showPending ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showPending && (
+    <FlatList
+        data={clients.pending}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : En attente de pièces</Text>
+            </View>
+        )}
+    />
+)}
+{/* Toggle pour les clients "devis accepter" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowEstimate(!showEstimate)}>
+    <Text style={styles.buttonText}>Devis accepté</Text>
+    <MaterialIcons name={showEstimate ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showEstimate && (
+    <FlatList
+        data={clients.estimate}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : En attente de pièces</Text>
+            </View>
+        )}
+    />
+)}
+
+{/* Toggle pour les clients "Réparation en cours" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowInProgress(!showInProgress)}>
+    <Text style={styles.buttonText}>Clients Réparation en cours</Text>
+    <MaterialIcons name={showInProgress ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showInProgress && (
+    <FlatList
+        data={clients.inProgress}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : Réparation en cours</Text>
+            </View>
+        )}
+    />
+)}
+
+{/* Toggle pour les clients "Réparé" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowRepaired(!showRepaired)}>
+    <Text style={styles.buttonText}>Clients Réparé</Text>
+    <MaterialIcons name={showRepaired ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showRepaired && (
+    <FlatList
+        data={clients.repaired}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : Réparé</Text>
+            </View>
+        )}
+    />
+)}
+
+{/* Toggle pour les clients "Récupéré" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowRecovered(!showRecovered)}>
+    <Text style={styles.buttonText}>Clients Récupéré</Text>
+    <MaterialIcons name={showRecovered ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showRecovered && (
+    <FlatList
+        data={clients.recovered}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : Récupéré</Text>
+            </View>
+        )}
+    />
+)}
+{/* Toggle pour les clients "non réparable" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowNot(!showNot)}>
+    <Text style={styles.buttonText}>Non réparable</Text>
+    <MaterialIcons name={showNot ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showRecovered && (
+    <FlatList
+        data={clients.not}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : Récupéré</Text>
+            </View>
+        )}
+    />
+)}
         </View>
     );
 }
@@ -282,7 +452,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     picker: {
-        marginVertical: 10,
+        marginVertical: 2,
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 5,
@@ -293,26 +463,42 @@ const styles = StyleSheet.create({
         marginVertical: 10,
     },
     addButton: {
-        backgroundColor: '#4CAF50',
+        backgroundColor: '#78f898',
         paddingVertical: 12,
         borderRadius: 5,
         alignItems: 'center',
         marginVertical: 10,
+		elevation: 2,
     },
     buttonText: {
-        color: '#fff',
+        color: '#202020',
         fontSize: 16,
         fontWeight: 'bold',
     },
     toggleButton: {
         flexDirection: 'row',
-        backgroundColor: '#007BFF',
+        backgroundColor: '#f3f3f3',
         paddingVertical: 12,
+		borderWidth: 1,
         borderRadius: 5,
+		borderColor: '#000',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 5,
+		elevation: 5,
+    },
+	toggleButtonCreer:{
+        flexDirection: 'row',
+        backgroundColor: '#78f898',
+        paddingVertical: 12,
+		borderWidth: 1,
+        borderRadius: 5,
+		borderColor: '#000',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 15,
-    },
+		elevation: 5,
+	},
     clientItem: {
         padding: 15,
         borderBottomWidth: 1,
@@ -326,12 +512,34 @@ const styles = StyleSheet.create({
 	navigateButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#007BFF',
+		borderWidth: 1,
+        backgroundColor: '#1f3750',
         padding: 15,
         borderRadius: 5,
         marginBottom: 20,
+		borderColor: '#000',
     },
     icon: {
         marginRight: 10,
     },
+	pickerContainer: {
+        backgroundColor: "#f1efef",
+        borderRadius: 5,
+        padding: 5,
+        marginVertical: 10,
+
+        // Ombre pour iOS
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+
+        // Ombre pour Android
+        elevation: 2,
+    },
+	buttonTextGestion:{
+		color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+	}
 });

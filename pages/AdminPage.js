@@ -15,7 +15,7 @@ export default function AdminPage() {
     const [productTypes, setProductTypes] = useState([]);
     const [brands, setBrands] = useState([]);
     const [models, setModels] = useState([]);
-    const [clients, setClients] = useState([]);
+    /* const [clients, setClients] = useState([]); */
 	const [newProductType, setNewProductType] = useState(''); // Nouveau champ pour un type de produit
     const [newBrand, setNewBrand] = useState(''); // Nouveau champ pour une marque
     const [showAddFields, setShowAddFields] = useState(false);
@@ -25,7 +25,14 @@ export default function AdminPage() {
     const [showRecovered, setShowRecovered] = useState(false);
 	const [showEstimate, setShowEstimate] = useState(false);
 	const [showNot, setShowNot] = useState(false);
-
+	const [clients, setClients] = useState({
+		pending: [],
+		estimate: [],
+		not: [],
+		inProgress: [],
+		repaired: [],
+		recovered: [],
+	});
 
     useEffect(() => {
         loadProductTypes();
@@ -102,11 +109,6 @@ export default function AdminPage() {
 					client.interventions.some(intervention => intervention.status === "Récupéré")
 				);
 	
-				// Logs pour vérifier les données
-				console.log("Pending clients:", pendingClients);
-				console.log("In Progress clients:", inProgressClients);
-				console.log("Repaired clients:", repairedClients);
-				console.log("Recovered clients:", recoveredClients);
 	
 				// Affectez les clients filtrés dans l'état
 				setClients({ pending: pendingClients, estimate: estimateClient, not: notClients, inProgress: inProgressClients, repaired: repairedClients, recovered: recoveredClients });
@@ -309,6 +311,7 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : En attente de pièces</Text>
@@ -332,9 +335,10 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
-                <Text style={styles.clientText}>Statut : En attente de pièces</Text>
+                <Text style={styles.clientText}>Statut : Devis accepté</Text>
             </View>
         )}
     />
@@ -356,6 +360,7 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : Réparation en cours</Text>
@@ -380,6 +385,7 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : Réparé</Text>
@@ -404,6 +410,7 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : Récupéré</Text>
@@ -427,6 +434,7 @@ export default function AdminPage() {
                     { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
                 ]}
             >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : Récupéré</Text>
@@ -434,6 +442,25 @@ export default function AdminPage() {
         )}
     />
 )}
+<Text style={styles.sectionTitle}>Liste complète des clients</Text>
+<FlatList
+    data={[...clients.recovered]}
+    keyExtractor={(item) => item.id.toString()}
+    renderItem={({ item, index }) => (
+        <TouchableOpacity
+            onPress={() => navigation.navigate("ClientInterventionsPage", { clientId: item.id })}
+            style={[
+                styles.clientItem,
+                { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+            ]}
+        >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
+            <Text style={styles.clientText}>Nom : {item.name}</Text>
+            <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+        </TouchableOpacity>
+    )}
+/>
+
         </View>
     );
 }
@@ -481,7 +508,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
 		borderWidth: 1,
         borderRadius: 5,
-		borderColor: '#000',
+		borderColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 5,
@@ -501,10 +528,12 @@ const styles = StyleSheet.create({
 	},
     clientItem: {
         padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
+        borderColor: '#8398f7',
         backgroundColor: '#f9f9f9',
         marginVertical: 5,
+		borderRadius: 5,
+		borderWidth: 1,
+		elevation: 5,
     },
     clientText: {
         fontSize: 16,

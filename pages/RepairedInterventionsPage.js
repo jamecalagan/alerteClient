@@ -7,6 +7,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
 
 // Import de l'image depuis le dossier assets
 const backgroundImage = require('../assets/repared.jpg');
@@ -222,10 +223,13 @@ export default function RepairedInterventionsPage({ navigation }) {
                 <Text style={styles.interventionText}>Client : {item.clients.name}</Text>
                 <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
                 <Text style={styles.interventionText}>Marque: {item.brand}</Text>
+				<Text style={styles.interventionText}>Modèle: {item.model}</Text>
+				<Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text>
                 <Text style={styles.interventionText}>Référence: {item.reference}</Text>
                 <Text style={styles.interventionText}>Description du problème: {item.description}</Text>
                 <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
                 <Text style={styles.interventionText}>Coût: {item.cost} €</Text>
+				<Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
                 <Text style={styles.interventionText}>Statut: {item.status}</Text>
                 <Text style={styles.interventionText}>Commande: {item.commande}</Text>
                 <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
@@ -245,6 +249,12 @@ export default function RepairedInterventionsPage({ navigation }) {
                     style={styles.saveButton}
                     onPress={() => saveDetailIntervention(item.id)}
                   >
+				    <Icon
+                            name="save"
+                            size={20}
+                            color="#202020"
+                            style={styles.buttonIcon}
+                        />
                     <Text style={styles.buttonText}>Sauvegarder les détails</Text>
                   </TouchableOpacity>
 
@@ -256,6 +266,12 @@ export default function RepairedInterventionsPage({ navigation }) {
   onPress={() => handleRestitution(item)}  // Appel de la nouvelle fonction
   disabled={!isSaved[item.id] || (!editingDetail[item.id] && !item.detailIntervention)}
 >
+				    <Icon
+                            name="check-circle"
+                            size={20}
+                            color="#202020"
+                            style={styles.buttonIcon}
+                        />
   <Text style={styles.buttonText}>Restitution</Text>
 </TouchableOpacity>
 
@@ -269,6 +285,12 @@ export default function RepairedInterventionsPage({ navigation }) {
                       clientId: item.client_id
                     })}
                   >
+				  				    <Icon
+                            name="edit"
+                            size={20}
+                            color="#202020"
+                            style={styles.buttonIcon}
+                        />
                     <Text style={styles.buttonText}>Éditer la fiche</Text>
                   </TouchableOpacity>
                 </View>
@@ -360,7 +382,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     padding: 20,
   },
   title: {
@@ -373,7 +395,7 @@ const styles = StyleSheet.create({
   interventionCard: {
     padding: 15,
     marginBottom: 10,
-    backgroundColor: 'rgba(224, 243, 231, 0.9)',
+    backgroundColor: 'rgba(243, 243, 243, 0.9)',
     borderRadius: 10,
   },
   notificationAndToolsContainer: {
@@ -414,30 +436,41 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   saveButton: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 50,
-    flex: 1,
-    marginRight: 10,
+    backgroundColor: '#acf5bb',
+    padding: 5,
+	alignItems: 'center',
+    borderRadius: 5,
+    flexDirection: 'row',
+    marginRight: 5,
+	elevation: 5,
+	width: '33%', 
   },
-  restitutionButton: {
-    backgroundColor: '#28A745',
-    padding: 10,
-    borderRadius: 50,
-    flex: 1,
-  },
+    restitutionButton: {
+        flexDirection: 'row',        // Aligne l'icône et le texte horizontalement
+        alignItems: 'center',        // Centre l'icône et le texte verticalement
+        padding: 10,
+        backgroundColor: '#f0f0f0',  // Couleur d'arrière-plan de l'exemple
+        borderRadius: 5,
+		elevation: 5,
+		width: '33%', 
+    },
   editButton: {
-    backgroundColor: '#FFA500',
-    padding: 10,
-    borderRadius: 50,
-    flex: 1,
-    marginLeft: 10,
-  },
+	flexDirection: 'row',        // Aligne l'icône et le texte horizontalement
+	alignItems: 'center',        // Centre l'icône et le texte verticalement
+	padding: 10,
+	backgroundColor: '#f0f0f0',  // Couleur d'arrière-plan de l'exemple
+	borderRadius: 5,
+	width: '33%',
+	elevation: 5, 
+},
   buttonText: {
-    color: '#fff',
+    color: '#202020',
     textAlign: 'center',
     fontWeight: 'bold',
   },
+  buttonIcon: {
+	marginRight: 10, // Espace entre l'icône et le texte
+},
   imageContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -484,7 +517,7 @@ const styles = StyleSheet.create({
 },
 alertMessage: {
   fontSize: 16,
-  color: '#333',
+  color: '#333333',
   marginBottom: 10,
   textAlign: 'center',
 },

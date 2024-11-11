@@ -29,43 +29,65 @@ export default function AddClientPage({ navigation, route }) {
 
   const handleAddClient = async () => {
     if (!validateFields()) return;
-  
+
     try {
-      const { data: existingClient, error: checkError } = await supabase
-        .from('clients')
-        .select('ficheNumber')
-        .or(`name.eq.${name},phone.eq.${phone}`);
-  
-      if (checkError) throw checkError;
-  
-      if (existingClient && existingClient.length > 0) {
-        const ficheNumber = existingClient[0].ficheNumber;
-        setAlertTitle('Client déjà existant');
-        setAlertMessage(`Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`);
+        // Vérifier si le client existe déjà
+        const { data: existingClient, error: checkError } = await supabase
+            .from('clients')
+            .select('ficheNumber')
+            .or(`name.eq.${name},phone.eq.${phone}`);
+        
+        if (checkError) throw checkError;
+
+        if (existingClient && existingClient.length > 0) {
+            const ficheNumber = existingClient[0].ficheNumber;
+            setAlertTitle('Client déjà existant');
+            setAlertMessage(`Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`);
+            setAlertVisible(true);
+            return;
+        }
+
+        // Récupérer le numéro de fiche le plus élevé
+        const { data: maxFicheData, error: maxFicheError } = await supabase
+            .from('clients')
+            .select('ficheNumber')
+            .order('ficheNumber', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (maxFicheError) throw maxFicheError;
+
+        // Définir le nouveau numéro de fiche
+        const newFicheNumber = maxFicheData ? maxFicheData.ficheNumber + 1 : 6001;
+
+        // Insérer le nouveau client avec le nouveau numéro de fiche
+        const { data, error } = await supabase
+            .from('clients')
+            .insert([{ name, phone, email: email || null, ficheNumber: newFicheNumber, createdAt: new Date().toISOString(), interventions: [] }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        setAlertTitle('Succès');
+        setAlertMessage(`Client ajouté avec succès avec le numéro de fiche N° ${newFicheNumber}.`);
         setAlertVisible(true);
-        return;
-      }
-  
-      const { error } = await supabase
-        .from('clients')
-        .insert([{ name, phone, email: email || null, createdAt: new Date().toISOString(), interventions: [] }]);
-  
-      if (error) throw error;
-  
-      setAlertTitle('Succès');
-      setAlertMessage('Client ajouté avec succès.');
-      setAlertVisible(true);
-  
-      // Réinitialiser les champs après l'ajout du client
-      setName('');
-      setPhone('');
-      setEmail('');
-  
-      // Rediriger seulement après la fermeture de la modale
+
+        // Réinitialiser les champs après l'ajout du client
+        setName('');
+        setPhone('');
+        setEmail('');
+
+        // Naviguer vers AddInterventionPage avec l'ID du client
+        if (data) {
+            navigation.navigate("AddIntervention", { clientId: data.id });
+        }
+
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du client', error);
+        console.error('Erreur lors de l\'ajout du client', error);
     }
-  };
+};
+
   
   const handleCloseAlert = () => {
     // Fermer l'alerte et ensuite naviguer vers la page Home

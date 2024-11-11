@@ -35,8 +35,13 @@ export default function HomePage({ navigation, route }) {
     const [notifyModalVisible, setNotifyModalVisible] = useState(false); // Gérer la visibilité de la modal de notification
     const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
+    const [expandedClientId, setExpandedClientId] = useState(null);
 
-    const itemsPerPage = 3;
+    // Fonction pour basculer l'état d'expansion d'une fiche client
+    const toggleClientExpansion = (clientId) => {
+        setExpandedClientId((prevId) => (prevId === clientId ? null : clientId));
+    };
+    const itemsPerPage = 5;
 
     const updateClientNotification = async (selectedInterventionId, method) => {
         try {
@@ -99,57 +104,42 @@ export default function HomePage({ navigation, route }) {
             console.error("Erreur lors de la déconnexion :", error);
         }
     };
-    const loadClients = async () => {
-		setIsLoading(true); // Démarre le loader au début du chargement des clients
+	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+		setIsLoading(true);
 		try {
 			const { data, error } = await supabase
 				.from("clients")
-				.select(
-					"*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)"
-				);
+				.select("*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)");
 	
 			if (error) throw error;
 	
 			if (data) {
-				// Trouver le dernier client créé
-				const latestClient = data.reduce((latest, client) => {
-					return new Date(client.createdAt) > new Date(latest.createdAt) ? client : latest;
-				}, data[0]);
-	
-				// Filtrer les clients ayant des interventions en cours
+				// Filtrer et trier les clients selon les interventions en cours
 				const clientsWithOngoingInterventions = data
 					.filter((client) => 
 						client.interventions?.some(
 							(intervention) => 
-								intervention.status !== "Réparé" && 
+								intervention.status !== "Réparé" &&
 								intervention.status !== "Récupéré"
 						)
 					)
 					.map((client) => {
-						// Trier les interventions en cours par date décroissante
 						client.interventions = client.interventions
 							.filter((intervention) => 
-								intervention.status !== "Réparé" && 
+								intervention.status !== "Réparé" &&
 								intervention.status !== "Récupéré"
 							)
-							.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Tri décroissant
-	
-						// Définir la dernière intervention en cours (la plus récente)
+							.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 						client.latestIntervention = client.interventions[0];
 						return client;
 					});
 	
-				// Assurez-vous que le dernier client possède ses interventions complètes
-				if (latestClient.interventions?.length) {
-					// Trier les interventions du dernier client pour avoir la plus récente en premier
-					latestClient.interventions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-					latestClient.latestIntervention = latestClient.interventions[0];
-				} else {
-					latestClient.latestIntervention = null; // Aucun intervention en cours pour ce client
-				}
-	
-				// Combiner le dernier client et les clients avec interventions en cours
-				const sortedClients = [latestClient, ...clientsWithOngoingInterventions.filter(c => c.id !== latestClient.id)];
+				// Tri des clients en fonction de sortBy et de orderAsc
+				const sortedClients = clientsWithOngoingInterventions.sort((a, b) => {
+					const dateA = new Date(a[sortBy]);
+					const dateB = new Date(b[sortBy]);
+					return orderAsc ? dateA - dateB : dateB - dateA;
+				});
 	
 				setClients(sortedClients);
 				setFilteredClients(sortedClients);
@@ -157,19 +147,21 @@ export default function HomePage({ navigation, route }) {
 		} catch (error) {
 			console.error("Erreur lors du chargement des clients:", error);
 		} finally {
-			setIsLoading(false); // Arrête le loader
+			setIsLoading(false);
 		}
 	};
+	
+	
 	
     useEffect(() => {
         loadRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
 
-    // Charger les données lors du premier rendu
-    useEffect(() => {
-        setIsLoading(true); // Démarre le loader
-        loadClients();
-    }, []);
+		// Charger les données lors du premier rendu
+		useEffect(() => {
+			setIsLoading(true); // Démarre le loader
+			loadClients("createdAt", false); // Tri par date de création en ordre décroissant
+		}, []);
 
     // Pagination
     const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
@@ -214,7 +206,7 @@ export default function HomePage({ navigation, route }) {
     );
     useFocusEffect(
         React.useCallback(() => {
-            loadClients();
+            loadClients(sortBy, orderAsc);
         }, [sortBy, orderAsc])
     );
 
@@ -456,6 +448,12 @@ export default function HomePage({ navigation, route }) {
                                 }
                                 style={styles.repairedCountButton}
                             >
+							                    <Ionicons
+                        name="warning"
+                        size={24}   // Taille de l'icône
+                        color="yellow" // Couleur jaune pour l'avertissement
+                        style={styles.iconStyle} // Style optionnel
+                    />
                                 <Text style={styles.repairedCountText}>
                                     Produits réparés en attente de restitution :{" "}
                                     {repairedNotReturnedCount}
@@ -483,26 +481,34 @@ export default function HomePage({ navigation, route }) {
                     />
                 </View>
 
-                <View style={styles.sortButtonContainer}>
-                    <RoundedButton
-                        title={`Trier par ${
-                            sortBy === "createdAt"
-                                ? "date de modification"
-                                : "date de création"
-                        }`}
-                        onPress={() =>
-                            setSortBy(
-                                sortBy === "createdAt"
-                                    ? "updatedAt"
-                                    : "createdAt"
-                            )
-                        }
-                    />
-                    <RoundedButton
-                        title={`Ordre ${orderAsc ? "Ascendant" : "Descendant"}`}
-                        onPress={() => setOrderAsc(!orderAsc)}
-                    />
-                </View>
+				<View style={styles.buttonContainer}>
+            <View style={styles.buttonWrapper}>
+                <RoundedButton
+                    title={
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="calendar-outline" size={20} color="black" />
+                            <Text style={styles.buttonTextTrier}>
+                                Trier par {sortBy === "createdAt" ? "date de modification" : "date de création"}
+                            </Text>
+                        </View>
+                    }
+                    onPress={() => setSortBy(sortBy === "createdAt" ? "updatedAt" : "createdAt")}
+                />
+            </View>
+            <View style={styles.buttonWrapper}>
+                <RoundedButton
+                    title={
+                        <View style={styles.buttonContent}>
+                            <Ionicons name="funnel-outline" size={20} color="black" />
+                            <Text style={styles.buttonTextTrier}>
+                                Ordre {orderAsc ? "Ascendant" : "Descendant"}
+                            </Text>
+                        </View>
+                    }
+                    onPress={() => setOrderAsc(!orderAsc)}
+                />
+            </View>
+        </View>
                 {isLoading ? (
                     <View style={styles.loaderContainer}>
                         <ActivityIndicator size={90} color="#e5e8eb" />
@@ -513,530 +519,180 @@ export default function HomePage({ navigation, route }) {
                     </Text>
                 ) : (
                     <>
-                        <FlatList
-                            data={currentClients}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={({ item, index }) => {
-                                const isEven = index % 2 === 0; // Condition pour les éléments pairs
-                                const backgroundColor = isEven
-                                    ? "#f9f9f9"
-                                    : "#e0e0e0"; // Couleurs alternées
-                                const ongoingInterventions =
-                                    item.interventions?.filter(
-                                        (intervention) =>
-                                            intervention.status !== "Réparé" &&
-                                            intervention.status !== "Récupéré"
-                                    ) || [];
-                                const totalInterventionsEnCours =
-                                    ongoingInterventions.length;
-                                const noInterventions =
-                                    !item.interventions ||
-                                    item.interventions.length === 0;
-                                const allRepairedOrRecovered =
-                                    item.interventions.every(
-                                        (intervention) =>
-                                            intervention.status === "Réparé" ||
-                                            intervention.status === "Récupéré"
-                                    );
-                                const totalInterventions = item.interventions
-                                    ? item.interventions.length
-                                    : 0; // Compte le nombre total d'interventions
-                                const latestIntervention =
-                                    item.latestIntervention;
-                                const status = latestIntervention
-                                    ? latestIntervention.status
-                                    : "Aucun statut";
-                                const deviceType =
-                                    latestIntervention?.deviceType; // Récupère le type d'appareil
-                                const commande = latestIntervention?.commande; // Récupérer le nom de la commande
+					<FlatList
+    data={currentClients}
+    keyExtractor={(item) => item.id.toString()}
+    renderItem={({ item, index }) => {
+        const isEven = index % 2 === 0;
+        const backgroundColor = isEven ? "#f9f9f9" : "#e0e0e0";
+        const isExpanded = expandedClientId === item.id;
 
-                                // Calculer le nombre de photos pour la dernière intervention
-                                const totalImages =
-                                    latestIntervention?.photos?.length || 0;
-                                // *** Si le client n'a pas d'interventions en cours, afficher seulement les informations basiques ***
-                                if (!latestIntervention) {
-                                    return (
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.clientCard,
-                                                { backgroundColor },
-                                            ]} // Applique la couleur en fonction de l'index
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "AddIntervention",
-                                                    {
-                                                        clientId: item.id,
-                                                    }
-                                                )
-                                            } // Vous pouvez modifier la navigation ici si nécessaire
-                                        >
-                                            <View style={styles.clientInfo}>
-                                                <Text
-                                                    style={styles.ficheNumber}
-                                                >
-                                                    Numéro de client N°{" "}
-                                                    {item.ficheNumber}
-                                                </Text>
-                                                <Text style={styles.clientText}>
-                                                    Nom :{" "}
-                                                    {item.name.toUpperCase()}
-                                                </Text>
-                                                <View
-                                                    style={
-                                                        styles.phoneContainer
-                                                    }
-                                                >
-                                                    <Text
-                                                        style={
-                                                            styles.clientText
-                                                        }
-                                                    >
-                                                        Téléphone :{" "}
-                                                    </Text>
-                                                    <Text
-                                                        style={
-                                                            styles.phoneNumber
-                                                        }
-                                                    >
-                                                        {formatPhoneNumber(
-                                                            item.phone
-                                                        )}
-                                                    </Text>
-                                                </View>
-                                                <Text style={styles.clientText}>
-                                                    Date de création :{" "}
-                                                    {formatDateTime(
-                                                        item.createdAt
-                                                    )}
-                                                </Text>
-                                                {item.updatedAt && (
-                                                    <Text
-                                                        style={
-                                                            styles.clientText
-                                                        }
-                                                    >
-                                                        Dernière modification :{" "}
-                                                        {formatDateTime(
-                                                            item.updatedAt
-                                                        )}
-                                                    </Text>
-                                                )}
-                                                {/* Affichage du nombre total d'interventions passées, s'il y en a */}
-                                                {totalInterventions > 0 && (
-                                                    <Text
-                                                        style={
-                                                            styles.totalInterventionsText
-                                                        }
-                                                    >
-                                                        Interventions passées :{" "}
-                                                        {totalInterventions}
-                                                    </Text>
-                                                )}
-                                                <View
-                                                    style={styles.rightSection}
-                                                ></View>
-                                            </View>
-                                            <View
-                                                style={styles.topRightButtons}
-                                            >
-                                                <TouchableOpacity
-                                                    style={styles.trashButton}
-                                                    onPress={() =>
-                                                        confirmDeleteClient(
-                                                            item.id
-                                                        )
-                                                    }
-                                                >
-                                                    <Ionicons
-                                                        name="trash"
-                                                        size={20}
-                                                        color="#000"
-                                                    />
-                                                </TouchableOpacity>
-                                            </View>
-                                            <TouchableOpacity
-                                                style={
-                                                    styles.interventionContainerRight
-                                                } // Style pour encadrer l'icône et le nombre d'interventions
-                                                onPress={() =>
-                                                    navigation.navigate(
-                                                        "ClientInterventionsPage",
-                                                        {
-                                                            clientId: item.id,
-                                                        }
-                                                    )
-                                                }
-                                            >
-                                                <View
-                                                    style={
-                                                        styles.interventionBox
-                                                    }
-                                                >
-                                                    <FontAwesome5
-                                                        name="tools"
-                                                        size={20}
-                                                        color="#000"
-                                                    />
-                                                    <Text
-                                                        style={
-                                                            styles.interventionsCount
-                                                        }
-                                                    >
-                                                        {" "}
-                                                        {totalInterventions}
-                                                    </Text>
-                                                </View>
-                                            </TouchableOpacity>
-                                        </TouchableOpacity>
-                                    );
-                                }
-                                const getProgressStatus = (status) => {
-                                    switch (status) {
-                                        case "En attente de pièces":
-                                            return {
-                                                percentage: 25,
-                                                color: "#270381",
-                                            }; // Orange pour "En attente de pièces"
-                                        case "Devis accepté":
-                                            return {
-                                                percentage: 50,
-                                                color: "#FFD700",
-                                            }; // Jaune pour "Devis accepté"
-                                        case "Réparation en cours":
-                                            return {
-                                                percentage: 75,
-                                                color: "#1E90FF",
-                                            }; // Bleu pour "Réparation en cours"
-                                        case "Réparé":
-                                            return {
-                                                percentage: 100,
-                                                color: "#32CD32",
-                                            }; // Vert pour "Réparé"
-                                        case "Non réparable":
-                                            return {
-                                                percentage: 0,
-                                                color: "#ff0000",
-                                            }; // Rouge pour "Non réparable"
-                                        default:
-                                            return {
-                                                percentage: 0,
-                                                color: "#e0e0e0",
-                                            }; // Gris pour le statut par défaut
-                                    }
-                                };
+        const ongoingInterventions = item.interventions?.filter(
+            (intervention) => intervention.status !== "Réparé" && intervention.status !== "Récupéré"
+        ) || [];
+        const totalInterventionsEnCours = ongoingInterventions.length;
+        const totalInterventions = item.interventions ? item.interventions.length : 0;
+        const latestIntervention = item.latestIntervention;
+        const status = latestIntervention ? latestIntervention.status : "Aucun statut";
+        const totalImages = latestIntervention?.photos?.length || 0;
+        const commande = latestIntervention?.commande;
 
-                                // *** Si le client a une intervention en cours, afficher les informations complètes ***
-                                return (
-                                    <View
-                                        style={[
-                                            styles.clientCard,
-                                            getStatusStyle(status),
-                                        ]}
-                                    >
-                                        <TouchableOpacity
-                                            style={styles.clientInfo}
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "EditClient",
-                                                    { client: item }
-                                                )
-                                            }
-                                        >
-                                            <Text style={styles.ficheNumber}>
-                                                Numéro de client N°{" "}
-                                                {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name.toUpperCase()}
-                                            </Text>
-                                            <View style={styles.phoneContainer}>
-                                                <Text style={styles.clientText}>
-                                                    Téléphone :{" "}
-                                                </Text>
-                                                <Text
-                                                    style={styles.phoneNumber}
-                                                >
-                                                    {formatPhoneNumber(
-                                                        item.phone
-                                                    )}
-                                                </Text>
-                                            </View>
-                                            <Text style={styles.clientText}>
-                                                Date de création :{" "}
-                                                {formatDateTime(item.createdAt)}
-                                            </Text>
-                                            {item.updatedAt && (
-                                                <Text style={styles.clientText}>
-                                                    Dernière modification :{" "}
-                                                    {formatDateTime(
-                                                        item.updatedAt
-                                                    )}
-                                                </Text>
-                                            )}
-                                            <Text style={styles.statusText}>
-                                                Statut : {status}
-                                            </Text>
+        const getProgressStatus = (status) => {
+            switch (status) {
+                case "En attente de pièces":
+                    return { percentage: 25, color: "#270381" };
+                case "Devis accepté":
+                    return { percentage: 50, color: "#FFD700" };
+                case "Réparation en cours":
+                    return { percentage: 75, color: "#1E90FF" };
+                case "Réparé":
+                    return { percentage: 100, color: "#32CD32" };
+                case "Non réparable":
+                    return { percentage: 0, color: "#ff0000" };
+                default:
+                    return { percentage: 0, color: "#e0e0e0" };
+            }
+        };
 
-                                            {/* Barre de progression pour le statut actuel */}
-                                            <View
-                                                style={
-                                                    styles.progressBarContainer
-                                                }
-                                            >
-                                                <View
-                                                    style={[
-                                                        styles.progressBar,
-                                                        {
-                                                            width: `${
-                                                                getProgressStatus(
-                                                                    status
-                                                                ).percentage
-                                                            }%`,
-                                                            backgroundColor:
-                                                                getProgressStatus(
-                                                                    status
-                                                                ).color,
-                                                        },
-                                                    ]}
-                                                />
-                                            </View>
+        return (
+            // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
+            <View style={[styles.clientCard,getStatusStyle(status)]}>
+                {/* Informations de base du client */}
+                <TouchableOpacity onPress={() => toggleClientExpansion(item.id)} style={styles.clientInfo}>
+                    <Text style={styles.ficheNumber}>Numéro de client N° {item.ficheNumber}</Text>
+                    <Text style={styles.clientText}>Nom : {item.name.toUpperCase()}</Text>
+                    <View style={styles.phoneContainer}>
+                        <Text style={styles.clientText}>Téléphone : </Text>
+                        <Text style={styles.phoneNumber}>{formatPhoneNumber(item.phone)}</Text>
+                    </View>
+                    <Text style={styles.clientText}>Date de création : {formatDateTime(item.createdAt)}</Text>
+                    {item.updatedAt && (
+                        <Text style={styles.clientText}>Dernière modification : {formatDateTime(item.updatedAt)}</Text>
+                    )}
+                </TouchableOpacity>
 
-                                            {status ===
-                                                "En attente de pièces" &&
-                                                commande && (
-                                                    <Text
-                                                        style={
-                                                            styles.commandeText
-                                                        }
-                                                    >
-                                                        En commande : {commande}
-                                                    </Text>
-                                                )}
-                                            <Text style={styles.clientText}>
-                                                Montant :{" "}
-                                                {latestIntervention?.cost?.toLocaleString(
-                                                    "fr-FR",
-                                                    {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    }
-                                                )}{" "}
-                                                €
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nombre d'images : {totalImages}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Interventions en cours :{" "}
-                                                {totalInterventionsEnCours}
-                                            </Text>
-                                        </TouchableOpacity>
+                {/* Section des icônes principales à droite */}
+                <View style={styles.topRightButtons}>
+				<View style={{flexDirection:'row'}}>
+                    {/* Icône de commande avec contour, affichée à gauche de l'icône d'édition si applicable */}
+                    {status === "En attente de pièces" && commande && (
+                        <TouchableOpacity style={[styles.iconButton, styles.editButton]} onPress={() => {
+                            setSelectedCommande(commande);
+                            setTransportModalVisible(true);
+                        }}>
+                            <FontAwesome5 name="shipping-fast" size={20} color="#000000" />
+                        </TouchableOpacity>
+                    )}
 
-                                        {item.interventions &&
-                                            item.interventions.length > 0 && (
-                                                <View
-                                                    style={[
-                                                        styles.deviceIconContainer,
-                                                        {
-                                                            flexDirection:
-                                                                "row",
-                                                        },
-                                                    ]}
-                                                >
-                                                    {item.interventions
-                                                        .filter(
-                                                            (intervention) =>
-                                                                intervention.status !==
-                                                                    "Réparé" &&
-                                                                intervention.status !==
-                                                                    "Récupéré"
-                                                        ) // Filtrer uniquement les interventions en cours
-                                                        .map(
-                                                            (
-                                                                intervention,
-                                                                index
-                                                            ) => (
-                                                                <View
-                                                                    key={index}
-                                                                    style={{
-                                                                        marginLeft: 5,
-                                                                    }}
-                                                                >
-                                                                    {getDeviceIcon(
-                                                                        intervention.deviceType
-                                                                    )}
-                                                                </View>
-                                                            )
-                                                        )}
-                                                </View>
-                                            )}
-                                        <View style={styles.rightSection}>
-                                            <TouchableOpacity
-                                                style={
-                                                    styles.interventionContainer
-                                                } // Style pour encadrer l'icône et le nombre d'interventions
-                                                onPress={() =>
-                                                    navigation.navigate(
-                                                        "ClientInterventionsPage",
-                                                        {
-                                                            clientId: item.id,
-                                                        }
-                                                    )
-                                                }
-                                            >
-                                                <View
-                                                    style={
-                                                        styles.iconRowContainer
-                                                    }
-                                                >
-                                                    <TouchableOpacity
-                                                        style={
-                                                            styles.notificationIconContainer
-                                                        } // Ajoute un style similaire aux autres icônes
-                                                        onPress={() => {
-                                                            setSelectedInterventionId(
-                                                                latestIntervention.id
-                                                            ); // Capturer l'ID de l'intervention sélectionnée
-                                                            setNotifyModalVisible(
-                                                                true
-                                                            ); // Ouvrir la modal
-                                                        }}
-                                                    >
-                                                        {latestIntervention?.notifiedBy ===
-                                                        "SMS" ? (
-                                                            <Ionicons
-                                                                name="chatbubbles-outline"
-                                                                size={24}
-                                                                color="green" // Icône verte si le client a été averti par SMS
-                                                            />
-                                                        ) : latestIntervention?.notifiedBy ===
-                                                          "Téléphone" ? (
-                                                            <Ionicons
-                                                                name="call-outline"
-                                                                size={24}
-                                                                color="blue" // Icône bleue si le client a été averti par téléphone
-                                                            />
-                                                        ) : (
-                                                            <Ionicons
-                                                                name="notifications-off-outline"
-                                                                size={24}
-                                                                color="gray" // Icône grise si le client n'a pas encore été averti
-                                                            />
-                                                        )}
-                                                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconButton, styles.editButton]} onPress={() => navigation.navigate("EditClient", { client: item })}>
+                        <Ionicons name="create-outline" size={20} color="#000" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconButton, styles.printButton]} onPress={() => navigation.navigate("ClientPreviewPage", { clientId: item.id })}>
+                        <Ionicons name="print" size={20} color="#000000" />
+                    </TouchableOpacity>
+                    {totalImages > 0 && (
+                        <TouchableOpacity style={[styles.iconButton, styles.photoButton]} onPress={() => goToImageGallery(item.id)}>
+                            <FontAwesome5 name="image" size={20} color="#000000" />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={[styles.iconButton, styles.trashButton]} onPress={() => confirmDeleteClient(item.id)}>
+                        <Ionicons name="trash" size={20} color="#000" />
+                    </TouchableOpacity>
+					{/* Section additionnelle pour les icônes de notification et tools sous les icônes principales */}
+					</View>
+					<View style={styles.additionalIconsContainer}>
+						<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+							{/* Icône de notification pour SMS ou appel */}
+							<TouchableOpacity style={[styles.iconButton, styles.notificationIconContainer]} onPress={() => {
+								setSelectedInterventionId(latestIntervention.id);
+								setNotifyModalVisible(true);
+							}}>
+								{latestIntervention?.notifiedBy === "SMS" ? (
+									<Ionicons name="chatbubbles-outline" size={24} color="green" />
+								) : latestIntervention?.notifiedBy === "Téléphone" ? (
+									<Ionicons name="call-outline" size={24} color="blue" />
+								) : (
+									<Ionicons name="notifications-off-outline" size={24} color="gray" />
+								)}
+							</TouchableOpacity>
 
-                                                    <View
-                                                        style={
-                                                            styles.interventionBox
-                                                        }
-                                                    >
-                                                        <FontAwesome5
-                                                            name="tools"
-                                                            size={20}
-                                                            color="#000"
-                                                        />
-                                                        <Text
-                                                            style={
-                                                                styles.interventionsCount
-                                                            }
-                                                        >
-                                                            {" "}
-                                                            {totalInterventions}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                            </TouchableOpacity>
-                                        </View>
-                                        <View style={styles.topRightButtons}>
-                                            {status ===
-                                                "En attente de pièces" &&
-                                                commande && (
-                                                    <TouchableOpacity
-                                                        style={
-                                                            styles.transportButton
-                                                        }
-                                                        onPress={() => {
-                                                            setSelectedCommande(
-                                                                commande
-                                                            );
-                                                            setTransportModalVisible(
-                                                                true
-                                                            );
-                                                        }}
-                                                    >
-                                                        <FontAwesome5
-                                                            name="shipping-fast"
-                                                            size={20}
-                                                            color="#000000"
-                                                        />
-                                                    </TouchableOpacity>
-                                                )}
-                                            <TouchableOpacity
-                                                style={styles.editButton}
-                                                onPress={() =>
-                                                    navigation.navigate(
-                                                        "EditClient",
-                                                        { client: item }
-                                                    )
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name="create-outline"
-                                                    size={20}
-                                                    color="#000"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.printButton}
-                                                onPress={() =>
-                                                    navigation.navigate(
-                                                        "ClientPreviewPage",
-                                                        {
-                                                            clientId: item.id,
-                                                        }
-                                                    )
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name="print"
-                                                    size={20}
-                                                    color="#000000"
-                                                />
-                                            </TouchableOpacity>
-                                            {totalImages > 0 && (
-                                                <TouchableOpacity
-                                                    style={styles.photoButton}
-                                                    onPress={() =>
-                                                        goToImageGallery(
-                                                            item.id
-                                                        )
-                                                    }
-                                                >
-                                                    <FontAwesome5
-                                                        name="image"
-                                                        size={20}
-                                                        color="#000000"
-                                                    />
-                                                </TouchableOpacity>
-                                            )}
-                                            <TouchableOpacity
-                                                style={styles.trashButton}
-                                                onPress={() =>
-                                                    confirmDeleteClient(item.id)
-                                                }
-                                            >
-                                                <Ionicons
-                                                    name="trash"
-                                                    size={20}
-                                                    color="#000"
-                                                />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                );
-                            }}
-                            showsVerticalScrollIndicator={false}
-                        />
+							{/* Icône pour le nombre d'interventions avec contour, placée à droite de l'icône de notification */}
+							<TouchableOpacity 
+								style={[styles.iconButton, styles.interventionContainer]} 
+								onPress={() => navigation.navigate("ClientInterventionsPage", { clientId: item.id })}
+							>
+								<FontAwesome5 name="tools" size={20} color="#000" />
+								<Text style={styles.interventionsCount}> {totalInterventions}</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+                </View>
+
+                
+
+                {/* Détails supplémentaires visibles uniquement si la fiche est déployée */}
+                {isExpanded && (
+                    <View style={styles.expandedContent}>
+                        <Text style={styles.statusText}>Statut : {status}</Text>
+                        <View style={styles.progressBarContainer}>
+                            <View style={[styles.progressBar, {
+                                width: `${getProgressStatus(status).percentage}%`,
+                                backgroundColor: getProgressStatus(status).color,
+                            }]} />
+                        </View>
+                        {status === "En attente de pièces" && commande && (
+                            <Text style={styles.commandeText}>En commande : {commande}</Text>
+                        )}
+                        <Text style={styles.clientText}>
+                            Montant : {latestIntervention?.cost?.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €
+                        </Text>
+                        <Text style={styles.clientText}>Nombre d'images : {totalImages}</Text>
+                        <Text style={styles.clientText}>Interventions en cours : {totalInterventionsEnCours}</Text>
+						{item.interventions && item.interventions.length > 0 && (
+							<View
+								style={[
+									styles.deviceIconContainer,
+									{
+										flexDirection:
+											"row",
+									},
+								]}
+							>
+								{item.interventions
+									.filter(
+										(intervention) =>
+											intervention.status !==
+												"Réparé" &&
+											intervention.status !==
+												"Récupéré"
+									) // Filtrer uniquement les interventions en cours
+									.map(
+										(
+											intervention,
+											index
+										) => (
+											<View
+												key={index}
+												style={{
+													marginLeft: 5,
+												}}
+											>
+												{getDeviceIcon(
+													intervention.deviceType
+												)}
+											</View>
+										)
+									)}
+							</View>
+						)}
+                    </View>
+                )}
+            </View>
+        );
+    }}
+    showsVerticalScrollIndicator={false}
+/>
+
                         <View style={styles.paginationContainer}>
                             <TouchableOpacity
                                 onPress={goToPreviousPage}
@@ -1242,18 +898,20 @@ const styles = StyleSheet.create({
     },
     repairedCountContainer: {
         padding: 10,
-        backgroundColor: "#f8d7da",
-        borderRadius: 50,
+        backgroundColor: "#202020",
+        borderRadius: 5,
         marginTop: 10,
     },
     repairedCountButton: {
+		flexDirection: 'row', // Pour aligner l'icône et le texte horizontalement
         alignItems: "center", // Pour centrer le texte à l'intérieur du bouton
     },
     repairedCountText: {
-        color: "#721c24",
+        color: "#ffee04",
         fontWeight: "bold",
         textAlign: "center",
         fontSize: 16,
+		marginLeft: 8,
     },
     searchInput: {
         paddingRight: 50, // Ajoute un espace à droite pour l'icône
@@ -1300,15 +958,35 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     clientCard: {
-        padding: 15,
-        marginBottom: 10,
-        borderRadius: 15,
-        borderWidth: 2,
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        position: "relative",
+        borderWidth: 1,
+        borderColor: '#ddd',
+        padding: 10,
+        marginVertical: 5,
+		borderRadius:5,
+		backgroundColor:"#e0e0e0"
+    },
+    clientInfo: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    ficheNumber: {
+        fontWeight: 'bold',
+    },
+    clientText: {
+        fontSize: 16,
+    },
+    statusText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    interventionsCount: {
+        fontSize: 14,
+    },
+    expandedContent: {
+        paddingTop: 10,
+        backgroundColor: '#e0e0e0',
+        marginTop: 10,
+        width: '100%',
     },
     progressBarContainer: {
         height: 3,
@@ -1373,7 +1051,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 10,
         right: 10,
-        flexDirection: "row",
+		gap:10
     },
     photoButton: {
         padding: 10,
@@ -1501,6 +1179,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: "#fff",
         fontWeight: "bold",
+		
     },
     legendWrapper: {
         position: "absolute",
@@ -1529,9 +1208,16 @@ const styles = StyleSheet.create({
     legendText: {
         fontSize: 14,
         color: "#fff",
+		marginLeft: 3,
     },
     interventionContainer: {
-        marginTop: 10, // Espacement du haut
+		flexDirection: "row", // Aligne l'icône et le texte côte à côte
+        alignItems: "center", // Centre verticalement
+        padding: 10, // Padding pour l'icône
+        borderWidth: 2, // Bordure de 2px
+        borderRadius: 5, // Bords arrondis
+        borderColor: "#000", // Couleur de la bordure en noir
+        backgroundColor: "#fff", // Fond blanc
     },
     interventionContainerRight: {
         marginTop: 70, // Espacement du haut
@@ -1618,4 +1304,31 @@ const styles = StyleSheet.create({
     icon: {
         marginRight: 5,
     },
+	sortButtonContainer: {
+        flexDirection: 'row',          // Aligne les boutons côte à côte
+        justifyContent: 'space-between', // Espace entre les boutons
+        paddingHorizontal: 10,         // Espacement de chaque côté du conteneur
+    },
+    buttonWrapper: {
+        width: '48%',
+		paddingVertical: 20,                  // Chaque bouton occupe 45% de la largeur
+    },
+	repairedCountButton: {
+        flexDirection: 'row', // Pour aligner l'icône et le texte horizontalement
+        alignItems: 'center', // Pour centrer verticalement l'icône et le texte
+        // Autres styles selon vos besoins
+    },
+	buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+	buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+	buttonTextTrier: {
+		marginLeft: 8,
+		fontSize: 16, // Taille du texte du nombre d'interventions
+        color: "#202020",
+	}
 });

@@ -14,6 +14,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [serial_number, setSerial_number] = useState('');
   const [description, setDescription] = useState('');
   const [cost, setCost] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState("non_regle");
   const [status, setStatus] = useState('default');
   const [deviceType, setDeviceType] = useState('default');
   const [password, setPassword] = useState('');
@@ -211,7 +212,9 @@ const addModelIfNeeded = async (brandId, articleId) => {
 	}
 	return models.find((m) => m.id === model)?.id || null;
 };
-
+const handlePaymentStatusChange = (status) => {
+    setPaymentStatus(status);
+};
 
 
 const handleSaveIntervention = async () => {
@@ -250,6 +253,7 @@ const handleSaveIntervention = async () => {
 		marque_id: brandId,
 		modele_id: modelId,
 		remarks, // Ajoute les remarques ici
+		paymentStatus,
 	};
 
 	try {
@@ -386,6 +390,29 @@ const handleSaveIntervention = async () => {
     onChangeText={setCost}
     keyboardType="numeric"
   />
+<View style={styles.checkboxContainer}>
+    <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
+            {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Non réglé</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
+            {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Règlement partiel</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
+            {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Soldé</Text>
+    </TouchableOpacity>
+
+</View>
 
   <View style={[styles.rowFlexContainer, status === 'En attente de pièces' && { paddingHorizontal: 20 }]}>
     <View style={styles.fullwidthContainer}>
@@ -703,6 +730,44 @@ modalButtonText: {
 color: '#202020',
 fontSize: 16,
 fontWeight: 'bold',
-}
+},
+checkboxContainer: {
+	flexDirection: 'row',
+    marginVertical: 10,
+},
+checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+	marginRight: 10,
+	marginLeft: 40,
+},
+checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#444',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+},
+checkboxCheckedRed: {
+    backgroundColor: '#fc0707', // Couleur verte lorsque la case est cochée
+},
+checkboxCheckedGreen: {
+    backgroundColor: '#4CAF50', // Couleur verte lorsque la case est cochée
+},
+checkboxCheckedOrange: {
+    backgroundColor: '#e4a907', // Couleur verte lorsque la case est cochée
+},
+checkboxIndicator: {
+    width: 12,
+    height: 12,
+    backgroundColor: 'white', // Couleur de l'indicateur
+},
+checkboxLabel: {
+    fontSize: 16,
+},
   
 });

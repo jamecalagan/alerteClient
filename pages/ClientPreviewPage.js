@@ -79,6 +79,7 @@ export default function ClientPreviewPage() {
             body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; margin: 0; }
             .section-title { font-size: 18px; font-weight: bold; margin-top: 20px; color: #2C3E50; }
             .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
+			.info-recup { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: red; }
             .cost { font-size: 30px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
             .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
             .logo { width: 180px; }
@@ -95,7 +96,7 @@ export default function ClientPreviewPage() {
             <img src="https://www.avenir-informatique.fr/logo.webp" class="logo" alt="Logo de la société"/>
           </div>
           <div class="company-details">
-            <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy, Téléphone : 01 41 60 18 18</p>
+            <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy,<br> Téléphone : 01 41 60 18 18</p>
           </div>
           
           <div class="border-box">
@@ -144,6 +145,9 @@ export default function ClientPreviewPage() {
             </p>
             <p class="terms-text">
               Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
+            </p>
+			<p class="info-recup">
+              <strong>Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</strong>
             </p>
           </div>
   
@@ -256,6 +260,7 @@ export default function ClientPreviewPage() {
         <Text style={styles.termsText}>
           En signant ce document, vous acceptez les conditions ci-dessus.
         </Text>
+
       </View>
     </ScrollView>
   );

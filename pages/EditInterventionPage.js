@@ -25,6 +25,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const [customBrand, setCustomBrand] = useState("");
     const [description, setDescription] = useState("");
     const [cost, setCost] = useState("");
+	const [paymentStatus, setPaymentStatus] = useState("non_regle");
     const [status, setStatus] = useState("default");
     const [deviceType, setDeviceType] = useState("default");
     const [customDeviceType, setCustomDeviceType] = useState("");
@@ -54,7 +55,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, remarks")
+            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, remarks, paymentStatus ")
             .eq("id", interventionId)
             .single();
 
@@ -72,7 +73,9 @@ export default function EditInterventionPage({ route, navigation }) {
             setPassword(data.password);
             setPhotos(data.photos);
 			setCommande(data.commande || "");
-			setRemarks(data.remarques || ""); // Charge les remarques
+			setRemarks(data.remarks || ""); // Charge les remarques
+			setPaymentStatus(data.paymentStatus || "");
+			setChargeur(data.chargeur ? "Oui" : "Non");
 
             if (data.article_id) loadBrands(data.article_id);
             if (data.marque_id) loadModels(data.marque_id);
@@ -218,6 +221,11 @@ export default function EditInterventionPage({ route, navigation }) {
             serial_number,
             photos,
 			commande,
+			remarks,
+			paymentStatus,
+			chargeur: chargeur === "Oui",
+			label_photo: labelPhoto,
+			updatedAt: new Date().toISOString() // Ajout de la date et heure actuelles
         };
 
         try {
@@ -397,6 +405,30 @@ export default function EditInterventionPage({ route, navigation }) {
                     value={cost ? cost.toString() : ""} // Convertir en string pour affichage
                     keyboardType="numeric"
                 />
+<View style={styles.checkboxContainer}>
+    <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
+            {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Non réglé</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
+            {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Règlement partiel</Text>
+    </TouchableOpacity>
+
+
+    <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
+        <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
+            {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
+        </View>
+        <Text style={styles.checkboxLabel}>Soldé</Text>
+    </TouchableOpacity>
+
+</View>
 
                 <View
                     style={[
@@ -763,4 +795,43 @@ const styles = StyleSheet.create({
         width: "90%",
         alignSelf: "center",
     },
+checkboxContainer: {
+	flexDirection: 'row',
+    marginVertical: 10,
+},
+checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+	marginRight: 10,
+	marginLeft: 40,
+},
+checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#444',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+},
+checkboxCheckedRed: {
+    backgroundColor: '#fc0707', // Couleur verte lorsque la case est cochée
+},
+checkboxCheckedGreen: {
+    backgroundColor: '#4CAF50', // Couleur verte lorsque la case est cochée
+},
+checkboxCheckedOrange: {
+    backgroundColor: '#e4a907', // Couleur verte lorsque la case est cochée
+},
+checkboxIndicator: {
+    width: 12,
+    height: 12,
+    backgroundColor: 'white', // Couleur de l'indicateur
+},
+checkboxLabel: {
+    fontSize: 16,
+},
+
 });

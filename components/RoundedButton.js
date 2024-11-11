@@ -11,16 +11,17 @@ export default function RoundedButton({ title, onPress, style }) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#707070', // Couleur gris foncé pour le bouton
+    backgroundColor: '#ecebeb', // Couleur gris foncé pour le bouton
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 5,
     borderRadius: 5, // Bord arrondi
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonText: {
-    color: '#fff', // Couleur du texte blanc pour contraste
+    color: '#000000', // Couleur du texte blanc pour contraste
     fontSize: 16,
     fontWeight: 'bold',
+	elevation: 10,
   },
 });

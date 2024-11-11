@@ -138,7 +138,7 @@ export default function SignaturePage({ route, navigation }) {
         onChangeText={setReceiverName}
       />
 	   <Text style={styles.fixedText}>
-        Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+        Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || '________________________'} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
         AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
 
 Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
@@ -152,6 +152,8 @@ En cas de perte de données lors d’une prestation et/ou d’une manipulation, 
 Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
 
 En signant ce document, vous acceptez les conditions ci-dessus.
+
+
       </Text>
 
       <View

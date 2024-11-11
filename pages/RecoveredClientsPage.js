@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   searchBar: {
     backgroundColor: '#fff',
     padding: 10,
-    borderRadius: 20,
+    borderRadius: 5,
     marginBottom: 20,
     fontSize: 16,
     color: '#000',
@@ -206,9 +206,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     padding: 10,
-    backgroundColor: '#a8a8a8',
+    backgroundColor: '#f7f7f7',
 	borderWidth: 1,
+	borderColor: '#929090',
     borderRadius: 5,
+	elevation: 5,
   },
   toggleButtonText: {
     color: '#202020',

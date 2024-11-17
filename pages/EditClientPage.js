@@ -39,7 +39,6 @@ export default function EditClientPage({ route, navigation }) {
       .from('clients')
       .select('*, interventions(*)')  // Sélectionne également les interventions liées
       .eq('id', client.id);
-
     if (error) {
       showAlert('Erreur', 'Erreur lors du chargement du client');
       return;
@@ -176,12 +175,13 @@ export default function EditClientPage({ route, navigation }) {
 		<p class="bold">Téléphone :</p>
 		<p>${formattedPhone}</p>
 		</div>
-        <div class="label-section">
-          <p class="bold">Mot de passe :</p>
-          <p>${interventions.password}</p>
-        </div>
+
         ${interventions.length > 0
           ? interventions.map((intervention) => `
+		          <div class="label-section">
+          <p class="bold">Mot de passe :</p>
+          <p>${intervention.password}</p>
+        </div>
             <div class="label-section">
               <p class="bold">Marque :</p>
               <p>${intervention.brand}</p>
@@ -265,6 +265,7 @@ export default function EditClientPage({ route, navigation }) {
 			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
+			  <Text style={styles.interventionText}>Mdp: {item.password}</Text>
 
               <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
               <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>

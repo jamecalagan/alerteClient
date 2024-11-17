@@ -28,6 +28,7 @@ export default function HomePage({ navigation, route }) {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState(null);
     const [alertVisible, setAlertVisible] = useState(false);
+	const [cleanupModalVisible, setCleanupModalVisible] = useState(false);
     const [transportModalVisible, setTransportModalVisible] = useState(false);
     const [selectedCommande, setSelectedCommande] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -36,13 +37,139 @@ export default function HomePage({ navigation, route }) {
     const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
     const [expandedClientId, setExpandedClientId] = useState(null);
+	const [selectedIntervention, setSelectedIntervention] = useState(null);
+	const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
+const [modalData, setModalData] = useState({ title: "", message: "", onConfirm: null });
+// Ajoutez d'autres états de modale si nécessaire
+const closeAllModals = () => {
+    setAlertVisible(false);
+    setNotifyModalVisible(false);
+    setTransportModalVisible(false);
+};
+
+
+const [alertTitle, setAlertTitle] = useState(""); // Titre de l'alerte
+const [alertMessage, setAlertMessage] = useState(""); // Message de l'alerte
+const openModal = (type, title, message, onConfirm = null) => {
+    setActiveModal(type);
+    setModalData({ title, message, onConfirm });
+};
+const closeModal = () => {
+    setActiveModal(null);
+};
 
     // Fonction pour basculer l'état d'expansion d'une fiche client
     const toggleClientExpansion = (clientId) => {
         setExpandedClientId((prevId) => (prevId === clientId ? null : clientId));
     };
     const itemsPerPage = 5;
+	useEffect(() => {
+		checkForExpiredInterventions();
+	}, []);
+	const triggerPhotoCleanupAlert = async (intervention) => {
+		try {
+			// Fermez toutes les autres modales si nécessaire
+			closeAllModals();
+	        const { photos, label_photo } = intervention;
 
+        // Vérifiez si les photos restantes incluent uniquement l'étiquette
+        const nonLabelPhotos = photos.filter((photo) => photo !== label_photo);
+
+        if (!photos || photos.length === 0 || nonLabelPhotos.length === 0) {
+            console.log(`Aucune photo à nettoyer pour l'intervention ${intervention.id}.`);
+            return; // Ne pas afficher la modale si seules les photos d'étiquette restent
+        }
+			// Récupérez les informations du client à partir de l'intervention
+			const { data: clientData, error } = await supabase
+				.from("clients")
+				.select("name, ficheNumber")
+				.eq("id", intervention.client_id)
+				.single();
+	
+			if (error) {
+				console.error("Erreur lors de la récupération des informations du client :", error);
+				setAlertTitle("Erreur");
+				setAlertMessage("Impossible de récupérer les informations du client.");
+			} else {
+				// Construisez le message avec les informations du client
+				const clientName = clientData.name || "Nom inconnu";
+				const clientNumber = clientData.ficheNumber || "Numéro inconnu";
+	
+				setAlertTitle("Nettoyage des photos");
+				setAlertMessage(
+					`Le client ${clientName} (N°${clientNumber}) a dépassé le délai de 10 jours. Voulez-vous supprimer les photos inutiles ?`
+				);
+			}
+	
+			setSelectedIntervention(intervention); // Stockez l'intervention sélectionnée
+			setCleanupModalVisible(true); // Ouvrez la modale
+		} catch (err) {
+			console.error("Erreur lors du déclenchement de l'alerte :", err);
+			setAlertTitle("Erreur");
+			setAlertMessage("Une erreur est survenue lors du déclenchement de l'alerte.");
+			setCleanupModalVisible(true); // Ouvrez la modale avec un message d'erreur
+		}
+	};
+	
+	
+	
+	
+	const handlePhotoCleanup = async () => {
+		if (!selectedIntervention) {
+			console.error("Aucune intervention sélectionnée.");
+			return;
+		}
+	
+		try {
+			const { id, photos, label_photo } = selectedIntervention;
+			const updatedPhotos = photos.filter(photo => photo === label_photo);
+	
+			const { error } = await supabase
+				.from("interventions")
+				.update({ photos: updatedPhotos })
+				.eq("id", id);
+	
+			if (error) throw error;
+	
+			setCleanupModalVisible(false); // Ferme la modale
+			console.log(`Photos inutiles supprimées pour l'intervention ${id}.`);
+		} catch (error) {
+			console.error("Erreur lors du nettoyage des photos :", error);
+		}
+	};
+	
+	
+	
+	
+	const checkForExpiredInterventions = async () => {
+		const now = new Date();
+	
+		const { data: interventions, error } = await supabase
+			.from("interventions")
+			.select("*");
+	
+		if (error) {
+			console.error("Erreur lors du chargement des interventions :", error);
+			return;
+		}
+	
+		interventions.forEach((intervention) => {
+			const updatedAt = new Date(intervention.updatedAt);
+			const diffInDays = (now - updatedAt) / (1000 * 60 * 60 * 24); // Calcul en jours
+	        // Exclure les interventions où seules les photos d'étiquette restent
+			const { photos, label_photo } = intervention;
+			        // Vérifiez que l'intervention est marquée comme récupérée
+					if (status !== "Récupéré") {
+						return; // Passer si le statut n'est pas "Récupéré"
+					}
+			const nonLabelPhotos = photos.filter((photo) => photo !== label_photo);
+			if (diffInDays > 10) { // Vérifie si le délai dépasse 10 jours
+				triggerPhotoCleanupAlert(intervention);
+			}
+		});
+	};
+	
+	
     const updateClientNotification = async (selectedInterventionId, method) => {
         try {
             const { error } = await supabase
@@ -92,30 +219,44 @@ export default function HomePage({ navigation, route }) {
         navigation.navigate("ImageGallery", { clientId });
     };
 
-    const handleLogout = async () => {
-        try {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error("Erreur lors de la déconnexion :", error);
-                return;
-            }
-            navigation.replace("Login");
-        } catch (error) {
-            console.error("Erreur lors de la déconnexion :", error);
-        }
-    };
+
 	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
 		setIsLoading(true);
 		try {
 			const { data, error } = await supabase
 				.from("clients")
-				.select("*, interventions(id, status, deviceType, cost, createdAt, updatedAt, commande, photos, notifiedBy)");
+				.select(`
+					*, 
+					updatedAt, 
+					interventions(
+						id, 
+						status, 
+						deviceType, 
+						cost, 
+						createdAt, 
+						updatedAt, 
+						commande, 
+						photos, 
+						notifiedBy
+					)
+				`)
+				.order(sortBy, { ascending: orderAsc });
 	
 			if (error) throw error;
 	
 			if (data) {
+				// Renommer les champs updatedAt pour les clients et les interventions
+				const updatedData = data.map(client => ({
+					...client,
+					clientUpdatedAt: client.updatedAt, // Renommage manuel pour le champ client
+					interventions: client.interventions.map(intervention => ({
+						...intervention,
+						interventionUpdatedAt: intervention.updatedAt // Renommage manuel pour chaque intervention
+					}))
+				}));
+	
 				// Filtrer et trier les clients selon les interventions en cours
-				const clientsWithOngoingInterventions = data
+				const clientsWithOngoingInterventions = updatedData
 					.filter((client) => 
 						client.interventions?.some(
 							(intervention) => 
@@ -150,6 +291,8 @@ export default function HomePage({ navigation, route }) {
 			setIsLoading(false);
 		}
 	};
+	
+	
 	
 	
 	
@@ -209,7 +352,13 @@ export default function HomePage({ navigation, route }) {
             loadClients(sortBy, orderAsc);
         }, [sortBy, orderAsc])
     );
-
+	const openNotifyModal = () => {
+		setAlertVisible(false); // Ferme la modale de nettoyage
+		setTransportModalVisible(false);
+		setModalVisible(false);
+		setNotifyModalVisible(true); // Affiche la modale de notification
+	};
+	
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
         setModalVisible(true);
@@ -328,8 +477,8 @@ export default function HomePage({ navigation, route }) {
                 return { borderColor: "#528fe0", borderWidth: 2 };
             case "Réparé":
                 return { borderColor: "#98fb98", borderWidth: 2 };
-            case "Non réparable":
-                return { borderColor: "#e9967a", borderWidth: 2 };
+            case "Devis en cours":
+                return { borderColor: "#f37209", borderWidth: 2 };
             default:
                 return { borderColor: "#e0e0e0", borderWidth: 2 };
         }
@@ -405,17 +554,17 @@ export default function HomePage({ navigation, route }) {
             </TouchableOpacity>
 
       {/* Bouton pour naviguer vers la page RepairedInterventionPage */}
-      <TouchableOpacity onPress={() => navigation.navigate("RepairedInterventionsPage")}>
+      <TouchableOpacity onPress={() => navigation.navigate("RepairedInterventions")}>
         <View style={styles.legendItem}>
           <Ionicons name="checkmark-circle" size={24} color="#98fb98" />
           <Text style={styles.legendText}>Réparé</Text>
         </View>
       </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => filterByStatus("Non réparable")}>
+            <TouchableOpacity onPress={() => filterByStatus("Devis en cours")}>
                 <View style={styles.legendItem}>
-                    <Ionicons name="close-circle" size={24} color="#e9967a" />
-                    <Text style={styles.legendText}>Non réparable</Text>
+                    <Ionicons name="document-text-outline" size={24} color="#f37209" />
+                    <Text style={styles.legendText}>devis en cours</Text>
                 </View>
             </TouchableOpacity>
             {/* Bouton Reset */}
@@ -547,8 +696,8 @@ export default function HomePage({ navigation, route }) {
                     return { percentage: 75, color: "#1E90FF" };
                 case "Réparé":
                     return { percentage: 100, color: "#32CD32" };
-                case "Non réparable":
-                    return { percentage: 0, color: "#ff0000" };
+                case "Devis en cours":
+                    return { percentage: 0, color: "#f37209" };
                 default:
                     return { percentage: 0, color: "#e0e0e0" };
             }
@@ -569,6 +718,11 @@ export default function HomePage({ navigation, route }) {
                     {item.updatedAt && (
                         <Text style={styles.clientText}>Dernière modification : {formatDateTime(item.updatedAt)}</Text>
                     )}
+					{item.interventions?.[0]?.interventionUpdatedAt && (
+    <Text style={styles.clientText}>
+        Intervention mise à jour le : {formatDateTime(item.interventions[0].interventionUpdatedAt)}
+    </Text>
+)}
                 </TouchableOpacity>
 
                 {/* Section des icônes principales à droite */}
@@ -877,7 +1031,42 @@ export default function HomePage({ navigation, route }) {
                         </View>
                     </View>
                 </Modal>
-				
+				{cleanupModalVisible && (
+					<Modal
+    transparent={true}
+    visible={cleanupModalVisible}
+    animationType="fade"
+    onRequestClose={() => setCleanupModalVisible(false)}
+>
+    <View style={styles.modalOverlay}>
+        <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>{alertTitle}</Text>
+            <Text style={styles.alertMessage}>{alertMessage}</Text>
+            <View style={styles.modalButtons}>
+                <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={handlePhotoCleanup}
+                >
+                    <Text style={styles.modalButtonText}>Nettoyer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={() => setCleanupModalVisible(false)}
+                >
+                    <Text style={styles.modalButtonText}>Annuler</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    </View>
+</Modal>
+
+)}
+
+
+
+
+
+
             </View>
 			<View style={styles.legendWrapper}>
         <Legend />
@@ -1330,5 +1519,22 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 		fontSize: 16, // Taille du texte du nombre d'interventions
         color: "#202020",
-	}
+	},
+	modalButtons: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        width: "100%",
+    },
+    modalButton: {
+        backgroundColor: "#ddd",
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 5,
+        marginHorizontal: 10,
+        alignItems: "center",
+    },
+    modalButtonText: {
+        color: "#000",
+        fontWeight: "bold",
+    },
 });

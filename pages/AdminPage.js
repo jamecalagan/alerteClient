@@ -20,6 +20,7 @@ export default function AdminPage() {
     const [newBrand, setNewBrand] = useState(''); // Nouveau champ pour une marque
     const [showAddFields, setShowAddFields] = useState(false);
 	const [showPending, setShowPending] = useState(false);
+	const [showOnAir, setShowOnAir] = useState(false);
     const [showInProgress, setShowInProgress] = useState(false);
     const [showRepaired, setShowRepaired] = useState(false);
     const [showRecovered, setShowRecovered] = useState(false);
@@ -27,6 +28,7 @@ export default function AdminPage() {
 	const [showNot, setShowNot] = useState(false);
 	const [clients, setClients] = useState({
 		pending: [],
+		onAir: [],
 		estimate: [],
 		not: [],
 		inProgress: [],
@@ -96,6 +98,9 @@ export default function AdminPage() {
 				const notClients = data.filter(client => 
 					client.interventions.some(intervention => intervention.status === "Non réparable")
 				);
+				const onAirClient = data.filter(client => 
+					client.interventions.some(intervention => intervention.status === "Devis en cours")
+				);
 				const estimateClient = data.filter(client => 
 					client.interventions.some(intervention => intervention.status === "Devis accepté")
 				);
@@ -111,7 +116,7 @@ export default function AdminPage() {
 	
 	
 				// Affectez les clients filtrés dans l'état
-				setClients({ pending: pendingClients, estimate: estimateClient, not: notClients, inProgress: inProgressClients, repaired: repairedClients, recovered: recoveredClients });
+				setClients({ pending: pendingClients, onAir: onAirClient, estimate: estimateClient, not: notClients, inProgress: inProgressClients, repaired: repairedClients, recovered: recoveredClients });
 			}
 		} catch (error) {
 			console.error("Erreur lors du chargement des clients:", error);
@@ -315,6 +320,30 @@ export default function AdminPage() {
                 <Text style={styles.clientText}>Nom : {item.name}</Text>
                 <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
                 <Text style={styles.clientText}>Statut : En attente de pièces</Text>
+            </View>
+        )}
+    />
+)}
+{/* Toggle pour les clients "devis accepter" */}
+<TouchableOpacity style={styles.toggleButton} onPress={() => setShowOnAir(!showOnAir)}>
+    <Text style={styles.buttonText}>Devis en cours</Text>
+    <MaterialIcons name={showOnAir ? "expand-less" : "expand-more"} size={24} color="#202020" />
+</TouchableOpacity>
+{showOnAir && (
+    <FlatList
+        data={clients.onAir}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item, index }) => (
+            <View
+                style={[
+                    styles.clientItem,
+                    { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                ]}
+            >
+			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
+                <Text style={styles.clientText}>Nom : {item.name}</Text>
+                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+                <Text style={styles.clientText}>Statut : Devis en cours</Text>
             </View>
         )}
     />

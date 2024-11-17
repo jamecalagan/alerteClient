@@ -1,5 +1,6 @@
 {
   "expo": {
+	"newArchEnabled": true,
     "name": "AlerteClient",
     "slug": "AlerteClient",
     "version": "1.0.0",

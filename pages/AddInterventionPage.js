@@ -218,55 +218,65 @@ const handlePaymentStatusChange = (status) => {
 
 
 const handleSaveIntervention = async () => {
-	if (!reference || !brand || !model || !description || !cost || deviceType === 'default' || status === 'default') {
-		Alert.alert('Erreur', 'Tous les champs doivent être remplis et une option doit être sélectionnée.');
-		return;
-	}
+    if (!reference || !brand || !model || !description || deviceType === 'default' || status === 'default') {
+        Alert.alert('Erreur', 'Tous les champs doivent être remplis et une option doit être sélectionnée.');
+        return;
+    }
+
+    // Vérifie le coût sauf si le statut est "Devis en cours"
+    if (status !== 'Devis en cours' && !cost) {
+        Alert.alert('Erreur', 'Veuillez indiquer le coût de la réparation.');
+        return;
+    }
 
     if (!labelPhoto) {
         setAlertTitle('Erreur');
-        setAlertMessage('Veuillez prendre une photo d\'étiquette.');
+        setAlertMessage("Veuillez prendre une photo d'étiquette.");
         setAlertVisible(true);
         return;
     }
 
-	const articleId = await addArticleIfNeeded();
-	const brandId = await addBrandIfNeeded(articleId);
-	const modelId = await addModelIfNeeded(brandId, articleId);
+    // Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
+    const costValue = cost ? parseFloat(cost) : null;
 
-	const interventionData = {
-		reference,
-		brand: customBrand || brands.find((b) => b.id === brand)?.nom,
-		model: customModel || models.find((m) => m.id === model)?.nom,
-		serial_number,
-		description,
-		cost,
-		status,
-		deviceType: customDeviceType || deviceType,
-		password,
-		commande,
-		chargeur: chargeur === 'Oui',
-		client_id: clientId,
-		photos: photos.length > 0 ? photos : [],
-		label_photo: labelPhoto,
-		article_id: articleId,
-		marque_id: brandId,
-		modele_id: modelId,
-		remarks, // Ajoute les remarques ici
-		paymentStatus,
-	};
+    const articleId = await addArticleIfNeeded();
+    const brandId = await addBrandIfNeeded(articleId);
+    const modelId = await addModelIfNeeded(brandId, articleId);
 
-	try {
-		const { error } = await supabase.from('interventions').insert(interventionData);
-		if (error) throw error;
+    const interventionData = {
+        reference,
+        brand: customBrand || brands.find((b) => b.id === brand)?.nom,
+        model: customModel || models.find((m) => m.id === model)?.nom,
+        serial_number,
+        description,
+        cost: costValue, // Utiliser `costValue` ici
+        status,
+        deviceType: customDeviceType || deviceType,
+        password,
+        commande,
+        chargeur: chargeur === 'Oui',
+        client_id: clientId,
+        photos: photos.length > 0 ? photos : [],
+        label_photo: labelPhoto,
+        article_id: articleId,
+        marque_id: brandId,
+        modele_id: modelId,
+        remarks, // Ajoute les remarques ici
+        paymentStatus,
+    };
 
-		Alert.alert('Succès', 'Intervention ajoutée avec succès.');
-		navigation.goBack();
-	} catch (error) {
-		Alert.alert('Erreur', "Erreur lors de l'ajout de l'intervention.");
-		console.error("Erreur lors de l'ajout de l'intervention :", error);
-	}
+    try {
+        const { error } = await supabase.from('interventions').insert(interventionData);
+        if (error) throw error;
+
+        Alert.alert('Succès', 'Intervention ajoutée avec succès.');
+        navigation.goBack();
+    } catch (error) {
+        Alert.alert('Erreur', "Erreur lors de l'ajout de l'intervention.");
+        console.error("Erreur lors de l'ajout de l'intervention :", error);
+    }
 };
+
   
 
   const closeAlert = () => {
@@ -383,13 +393,16 @@ const handleSaveIntervention = async () => {
     onChangeText={setPassword}
   />
 
-  <Text style={styles.label}>Coût de la réparation (€)</Text>
-  <TextInput
+<Text style={styles.label}>Coût de la réparation (€)</Text>
+<TextInput
     style={styles.input}
     value={cost ? cost.toString() : ''}
     onChangeText={setCost}
     keyboardType="numeric"
-  />
+    editable={status !== 'Devis en cours'} // Désactiver si "Devis en cours" est sélectionné
+    placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
+/>
+
 <View style={styles.checkboxContainer}>
     <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
         <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
@@ -417,18 +430,25 @@ const handleSaveIntervention = async () => {
   <View style={[styles.rowFlexContainer, status === 'En attente de pièces' && { paddingHorizontal: 20 }]}>
     <View style={styles.fullwidthContainer}>
       <Text style={styles.label}>Statut</Text>
-      <Picker
-        selectedValue={status}
-        style={styles.input}
-        onValueChange={(itemValue) => setStatus(itemValue)}
-      >
-        <Picker.Item label="Sélectionnez un statut..." value="default" />
-        <Picker.Item label="En attente de pièces" value="En attente de pièces" />
-        <Picker.Item label="Devis accepté" value="Devis accepté" />
-        <Picker.Item label="Réparation en cours" value="Réparation en cours" />
-        <Picker.Item label="Réparé" value="Réparé" />
-        <Picker.Item label="Non réparable" value="Non réparable" />
-      </Picker>
+	  <Picker
+    selectedValue={status}
+    style={styles.input}
+    onValueChange={(itemValue) => {
+        setStatus(itemValue);
+        if (itemValue === 'Devis en cours') {
+            setCost(''); // Efface le coût si "Devis en cours" est sélectionné
+        }
+    }}
+>
+    <Picker.Item label="Sélectionnez un statut..." value="default" />
+    <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+    <Picker.Item label="Devis en cours" value="Devis en cours" />
+    <Picker.Item label="Devis accepté" value="Devis accepté" />
+    <Picker.Item label="Réparation en cours" value="Réparation en cours" />
+    <Picker.Item label="Réparé" value="Réparé" />
+    <Picker.Item label="Non réparable" value="Non réparable" />
+</Picker>
+
     </View>
     {status === 'En attente de pièces' && (
       <View style={styles.halfWidthContainer}>

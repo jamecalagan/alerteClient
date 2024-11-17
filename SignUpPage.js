@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Alert, Text, TouchableOpacity } from 'react-native';
+import { View, TextInput, StyleSheet, Alert, Text, TouchableOpacity, ImageBackground, Image } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons'; // Import des icônes
 import { supabase } from './supabaseClient';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+const backgroundImage = require('./assets/inscriptions.jpg');
 
 export default function SignUpPage({ navigation }) {
   const [email, setEmail] = useState('');
@@ -24,7 +25,7 @@ export default function SignUpPage({ navigation }) {
         Alert.alert('Erreur', error.message);
       } else {
         Alert.alert('Succès', 'Inscription réussie ! Un email de confirmation vous a été envoyé.');
-        navigation.navigate('Login');  // Rediriger vers la page de connexion après inscription
+        navigation.navigate('Login'); // Rediriger vers la page de connexion après inscription
       }
     } catch (error) {
       console.error('Erreur lors de l\'inscription :', error);
@@ -32,66 +33,86 @@ export default function SignUpPage({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Créer un compte</Text>
-      
-      {/* Champ pour l'email */}
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      
-      {/* Champ pour le mot de passe avec l'icône eye */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.passwordInput}  // Nouveau style pour le champ mot de passe
-          placeholder="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!passwordVisible}  // Afficher ou masquer le mot de passe
-        />
-        <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
-          <Ionicons name={passwordVisible ? 'eye-off' : 'eye'} size={24} color="gray" />
-        </TouchableOpacity>
+    <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
+      <View style={styles.overlay}>
+        {/* Affichage du logo */}
+        <Image source={require('./assets/logo_phone.png')} style={styles.logo} />
+        <Text style={styles.title}>Créer un compte</Text>
+
+        {/* Champ Email avec icône */}
+        <View style={styles.inputContainer}>
+          <Icon name="mail-outline" size={20} color="#888" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholderTextColor="#aaa"
+          />
+        </View>
+
+        {/* Champ mot de passe avec icône */}
+        <View style={styles.inputContainer}>
+          <Icon name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!passwordVisible}
+            placeholderTextColor="#aaa"
+          />
+          <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
+            <Icon name={passwordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color="#888" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Boutons d'inscription et de retour */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleSignUp}>
+            <Icon name="person-add-outline" size={20} color="#202020" style={styles.icon} />
+            <Text style={styles.buttonText}>S'inscrire</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.signUpButton} onPress={() => navigation.navigate('Login')}>
+            <Icon name="log-in-outline" size={20} color="#202020" style={styles.icon} />
+            <Text style={styles.buttonText}>Déjà inscrit ? Connectez-vous</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      
-      <Button title="S'inscrire" onPress={handleSignUp} />
-      <Button
-        title="Déjà inscrit ? Connectez-vous"
-        onPress={() => navigation.navigate('Login')}  // Rediriger vers la page de connexion
-      />
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backgroundImage: {
     flex: 1,
-    justifyContent: 'center',  // Centre les éléments verticalement
-    padding: 20,
+    resizeMode: 'cover', // L'image couvre toute la page
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(39, 39, 39, 0.863)', // Voile sombre pour améliorer la lisibilité
+    padding: 60,
+  },
+  logo: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginBottom: 50,
+	marginTop: 100,
   },
   title: {
-    fontSize: 24,
+    fontSize: 34,
+    color: '#ffffff',
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
-  },
-  input: {
-    height: 40,  // Assure une hauteur fixe pour le champ email
-    borderWidth: 1,
-    borderColor: '#cccccc',
-    padding: 10,
-    marginBottom: 20,
-    borderRadius: 5,
-    backgroundColor: '#e0e0e0',
-    color: '#333333',
+    marginBottom: 80,
   },
   inputContainer: {
-    flexDirection: 'row',  // Permet d'aligner le TextInput et l'icône eye sur la même ligne
+    flexDirection: 'row', // Aligne les icônes et les champs sur la même ligne
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#cccccc',
@@ -99,12 +120,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     paddingHorizontal: 10,
     marginBottom: 20,
-    height: 40,  // Contrôle également la hauteur de l'ensemble
+    height: 40,
   },
-  passwordInput: {
-    flex: 1,  // Le TextInput prend l'espace disponible
-    padding: 10,
+  icon: {
+    marginRight: 10, // Espace entre l'icône et le champ texte
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
     color: '#333333',
-    height: 40,  // Assure une hauteur contrôlée pour le champ mot de passe
+  },
+  buttonContainer: {
+    flexDirection: 'row', // Les boutons sont alignés en ligne
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  loginButton: {
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginRight: 10,
+    elevation: 5,
+  },
+  signUpButton: {
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    elevation: 5,
+  },
+  buttonText: {
+    color: '#202020',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
 });

@@ -311,6 +311,8 @@ export default function RepairedInterventionsPage({ navigation }) {
           )}
         />
       </View>
+
+	  
       <Modal
   transparent={true}
   visible={photoAlertVisible}

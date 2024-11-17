@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet, ImageBackground } from 'react-native';
 import { supabase } from '../supabaseClient';
 import RoundedButton from '../components/RoundedButton';
 import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
+import Icon from 'react-native-vector-icons/Ionicons'; // Importer les icônes
 
 // Import de l'image depuis le dossier assets
 const backgroundImage = require('../assets/inscriptions.jpg');
@@ -78,15 +79,11 @@ export default function AddClientPage({ navigation, route }) {
         setPhone('');
         setEmail('');
 
-        // Naviguer vers AddInterventionPage avec l'ID du client
-        if (data) {
-            navigation.navigate("AddIntervention", { clientId: data.id });
-        }
-
+      // Rediriger seulement après la fermeture de la modale
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du client', error);
-    }
-};
+		console.error('Erreur lors de l\'ajout du client', error);
+	  }
+	};
 
   
   const handleCloseAlert = () => {
@@ -108,35 +105,54 @@ export default function AddClientPage({ navigation, route }) {
   return (
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nom du client"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="characters"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Numéro de téléphone"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Adresse e-mail (optionnel)"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-          />
+	  <View style={styles.container}>
+  {/* Champ Nom du client */}
+  <View style={styles.inputContainer}>
+    <Icon name="person-outline" size={20} color="#888" style={styles.iconLeft} />
+    <TextInput
+      style={styles.input}
+      placeholder="Nom du client"
+      value={name}
+      onChangeText={setName}
+      autoCapitalize="characters"
+      placeholderTextColor="#aaa"
+    />
+  </View>
 
-          <RoundedButton
-            title={loading ? 'En cours...' : 'Ajouter le client'}
-            onPress={handleAddClient}
-            disabled={loading}
-          />
-        </View>
+  {/* Champ Numéro de téléphone */}
+  <View style={styles.inputContainer}>
+    <Icon name="call-outline" size={20} color="#888" style={styles.iconLeft} />
+    <TextInput
+      style={styles.input}
+      placeholder="Numéro de téléphone"
+      value={phone}
+      onChangeText={setPhone}
+      keyboardType="phone-pad"
+      placeholderTextColor="#aaa"
+    />
+  </View>
+
+  {/* Champ Adresse e-mail */}
+  <View style={styles.inputContainer}>
+    <Icon name="mail-outline" size={20} color="#888" style={styles.iconLeft} />
+    <TextInput
+      style={styles.input}
+      placeholder="Adresse e-mail (optionnel)"
+      value={email}
+      onChangeText={setEmail}
+      keyboardType="email-address"
+      placeholderTextColor="#aaa"
+    />
+  </View>
+
+  {/* Bouton Ajouter */}
+  <RoundedButton
+    title={loading ? 'En cours...' : 'Enregistrer le client'}
+    onPress={handleAddClient}
+    disabled={loading}
+  />
+</View>
+
 
         <CustomAlert
   visible={alertVisible}
@@ -170,13 +186,24 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '100%',
   },
-  input: {
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#cccccc',
-    padding: 10,
-    marginBottom: 20,
+    borderColor: '#ccc',
     borderRadius: 5,
-    backgroundColor: '#e0e0e0',
-    color: '#333333',
+    backgroundColor: '#f9f9f9',
+    paddingHorizontal: 10,
+    marginBottom: 15,
+    height: 40,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  iconLeft: {
+marginLeft: 5,
+marginRight: 10, // Espacement entre le champ et l'icône
   },
 });

@@ -183,6 +183,7 @@ function MainStack() {
       <Stack.Screen 
       name="RepairedInterventionsPage" 
       component={RepairedInterventionsPage}
+	  options={{ headerShown: false }} // Masquer le header
 		/> 
 		<Stack.Screen 
         name="ListingProduits" 

@@ -11,6 +11,7 @@ import {
     Modal,
     Image,
     TouchableWithoutFeedback,
+	Alert,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -55,7 +56,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, remarks, paymentStatus ")
+            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus ")
             .eq("id", interventionId)
             .single();
 
@@ -72,6 +73,7 @@ export default function EditInterventionPage({ route, navigation }) {
             setSerial_number(data.serial_number);
             setPassword(data.password);
             setPhotos(data.photos);
+			setLabelPhoto(data.label_photo); // Charge la photo d'étiquette
 			setCommande(data.commande || "");
 			setRemarks(data.remarks || ""); // Charge les remarques
 			setPaymentStatus(data.paymentStatus || "");
@@ -149,7 +151,7 @@ export default function EditInterventionPage({ route, navigation }) {
                 const imageUri = result.assets[0].uri;
                 const base64Image = await convertImageToBase64(imageUri);
                 if (base64Image) {
-                    setPhotos([...photos, base64Image]); // Ajouter l'image à la liste
+                    setPhotos((prevPhotos) => [base64Image, ...prevPhotos.filter((photo) => photo !== labelPhoto)]); // Assure l'unicité
                     setLabelPhoto(base64Image); // Marquer cette photo comme l'étiquette
                     // console.log("Photo d'étiquette définie :", base64Image); // Log pour vérifier
                     if (!reference) {
@@ -164,27 +166,33 @@ export default function EditInterventionPage({ route, navigation }) {
         }
     };
 
-    const pickAdditionalImage = async () => {
-        try {
-            let result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.5,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                const imageUri = result.assets[0].uri;
-                const base64Image = await convertImageToBase64(imageUri);
-                if (base64Image) {
-                    setPhotos([...photos, base64Image]); // Ajouter l'image à la liste
-                }
-            } else {
-                console.log("Aucune image capturée ou opération annulée.");
-            }
-        } catch (error) {
-            console.error("Erreur lors de la capture d'image :", error);
-        }
-    };
+	const pickAdditionalImage = async () => {
+		try {
+			let result = await ImagePicker.launchCameraAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				allowsEditing: true,
+				quality: 0.5,
+			});
+	
+			if (!result.canceled && result.assets && result.assets.length > 0) {
+				const imageUri = result.assets[0].uri;
+				const base64Image = await convertImageToBase64(imageUri);
+				if (base64Image) {
+					// Si une photo d'étiquette est déjà définie, elle est préservée
+					const updatedPhotos = labelPhoto
+						? [labelPhoto, ...photos.filter((photo) => photo !== labelPhoto), base64Image]
+						: [...photos, base64Image];
+	
+					setPhotos(updatedPhotos);
+				}
+			} else {
+				console.log("Aucune image capturée ou opération annulée.");
+			}
+		} catch (error) {
+			console.error("Erreur lors de la capture d'image :", error);
+		}
+	};
+	
 
     const convertImageToBase64 = async (uri) => {
         try {
@@ -202,53 +210,60 @@ export default function EditInterventionPage({ route, navigation }) {
     };
 
     const handleSaveIntervention = async () => {
-        const selectedArticle = articles.find((article) => article.id === deviceType);
-        const selectedBrand = brands.find((b) => b.id === brand);
-        const selectedModel = models.find((m) => m.id === model);
-
-        const updatedIntervention = {
-            deviceType: selectedArticle ? selectedArticle.nom : deviceType,
-            article_id: deviceType,
-            brand: selectedBrand ? selectedBrand.nom : brand,
-            marque_id: brand,
-            model: selectedModel ? selectedModel.nom : model,
-            modele_id: model,
-            reference,
-            description,
-            cost,
-            status,
-            password,
-            serial_number,
-            photos,
+		// Vérifie le coût seulement si le statut n'est pas "Devis en cours"
+		if (status !== 'Devis en cours' && !cost) {
+			Alert.alert('Erreur', 'Veuillez indiquer le coût de la réparation.');
+			return;
+		}
+	
+		const selectedArticle = articles.find((article) => article.id === deviceType);
+		const selectedBrand = brands.find((b) => b.id === brand);
+		const selectedModel = models.find((m) => m.id === model);
+	
+		// Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
+		const costValue = cost ? parseFloat(cost) : null;
+	
+		const updatedIntervention = {
+			deviceType: selectedArticle ? selectedArticle.nom : deviceType,
+			article_id: deviceType,
+			brand: selectedBrand ? selectedBrand.nom : brand,
+			marque_id: brand,
+			model: selectedModel ? selectedModel.nom : model,
+			modele_id: model,
+			reference,
+			description,
+			cost: costValue, // Utiliser `costValue` ici
+			status,
+			password,
+			serial_number,
+			photos,
 			commande,
 			remarks,
 			paymentStatus,
 			chargeur: chargeur === "Oui",
 			label_photo: labelPhoto,
-			updatedAt: new Date().toISOString() // Ajout de la date et heure actuelles
-        };
-
-        try {
-            const { error } = await supabase
-                .from("interventions")
-                .update(updatedIntervention)
-                .eq("id", interventionId);
-
-            if (error) throw error;
-
-            setAlertTitle("Succès");
-            setAlertMessage("Intervention mise à jour avec succès.");
-            setAlertVisible(true);
-        } catch (error) {
-            setAlertTitle("Erreur");
-            setAlertMessage("Erreur lors de la mise à jour de l'intervention.");
-            setAlertVisible(true);
-            console.error(
-                "Erreur lors de la mise à jour de l'intervention :",
-                error
-            );
-        }
-    };
+			updatedAt: new Date().toISOString(), // Ajout de la date et heure actuelles
+		};
+	
+		try {
+			const { error } = await supabase
+				.from("interventions")
+				.update(updatedIntervention)
+				.eq("id", interventionId);
+	
+			if (error) throw error;
+	
+			setAlertTitle("Succès");
+			setAlertMessage("Intervention mise à jour avec succès.");
+			setAlertVisible(true);
+		} catch (error) {
+			setAlertTitle("Erreur");
+			setAlertMessage("Erreur lors de la mise à jour de l'intervention.");
+			setAlertVisible(true);
+			console.error("Erreur lors de la mise à jour de l'intervention :", error);
+		}
+	};
+	
 
     const closeAlert = () => {
         setAlertVisible(false);
@@ -399,12 +414,16 @@ export default function EditInterventionPage({ route, navigation }) {
                     onChangeText={setPassword} // Pas de forçage en majuscules
                 />
 
-                <Text style={styles.label}>Coût de la réparation (€)</Text>
-                <TextInput
-                    style={styles.input}
-                    value={cost ? cost.toString() : ""} // Convertir en string pour affichage
-                    keyboardType="numeric"
-                />
+<Text style={styles.label}>Coût de la réparation (€)</Text>
+<TextInput
+    style={styles.input}
+    value={cost ? cost.toString() : ''}
+    onChangeText={setCost}
+    keyboardType="numeric"
+    editable={status !== 'Devis en cours'} // Désactiver si "Devis en cours" est sélectionné
+    placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
+/>
+
 <View style={styles.checkboxContainer}>
     <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
         <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
@@ -440,11 +459,16 @@ export default function EditInterventionPage({ route, navigation }) {
                 >
                     <View style={styles.fullwidthContainer}>
                         <Text style={styles.label}>Statut</Text>
-                        <Picker
-                            selectedValue={status}
-                            style={styles.input}
-                            onValueChange={(itemValue) => setStatus(itemValue)}
-                        >
+						<Picker
+    selectedValue={status}
+    style={styles.input}
+    onValueChange={(itemValue) => {
+        setStatus(itemValue);
+        if (itemValue === 'Devis en cours') {
+            setCost(''); // Efface le coût si "Devis en cours" est sélectionné
+        }
+    }}
+>
                             <Picker.Item
                                 label="Sélectionnez un statut..."
                                 value="default"
@@ -453,6 +477,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 label="En attente de pièces"
                                 value="En attente de pièces"
                             />
+							<Picker.Item label="Devis en cours" value="Devis en cours" />
                             <Picker.Item
                                 label="Devis accepté"
                                 value="Devis accepté"
@@ -519,6 +544,14 @@ export default function EditInterventionPage({ route, navigation }) {
             photo === labelPhoto && { borderWidth: 2, borderColor: '#43ec86' } // Applique le contour vert uniquement pour la photo d'étiquette
           ]}
         />
+		                {photo !== labelPhoto && (
+                    <TouchableOpacity
+                        style={{ position: "absolute", top: 5, right: 5 }}
+                        onPress={() => deletePhoto(photo)}
+                    >
+                        <MaterialIcons name="close" size={24} color="red" />
+                    </TouchableOpacity>
+                )}
       </TouchableOpacity>
                         ))}
                     </View>

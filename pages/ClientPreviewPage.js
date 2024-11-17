@@ -76,19 +76,20 @@ export default function ClientPreviewPage() {
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; margin: 0; }
-            .section-title { font-size: 18px; font-weight: bold; margin-top: 20px; color: #2C3E50; }
+            body { font-family: Arial, sans-serif; padding: 20px;  margin: 0; }
+            .section-title { font-size: 18px; font-weight: bold; margin-top: 5px; margin-bottom: 5px; color: #2C3E50; }
             .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
 			.info-recup { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: red; }
-            .cost { font-size: 30px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
+            .cost { font-size: 20px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
             .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
             .logo { width: 180px; }
             .signature { width: 300px; height: 80px; margin-top: 20px; }
             .company-details { text-align: center; }
             .single-line-details { text-align: center; font-size: 14px; color: #333; }
-            .border-box { border: 2px solid #494848; padding: 10px; border-radius: 10px; margin-bottom: 20px; background-color: #fff; }
-            .terms-section { margin-top: 10px; padding: 5px; background-color: #EFEFEF; border-radius: 10px; }
-            .terms-text { font-size: 10px; color: #333; margin-bottom: 5px; }
+            .border-box { border: 2px solid #494848; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+            .terms-section { margin-top: 10px; padding: 5px;  border-radius: 10px; }
+            .terms-text { font-size: 10px; color: #333; margin-bottom: 10px; }
+			.terms-text-bottom { font-size: 10px; color: #333; margin-bottom: 30px; }
           </style>
         </head>
         <body>
@@ -100,7 +101,7 @@ export default function ClientPreviewPage() {
           </div>
           
           <div class="border-box">
-            <div class="info"><strong>Numéro de Fiche:</strong> ${clientInfo.ficheNumber}</div>
+            <div class="info"><strong>Numéro de client:</strong> ${clientInfo.ficheNumber}</div>
             <div class="info"><strong>Date de création:</strong> ${new Date(clientInfo.createdAt).toLocaleDateString('fr-FR')}</div>
           </div>
           
@@ -128,12 +129,17 @@ export default function ClientPreviewPage() {
           </div>
   			<div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
           <div class="terms-section">
-            <p class="terms-text">
+            <p class="terms-text-bottom">
               Je soussigné(e), M. ${clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+			</p>
+						            <p class="terms-text">
+             ------------------------------------------------------
+			 ------------------------------------------------------
             </p>
             <p class="terms-text">
               AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
             </p>
+
             <p class="terms-text">
               Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction.
             </p>

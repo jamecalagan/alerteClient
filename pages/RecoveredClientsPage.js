@@ -60,7 +60,9 @@ export default function RecoveredClientsPage() {
       setFilteredClients(filtered);
     }
   };
-
+  const formatPhoneNumber = (phone) => {
+    return phone.replace(/(\d{2})(?=\d)/g, '$1 ');
+};
   return (
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
       <View style={styles.overlay}>
@@ -81,7 +83,9 @@ export default function RecoveredClientsPage() {
             <View style={styles.card}>
               <Text style={styles.clientInfo}>Numéro de Client N°: {item.clients.ficheNumber}</Text>
               <Text style={styles.clientInfo}>Nom: {item.clients.name}</Text>
-              <Text style={styles.clientInfo}>Téléphone: {item.clients.phone}</Text>
+              <Text style={styles.clientInfo}>
+				Téléphone: {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}
+				</Text>
               <Text style={styles.interventionInfo}>Type d'appareil: {item.deviceType}</Text>
               <Text style={styles.interventionInfo}>Marque: {item.brand}</Text>
 			  <Text style={styles.interventionInfo}>Modèle: {item.model}</Text>
@@ -93,7 +97,8 @@ export default function RecoveredClientsPage() {
               {item.receiver_name && (
                 <Text style={styles.receiverText}>Récupéré par : {item.receiver_name}</Text>
               )}
-              <Text style={styles.interventionInfo}>Remarques: {item.guarantee}</Text>
+              <Text style={styles.interventionInfo}>Remarques: {item.remarks}</Text>
+			  <Text style={styles.interventionInfo}>Status du règlement: {item.paymentStatus}</Text>
 
               {/* Affichage des images d'intervention depuis la table interventions */}
               {item.photos && item.photos.length > 0 && (
@@ -166,7 +171,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     padding: 20,
   },
   title: {

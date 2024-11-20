@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, ImageBackground } from 'react-native';
+import { View, TextInput, StyleSheet, ImageBackground, Keyboard } from 'react-native';
 import { supabase } from '../supabaseClient';
 import RoundedButton from '../components/RoundedButton';
 import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
@@ -35,9 +35,9 @@ export default function AddClientPage({ navigation, route }) {
         // Vérifier si le client existe déjà
         const { data: existingClient, error: checkError } = await supabase
             .from('clients')
-            .select('ficheNumber')
+            .select('ficheNumber, id') // Assurez-vous de récupérer l'ID
             .or(`name.eq.${name},phone.eq.${phone}`);
-        
+
         if (checkError) throw checkError;
 
         if (existingClient && existingClient.length > 0) {
@@ -70,26 +70,31 @@ export default function AddClientPage({ navigation, route }) {
 
         if (error) throw error;
 
-        setAlertTitle('Succès');
-        setAlertMessage(`Client ajouté avec succès avec le numéro de fiche N° ${newFicheNumber}.`);
-        setAlertVisible(true);
-
         // Réinitialiser les champs après l'ajout du client
         setName('');
         setPhone('');
         setEmail('');
+		Keyboard.dismiss()
+        // Naviguer vers AddInterventionPage
+        setTimeout(() => {
+			navigation.navigate('AddIntervention', { clientId: data.id });
+		}, 100); // Délai de 100ms
 
-      // Rediriger seulement après la fermeture de la modale
     } catch (error) {
-		console.error('Erreur lors de l\'ajout du client', error);
-	  }
-	};
+        console.error('Erreur lors de l\'ajout du client', error);
+        Alert.alert('Erreur', "Une erreur s'est produite lors de l'ajout du client.");
+    }
+};
+
 
   
   const handleCloseAlert = () => {
     // Fermer l'alerte et ensuite naviguer vers la page Home
     setAlertVisible(false);
-    navigation.navigate('Home', { reloadClients: true });
+	Keyboard.dismiss()
+    setTimeout(() => {
+		navigation.navigate('AddIntervention', { clientId: data.id });
+	}, 100); // Délai de 100ms
   };
   
 
@@ -121,7 +126,7 @@ export default function AddClientPage({ navigation, route }) {
 
   {/* Champ Numéro de téléphone */}
   <View style={styles.inputContainer}>
-    <Icon name="call-outline" size={20} color="#888" style={styles.iconLeft} />
+    <Icon name="call-outline" size={20} color="#888888" style={styles.iconLeft} />
     <TextInput
       style={styles.input}
       placeholder="Numéro de téléphone"
@@ -176,13 +181,13 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
   container: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0)',
     borderRadius: 10,
     width: '100%',
   },

@@ -8,7 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Icon from "react-native-vector-icons/FontAwesome";
 
 export default function AddInterventionPage({ route, navigation }) {
-  const { clientId } = route.params;
+	const { clientId } = route.params || {};
   const [reference, setReference] = useState('');
   const [brand, setBrand] = useState('');
   const [serial_number, setSerial_number] = useState('');
@@ -270,7 +270,7 @@ const handleSaveIntervention = async () => {
         if (error) throw error;
 
         Alert.alert('Succès', 'Intervention ajoutée avec succès.');
-        navigation.goBack();
+        navigation.navigate('Home');
     } catch (error) {
         Alert.alert('Erreur', "Erreur lors de l'ajout de l'intervention.");
         console.error("Erreur lors de l'ajout de l'intervention :", error);
@@ -282,7 +282,7 @@ const handleSaveIntervention = async () => {
   const closeAlert = () => {
     setAlertVisible(false);
     if (alertTitle === 'Succès') {
-      navigation.goBack();
+		navigation.navigate('Home');
     }
   };
 

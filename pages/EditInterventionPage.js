@@ -46,7 +46,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const [brands, setBrands] = useState([]);
     const [models, setModels] = useState([]);
 	const [remarks, setRemarks] = useState(''); // État pour les remarques
-
+	const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
     useEffect(() => {
         loadIntervention();
         loadArticles(); // Charger les articles au démarrage
@@ -56,7 +56,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus ")
+            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk ")
             .eq("id", interventionId)
             .single();
 
@@ -78,7 +78,7 @@ export default function EditInterventionPage({ route, navigation }) {
 			setRemarks(data.remarks || ""); // Charge les remarques
 			setPaymentStatus(data.paymentStatus || "");
 			setChargeur(data.chargeur ? "Oui" : "Non");
-
+			setAcceptScreenRisk(data.accept_screen_risk || false);
             if (data.article_id) loadBrands(data.article_id);
             if (data.marque_id) loadModels(data.marque_id);
         }
@@ -241,6 +241,7 @@ export default function EditInterventionPage({ route, navigation }) {
 			remarks,
 			paymentStatus,
 			chargeur: chargeur === "Oui",
+			accept_screen_risk: acceptScreenRisk,
 			label_photo: labelPhoto,
 			updatedAt: new Date().toISOString(), // Ajout de la date et heure actuelles
 		};
@@ -424,30 +425,52 @@ export default function EditInterventionPage({ route, navigation }) {
     placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
 />
 
-<View style={styles.checkboxContainer}>
-    <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
-            {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Non réglé</Text>
-    </TouchableOpacity>
+<View>
+    {/* Ligne distincte pour l'acceptation */}
+    <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
+        <TouchableOpacity 
+     onPress={() => {
+        setAcceptScreenRisk((prevState) => {
+            console.log('Nouvel état:', !prevState);
+            return !prevState;
+        });
+    }} 
+    style={styles.checkboxRow}
+        >
+            <View style={[styles.checkbox, acceptScreenRisk && styles.checkboxCheckedBlue]}>
+                {acceptScreenRisk && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>
+                J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
+            </Text>
+        </TouchableOpacity>
+    </View>
 
-    <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
-            {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Règlement partiel</Text>
-    </TouchableOpacity>
+    {/* Groupe pour les autres cases */}
+    <View style={styles.checkboxContainer}>
+        <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
+                {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Non réglé</Text>
+        </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
+                {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Règlement partiel</Text>
+        </TouchableOpacity>
 
-    <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
-            {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Soldé</Text>
-    </TouchableOpacity>
-
+        <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
+                {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Soldé</Text>
+        </TouchableOpacity>
+    </View>
 </View>
+
 
                 <View
                     style={[
@@ -865,6 +888,10 @@ checkboxIndicator: {
 },
 checkboxLabel: {
     fontSize: 16,
+},
+checkboxCheckedBlue: {
+	borderColor: 'blue',
+	backgroundColor: 'blue',
 },
 
 });

@@ -35,6 +35,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
   const [remarks, setRemarks] = useState(''); // État pour les remarques
+  const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
   useEffect(() => {
 	loadProducts();
 }, []);
@@ -263,6 +264,7 @@ const handleSaveIntervention = async () => {
         modele_id: modelId,
         remarks, // Ajoute les remarques ici
         paymentStatus,
+		accept_screen_risk: acceptScreenRisk,
     };
 
     try {
@@ -403,30 +405,46 @@ const handleSaveIntervention = async () => {
     placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
 />
 
-<View style={styles.checkboxContainer}>
-    <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
-            {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Non réglé</Text>
-    </TouchableOpacity>
+<View>
+    {/* Ligne distincte pour l'acceptation */}
+    <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
+        <TouchableOpacity 
+            onPress={() => setAcceptScreenRisk(!acceptScreenRisk)} 
+            style={styles.checkboxRow}
+        >
+            <View style={[styles.checkbox, acceptScreenRisk && styles.checkboxCheckedBlue]}>
+                {acceptScreenRisk && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>
+                J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
+            </Text>
+        </TouchableOpacity>
+    </View>
 
-    <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
-            {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Règlement partiel</Text>
-    </TouchableOpacity>
+    {/* Groupe pour les autres cases */}
+    <View style={styles.checkboxContainer}>
+        <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
+                {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Non réglé</Text>
+        </TouchableOpacity>
 
-    <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
-        <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
-            {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
-        </View>
-        <Text style={styles.checkboxLabel}>Soldé</Text>
-    </TouchableOpacity>
+        <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
+                {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Règlement partiel</Text>
+        </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
+            <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
+                {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>Soldé</Text>
+        </TouchableOpacity>
+    </View>
 </View>
-
   <View style={[styles.rowFlexContainer, status === 'En attente de pièces' && { paddingHorizontal: 20 }]}>
     <View style={styles.fullwidthContainer}>
       <Text style={styles.label}>Statut</Text>
@@ -788,6 +806,10 @@ checkboxIndicator: {
 },
 checkboxLabel: {
     fontSize: 16,
+},
+checkboxCheckedBlue: {
+	borderColor: 'blue',
+	backgroundColor: 'blue',
 },
   
 });

@@ -237,7 +237,8 @@ const closeModal = () => {
 						updatedAt, 
 						commande, 
 						photos, 
-						notifiedBy
+						notifiedBy,
+						accept_screen_risk
 					)
 				`)
 				.order(sortBy, { ascending: orderAsc });
@@ -714,6 +715,11 @@ const closeModal = () => {
                         <Text style={styles.clientText}>Téléphone : </Text>
                         <Text style={styles.phoneNumber}>{formatPhoneNumber(item.phone)}</Text>
                     </View>
+					{latestIntervention?.accept_screen_risk && (
+                        <Text style={styles.acceptRiskText}>
+                            Le client a accepté le risque de casse.
+                        </Text>
+                    )}
                     <Text style={styles.clientText}>Date de création : {formatDateTime(item.createdAt)}</Text>
                     {item.updatedAt && (
                         <Text style={styles.clientText}>Dernière modification : {formatDateTime(item.updatedAt)}</Text>
@@ -1537,4 +1543,9 @@ const styles = StyleSheet.create({
         color: "#000",
         fontWeight: "bold",
     },
+	acceptRiskText: {
+    fontSize: 16,
+    color: "green",
+    marginTop: 5,
+},
 });

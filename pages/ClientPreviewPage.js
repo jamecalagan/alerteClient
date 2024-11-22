@@ -32,6 +32,7 @@ export default function ClientPreviewPage() {
             password, 
             chargeur, 
             signatureIntervention,
+			accept_screen_risk,
             createdAt
           )
         `)
@@ -90,6 +91,7 @@ export default function ClientPreviewPage() {
             .terms-section { margin-top: 10px; padding: 5px;  border-radius: 10px; }
             .terms-text { font-size: 10px; color: #333; margin-bottom: 10px; }
 			.terms-text-bottom { font-size: 10px; color: #333; margin-bottom: 30px; }
+			.accept-risk { font-size: 16px; color: green; font-weight: bold; margin-top: 10px; }
           </style>
         </head>
         <body>
@@ -128,6 +130,7 @@ export default function ClientPreviewPage() {
             
           </div>
   			<div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
+
           <div class="terms-section">
             <p class="terms-text-bottom">
               Je soussigné(e), M. ${clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
@@ -152,6 +155,11 @@ export default function ClientPreviewPage() {
             <p class="terms-text">
               Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
             </p>
+						          ${clientInfo.latestIntervention.accept_screen_risk ? `
+          <div class="accept-risk">
+            J'accepte le risque de casse de l'ecran tactile ou lcd. Produit concerné  ${clientInfo.latestIntervention.deviceType}.
+          </div>
+		  ` : ''}
 			<p class="info-recup">
               <strong>Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</strong>
             </p>
@@ -201,6 +209,12 @@ export default function ClientPreviewPage() {
           <Text>Référence: {clientInfo.latestIntervention.reference}</Text>
           <Text>Numéro de série: {clientInfo.latestIntervention.serial_number}</Text>
           <Text>Chargeur: {clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</Text>
+		          {/* Phrase conditionnelle */}
+				  {clientInfo.latestIntervention.accept_screen_risk && (
+            <Text style={styles.acceptRiskText}>
+                J'accepte le risque de casse de l'ecran tactile ou lcd. Produit concerné  {clientInfo.latestIntervention.deviceType}.
+            </Text>
+        )}
         </View>
       )}
 
@@ -214,30 +228,7 @@ export default function ClientPreviewPage() {
         </View>
       )}
 
-      {/* Signature du client */}
-      <View style={styles.signatureSection}>
-        <Text>Signature du client:</Text>
-        {clientInfo.latestIntervention.signatureIntervention ? (
-          <>
-            <Image
-              source={{ uri: clientInfo.latestIntervention.signatureIntervention }}
-              style={styles.signatureImage}  // Taille réduite de la signature
-            />
-            <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
-              <Text style={styles.buttonText}>Imprimer</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <View style={styles.signatureBox}>
-              <Text>Aucune signature fournie</Text>
-            </View>
-            <TouchableOpacity style={styles.signButton} onPress={handleOpenSignaturePage}>
-              <Text style={styles.signButtonText}>Signer</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+
 
       {/* Conditions Générales */}
       <View style={styles.termsSection}>
@@ -266,7 +257,30 @@ export default function ClientPreviewPage() {
         <Text style={styles.termsText}>
           En signant ce document, vous acceptez les conditions ci-dessus.
         </Text>
-
+      {/* Signature du client */}
+      <View style={styles.signatureSection}>
+        <Text>Signature du client:</Text>
+        {clientInfo.latestIntervention.signatureIntervention ? (
+          <>
+            <Image
+              source={{ uri: clientInfo.latestIntervention.signatureIntervention }}
+              style={styles.signatureImage}  // Taille réduite de la signature
+            />
+            <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
+              <Text style={styles.buttonText}>Imprimer</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.signatureBox}>
+              <Text>Aucune signature fournie</Text>
+            </View>
+            <TouchableOpacity style={styles.signButton} onPress={handleOpenSignaturePage}>
+              <Text style={styles.signButtonText}>Signer</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
       </View>
     </ScrollView>
   );
@@ -385,4 +399,10 @@ const styles = StyleSheet.create({
     color: '#555',
     marginBottom: 5,
   },
+  acceptRiskText: {
+    fontSize: 16,
+    color: 'green',
+    fontWeight: 'bold',
+    marginTop: 10,
+},
 });

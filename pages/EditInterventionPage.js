@@ -142,7 +142,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const pickLabelImage = async () => {
         try {
             let result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ImagePicker.MediaType.Images,
                 allowsEditing: true,
                 quality: 0.5,
             });
@@ -169,7 +169,7 @@ export default function EditInterventionPage({ route, navigation }) {
 	const pickAdditionalImage = async () => {
 		try {
 			let result = await ImagePicker.launchCameraAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				mediaTypes: ImagePicker.MediaType.Images,
 				allowsEditing: true,
 				quality: 0.5,
 			});
@@ -431,7 +431,7 @@ export default function EditInterventionPage({ route, navigation }) {
         <TouchableOpacity 
      onPress={() => {
         setAcceptScreenRisk((prevState) => {
-            console.log('Nouvel état:', !prevState);
+            
             return !prevState;
         });
     }} 

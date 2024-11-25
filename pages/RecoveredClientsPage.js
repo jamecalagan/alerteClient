@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFocusEffect } from '@react-navigation/native';
 
-const backgroundImage = require('../assets/computer-background.jpg');
+const backgroundImage = require('../assets/listing2.jpg');
 
 export default function RecoveredClientsPage() {
   const [recoveredClients, setRecoveredClients] = useState([]);
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(39, 39, 39, 0.8)',
     padding: 20,
   },
   title: {

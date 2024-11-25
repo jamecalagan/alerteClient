@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Alert, Text, TouchableOpacity, ImageBackground, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons'; // Import des icônes
 import { supabase } from './supabaseClient';
-const backgroundImage = require('./assets/inscriptions.jpg');
+const backgroundImage = require('./assets/listing2.jpg');
 
 export default function SignUpPage({ navigation }) {
   const [email, setEmail] = useState('');

@@ -55,7 +55,7 @@ export default function EditClientPage({ route, navigation }) {
       setName(updatedClient.name);
       setPhone(updatedClient.phone);
       setInterventions(filteredInterventions || []);  // Mettre à jour avec les interventions filtrées
-	  console.log("Interventions", interventions)
+	  
     }
   };
 
@@ -265,6 +265,12 @@ export default function EditClientPage({ route, navigation }) {
 			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
+			     
+				{item.accept_screen_risk && (
+					<Text style={styles.acceptText}>
+						Acceptation du risque de casse écran : Oui
+					</Text>
+				)}
 			  <Text style={styles.interventionText}>Mdp: {item.password}</Text>
 
               <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
@@ -498,6 +504,11 @@ editButton: {
   padding: 10,
   borderRadius: 5,
   marginRight: 10,
+},
+acceptText: {
+    fontSize: 16,
+    color: '#ff4500', // Rouge orangé pour attirer l'attention
+    fontWeight: 'bmedium',
 },
 
 });

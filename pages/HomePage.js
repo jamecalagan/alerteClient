@@ -18,7 +18,7 @@ import RoundedButton from "../components/RoundedButton";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 // Import de l'image depuis le dossier assets
-const backgroundImage = require("../assets/listing.jpg");
+const backgroundImage = require("../assets/listing2.jpg");
 export default function HomePage({ navigation, route }) {
     const [clients, setClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
@@ -717,7 +717,7 @@ const closeModal = () => {
                     </View>
 					{latestIntervention?.accept_screen_risk && (
                         <Text style={styles.acceptRiskText}>
-                            Le client a accepté le risque de casse.
+                            Le client a accepté le risque de casse. Oui
                         </Text>
                     )}
                     <Text style={styles.clientText}>Date de création : {formatDateTime(item.createdAt)}</Text>
@@ -1067,12 +1067,6 @@ const closeModal = () => {
 </Modal>
 
 )}
-
-
-
-
-
-
             </View>
 			<View style={styles.legendWrapper}>
         <Legend />
@@ -1122,7 +1116,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(39, 39, 39, 0.863)", // Voile sombre pour améliorer la lisibilité
+        backgroundColor: "rgba(0, 0, 0, 0.459)", // Voile sombre pour améliorer la lisibilité
         padding: 20,
     },
     headerContainer: {
@@ -1545,7 +1539,7 @@ const styles = StyleSheet.create({
     },
 	acceptRiskText: {
     fontSize: 16,
-    color: "green",
-    marginTop: 5,
+    color: "red",
+
 },
 });

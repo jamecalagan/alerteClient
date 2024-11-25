@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Alert, FlatList, StyleSheet, TouchableOpacity, Button } from 'react-native';
+import { View, Text, TextInput, Alert, FlatList, StyleSheet, TouchableOpacity, Button,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard,
+    TouchableWithoutFeedback, } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -26,6 +30,12 @@ export default function AdminPage() {
     const [showRecovered, setShowRecovered] = useState(false);
 	const [showEstimate, setShowEstimate] = useState(false);
 	const [showNot, setShowNot] = useState(false);
+	const [searchText, setSearchText] = useState(""); // Texte de recherche
+	const [filteredClients, setFilteredClients] = useState([]); // Clients filtrés
+
+	const [showStatusPickers, setShowStatusPickers] = useState(false); // Par défaut, les Pickers sont masqués
+
+
 	const [clients, setClients] = useState({
 		pending: [],
 		onAir: [],
@@ -83,47 +93,55 @@ export default function AdminPage() {
 					*,
 					interventions (
 						id,
-						status,
-						createdAt
+						status
 					)
 				`);
 	
 			if (error) throw error;
 	
 			if (data) {
-				// Filtrer les clients par statut des interventions
-				const pendingClients = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "En attente de pièces")
-				);
-				const notClients = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Non réparable")
-				);
-				const onAirClient = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Devis en cours")
-				);
-				const estimateClient = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Devis accepté")
-				);
-				const inProgressClients = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Réparation en cours")
-				);
-				const repairedClients = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Réparé")
-				);
-				const recoveredClients = data.filter(client => 
-					client.interventions.some(intervention => intervention.status === "Récupéré")
-				);
+				const pendingClients = data.filter(client => client.interventions.some(intervention => intervention.status === "En attente de pièces"));
+				const onAirClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Devis en cours"));
+				const estimateClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Devis accepté"));
+				const notClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Non réparable"));
+				const inProgressClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Réparation en cours"));
+				const repairedClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Réparé"));
+				const recoveredClients = data.filter(client => client.interventions.some(intervention => intervention.status === "Récupéré"));
 	
+				// Mettre à jour les états
+				setClients({
+					pending: pendingClients,
+					onAir: onAirClients,
+					estimate: estimateClients,
+					not: notClients,
+					inProgress: inProgressClients,
+					repaired: repairedClients,
+					recovered: recoveredClients,
+				});
 	
-				// Affectez les clients filtrés dans l'état
-				setClients({ pending: pendingClients, onAir: onAirClient, estimate: estimateClient, not: notClients, inProgress: inProgressClients, repaired: repairedClients, recovered: recoveredClients });
+				// Initialiser la recherche avec toutes les données combinées
+				setFilteredClients([...pendingClients, ...onAirClients, ...estimateClients, ...notClients, ...inProgressClients, ...repairedClients, ...recoveredClients]);
 			}
 		} catch (error) {
-			console.error("Erreur lors du chargement des clients:", error);
-			Alert.alert("Erreur", "Erreur lors du chargement des clients.");
+			console.error("Erreur lors du chargement des clients :", error);
+			Alert.alert("Erreur", "Une erreur est survenue lors du chargement des clients.");
 		}
 	};
-	
+	useEffect(() => {
+		if (searchText.trim() === "") {
+			// Si aucun texte de recherche, réinitialiser avec tous les clients
+			setFilteredClients([...clients.pending, ...clients.onAir, ...clients.estimate, ...clients.not, ...clients.inProgress, ...clients.repaired, ...clients.recovered]);
+		} else {
+			const lowercasedSearch = searchText.toLowerCase();
+			// Filtrer les clients par nom ou téléphone
+			const filtered = [...clients.pending, ...clients.onAir, ...clients.estimate, ...clients.not, ...clients.inProgress, ...clients.repaired, ...clients.recovered].filter(
+				(client) =>
+					client.name.toLowerCase().includes(lowercasedSearch) ||
+					client.phone.includes(lowercasedSearch)
+			);
+			setFilteredClients(filtered);
+		}
+	}, [searchText, clients]);
 
     const addProductType = async () => {
         if (!newProductType.trim()) {
@@ -206,6 +224,11 @@ export default function AdminPage() {
         }
     };
     return (
+		<KeyboardAvoidingView
+		style={{ flex: 1 }}
+		behavior={Platform.OS === "ios" ? "padding" : undefined}
+	>
+		<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
 
 		        <TouchableOpacity
@@ -226,7 +249,7 @@ export default function AdminPage() {
                 <MaterialIcons
                     name={showAddFields ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
                     size={24}
-                    color="#202020"
+                    color="#ebeaea"
                 />
             </TouchableOpacity>
 
@@ -298,12 +321,26 @@ export default function AdminPage() {
                 </>
 		)}
 
-		<Text style={styles.sectionTitle}>Liste des Clients</Text>
+		<TouchableOpacity
+    style={styles.toggleButton}
+    onPress={() => setShowStatusPickers(!showStatusPickers)}
+>
+    <Text style={styles.buttonText}>
+        {showStatusPickers ? "Masquer les filtres par statut" : "Afficher les filtres par statut"}
+    </Text>
+    <MaterialIcons
+        name={showStatusPickers ? "expand-less" : "expand-more"}
+        size={24}
+        color="#ebeaea"
+    />
+</TouchableOpacity>
 
-{/* Toggle pour les clients "En attente de pièces" */}
+{showStatusPickers && (
+    <View>
+        {/* Picker pour "En attente de pièces" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPending(!showPending)}>
-    <Text style={styles.buttonText}>Clients En attente de pièces</Text>
-    <MaterialIcons name={showPending ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <Text style={styles.buttonText}>En attente de pièces</Text>
+    <MaterialIcons name={showPending ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showPending && (
     <FlatList
@@ -327,7 +364,7 @@ export default function AdminPage() {
 {/* Toggle pour les clients "devis accepter" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowOnAir(!showOnAir)}>
     <Text style={styles.buttonText}>Devis en cours</Text>
-    <MaterialIcons name={showOnAir ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <MaterialIcons name={showOnAir ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showOnAir && (
     <FlatList
@@ -351,7 +388,7 @@ export default function AdminPage() {
 {/* Toggle pour les clients "devis accepter" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowEstimate(!showEstimate)}>
     <Text style={styles.buttonText}>Devis accepté</Text>
-    <MaterialIcons name={showEstimate ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <MaterialIcons name={showEstimate ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showEstimate && (
     <FlatList
@@ -375,8 +412,8 @@ export default function AdminPage() {
 
 {/* Toggle pour les clients "Réparation en cours" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowInProgress(!showInProgress)}>
-    <Text style={styles.buttonText}>Clients Réparation en cours</Text>
-    <MaterialIcons name={showInProgress ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <Text style={styles.buttonText}>Réparation en cours</Text>
+    <MaterialIcons name={showInProgress ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showInProgress && (
     <FlatList
@@ -400,8 +437,8 @@ export default function AdminPage() {
 
 {/* Toggle pour les clients "Réparé" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowRepaired(!showRepaired)}>
-    <Text style={styles.buttonText}>Clients Réparé</Text>
-    <MaterialIcons name={showRepaired ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <Text style={styles.buttonText}>Réparé</Text>
+    <MaterialIcons name={showRepaired ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showRepaired && (
     <FlatList
@@ -425,8 +462,8 @@ export default function AdminPage() {
 
 {/* Toggle pour les clients "Récupéré" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowRecovered(!showRecovered)}>
-    <Text style={styles.buttonText}>Clients Récupéré</Text>
-    <MaterialIcons name={showRecovered ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <Text style={styles.buttonText}>Récupéré</Text>
+    <MaterialIcons name={showRecovered ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showRecovered && (
     <FlatList
@@ -450,7 +487,7 @@ export default function AdminPage() {
 {/* Toggle pour les clients "non réparable" */}
 <TouchableOpacity style={styles.toggleButton} onPress={() => setShowNot(!showNot)}>
     <Text style={styles.buttonText}>Non réparable</Text>
-    <MaterialIcons name={showNot ? "expand-less" : "expand-more"} size={24} color="#202020" />
+    <MaterialIcons name={showNot ? "expand-less" : "expand-more"} size={24} color="#ebeaea" />
 </TouchableOpacity>
 {showRecovered && (
     <FlatList
@@ -471,9 +508,28 @@ export default function AdminPage() {
         )}
     />
 )}
+</View>
+)}
+<Text style={styles.sectionTitle}>Recherche dans la liste complète des clients</Text>
+<View style={styles.searchContainer}>
+    <TextInput
+        style={styles.searchInput}
+        placeholder="RECHERCHER PAR NOM OU TÉLÉPHONE"
+        value={searchText}
+        autoCapitalize="characters"
+        onChangeText={(text) => setSearchText(text.toUpperCase())}
+    />
+    <MaterialIcons
+        name="search"
+        size={24}
+        color="#888"
+        style={styles.searchIcon}
+    />
+</View>
+
 <Text style={styles.sectionTitle}>Liste complète des clients</Text>
 <FlatList
-    data={[...clients.recovered]}
+    data={filteredClients} // Utiliser les clients filtrés
     keyExtractor={(item) => item.id.toString()}
     renderItem={({ item, index }) => (
         <TouchableOpacity
@@ -483,14 +539,17 @@ export default function AdminPage() {
                 { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
             ]}
         >
-			<Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
+            <Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
             <Text style={styles.clientText}>Nom : {item.name}</Text>
             <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
         </TouchableOpacity>
     )}
 />
 
+
         </View>
+		</TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -519,7 +578,7 @@ const styles = StyleSheet.create({
         marginVertical: 10,
     },
     addButton: {
-        backgroundColor: '#78f898',
+        backgroundColor: '#3c5068',
         paddingVertical: 12,
         borderRadius: 5,
         alignItems: 'center',
@@ -527,17 +586,17 @@ const styles = StyleSheet.create({
 		elevation: 2,
     },
     buttonText: {
-        color: '#202020',
+        color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
     },
     toggleButton: {
         flexDirection: 'row',
-        backgroundColor: '#f3f3f3',
+        backgroundColor: '#445a75',
         paddingVertical: 12,
 		borderWidth: 1,
         borderRadius: 5,
-		borderColor: '#fff',
+		borderColor: '#202020',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 5,
@@ -545,7 +604,7 @@ const styles = StyleSheet.create({
     },
 	toggleButtonCreer:{
         flexDirection: 'row',
-        backgroundColor: '#78f898',
+        backgroundColor: '#3c5068',
         paddingVertical: 12,
 		borderWidth: 1,
         borderRadius: 5,
@@ -599,5 +658,34 @@ const styles = StyleSheet.create({
 		color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-	}
+	},
+searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 15,
+    backgroundColor: '#fff',
+},
+searchInput: {
+    flex: 1, // Occupe tout l'espace restant
+    height: 40,
+    fontSize: 16,
+    color: '#333',
+    paddingHorizontal: 10,
+},
+searchIcon: {
+    marginLeft: 10, // Espacement entre le champ et l'icône
+},
+	pickerButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 5,
+    backgroundColor: '#f5974a',
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+},
 });

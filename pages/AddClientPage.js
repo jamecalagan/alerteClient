@@ -6,7 +6,7 @@ import CustomAlert from '../components/CustomAlert'; // Import du composant Cust
 import Icon from 'react-native-vector-icons/Ionicons'; // Importer les icônes
 
 // Import de l'image depuis le dossier assets
-const backgroundImage = require('../assets/inscriptions.jpg');
+const backgroundImage = require('../assets/listing2.jpg');
 
 export default function AddClientPage({ navigation, route }) {
   const [name, setName] = useState('');
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(39, 39, 39, 0.308)',
   },
   container: {
     flex: 1,

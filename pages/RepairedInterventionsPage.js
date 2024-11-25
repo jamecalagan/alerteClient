@@ -10,7 +10,7 @@ import * as FileSystem from 'expo-file-system';
 import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
 
 // Import de l'image depuis le dossier assets
-const backgroundImage = require('../assets/repared.jpg');
+const backgroundImage = require('../assets/listing2.jpg');
 
 export default function RepairedInterventionsPage({ navigation }) {
   const [repairedInterventions, setRepairedInterventions] = useState([]);
@@ -109,7 +109,7 @@ export default function RepairedInterventionsPage({ navigation }) {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         quality: 0.5,
         base64: true,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(39, 39, 39, 0.8)',
     padding: 20,
   },
   title: {

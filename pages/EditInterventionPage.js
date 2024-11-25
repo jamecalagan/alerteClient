@@ -142,7 +142,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const pickLabelImage = async () => {
         try {
             let result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaType.Images,
+                mediaTypes: ['images', 'videos'],// Propriété correcte
                 allowsEditing: true,
                 quality: 0.5,
             });
@@ -169,7 +169,7 @@ export default function EditInterventionPage({ route, navigation }) {
 	const pickAdditionalImage = async () => {
 		try {
 			let result = await ImagePicker.launchCameraAsync({
-				mediaTypes: ImagePicker.MediaType.Images,
+				mediaTypes: ['images', 'videos'],// Propriété correcte
 				allowsEditing: true,
 				quality: 0.5,
 			});

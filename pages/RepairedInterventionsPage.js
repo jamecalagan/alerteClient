@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ImageBackground, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ImageBackground, Modal, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useFocusEffect } from '@react-navigation/native';
 import CustomAlert from '../components/CustomAlert';
@@ -109,7 +109,7 @@ export default function RepairedInterventionsPage({ navigation }) {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ['images', 'videos'],// Propriété correcte
         allowsEditing: true,
         quality: 0.5,
         base64: true,
@@ -177,17 +177,30 @@ export default function RepairedInterventionsPage({ navigation }) {
       });
     }
   };
+  const moveToTop = (interventionId) => {
+	const selectedIntervention = repairedInterventions.find(
+	  (intervention) => intervention.id === interventionId
+	);
+	const remainingInterventions = repairedInterventions.filter(
+	  (intervention) => intervention.id !== interventionId
+	);
+	setRepairedInterventions([selectedIntervention, ...remainingInterventions]);
+  };
   return (
     <KeyboardAvoidingView
     behavior={Platform.OS === "ios" ? "padding" : "height"}
     style={{ flex: 1 }}
   >
+  
+
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
       <View style={styles.overlay}>
         <Text style={styles.title}>Interventions terminées</Text>
         <FlatList
           data={repairedInterventions}
           keyExtractor={(item) => item.id.toString()}
+		                      keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
+                    contentContainerStyle={{ paddingBottom: 20 }} // Espace sous la liste
           renderItem={({ item }) => (
             <View style={styles.interventionCard}>
               <View style={styles.notificationAndToolsContainer}>
@@ -217,7 +230,12 @@ export default function RepairedInterventionsPage({ navigation }) {
                   <FontAwesome5 name="camera" size={40} color="black" />
                 </TouchableOpacity>
               </View>
-
+			  <TouchableOpacity
+      style={styles.moveToTopButton}
+      onPress={() => moveToTop(item.id)}
+    >
+      <Ionicons name="arrow-up-circle-outline" size={30} color="blue" />
+    </TouchableOpacity>
               <View style={styles.infoContainer}>
                 <Text style={styles.interventionText}>Fiche N° : {item.clients.ficheNumber}</Text>
                 <Text style={styles.interventionText}>Client : {item.clients.name}</Text>
@@ -373,6 +391,8 @@ export default function RepairedInterventionsPage({ navigation }) {
         />
       )}
     </ImageBackground>
+	
+	
     </KeyboardAvoidingView>
   );
 }
@@ -522,5 +542,15 @@ alertMessage: {
   color: '#333333',
   marginBottom: 10,
   textAlign: 'center',
+},
+moveToTopButton: {
+  position: 'absolute',
+  top: 10,
+  right: 10,
+  zIndex: 1,
+  backgroundColor: 'white',
+  borderRadius: 50,
+  padding: 5,
+  elevation: 5,
 },
 });

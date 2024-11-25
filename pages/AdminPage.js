@@ -37,6 +37,7 @@ export default function AdminPage() {
 
 
 	const [clients, setClients] = useState({
+		all: [],
 		pending: [],
 		onAir: [],
 		estimate: [],
@@ -110,6 +111,7 @@ export default function AdminPage() {
 	
 				// Mettre à jour les états
 				setClients({
+					all: data, // Tous les clients sans distinction
 					pending: pendingClients,
 					onAir: onAirClients,
 					estimate: estimateClients,
@@ -120,7 +122,7 @@ export default function AdminPage() {
 				});
 	
 				// Initialiser la recherche avec toutes les données combinées
-				setFilteredClients([...pendingClients, ...onAirClients, ...estimateClients, ...notClients, ...inProgressClients, ...repairedClients, ...recoveredClients]);
+				setFilteredClients(data);
 			}
 		} catch (error) {
 			console.error("Erreur lors du chargement des clients :", error);
@@ -129,12 +131,10 @@ export default function AdminPage() {
 	};
 	useEffect(() => {
 		if (searchText.trim() === "") {
-			// Si aucun texte de recherche, réinitialiser avec tous les clients
-			setFilteredClients([...clients.pending, ...clients.onAir, ...clients.estimate, ...clients.not, ...clients.inProgress, ...clients.repaired, ...clients.recovered]);
+			setFilteredClients(clients.all); // Réinitialise avec tous les clients
 		} else {
 			const lowercasedSearch = searchText.toLowerCase();
-			// Filtrer les clients par nom ou téléphone
-			const filtered = [...clients.pending, ...clients.onAir, ...clients.estimate, ...clients.not, ...clients.inProgress, ...clients.repaired, ...clients.recovered].filter(
+			const filtered = clients.all.filter(
 				(client) =>
 					client.name.toLowerCase().includes(lowercasedSearch) ||
 					client.phone.includes(lowercasedSearch)
@@ -529,7 +529,7 @@ export default function AdminPage() {
 
 <Text style={styles.sectionTitle}>Liste complète des clients</Text>
 <FlatList
-    data={filteredClients} // Utiliser les clients filtrés
+    data={filteredClients.length > 0 ? filteredClients : clients.all} // Tous les clients ou les résultats de recherche
     keyExtractor={(item) => item.id.toString()}
     renderItem={({ item, index }) => (
         <TouchableOpacity

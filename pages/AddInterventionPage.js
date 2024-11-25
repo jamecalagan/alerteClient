@@ -70,7 +70,7 @@ const loadModels = async (brandId) => {
   const pickLabelImage = async () => {
     try {
       let result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ['images', 'videos'],// Propriété correcte
         allowsEditing: true,
         quality: 0.5,
       });
@@ -97,7 +97,7 @@ const loadModels = async (brandId) => {
   const pickAdditionalImage = async () => {
     try {
       let result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+       mediaTypes: ['images', 'videos'],// Propriété correcte
         allowsEditing: true,
         quality: 0.5,
       });

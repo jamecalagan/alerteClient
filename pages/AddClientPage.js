@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, ImageBackground, Keyboard } from 'react-native';
+import { View, TextInput, StyleSheet, ImageBackground, Keyboard, Alert } from 'react-native';
 import { supabase } from '../supabaseClient';
 import RoundedButton from '../components/RoundedButton';
 import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
@@ -32,19 +32,24 @@ export default function AddClientPage({ navigation, route }) {
     if (!validateFields()) return;
 
     try {
-        // Vérifier si le client existe déjà
-        const { data: existingClient, error: checkError } = await supabase
+        // Vérification si un client existe déjà
+        const { data: existingClients, error: checkError } = await supabase
             .from('clients')
-            .select('ficheNumber, id') // Assurez-vous de récupérer l'ID
+            .select('*')
             .or(`name.eq.${name},phone.eq.${phone}`);
 
-        if (checkError) throw checkError;
+        if (checkError) {
+            console.error('Erreur lors de la vérification des clients :', checkError.message);
+            Alert.alert('Erreur', "Erreur lors de la vérification des clients existants.");
+            return;
+        }
 
-        if (existingClient && existingClient.length > 0) {
-            const ficheNumber = existingClient[0].ficheNumber;
-            setAlertTitle('Client déjà existant');
-            setAlertMessage(`Le client existe déjà avec le numéro de fiche N° ${ficheNumber}.`);
-            setAlertVisible(true);
+        if (existingClients && existingClients.length > 0) {
+            // Si le client existe déjà, afficher un message et rester sur la page
+            Alert.alert(
+                'Client existant',
+                `Un client avec ce nom ou numéro de téléphone existe déjà.`
+            );
             return;
         }
 
@@ -56,35 +61,52 @@ export default function AddClientPage({ navigation, route }) {
             .limit(1)
             .single();
 
-        if (maxFicheError) throw maxFicheError;
+        if (maxFicheError) {
+            console.error('Erreur lors de la récupération du numéro de fiche :', maxFicheError.message);
+            Alert.alert('Erreur', "Erreur lors de la récupération du numéro de fiche.");
+            return;
+        }
 
-        // Définir le nouveau numéro de fiche
         const newFicheNumber = maxFicheData ? maxFicheData.ficheNumber + 1 : 6001;
 
-        // Insérer le nouveau client avec le nouveau numéro de fiche
-        const { data, error } = await supabase
+        // Insérer un nouveau client
+        const { data: insertedData, error: insertError } = await supabase
             .from('clients')
-            .insert([{ name, phone, email: email || null, ficheNumber: newFicheNumber, createdAt: new Date().toISOString(), interventions: [] }])
+            .insert([{ 
+                name, 
+                phone, 
+                email: email || null, 
+                ficheNumber: newFicheNumber, 
+                createdAt: new Date().toISOString() 
+            }])
             .select()
             .single();
 
-        if (error) throw error;
+        if (insertError) {
+            console.error('Erreur lors de l\'insertion du client :', insertError.message);
+            Alert.alert('Erreur', "Erreur lors de l'insertion du nouveau client.");
+            return;
+        }
 
-        // Réinitialiser les champs après l'ajout du client
+        if (!insertedData) {
+            console.error('Erreur : Aucune donnée insérée.');
+            Alert.alert('Erreur', "Aucune donnée reçue après l'insertion.");
+            return;
+        }
+
+        // Réinitialiser les champs et naviguer
         setName('');
         setPhone('');
         setEmail('');
-		Keyboard.dismiss()
-        // Naviguer vers AddInterventionPage
-        setTimeout(() => {
-			navigation.navigate('AddIntervention', { clientId: data.id });
-		}, 100); // Délai de 100ms
+        Keyboard.dismiss();
+        navigation.navigate('AddIntervention', { clientId: insertedData.id });
 
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du client', error);
-        Alert.alert('Erreur', "Une erreur s'est produite lors de l'ajout du client.");
+        console.error('Erreur inattendue :', error.message);
+        Alert.alert('Erreur', "Une erreur inattendue est survenue.");
     }
 };
+
 
 
   

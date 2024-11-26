@@ -392,21 +392,26 @@ const closeModal = () => {
             console.error("Erreur lors de la suppression du client :", error);
         }
     };
-    const formatDateTime = (dateString) => {
-        const date = new Date(dateString);
-        const offsetHours = 2;
-        date.setHours(date.getHours() + offsetHours);
-        return date.toLocaleString("fr-FR", {
-            day: "numeric",
-            month: "numeric",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false,
-            timeZone: "Europe/Paris",
-        });
-    };
+	const formatDateTime = (dateString) => {
+		try {
+			// Convertir la date ISO en heure locale avec le fuseau "Europe/Paris"
+			return new Date(dateString).toLocaleString("fr-FR", {
+				timeZone: "Europe/Paris", // Force le fuseau horaire
+				day: "2-digit",
+				month: "2-digit",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hour12: false, // Format 24 heures
+			});
+		} catch (error) {
+			console.error("Erreur de formatage de la date :", error);
+			return "Date invalide";
+		}
+	};
+	
+	
 	const filterClients = async (text) => {
 		setSearchText(text);
 	

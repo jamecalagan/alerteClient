@@ -34,21 +34,21 @@ export default function ClientInterventionsPage({ route, navigation }) {
   // Récupérer les interventions pour le client sélectionné au départ
   useEffect(() => {
     if (selectedClient) {
-      const fetchClientInterventions = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('interventions')
-            .select('*, label_photo')  // Assurez-vous que 'label_photo' est récupéré
-            .eq('client_id', selectedClient.id)
-            .order('createdAt', { ascending: false });
-
-          if (error) throw error;
-
-          setInterventions(data);  // Stocker les interventions du client sélectionné
-        } catch (error) {
-          console.error('Erreur lors du chargement des interventions :', error);
-        }
-      };
+		const fetchClientInterventions = async () => {
+			try {
+			  const { data, error } = await supabase
+				.from('interventions')
+				.select('*, photos, label_photo')  // Assurez-vous que 'photos' est récupéré
+				.eq('client_id', selectedClient.id)
+				.order('createdAt', { ascending: false });
+		  
+			  if (error) throw error;
+		  
+			  setInterventions(data);  // Stocker les interventions du client sélectionné
+			} catch (error) {
+			  console.error('Erreur lors du chargement des interventions :', error);
+			}
+		  };
 
       fetchClientInterventions();
     }
@@ -102,51 +102,64 @@ export default function ClientInterventionsPage({ route, navigation }) {
         {selectedClient && searchQuery === '' && (
           <View style={{ flex: 1 }}>
             <Text style={styles.clientInfo}>Client : {selectedClient.name} - {selectedClient.phone}</Text>
-            <FlatList
-              data={interventions}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <View
-                  style={[
-                    styles.interventionCard,
-                    item.status === 'Récupéré' && styles.recuperedStatusCard, // Ajouter la bordure rouge si statut récupéré
-                  ]}
-                >
-                  <View style={styles.interventionDetails}>
-                    <Text>Référence : {item.reference || 'N/A'}</Text>
-					<Text>Produit : {item.deviceType || 'N/A'}</Text>
-                    <Text>Marque : {item.brand || 'N/A'}</Text>
-					<Text>Modèle : {item.model || 'N/A'}</Text>
-                    <Text>Description : {item.description}</Text>
-                    <Text>Statut : {item.status}</Text>
-                    <Text>Coût : {item.cost} €</Text>
-                    <Text>Date : {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
-                    <Text>Détail de l'intervention: {item.detailIntervention}</Text>
-                    
-                    {item.status === 'Récupéré' && (
-                      <Text style={styles.updatedAt}>
-                        Date de récupération : {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('fr-FR') : 'Non disponible'}
-                      </Text>
-                    )}
-                  </View>
+			<FlatList
+  data={interventions}
+  keyExtractor={(item) => item.id.toString()}
+  renderItem={({ item }) => (
+    <View style={styles.interventionCard}>
+      <View style={styles.interventionDetails}>
+        <Text>Référence : {item.reference || 'N/A'}</Text>
+        <Text>Produit : {item.deviceType || 'N/A'}</Text>
+        <Text>Marque : {item.brand || 'N/A'}</Text>
+        <Text>Modèle : {item.model || 'N/A'}</Text>
+        <Text>Description : {item.description}</Text>
+        <Text>Statut : {item.status}</Text>
+        <Text>Coût : {item.cost} €</Text>
+        <Text>Date : {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
+        <Text>Détail de l'intervention: {item.detailIntervention}</Text>
 
-                  {/* Affichage à droite de l'image de l'étiquette ou de la référence */}
-                  <View style={styles.labelContainer}>
-                    {item.label_photo ? (
-						<TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
-                        <Image
-                          source={{ uri: `data:image/jpeg;base64,${item.label_photo}` }}
-                          style={styles.labelImage}
-                        />
-                      </TouchableOpacity>
-					  
-                    ) : (
-                      <Text style={styles.referenceText}>{item.reference || 'Référence manquante'}</Text>  // Affiche la référence si pas d'image
-                    )}
-                  </View>
-                </View>
-              )}
+        {item.status === 'Récupéré' && (
+          <Text style={styles.updatedAt}>
+            Date de récupération : {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('fr-FR') : 'Non disponible'}
+          </Text>
+        )}
+      </View>
+
+      {/* Image de l'étiquette */}
+      <View style={styles.labelContainer}>
+        {item.label_photo ? (
+          <TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
+            <Image
+              source={{ uri: `data:image/jpeg;base64,${item.label_photo}` }}
+              style={styles.labelImage}
             />
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.referenceText}>{item.reference || 'Référence manquante'}</Text>
+        )}
+      </View>
+
+      {/* Images associées */}
+      <View style={styles.photosContainer}>
+        {item.photos && item.photos.length > 0 ? (
+          item.photos
+            .filter((photoUri) => photoUri !== item.label_photo) // Exclure l'image de l'étiquette
+            .map((photoUri, index) => (
+              <TouchableOpacity key={index} onPress={() => handleImagePress(photoUri)}>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${photoUri}` }}
+                  style={styles.photo}
+                />
+              </TouchableOpacity>
+            ))
+        ) : (
+          <Text style={styles.noPhotosText}>Pas d'images disponibles</Text>
+        )}
+      </View>
+    </View>
+  )}
+/>
+
           </View>
         )}
 
@@ -250,8 +263,8 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderWidth: 2,
+    borderColor: '#49f760',
   },
   referenceText: {
     fontSize: 14,
@@ -269,4 +282,24 @@ const styles = StyleSheet.create({
     height: '90%',
     resizeMode: 'contain',
   },
+  photosContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap', // Permettre les retours à la ligne pour les images
+  gap: 8,
+  marginTop: 40,
+},
+photo: {
+  width: 60,
+  height: 60,
+  margin: 5,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: '#ccc',
+},
+noPhotosText: {
+  fontSize: 14,
+  fontStyle: 'italic',
+  color: '#999',
+  marginTop: 10,
+},
 });

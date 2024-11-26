@@ -6,10 +6,14 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuY2dmZmF
 
 https://fncgffajwabqrnhumgzd.supabase.co
 
-
+envoyer
 git add .
-git commit -m "complet 30/10/24_17h31"
+git commit -m "complet 25/11/24_18h00"
 git push origin main
+
+recupérer
+git fetch --all
+git reset --hard origin/main
 
 expo calagan_james@yahoo.fr
 calagan

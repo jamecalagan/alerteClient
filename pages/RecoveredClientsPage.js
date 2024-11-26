@@ -226,9 +226,10 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   signatureImage: {
-    width: '70%',
+    width: '95%',
     height: 300,
     marginTop: 10,
+	marginLeft: 20,
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#ddd',

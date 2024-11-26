@@ -247,7 +247,16 @@ export default function RepairedInterventionsPage({ navigation }) {
                 <Text style={styles.interventionText}>Description du problème: {item.description}</Text>
                 <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
                 <Text style={styles.interventionText}>Coût: {item.cost} €</Text>
-				<Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
+				
+  <Text
+    style={[
+      styles.interventionText,
+      item.paymentStatus === 'solde' ? styles.interventionTextSolde : styles.interventionTextNon
+    ]}
+  >
+    Etat du règlement: {item.paymentStatus}
+  </Text>
+
                 <Text style={styles.interventionText}>Statut: {item.status}</Text>
                 <Text style={styles.interventionText}>Commande: {item.commande}</Text>
                 <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
@@ -276,25 +285,30 @@ export default function RepairedInterventionsPage({ navigation }) {
                     <Text style={styles.buttonText}>Sauvegarder les détails</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
+				  <TouchableOpacity
   style={[
     styles.restitutionButton,
-    (!isSaved[item.id] || (!editingDetail[item.id] && !item.detailIntervention)) ? styles.disabledButton : null
+    (
+      !isSaved[item.id] || 
+      (!editingDetail[item.id] && !item.detailIntervention) || 
+      item.paymentStatus === 'non_regle' // Désactiver si le paiement n'est pas réglé
+    ) ? styles.disabledButton : null
   ]}
-  onPress={() => handleRestitution(item)}  // Appel de la nouvelle fonction
-  disabled={!isSaved[item.id] || (!editingDetail[item.id] && !item.detailIntervention)}
+  onPress={() => handleRestitution(item)}
+  disabled={
+    !isSaved[item.id] || 
+    (!editingDetail[item.id] && !item.detailIntervention) || 
+    item.paymentStatus === 'non_regle' // Désactiver si le paiement n'est pas réglé
+  }
 >
-				    <Icon
-                            name="check-circle"
-                            size={20}
-                            color="#202020"
-                            style={styles.buttonIcon}
-                        />
+  <Icon
+    name="check-circle"
+    size={20}
+    color="#202020"
+    style={styles.buttonIcon}
+  />
   <Text style={styles.buttonText}>Restitution</Text>
 </TouchableOpacity>
-
-
-
 
                   <TouchableOpacity
                     style={styles.editButton}
@@ -443,6 +457,12 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 5,
   },
+  interventionTextNon: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f50202',
+    marginBottom: 5,
+  },
   detailInput: {
     borderColor: 'gray',
     borderWidth: 1,
@@ -553,4 +573,10 @@ moveToTopButton: {
   padding: 5,
   elevation: 5,
 },
+interventionTextSolde: {
+	fontSize: 18,
+    fontWeight: 'bold',
+    color: '#056109',
+    marginBottom: 5,
+  },
 });

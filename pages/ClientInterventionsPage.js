@@ -101,7 +101,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         {/* Afficher uniquement le client sélectionné au départ */}
         {selectedClient && searchQuery === '' && (
           <View style={{ flex: 1 }}>
-            <Text style={styles.clientInfo}>Client : {selectedClient.name} - {selectedClient.phone}</Text>
+            <Text style={styles.clientInfo}>Client : {selectedClient.name} - {selectedClient.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}</Text>
 			<FlatList
   data={interventions}
   keyExtractor={(item) => item.id.toString()}

@@ -531,17 +531,18 @@ export default function AdminPage() {
 <FlatList
     data={filteredClients.length > 0 ? filteredClients : clients.all} // Tous les clients ou les résultats de recherche
     keyExtractor={(item) => item.id.toString()}
+	showsVerticalScrollIndicator={false}
     renderItem={({ item, index }) => (
         <TouchableOpacity
             onPress={() => navigation.navigate("ClientInterventionsPage", { clientId: item.id })}
             style={[
                 styles.clientItem,
-                { backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff" },
+                { backgroundColor: index % 2 === 0 ? "#e7e6e6" : "#ffffff" },
             ]}
         >
             <Text style={styles.clientText}>N° client : {item.ficheNumber}</Text>
             <Text style={styles.clientText}>Nom : {item.name}</Text>
-            <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
+            <Text style={styles.clientText}>Téléphone : {item.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}</Text>
         </TouchableOpacity>
     )}
 />

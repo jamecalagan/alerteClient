@@ -27,7 +27,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         .from('interventions')
         .select(`
           *,
-          clients (name, ficheNumber)
+          clients (name, ficheNumber, phone)
         `)
         .eq('status', 'Réparé');
 
@@ -199,6 +199,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         <FlatList
           data={repairedInterventions}
           keyExtractor={(item) => item.id.toString()}
+		  showsVerticalScrollIndicator={false}
 		                      keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
                     contentContainerStyle={{ paddingBottom: 20 }} // Espace sous la liste
           renderItem={({ item }) => (
@@ -239,6 +240,7 @@ export default function RepairedInterventionsPage({ navigation }) {
               <View style={styles.infoContainer}>
                 <Text style={styles.interventionText}>Fiche N° : {item.clients.ficheNumber}</Text>
                 <Text style={styles.interventionText}>Client : {item.clients.name}</Text>
+				<Text style={styles.interventionText}>Tel : {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}</Text>
                 <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
                 <Text style={styles.interventionText}>Marque: {item.brand}</Text>
 				<Text style={styles.interventionText}>Modèle: {item.model}</Text>

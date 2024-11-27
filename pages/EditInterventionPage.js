@@ -20,6 +20,7 @@ import * as FileSystem from "expo-file-system";
 import { MaterialIcons } from "@expo/vector-icons"; // Pour l'icône de coche
 import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
 export default function EditInterventionPage({ route, navigation }) {
+	const { clientId } = route.params || {};
     const { interventionId } = route.params;
     const [reference, setReference] = useState("");
     const [brand, setBrand] = useState("");
@@ -47,11 +48,30 @@ export default function EditInterventionPage({ route, navigation }) {
     const [models, setModels] = useState([]);
 	const [remarks, setRemarks] = useState(''); // État pour les remarques
 	const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
+	const [clientName, setClientName] = useState('');
     useEffect(() => {
         loadIntervention();
         loadArticles(); // Charger les articles au démarrage
     }, []);
-
+	useEffect(() => {
+		const fetchClientName = async () => {
+			const { data, error } = await supabase
+				.from('clients') // Assurez-vous que la table s'appelle 'clients'
+				.select('name') // Ajustez 'name' au nom réel de la colonne pour le nom du client
+				.eq('id', clientId)
+				.single();
+	
+			if (error) {
+				console.error('Erreur lors de la récupération du nom du client:', error);
+			} else {
+				setClientName(data.name);
+			}
+		};
+	
+		if (clientId) {
+			fetchClientName();
+		}
+	}, [clientId]);
     // Charger les données de l'intervention en cours
     const loadIntervention = async () => {
         const { data, error } = await supabase
@@ -283,6 +303,11 @@ export default function EditInterventionPage({ route, navigation }) {
             style={styles.container}
             keyboardVerticalOffset={80}
         >
+		        {clientName && (
+            <Text style={styles.clientName}>
+                {`Client: ${clientName}`}
+            </Text>
+        )}
             <ScrollView>
                 <Text style={styles.label}>Type de produit</Text>
 				<Picker selectedValue={deviceType} style={styles.input} onValueChange={handleDeviceTypeChange}>
@@ -661,6 +686,14 @@ const styles = StyleSheet.create({
         backgroundColor: "#f2f2f2",
         paddingHorizontal: 20,
     },
+	clientName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginVertical: 10,
+    color: '#222',
+},
+
     input: {
         borderWidth: 1,
         borderColor: "#ccc",

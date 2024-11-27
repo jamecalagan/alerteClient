@@ -39,6 +39,8 @@ export default function HomePage({ navigation, route }) {
     const [expandedClientId, setExpandedClientId] = useState(null);
 	const [selectedIntervention, setSelectedIntervention] = useState(null);
 	const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
+	const [selectedDevice, setSelectedDevice] = useState(null);
+const [isModalVisible, setIsModalVisible] = useState(false);
 const [modalData, setModalData] = useState({ title: "", message: "", onConfirm: null });
 // Ajoutez d'autres états de modale si nécessaire
 const closeAllModals = () => {
@@ -231,7 +233,9 @@ const closeModal = () => {
 					interventions(
 						id, 
 						status, 
-						deviceType, 
+						deviceType,
+						brand,
+						model, 
 						cost, 
 						createdAt, 
 						updatedAt, 
@@ -293,6 +297,14 @@ const closeModal = () => {
 		}
 	};
 	
+	const fetchDetails = (deviceType, marque, model) => {
+		setSelectedDevice({
+			deviceType,
+			brand: marque || "Inconnu", // Valeur par défaut si la marque est vide
+			model: model || "Inconnu",  // Valeur par défaut si le modèle est vide
+		});
+		setIsModalVisible(true);
+	};
 	
 	
 	
@@ -519,6 +531,7 @@ const closeModal = () => {
                 return <FontAwesome5 name="question" size={30} color="#000" />;
         }
     };
+	
     const filterByStatus = (status) => {
         const filtered = clients.filter((client) =>
             client.interventions.some(
@@ -837,15 +850,24 @@ const closeModal = () => {
 											index
 										) => (
 											<View
-												key={index}
-												style={{
-													marginLeft: 5,
-												}}
-											>
-												{getDeviceIcon(
-													intervention.deviceType
-												)}
-											</View>
+    key={index}
+    style={{
+        marginLeft: 5,
+    }}
+>
+    <TouchableOpacity
+        onPress={() =>
+            fetchDetails(
+                intervention.deviceType, // Type d'appareil
+                intervention.brand,     // Nom de la marque
+                intervention.model       // Nom du modèle
+            )
+        }
+    >
+        {getDeviceIcon(intervention.deviceType)}
+    </TouchableOpacity>
+</View>
+
 										)
 									)}
 							</View>
@@ -981,6 +1003,37 @@ const closeModal = () => {
                         </View>
                     </View>
                 </Modal>
+				<Modal
+    visible={isModalVisible}
+    transparent={true}
+    animationType="fade"
+    onRequestClose={() => setIsModalVisible(false)}
+>
+    <View style={styles.modalOverlay}>
+        <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Détails du matériel</Text>
+            {selectedDevice && (
+                <>
+                    <Text style={styles.modalText}>
+                        Type : {selectedDevice.deviceType}
+                    </Text>
+                    <Text style={styles.modalText}>
+                        Marque : {selectedDevice.brand}
+                    </Text>
+                    <Text style={styles.modalText}>
+                        Modèle : {selectedDevice.model}
+                    </Text>
+                </>
+            )}
+            <TouchableOpacity
+                style={styles.button}
+                onPress={() => setIsModalVisible(false)}
+            >
+                <Text style={styles.buttonText}>Fermer</Text>
+            </TouchableOpacity>
+        </View>
+    </View>
+</Modal>
 
                 <Modal
                     transparent={true}
@@ -1546,5 +1599,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "red",
 
+},
+modalContent: {
+	width: '50%',
+	backgroundColor: '#fff',
+	padding: 20,
+	borderRadius: 10,
+	alignItems: 'center',
+},
+modalTitle: {
+	fontSize: 20,
+	fontWeight: 'bold',
+	marginBottom: 15,
+},
+modalText: {
+	fontSize: 16,
+	marginBottom: 10,
 },
 });

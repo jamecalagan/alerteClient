@@ -36,10 +36,29 @@ export default function AddInterventionPage({ route, navigation }) {
   const [models, setModels] = useState([]);
   const [remarks, setRemarks] = useState(''); // État pour les remarques
   const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
+  const [clientName, setClientName] = useState('');
   useEffect(() => {
 	loadProducts();
 }, []);
+useEffect(() => {
+    const fetchClientName = async () => {
+        const { data, error } = await supabase
+            .from('clients') // Assurez-vous que la table s'appelle 'clients'
+            .select('name') // Ajustez 'name' au nom réel de la colonne pour le nom du client
+            .eq('id', clientId)
+            .single();
 
+        if (error) {
+            console.error('Erreur lors de la récupération du nom du client:', error);
+        } else {
+            setClientName(data.name);
+        }
+    };
+
+    if (clientId) {
+        fetchClientName();
+    }
+}, [clientId]);
 const loadProducts = async () => {
 	const { data, error } = await supabase.from('article').select('*');
 	if (error) {
@@ -294,6 +313,11 @@ const handleSaveIntervention = async () => {
       style={styles.container}
       keyboardVerticalOffset={80}
     >
+	        {clientName && (
+            <Text style={styles.clientName}>
+                {`Client: ${clientName}`}
+            </Text>
+        )}
       <ScrollView>
 	  <Text style={styles.label}>Type de produit</Text>
                 <Picker selectedValue={deviceType} style={styles.input} onValueChange={handleDeviceTypeChange}>
@@ -594,6 +618,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     paddingHorizontal: 20,
   },
+  clientName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginVertical: 10,
+    color: '#222',
+},
   input: {
     borderWidth: 1,
     borderColor: '#ccc',

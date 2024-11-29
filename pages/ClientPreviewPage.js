@@ -83,8 +83,8 @@ export default function ClientPreviewPage() {
             .section-title { font-size: 18px; font-weight: bold; margin-top: 5px; margin-bottom: 5px; color: #2C3E50; }
             .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
 			.info-recup { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: red; }
-            .cost { font-size: 18px; color: black; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
-			.costAcompte { font-size: 20px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
+            .cost { font-size: 10px; color: black; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
+			.costAcompte { font-size: 18px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
             .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
             .logo { width: 180px; }
             .signature { width: 300px; height: 80px; margin-top: 20px; }
@@ -121,7 +121,6 @@ export default function ClientPreviewPage() {
             <div class="info"><strong>Type d'appareil:</strong> ${clientInfo.latestIntervention.deviceType}</div>
             <div class="info"><strong>Marque:</strong> ${clientInfo.latestIntervention.brand}</div>
 			<div class="info"><strong>Modèle:</strong> ${clientInfo.latestIntervention.model}</div>
-            <div class="info"><strong>Référence:</strong> ${clientInfo.latestIntervention.reference}</div>
             <div class="info"><strong>Numéro de série:</strong> ${clientInfo.latestIntervention.serial_number}</div>
             <div class="info"><strong>Mot de passe:</strong> ${clientInfo.latestIntervention.password}</div>
             <div class="info"><strong>Chargeur:</strong> ${clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</div>
@@ -211,7 +210,6 @@ export default function ClientPreviewPage() {
           <Text>Type d'appareil: {clientInfo.latestIntervention.deviceType}</Text>
           <Text>Marque: {clientInfo.latestIntervention.brand}</Text>
 		  <Text>Modèle: {clientInfo.latestIntervention.model}</Text>
-          <Text>Référence: {clientInfo.latestIntervention.reference}</Text>
           <Text>Numéro de série: {clientInfo.latestIntervention.serial_number}</Text>
           <Text>Chargeur: {clientInfo.latestIntervention.chargeur ? 'Oui' : 'Non'}</Text>
 		          {/* Phrase conditionnelle */}

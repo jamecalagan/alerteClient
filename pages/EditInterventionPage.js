@@ -49,6 +49,8 @@ export default function EditInterventionPage({ route, navigation }) {
 	const [remarks, setRemarks] = useState(''); // État pour les remarques
 	const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
 	const [clientName, setClientName] = useState('');
+	const [partialPayment, setPartialPayment] = useState('');
+	const [solderestant, setSolderestant] = useState('');
     useEffect(() => {
         loadIntervention();
         loadArticles(); // Charger les articles au démarrage
@@ -76,7 +78,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk ")
+            .select("article_id, marque_id, modele_id, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk ")
             .eq("id", interventionId)
             .single();
 
@@ -89,6 +91,8 @@ export default function EditInterventionPage({ route, navigation }) {
             setReference(data.reference);
             setDescription(data.description);
             setCost(data.cost);
+			setSolderestant(data.solderestant || 0);
+			setPartialPayment(data.partialPayment); // Charge l'acompte
             setStatus(data.status);
             setSerial_number(data.serial_number);
             setPassword(data.password);
@@ -235,7 +239,17 @@ export default function EditInterventionPage({ route, navigation }) {
 			Alert.alert('Erreur', 'Veuillez indiquer le coût de la réparation.');
 			return;
 		}
-	
+	    // Validation de l'acompte
+		if (paymentStatus === 'reglement_partiel' && (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))) {
+			Alert.alert('Erreur', "Veuillez indiquer un acompte valide qui ne dépasse pas le montant total.");
+			return;
+		}
+		    // Calcul du solde restant
+			const solderestant = paymentStatus === 'reglement_partiel' 
+			? parseFloat(cost) - parseFloat(partialPayment || 0)
+			: paymentStatus === 'solde' 
+				? 0 
+				: parseFloat(cost);
 		const selectedArticle = articles.find((article) => article.id === deviceType);
 		const selectedBrand = brands.find((b) => b.id === brand);
 		const selectedModel = models.find((m) => m.id === model);
@@ -253,6 +267,8 @@ export default function EditInterventionPage({ route, navigation }) {
 			reference,
 			description,
 			cost: costValue, // Utiliser `costValue` ici
+			solderestant, // Mise à jour du solde restant
+			partialPayment: partialPayment ? parseFloat(partialPayment) : null, // Ajoute l'acompte
 			status,
 			password,
 			serial_number,
@@ -495,6 +511,22 @@ export default function EditInterventionPage({ route, navigation }) {
         </TouchableOpacity>
     </View>
 </View>
+{paymentStatus === 'reglement_partiel' && (
+    <>
+        <Text style={styles.label}>Acompte (€)</Text>
+        <TextInput
+            style={styles.input}
+            value={partialPayment ? partialPayment.toString() : ''}
+            onChangeText={setPartialPayment}
+            keyboardType="numeric"
+            placeholder="Entrez l'acompte"
+        />
+<Text style={styles.interventionText}>
+    Solde restant dû : {solderestant.toFixed(2)} €
+</Text>
+
+    </>
+)}
 
 
                 <View
@@ -926,5 +958,13 @@ checkboxCheckedBlue: {
 	borderColor: 'blue',
 	backgroundColor: 'blue',
 },
+interventionText:{
+	fontSize: 16,
+    color: '#ff4500', // Rouge orangé pour attirer l'attention
+    fontWeight: 'bold',
+	marginBottom: 15,
+	width: "90%",
+	alignSelf: "center",
+}
 
 });

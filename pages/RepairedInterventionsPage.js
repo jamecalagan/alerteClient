@@ -21,65 +21,84 @@ export default function RepairedInterventionsPage({ navigation }) {
   const [notifyModalVisible, setNotifyModalVisible] = useState(false);
   const [selectedInterventionId, setSelectedInterventionId] = useState(null);
   const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
+  const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
+  const sortedInterventions = repairedInterventions.sort((a, b) => {
+	if (a.id === pinnedInterventionId) return -1; // La fiche épinglée est toujours en haut
+	if (b.id === pinnedInterventionId) return 1;
+	return 0; // Conserve l'ordre des autres fiches
+  });
+  
   const loadRepairedInterventions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('interventions')
-        .select(`
-          *,
-          clients (name, ficheNumber, phone)
-        `)
-        .eq('status', 'Réparé');
+        const { data, error } = await supabase
+            .from('interventions')
+            .select(`
+                *,
+                clients (name, ficheNumber, phone)
+            `)
+            .eq('status', 'Réparé');
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const { data: imagesData, error: imagesError } = await supabase
-        .from('intervention_images')
-        .select('*');
+        const { data: imagesData, error: imagesError } = await supabase
+            .from('intervention_images')
+            .select('*');
 
-      if (imagesError) throw imagesError;
+        if (imagesError) throw imagesError;
 
-      const interventionsWithImages = data.map(intervention => {
-        const images = imagesData.filter(image => image.intervention_id === intervention.id);
-        return { ...intervention, intervention_images: images };
-      });
+        const interventionsWithImages = data.map(intervention => {
+            const images = imagesData.filter(image => image.intervention_id === intervention.id);
+            return { ...intervention, intervention_images: images };
+        });
 
-      setRepairedInterventions(interventionsWithImages);
+        // Trier les interventions pour mettre la fiche épinglée en haut
+        const sortedInterventions = interventionsWithImages.sort((a, b) => {
+            if (a.id === pinnedInterventionId) return -1; // La fiche épinglée reste en haut
+            if (b.id === pinnedInterventionId) return 1;
+            return 0; // Conserve l'ordre des autres fiches
+        });
 
-      const savedStatus = {};
-      interventionsWithImages.forEach((intervention) => {
-        savedStatus[intervention.id] = intervention.detailIntervention && intervention.detailIntervention.trim() !== '';
-      });
-      setIsSaved(savedStatus);
+        setRepairedInterventions(sortedInterventions);
+
+        const savedStatus = {};
+        sortedInterventions.forEach((intervention) => {
+            savedStatus[intervention.id] =
+                intervention.detailIntervention &&
+                intervention.detailIntervention.trim() !== '';
+        });
+        setIsSaved(savedStatus);
     } catch (error) {
-      console.error('Erreur lors du chargement des interventions réparées :', error);
+        console.error('Erreur lors du chargement des interventions réparées :', error);
     }
-  };
+};
 
-  const saveDetailIntervention = async (id) => {
+
+const saveDetailIntervention = async (id) => {
     const detail = editingDetail[id];
     if (!detail || detail.trim() === '') {
-      setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
-      setAlertVisible(true);
-      return;
+        setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
+        setAlertVisible(true);
+        return;
     }
     try {
-      const { error } = await supabase
-        .from('interventions')
-        .update({ detailIntervention: detail })
-        .eq('id', id);
+        const { error } = await supabase
+            .from('interventions')
+            .update({ detailIntervention: detail })
+            .eq('id', id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setAlertMessage('Détails sauvegardés avec succès.');
-      setAlertVisible(true);
-      setIsSaved((prevState) => ({ ...prevState, [id]: true }));
+        setAlertMessage('Détails sauvegardés avec succès.');
+        setAlertVisible(true);
+        setIsSaved((prevState) => ({ ...prevState, [id]: true }));
 
-      await loadRepairedInterventions();
+        // Recharger les interventions et maintenir la fiche épinglée
+        await loadRepairedInterventions();
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde des détails :', error);
+        console.error('Erreur lors de la sauvegarde des détails :', error);
     }
-  };
+};
+
 
   const updateClientNotification = async (selectedInterventionId, method) => {
     try {
@@ -178,13 +197,7 @@ export default function RepairedInterventionsPage({ navigation }) {
     }
   };
   const moveToTop = (interventionId) => {
-	const selectedIntervention = repairedInterventions.find(
-	  (intervention) => intervention.id === interventionId
-	);
-	const remainingInterventions = repairedInterventions.filter(
-	  (intervention) => intervention.id !== interventionId
-	);
-	setRepairedInterventions([selectedIntervention, ...remainingInterventions]);
+	setPinnedInterventionId(interventionId); // Met à jour la fiche épinglée
   };
   return (
     <KeyboardAvoidingView

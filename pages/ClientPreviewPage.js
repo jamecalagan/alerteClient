@@ -28,7 +28,9 @@ export default function ClientPreviewPage() {
             reference, 
             serial_number, 
             description, 
-            cost, 
+            cost,
+			partialPayment,
+			solderestant, 
             password, 
             chargeur, 
             signatureIntervention,
@@ -81,7 +83,8 @@ export default function ClientPreviewPage() {
             .section-title { font-size: 18px; font-weight: bold; margin-top: 5px; margin-bottom: 5px; color: #2C3E50; }
             .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
 			.info-recup { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: red; }
-            .cost { font-size: 20px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
+            .cost { font-size: 18px; color: black; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
+			.costAcompte { font-size: 20px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
             .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
             .logo { width: 180px; }
             .signature { width: 300px; height: 80px; margin-top: 20px; }
@@ -130,6 +133,8 @@ export default function ClientPreviewPage() {
             
           </div>
   			<div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
+			<div class="cost">Acompte: ${clientInfo.latestIntervention.partialPayment} €</div>
+			<div class="costAcompte">Montant restant dû: ${clientInfo.latestIntervention.solderestant} €</div>
 
           <div class="terms-section">
             <p class="terms-text-bottom">
@@ -222,8 +227,10 @@ export default function ClientPreviewPage() {
       {clientInfo.latestIntervention && (
         <View style={styles.repairSection}>
           <Text style={styles.sectionTitle}>Détail du problème</Text>
-          <Text>--> {clientInfo.latestIntervention.description}</Text>
+          <Text>{clientInfo.latestIntervention.description}</Text>
           <Text style={styles.costText}>Coût: {clientInfo.latestIntervention.cost} €</Text>
+		  <Text style={styles.costTextAcompte}>Acompte: {clientInfo.latestIntervention.partialPayment} €</Text>
+		  <Text style={styles.costTextReste}>Montant restant dû: {clientInfo.latestIntervention.solderestant} €</Text>
           <Text>Mot de passe: {clientInfo.latestIntervention.password}</Text>
         </View>
       )}
@@ -386,10 +393,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   costText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  costTextAcompte: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  costTextReste: {
     fontSize: 22,
     fontWeight: 'bold',
     color: 'green',
-    marginTop: 10,
+    marginTop: 5,
   },
   termsSection: {
     marginBottom: 20,

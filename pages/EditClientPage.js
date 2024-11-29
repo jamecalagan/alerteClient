@@ -262,7 +262,8 @@ export default function EditClientPage({ route, navigation }) {
               <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
               <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
-			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
+			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus} de: {item.partialPayment} €</Text>
+			  <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
 			     
@@ -404,6 +405,11 @@ const styles = StyleSheet.create({
   interventionText: {
     fontSize: 16,
     color: '#333333',
+    marginBottom: 5, // Ajoute un espacement entre les lignes
+  },
+  interventionTextReste: {
+    fontSize: 16,
+    color: '#dd0606',
     marginBottom: 5, // Ajoute un espacement entre les lignes
   },
   addButton: {

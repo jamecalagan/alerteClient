@@ -255,7 +255,8 @@ export default function HomePage({ navigation, route }) {
 						deviceType,
 						brand,
 						model, 
-						cost, 
+						cost,
+						solderestant, 
 						createdAt, 
 						updatedAt, 
 						commande, 
@@ -1121,6 +1122,16 @@ export default function HomePage({ navigation, route }) {
                                                     )}{" "}
                                                     €
                                                 </Text>
+												{/* Ajout du solde restant dû */}
+{latestIntervention?.solderestant !== undefined && latestIntervention?.solderestant > 0 && (
+    <Text style={styles.clientTextSoldeRestant}>
+        Solde restant dû :{" "}
+        {latestIntervention.solderestant.toLocaleString("fr-FR", {
+            minimumFractionDigits: 2,
+        })}{" "}
+        €
+    </Text>
+)}
                                                 <Text style={styles.clientText}>
                                                     Nombre d'images :{" "}
                                                     {totalImages}
@@ -1535,6 +1546,11 @@ const styles = StyleSheet.create({
     clientText: {
         fontSize: 16,
     },
+	clientTextSoldeRestant: {
+		fontSize: 16,
+		color: '#ff4500', // Rouge orangé pour attirer l'attention
+		fontWeight: 'bmedium',
+	},
     statusText: {
         fontSize: 16,
         fontWeight: "bold",

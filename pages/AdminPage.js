@@ -44,7 +44,7 @@ export default function AdminPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 7;
 
-    const totalPages = Math.ceil((filteredClients || []).length / itemsPerPage);
+    const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage);
     const currentData = (filteredClients || []).slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
@@ -896,7 +896,7 @@ export default function AdminPage() {
 		</Text>
 	</TouchableOpacity>
 
-	<Text style={styles.paginationText}>
+	<Text style={styles.paginationTextNumber}>
 		Page {currentPage} sur {totalPages}
 	</Text>
 
@@ -1070,5 +1070,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     paginationText: { color: "#fff", fontSize: 16 },
+    disabledPaginationText: { color: "#ccc", fontSize: 16 },
+	paginationTextNumber: { color: "#202020", fontSize: 18 },
     disabledPaginationText: { color: "#ccc", fontSize: 16 },
 });

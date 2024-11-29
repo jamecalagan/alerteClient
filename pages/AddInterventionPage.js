@@ -37,6 +37,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [remarks, setRemarks] = useState(''); // État pour les remarques
   const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
   const [clientName, setClientName] = useState('');
+  const [partialPayment, setPartialPayment] = useState(''); // Montant de l'acompte
   useEffect(() => {
 	loadProducts();
 }, []);
@@ -255,7 +256,17 @@ const handleSaveIntervention = async () => {
         setAlertVisible(true);
         return;
     }
-
+    // Validation pour l'acompte
+    if (paymentStatus === 'reglement_partiel' && (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))) {
+        Alert.alert('Erreur', "Veuillez indiquer un acompte valide qui ne dépasse pas le montant total.");
+        return;
+    }
+	    // Calcul du solde restant
+		const solderestant = paymentStatus === 'reglement_partiel' 
+        ? parseFloat(cost) - parseFloat(partialPayment || 0)
+        : paymentStatus === 'solde' 
+            ? 0 
+            : parseFloat(cost);
     // Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
     const costValue = cost ? parseFloat(cost) : null;
 
@@ -270,6 +281,7 @@ const handleSaveIntervention = async () => {
         serial_number,
         description,
         cost: costValue, // Utiliser `costValue` ici
+		solderestant, // Ajout du solde restant
         status,
         deviceType: customDeviceType || deviceType,
         password,
@@ -283,6 +295,7 @@ const handleSaveIntervention = async () => {
         modele_id: modelId,
         remarks, // Ajoute les remarques ici
         paymentStatus,
+		partialPayment: partialPayment ? parseFloat(partialPayment) : null, // Ajout de l'acompte
 		accept_screen_risk: acceptScreenRisk,
     };
 
@@ -468,6 +481,28 @@ const handleSaveIntervention = async () => {
             <Text style={styles.checkboxLabel}>Soldé</Text>
         </TouchableOpacity>
     </View>
+	{paymentStatus === 'reglement_partiel' && (
+  <View>
+    <Text style={styles.label}>Montant de l'acompte (€)</Text>
+    <TextInput
+      style={styles.input}
+      value={partialPayment}
+      onChangeText={(value) => {
+        if (parseFloat(value) > parseFloat(cost)) {
+          Alert.alert('Erreur', "L'acompte ne peut pas dépasser le montant total.");
+        } else {
+          setPartialPayment(value);
+        }
+      }}
+      keyboardType="numeric"
+      placeholder="Entrez le montant de l'acompte"
+    />
+    <Text style={styles.label}>
+      Solde restant : {cost && partialPayment ? (cost - partialPayment).toFixed(2) : cost} €
+    </Text>
+  </View>
+)}
+
 </View>
   <View style={[styles.rowFlexContainer, status === 'En attente de pièces' && { paddingHorizontal: 20 }]}>
     <View style={styles.fullwidthContainer}>

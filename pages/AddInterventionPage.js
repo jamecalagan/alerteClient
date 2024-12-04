@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { MaterialIcons } from '@expo/vector-icons';
 import Icon from "react-native-vector-icons/FontAwesome";
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function AddInterventionPage({ route, navigation }) {
 	const { clientId } = route.params || {};
@@ -87,54 +88,74 @@ const loadModels = async (brandId) => {
 	}
 };
   
-  const pickLabelImage = async () => {
+const pickLabelImage = async () => {
     try {
-      let result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images', 'videos'],// Propriété correcte
-        allowsEditing: true,
-        quality: 0.5,
-      });
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'], // Sélectionne uniquement les images
+            allowsEditing: true,
+            quality: 0.5, // Compression initiale
+        });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const imageUri = result.assets[0].uri;
-        const base64Image = await convertImageToBase64(imageUri);
-        if (base64Image) {
-          setPhotos([...photos, base64Image]);
-          setIsPhotoTaken(true);
-          setLabelPhoto(base64Image);
-          if (!reference) {
-            setReference('Voir photo pour référence produit');
-          }
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const imageUri = result.assets[0].uri;
+
+            // Compression et redimensionnement
+            const compressedImage = await ImageManipulator.manipulateAsync(
+                imageUri,
+                [{ resize: { width: 800 } }], // Redimensionne à une largeur maximale de 800px
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compresse à 70%
+            );
+
+            const base64Image = await convertImageToBase64(compressedImage.uri);
+
+            if (base64Image) {
+                setPhotos([...photos, base64Image]);
+                setIsPhotoTaken(true);
+                setLabelPhoto(base64Image);
+                if (!reference) {
+                    setReference('Voir photo pour référence produit');
+                }
+            }
+        } else {
+            console.log('Aucune image capturée ou opération annulée.');
         }
-      } else {
-        console.log('Aucune image capturée ou opération annulée.');
-      }
     } catch (error) {
-      console.error('Erreur lors de la capture d\'image :', error);
+        console.error('Erreur lors de la capture d\'image :', error);
     }
-  };
+};
 
-  const pickAdditionalImage = async () => {
+
+const pickAdditionalImage = async () => {
     try {
-      let result = await ImagePicker.launchCameraAsync({
-       mediaTypes: ['images', 'videos'],// Propriété correcte
-        allowsEditing: true,
-        quality: 0.5,
-      });
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 0.5,
+        });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const imageUri = result.assets[0].uri;
-        const base64Image = await convertImageToBase64(imageUri);
-        if (base64Image) {
-          setPhotos([...photos, base64Image]);
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const imageUri = result.assets[0].uri;
+
+            // Compression et redimensionnement
+            const compressedImage = await ImageManipulator.manipulateAsync(
+                imageUri,
+                [{ resize: { width: 800 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+
+            const base64Image = await convertImageToBase64(compressedImage.uri);
+
+            if (base64Image) {
+                setPhotos([...photos, base64Image]);
+            }
+        } else {
+            console.log('Aucune image capturée ou opération annulée.');
         }
-      } else {
-        console.log('Aucune image capturée ou opération annulée.');
-      }
     } catch (error) {
-      console.error('Erreur lors de la capture d\'image :', error);
+        console.error('Erreur lors de la capture d\'image :', error);
     }
-  };
+};
+
 
   const convertImageToBase64 = async (uri) => {
     try {

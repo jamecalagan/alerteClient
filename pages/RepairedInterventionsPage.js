@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ImageBackground, Modal, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -8,11 +8,12 @@ import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
-
+import * as ImageManipulator from "expo-image-manipulator";
 // Import de l'image depuis le dossier assets
 const backgroundImage = require('../assets/listing2.jpg');
 
 export default function RepairedInterventionsPage({ navigation }) {
+	const repairedInterventionsRef = useRef(null); // Créez une référence
   const [repairedInterventions, setRepairedInterventions] = useState([]);
   const [editingDetail, setEditingDetail] = useState({});
   const [alertVisible, setAlertVisible] = useState(false);
@@ -22,6 +23,8 @@ export default function RepairedInterventionsPage({ navigation }) {
   const [selectedInterventionId, setSelectedInterventionId] = useState(null);
   const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
   const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+const [isModalVisible, setIsModalVisible] = useState(false);
   const sortedInterventions = repairedInterventions.sort((a, b) => {
 	if (a.id === pinnedInterventionId) return -1; // La fiche épinglée est toujours en haut
 	if (b.id === pinnedInterventionId) return 1;
@@ -69,6 +72,26 @@ export default function RepairedInterventionsPage({ navigation }) {
         setIsSaved(savedStatus);
     } catch (error) {
         console.error('Erreur lors du chargement des interventions réparées :', error);
+    }
+};
+const deleteImage = async (imageId, interventionId) => {
+    try {
+        const { error } = await supabase
+            .from('intervention_images')
+            .delete()
+            .eq('id', imageId);
+
+        if (error) throw error;
+
+        // Recharge les images après suppression
+        await loadRepairedInterventions();
+
+        setAlertMessage('Image supprimée avec succès.');
+        setAlertVisible(true);
+    } catch (error) {
+        console.error('Erreur lors de la suppression de l\'image :', error);
+        setAlertMessage('Erreur lors de la suppression de l\'image.');
+        setAlertVisible(true);
     }
 };
 
@@ -121,34 +144,40 @@ const saveDetailIntervention = async (id) => {
 
   const takePhoto = async (interventionId) => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Nous avons besoin de votre permission pour accéder à la caméra.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images', 'videos'],// Propriété correcte
-        allowsEditing: true,
-        quality: 0.5,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const imageUri = result.assets[0].uri;
-        const base64Image = await convertImageToBase64(imageUri);
-
-        if (base64Image) {
-          await saveImage(interventionId, base64Image);
-          await loadRepairedInterventions();
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+            alert("Nous avons besoin de votre permission pour accéder à la caméra.");
+            return;
         }
-      } else {
-        alert('La photo n\'a pas été prise correctement ou l\'opération a été annulée.');
-      }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            quality: 0.7, // Qualité initiale
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const imageUri = result.assets[0].uri;
+
+            // Compression de l'image
+            const compressedImage = await ImageManipulator.manipulateAsync(
+                imageUri,
+                [{ resize: { width: 800 } }], // Redimensionne à une largeur maximale de 800px
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compression à 70% en JPEG
+            );
+
+            const base64Image = await convertImageToBase64(compressedImage.uri);
+
+            if (base64Image) {
+                await saveImage(interventionId, base64Image);
+                await loadRepairedInterventions(); // Recharge les données après l'envoi
+            }
+        } else {
+            alert("La photo n'a pas été prise correctement ou l'opération a été annulée.");
+        }
     } catch (error) {
-      console.error('Erreur lors de la prise de photo :', error);
+        console.error("Erreur lors de la prise de photo :", error);
     }
-  };
+};
 
   const convertImageToBase64 = async (uri) => {
     try {
@@ -197,8 +226,34 @@ const saveDetailIntervention = async (id) => {
     }
   };
   const moveToTop = (interventionId) => {
-	setPinnedInterventionId(interventionId); // Met à jour la fiche épinglée
-  };
+    setPinnedInterventionId(interventionId); // Met à jour l'ID de la fiche épinglée
+
+    // Utilisez scrollToIndex pour repositionner l'affichage sur la première fiche
+    setTimeout(() => {
+        repairedInterventionsRef.current?.scrollToIndex({
+            index: 0, // Index de la première fiche
+            animated: true, // Ajoute une animation pour le défilement
+        });
+    }, 0); // Timeout court pour s'assurer que l'état est mis à jour avant l'appel
+};
+  const openImageModal = (imageUri, imageId, interventionId) => {
+    setSelectedImage({ uri: imageUri, id: imageId, interventionId });
+    setIsModalVisible(true);
+};
+
+
+const closeImageModal = () => {
+    setSelectedImage(null);
+    setIsModalVisible(false);
+};
+setTimeout(() => {
+    if (repairedInterventions.length > 0) {
+        repairedInterventionsRef.current?.scrollToIndex({
+            index: 0,
+            animated: true,
+        });
+    }
+}, 0);
   return (
     <KeyboardAvoidingView
     behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -210,6 +265,7 @@ const saveDetailIntervention = async (id) => {
       <View style={styles.overlay}>
         <Text style={styles.title}>Interventions terminées</Text>
         <FlatList
+		ref={repairedInterventionsRef}
           data={repairedInterventions}
           keyExtractor={(item) => item.id.toString()}
 		  showsVerticalScrollIndicator={false}
@@ -276,15 +332,20 @@ const saveDetailIntervention = async (id) => {
                 <Text style={styles.interventionText}>Commande: {item.commande}</Text>
                 <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
 
-                <TextInput
-                  style={styles.detailInput}
-                  value={editingDetail[item.id] || item.detailIntervention || ''}
-                  placeholder="Entrez les détails ici..."
-                  onChangeText={(text) => {
-                    setEditingDetail({ ...editingDetail, [item.id]: text });
-                    setIsSaved((prevState) => ({ ...prevState, [item.id]: false }));
-                  }}
-                />
+				<TextInput
+  style={styles.detailInput}
+  value={editingDetail[item.id] !== undefined ? editingDetail[item.id] : item.detailIntervention || ''}
+  placeholder="Entrez les détails ici..."
+  onFocus={() => {
+    if (editingDetail[item.id] === undefined) {
+      setEditingDetail((prev) => ({ ...prev, [item.id]: item.detailIntervention || '' }));
+    }
+  }}
+  onChangeText={(text) => {
+    setEditingDetail({ ...editingDetail, [item.id]: text });
+    setIsSaved((prevState) => ({ ...prevState, [item.id]: false }));
+  }}
+/>
 
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
@@ -342,22 +403,66 @@ const saveDetailIntervention = async (id) => {
                   </TouchableOpacity>
                 </View>
 
-                {item.intervention_images && item.intervention_images.length > 0 && (
-                  <View style={styles.imageContainer}>
-                    {item.intervention_images.map((image, index) => (
-                      <Image
-                        key={index}
+				{item.intervention_images && item.intervention_images.length > 0 && (
+    <View style={styles.imageContainer}>
+        {item.intervention_images.map((image, index) => (
+            <View key={index} style={styles.imageWrapper}>
+                <TouchableOpacity
+                    onPress={() => openImageModal(`data:image/jpeg;base64,${image.image_data}`, image.id, item.id)}
+                >
+                    <Image
                         source={{ uri: `data:image/jpeg;base64,${image.image_data}` }}
                         style={styles.imageThumbnail}
-                      />
-                    ))}
-                  </View>
-                )}
+                    />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.deleteIcon}
+                    onPress={() => deleteImage(image.id, item.id)}
+                >
+                    <Ionicons name="trash" size={20} color="red" />
+                </TouchableOpacity>
+            </View>
+        ))}
+    </View>
+)}
+
               </View>
             </View>
           )}
         />
       </View>
+
+	  <Modal
+    visible={isModalVisible}
+    transparent={true}
+    animationType="fade"
+    onRequestClose={closeImageModal}
+>
+    <View style={styles.modalOverlay}>
+        <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+            <Ionicons name="close-circle" size={40} color="white" />
+        </TouchableOpacity>
+        {selectedImage && (
+            <>
+                <Image
+                    source={{ uri: selectedImage.uri }}
+                    style={styles.fullscreenImage}
+                />
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => {
+                        deleteImage(selectedImage.id, selectedImage.interventionId);
+                        closeImageModal();
+                    }}
+                >
+                    <Ionicons name="trash" size={30} color="white" />
+                    <Text style={styles.deleteButtonText}>Supprimer</Text>
+                </TouchableOpacity>
+            </>
+        )}
+    </View>
+</Modal>
+
 
 	  
       <Modal
@@ -433,7 +538,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(39, 39, 39, 0.8)',
+    backgroundColor: 'rgba(167, 164, 164, 0.678)',
     padding: 20,
   },
   title: {
@@ -446,7 +551,7 @@ const styles = StyleSheet.create({
   interventionCard: {
     padding: 15,
     marginBottom: 10,
-    backgroundColor: 'rgba(243, 243, 243, 0.9)',
+    backgroundColor: 'rgba(255, 248, 248, 0.918)',
     borderRadius: 10,
   },
   notificationAndToolsContainer: {
@@ -594,4 +699,42 @@ interventionTextSolde: {
     color: '#056109',
     marginBottom: 5,
   },
+  fullscreenImage: {
+	width: '90%',
+	height: '80%',
+	resizeMode: 'contain',
+},
+closeButton: {
+	position: 'absolute',
+	top: 30,
+	right: 30,
+	zIndex: 1,
+},
+deleteButton: {
+	flexDirection: 'row',
+	alignItems: 'center',
+	justifyContent: 'center',
+	backgroundColor: 'red',
+	padding: 10,
+	borderRadius: 5,
+	marginTop: 20,
+},
+deleteButtonText: {
+	color: 'white',
+	fontWeight: 'bold',
+	marginLeft: 10,
+},
+imageWrapper: {
+	position: 'relative',
+	margin: 5,
+},
+deleteIcon: {
+	position: 'absolute',
+	top: 5,
+	right: 5,
+	backgroundColor: 'white',
+	borderRadius: 15,
+	padding: 5,
+	elevation: 5,
+},
 });

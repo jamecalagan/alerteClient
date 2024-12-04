@@ -274,6 +274,7 @@ export default function HomePage({ navigation, route }) {
                 // Renommer les champs updatedAt pour les clients et les interventions
                 const updatedData = data.map((client) => ({
                     ...client,
+					totalInterventions: client.interventions.length,
                     clientUpdatedAt: client.updatedAt, // Renommage manuel pour le champ client
                     interventions: client.interventions.map((intervention) => ({
                         ...intervention,
@@ -338,11 +339,11 @@ export default function HomePage({ navigation, route }) {
         loadRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
 
-    // Charger les données lors du premier rendu
+/*     // Charger les données lors du premier rendu
     useEffect(() => {
         setIsLoading(true); // Démarre le loader
         loadClients("createdAt", false); // Tri par date de création en ordre décroissant
-    }, []);
+    }, []); */
 
     // Pagination
     const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
@@ -351,13 +352,13 @@ export default function HomePage({ navigation, route }) {
         currentPage * itemsPerPage
     );
 
-    const handlePageChange = (newPage) => {
+/*     const handlePageChange = (newPage) => {
         setIsLoading(true); // Démarre le loader lorsque l'utilisateur change de page
         setTimeout(() => {
             setCurrentPage(newPage); // Change la page après un délai simulé
             setIsLoading(false); // Arrête le loader
         }, 0); // Délai pour s'assurer que le loader reste visible pendant un moment
-    };
+    }; */
 
     const goToNextPage = () => {
         if (currentPage < totalPages) {
@@ -859,7 +860,7 @@ export default function HomePage({ navigation, route }) {
                                             </Text>
                                             {item.updatedAt && (
                                                 <Text style={styles.clientText}>
-                                                    Dernière modification :{" "}
+                                                    Infos client modifiées le :{" "}
                                                     {formatDateTime(
                                                         item.updatedAt
                                                     )}
@@ -1052,7 +1053,7 @@ export default function HomePage({ navigation, route }) {
                                                             )
                                                         }
                                                     >
-                                                        <FontAwesome5
+                                                         <FontAwesome5
                                                             name="tools"
                                                             size={20}
                                                             color="#000"
@@ -1063,7 +1064,7 @@ export default function HomePage({ navigation, route }) {
                                                             }
                                                         >
                                                             {" "}
-                                                            {totalInterventions}
+                                                            {item.totalInterventions}
                                                         </Text>
                                                     </TouchableOpacity>
                                                 </View>
@@ -1809,6 +1810,7 @@ const styles = StyleSheet.create({
     },
     interventionsCount: {
         fontSize: 16,
+		fontWeight: "bold",
         marginLeft: 5, // Espace entre l'icône et le texte
         color: "#000", // Couleur du texte
     },
@@ -1843,6 +1845,11 @@ const styles = StyleSheet.create({
         fontWeight: "bold", // Texte en gras
         fontSize: 16, // Taille du texte
     },
+	totalInterventions:{
+        color: "#fff", // Texte blanc
+        fontWeight: "bold", // Texte en gras
+        fontSize: 16, // Taille du texte
+	},
     loaderContainer: {
         flex: 1,
         justifyContent: "center",

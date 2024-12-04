@@ -137,7 +137,7 @@ export default function ClientPreviewPage() {
 
           <div class="terms-section">
             <p class="terms-text-bottom">
-              Je soussigné(e), M. ${clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+              Je soussigné(e), M.${clientInfo.name || '________________________'} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
 			</p>
 						            <p class="terms-text">
              ------------------------------------------------------
@@ -238,7 +238,7 @@ export default function ClientPreviewPage() {
       {/* Conditions Générales */}
       <View style={styles.termsSection}>
         <Text style={styles.termsText}>
-          Je soussigné(e), M. {clientInfo.name || '________________________'}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+          Je soussigné(e), M.{clientInfo.name || '________________________'} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
         </Text>
         <Text style={styles.termsText}>
           AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.

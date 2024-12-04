@@ -7,161 +7,207 @@ import { useFocusEffect } from '@react-navigation/native';
 const backgroundImage = require('../assets/listing2.jpg');
 
 export default function RecoveredClientsPage() {
-  const [recoveredClients, setRecoveredClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [visibleSignatures, setVisibleSignatures] = useState({});
-  const [selectedImage, setSelectedImage] = useState(null);
+    const [recoveredClients, setRecoveredClients] = useState([]);
+    const [filteredClients, setFilteredClients] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [visibleSignatures, setVisibleSignatures] = useState({});
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 2;
 
-  const loadRecoveredClients = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('interventions')
-        .select(`
-          *,
-          clients (name, ficheNumber, phone)
-        `)
-        .eq('status', 'Récupéré')
-        .order('updatedAt', { ascending: false });
+    const loadRecoveredClients = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('interventions')
+                .select(`
+                    *,
+                    clients (name, ficheNumber, phone)
+                `)
+                .eq('status', 'Récupéré')
+                .order('updatedAt', { ascending: false });
 
-      if (error) throw error;
+            if (error) throw error;
 
-      setRecoveredClients(data);
-      setFilteredClients(data.slice(0, 3));
-    } catch (error) {
-      console.error('Erreur lors du chargement des clients récupérés :', error);
-    }
-  };
+            setRecoveredClients(data);
+            setFilteredClients(data); // Initialize filteredClients with all recoveredClients
+        } catch (error) {
+            console.error('Erreur lors du chargement des clients récupérés :', error);
+        }
+    };
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadRecoveredClients();
-    }, [])
-  );
+    useFocusEffect(
+        React.useCallback(() => {
+            loadRecoveredClients();
+        }, [])
+    );
 
-  const toggleSignatureVisibility = (id) => {
-    setVisibleSignatures(prevState => ({
-      ...prevState,
-      [id]: !prevState[id],
-    }));
-  };
+    const toggleSignatureVisibility = (id) => {
+        setVisibleSignatures(prevState => ({
+            ...prevState,
+            [id]: !prevState[id],
+        }));
+    };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    if (query.trim() === '') {
-      setFilteredClients(recoveredClients.slice(0, 3));
-    } else {
-      const filtered = recoveredClients.filter(client => {
-        const clientName = client.clients?.name?.toLowerCase() || '';
-        const clientPhone = client.clients?.phone ? client.clients.phone.toString() : '';
+    const handleSearch = (query) => {
+        setSearchQuery(query);
 
-        return clientName.includes(query.toLowerCase()) || clientPhone.includes(query);
-      });
-      setFilteredClients(filtered);
-    }
-  };
-  const formatPhoneNumber = (phone) => {
-    return phone.replace(/(\d{2})(?=\d)/g, '$1 ');
-};
-  return (
-    <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
-      <View style={styles.overlay}>
-        <Text style={styles.title}>Clients ayant récupéré le matériel</Text>
+        if (query.trim() === '') {
+            setFilteredClients(recoveredClients);
+        } else {
+            const filtered = recoveredClients.filter(client => {
+                const clientName = client.clients?.name?.toLowerCase() || '';
+                const clientPhone = client.clients?.phone ? client.clients.phone.toString() : '';
 
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Rechercher par nom ou téléphone"
-          placeholderTextColor="#ccc"
-          value={searchQuery}
-          onChangeText={handleSearch}
-        />
+                return (
+                    clientName.includes(query.toLowerCase()) ||
+                    clientPhone.includes(query)
+                );
+            });
 
-        <FlatList
-          data={filteredClients}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Text style={styles.clientInfo}>Numéro de Client N°: {item.clients.ficheNumber}</Text>
-              <Text style={styles.clientInfo}>Nom: {item.clients.name}</Text>
-              <Text style={styles.clientInfo}>
-				Téléphone: {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}
-				</Text>
-              <Text style={styles.interventionInfo}>Type d'appareil: {item.deviceType}</Text>
-              <Text style={styles.interventionInfo}>Marque: {item.brand}</Text>
-			  <Text style={styles.interventionInfo}>Modèle: {item.model}</Text>
-              <Text style={styles.interventionInfo}>Référence: {item.reference}</Text>
-              <Text style={styles.interventionInfo}>Description du problème: {item.description}</Text>
-              <Text style={styles.interventionInfo}>Coût: {item.cost} €</Text>
-              <Text style={styles.interventionInfo}>Date de récupération: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
-              <Text style={styles.interventionInfo}>Détail de l'intervention: {item.detailIntervention}</Text>
-              {item.receiver_name && (
-                <Text style={styles.receiverText}>Récupéré par : {item.receiver_name}</Text>
-              )}
-              <Text style={styles.interventionInfo}>Remarques: {item.remarks}</Text>
-			  <Text style={styles.interventionInfo}>Status du règlement: {item.paymentStatus}</Text>
+            setFilteredClients(filtered);
+            setCurrentPage(1); // Reset to first page on search
+        }
+    };
 
-              {/* Affichage des images d'intervention depuis la table interventions */}
-              {item.photos && item.photos.length > 0 && (
-                <View style={styles.imageContainer}>
-                  {item.photos.map((photo, index) => (
+    const getPaginatedClients = () => {
+        const data = filteredClients;
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        return data.slice(startIndex, endIndex);
+    };
+
+    const totalPages = Math.ceil(filteredClients.length / pageSize);
+
+    const handleNextPage = () => {
+        if (currentPage < totalPages) {
+            setCurrentPage(currentPage + 1);
+        }
+    };
+
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
+
+    return (
+        <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
+            <View style={styles.overlay}>
+                <Text style={styles.title}>Clients ayant récupéré le matériel</Text>
+
+                <TextInput
+                    style={styles.searchBar}
+                    placeholder="Rechercher par nom ou téléphone"
+                    placeholderTextColor="#ccc"
+                    value={searchQuery}
+                    onChangeText={handleSearch}
+                />
+
+                <FlatList
+                    data={getPaginatedClients()}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <View style={styles.card}>
+                            <Text style={styles.clientInfo}>Numéro de Client N°: {item.clients.ficheNumber}</Text>
+                            <Text style={styles.clientInfo}>Nom: {item.clients.name}</Text>
+                            <Text style={styles.clientInfo}>
+                                Téléphone: {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}
+                            </Text>
+                            <Text style={styles.interventionInfo}>Type d'appareil: {item.deviceType}</Text>
+                            <Text style={styles.interventionInfo}>Marque: {item.brand}</Text>
+                            <Text style={styles.interventionInfo}>Modèle: {item.model}</Text>
+                            <Text style={styles.interventionInfo}>Référence: {item.reference}</Text>
+                            <Text style={styles.interventionInfo}>Description du problème: {item.description}</Text>
+                            <Text style={styles.interventionInfo}>Coût: {item.cost} €</Text>
+                            <Text style={styles.interventionInfo}>Date de récupération: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
+                            <Text style={styles.interventionInfo}>Détail de l'intervention: {item.detailIntervention}</Text>
+                            {item.receiver_name && (
+                                <Text style={styles.receiverText}>Récupéré par : {item.receiver_name}</Text>
+                            )}
+                            <Text style={styles.interventionInfo}>Remarques: {item.remarks}</Text>
+                            <Text style={styles.interventionInfo}>Statut du règlement: {item.paymentStatus}</Text>
+
+                            {/* Affichage des images d'intervention depuis la table interventions */}
+                            {item.photos && item.photos.length > 0 && (
+                                <View style={styles.imageContainer}>
+                                    {item.photos.map((photo, index) => (
+                                        <TouchableOpacity
+                                            key={index}
+                                            onPress={() => setSelectedImage(`data:image/jpeg;base64,${photo}`)}
+                                        >
+                                            <Image
+                                                source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                                                style={[
+                                                    styles.imageThumbnail,
+                                                    item.label_photo === photo ? styles.labelImage : null,
+                                                ]}
+                                            />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                style={styles.toggleButton}
+                                onPress={() => toggleSignatureVisibility(item.id)}
+                            >
+                                <Icon
+                                    name={visibleSignatures[item.id] ? 'eye-slash' : 'eye'}
+                                    size={20}
+                                    color="#202020"
+                                    style={styles.icon}
+                                />
+                                <Text style={styles.toggleButtonText}>
+                                    {visibleSignatures[item.id] ? 'Masquer la signature' : 'Afficher la signature'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {visibleSignatures[item.id] && item.signature ? (
+                                <Image
+                                    source={{ uri: item.signature }}
+                                    style={styles.signatureImage}
+                                />
+                            ) : null}
+                        </View>
+                    )}
+                />
+
+                <View style={styles.paginationContainer}>
                     <TouchableOpacity
-                      key={index}
-                      onPress={() => setSelectedImage(`data:image/jpeg;base64,${photo}`)}
+                        style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
+                        onPress={handlePreviousPage}
+                        disabled={currentPage === 1}
                     >
-                      <Image
-                        source={{ uri: `data:image/jpeg;base64,${photo}` }}
-                        style={[
-                          styles.imageThumbnail,
-                          item.label_photo === photo ? styles.labelImage : null,
-                        ]}
-                      />
+                        <Text style={styles.paginationButtonText}>Précédent</Text>
                     </TouchableOpacity>
-                  ))}
+                    <Text style={styles.paginationInfo}>
+                        Page {currentPage} sur {totalPages}
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.paginationButton, currentPage === totalPages && styles.disabledButton]}
+                        onPress={handleNextPage}
+                        disabled={currentPage === totalPages}
+                    >
+                        <Text style={styles.paginationButtonText}>Suivant</Text>
+                    </TouchableOpacity>
                 </View>
-              )}
-
-              <TouchableOpacity
-                style={styles.toggleButton}
-                onPress={() => toggleSignatureVisibility(item.id)}
-              >
-                <Icon
-                  name={visibleSignatures[item.id] ? 'eye-slash' : 'eye'}
-                  size={20}
-                  color="#202020"
-                  style={styles.icon}
-                />
-                <Text style={styles.toggleButtonText}>
-                  {visibleSignatures[item.id] ? 'Masquer la signature' : 'Afficher la signature'}
-                </Text>
-              </TouchableOpacity>
-
-              {visibleSignatures[item.id] && item.signature ? (
-                <Image
-                  source={{ uri: item.signature }}
-                  style={styles.signatureImage}
-                />
-              ) : null}
             </View>
-          )}
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-      <Modal
-        visible={selectedImage !== null}
-        transparent={true}
-        onRequestClose={() => setSelectedImage(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
-          <View style={styles.modalBackground}>
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.fullImage}
-            />
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </ImageBackground>
-  );
+            <Modal
+                visible={selectedImage !== null}
+                transparent={true}
+                onRequestClose={() => setSelectedImage(null)}
+            >
+                <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+                    <View style={styles.modalBackground}>
+                        <Image
+                            source={{ uri: selectedImage }}
+                            style={styles.fullImage}
+                        />
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+        </ImageBackground>
+    );
 }
 
 const styles = StyleSheet.create({
@@ -266,4 +312,32 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'green',
   },
+paginationContainer: {
+  flexDirection: 'row',
+  justifyContent: 'space-evenly', // Espace équitablement les boutons et le texte
+  alignItems: 'center',
+
+  paddingHorizontal: 5, // Ajoute de l'espace sur les côtés
+},
+paginationButton: {
+  backgroundColor: '#445a75',
+  paddingVertical: 5, // Ajoute de l'espace en haut et en bas
+  paddingHorizontal: 30, // Ajoute de l'espace sur les côtés
+  borderRadius: 5,
+  marginBottom: 2,
+},
+disabledButton: {
+  backgroundColor: '#ccc',
+},
+paginationButtonText: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
+paginationInfo: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#fff',
+},
+
+
 });

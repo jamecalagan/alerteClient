@@ -115,6 +115,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         <Text>Description : {item.description}</Text>
         <Text>Statut : {item.status}</Text>
         <Text>Coût : {item.cost} €</Text>
+		<Text>Montant restant dû : {item.solderestant} €</Text>
         <Text>Date : {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
         <Text>Détail de l'intervention: {item.detailIntervention}</Text>
 

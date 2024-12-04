@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import { MaterialIcons } from "@expo/vector-icons"; // Pour l'icône de coche
 import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
+import * as ImageManipulator from 'expo-image-manipulator';
 export default function EditInterventionPage({ route, navigation }) {
 	const { clientId } = route.params || {};
     const { interventionId } = route.params;
@@ -107,7 +108,12 @@ export default function EditInterventionPage({ route, navigation }) {
             if (data.marque_id) loadModels(data.marque_id);
         }
     };
-
+	const deletePhoto = (photoToDelete) => {
+		setPhotos((prevPhotos) => prevPhotos.filter((photo) => photo !== photoToDelete));
+		if (photoToDelete === labelPhoto) {
+			setLabelPhoto(null); // Si la photo supprimée est l'étiquette, réinitialiser l'étiquette
+		}
+	};
     // Charger la liste des articles
     const loadArticles = async () => {
         const { data, error } = await supabase.from("article").select("id, nom");
@@ -163,59 +169,74 @@ export default function EditInterventionPage({ route, navigation }) {
         setModel(value);
     };
     // Fonction pour prendre la photo de l'étiquette
-    const pickLabelImage = async () => {
-        try {
-            let result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ['images', 'videos'],// Propriété correcte
-                allowsEditing: true,
-                quality: 0.5,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                const imageUri = result.assets[0].uri;
-                const base64Image = await convertImageToBase64(imageUri);
-                if (base64Image) {
-                    setPhotos((prevPhotos) => [base64Image, ...prevPhotos.filter((photo) => photo !== labelPhoto)]); // Assure l'unicité
-                    setLabelPhoto(base64Image); // Marquer cette photo comme l'étiquette
-                    // console.log("Photo d'étiquette définie :", base64Image); // Log pour vérifier
-                    if (!reference) {
-                        setReference("Voir photo pour référence produit");
-                    }
-                }
-            } else {
-                console.log("Aucune image capturée ou opération annulée.");
-            }
-        } catch (error) {
-            console.error("Erreur lors de la capture d'image :", error);
-        }
-    };
+	const pickLabelImage = async () => {
+		try {
+			let result = await ImagePicker.launchCameraAsync({
+				mediaTypes: ['images'], // Sélectionne uniquement les images
+				allowsEditing: true,
+				quality: 0.5, // Compression initiale
+			});
+	
+			if (!result.canceled && result.assets && result.assets.length > 0) {
+				const imageUri = result.assets[0].uri;
+	
+				// Compression et redimensionnement
+				const compressedImage = await ImageManipulator.manipulateAsync(
+					imageUri,
+					[{ resize: { width: 800 } }], // Redimensionne à une largeur maximale de 800px
+					{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compresse à 70%
+				);
+	
+				const base64Image = await convertImageToBase64(compressedImage.uri);
+	
+				if (base64Image) {
+					setPhotos([...photos, base64Image]);
+					setIsPhotoTaken(true);
+					setLabelPhoto(base64Image);
+					if (!reference) {
+						setReference('Voir photo pour référence produit');
+					}
+				}
+			} else {
+				console.log('Aucune image capturée ou opération annulée.');
+			}
+		} catch (error) {
+			console.error('Erreur lors de la capture d\'image :', error);
+		}
+	};
+	
 
 	const pickAdditionalImage = async () => {
 		try {
 			let result = await ImagePicker.launchCameraAsync({
-				mediaTypes: ['images', 'videos'],// Propriété correcte
+				mediaTypes: ['images'],
 				allowsEditing: true,
 				quality: 0.5,
 			});
 	
 			if (!result.canceled && result.assets && result.assets.length > 0) {
 				const imageUri = result.assets[0].uri;
-				const base64Image = await convertImageToBase64(imageUri);
-				if (base64Image) {
-					// Si une photo d'étiquette est déjà définie, elle est préservée
-					const updatedPhotos = labelPhoto
-						? [labelPhoto, ...photos.filter((photo) => photo !== labelPhoto), base64Image]
-						: [...photos, base64Image];
 	
-					setPhotos(updatedPhotos);
+				// Compression et redimensionnement
+				const compressedImage = await ImageManipulator.manipulateAsync(
+					imageUri,
+					[{ resize: { width: 800 } }],
+					{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+				);
+	
+				const base64Image = await convertImageToBase64(compressedImage.uri);
+	
+				if (base64Image) {
+					setPhotos([...photos, base64Image]);
 				}
 			} else {
-				console.log("Aucune image capturée ou opération annulée.");
+				console.log('Aucune image capturée ou opération annulée.');
 			}
 		} catch (error) {
-			console.error("Erreur lors de la capture d'image :", error);
+			console.error('Erreur lors de la capture d\'image :', error);
 		}
 	};
+	
 	
 
     const convertImageToBase64 = async (uri) => {

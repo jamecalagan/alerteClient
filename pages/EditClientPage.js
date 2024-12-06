@@ -262,7 +262,8 @@ export default function EditClientPage({ route, navigation }) {
               <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
               <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
-			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus} de: {item.partialPayment} €</Text>
+			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
+			  <Text style={styles.interventionText}>Acompte de: {item.partialPayment} €</Text>
 			  <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>

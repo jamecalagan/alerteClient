@@ -262,7 +262,7 @@ export default function EditClientPage({ route, navigation }) {
         <Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text>
     )}
               <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
-              <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
+              <Text style={styles.interventionText}>Description de l'intervention: {item.description}</Text>
 			  {item.cost && (
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
 			)}

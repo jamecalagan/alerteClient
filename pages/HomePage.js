@@ -73,124 +73,121 @@ export default function HomePage({ navigation, route }) {
     useEffect(() => {
         checkForExpiredInterventions();
     }, []);
-    const triggerPhotoCleanupAlert = async (intervention) => {
-        try {
-            // Fermez toutes les autres modales si nécessaire
-            closeAllModals();
-            const { photos, label_photo } = intervention;
+	const triggerPhotoCleanupAlert = async (intervention) => {
+		try {
+			closeAllModals();
+	
+			const { photos, label_photo } = intervention;
+			if (!photos || photos.length === 0 || photos.every((photo) => photo === label_photo)) {
+				console.log(`Pas de photos à nettoyer pour l'intervention ${intervention.id}.`);
+				processInterventionQueue(); // Passe à la fiche suivante
+				return;
+			}
+	
+			const { data: clientData, error } = await supabase
+				.from("clients")
+				.select("name, ficheNumber")
+				.eq("id", intervention.client_id)
+				.single();
+	
+			if (error) {
+				throw new Error("Impossible de récupérer les informations du client.");
+			}
+	
+			const clientName = clientData.name || "Nom inconnu";
+			const clientNumber = clientData.ficheNumber || "Numéro inconnu";
+	
+			setAlertTitle("Nettoyage des photos");
+			setAlertMessage(
+				`Le client ${clientName} (N°${clientNumber}) a dépassé le délai de 10 jours. Voulez-vous supprimer les photos inutiles ?`
+			);
+	
+			setSelectedIntervention(intervention); // Stocke l'intervention actuelle
+			setCleanupModalVisible(true); // Ouvre la modale
+		} catch (err) {
+			console.error("Erreur lors du déclenchement de l'alerte :", err);
+			processInterventionQueue(); // Passe à la fiche suivante en cas d'erreur
+		}
+	};
 
-            // Vérifiez si les photos restantes incluent uniquement l'étiquette
-            const nonLabelPhotos = photos.filter(
-                (photo) => photo !== label_photo
-            );
-
-            if (!photos || photos.length === 0 || nonLabelPhotos.length === 0) {
-                console.log(
-                    `Aucune photo à nettoyer pour l'intervention ${intervention.id}.`
-                );
-                return; // Ne pas afficher la modale si seules les photos d'étiquette restent
-            }
-            // Récupérez les informations du client à partir de l'intervention
-            const { data: clientData, error } = await supabase
-                .from("clients")
-                .select("name, ficheNumber")
-                .eq("id", intervention.client_id)
-                .single();
-
-            if (error) {
-                console.error(
-                    "Erreur lors de la récupération des informations du client :",
-                    error
-                );
-                setAlertTitle("Erreur");
-                setAlertMessage(
-                    "Impossible de récupérer les informations du client."
-                );
-            } else {
-                // Construisez le message avec les informations du client
-                const clientName = clientData.name || "Nom inconnu";
-                const clientNumber = clientData.ficheNumber || "Numéro inconnu";
-
-                setAlertTitle("Nettoyage des photos");
-                setAlertMessage(
-                    `Le client ${clientName} (N°${clientNumber}) a dépassé le délai de 10 jours. Voulez-vous supprimer les photos inutiles ?`
-                );
-            }
-
-            setSelectedIntervention(intervention); // Stockez l'intervention sélectionnée
-            setCleanupModalVisible(true); // Ouvrez la modale
-        } catch (err) {
-            console.error("Erreur lors du déclenchement de l'alerte :", err);
-            setAlertTitle("Erreur");
-            setAlertMessage(
-                "Une erreur est survenue lors du déclenchement de l'alerte."
-            );
-            setCleanupModalVisible(true); // Ouvrez la modale avec un message d'erreur
-        }
-    };
-
-    const handlePhotoCleanup = async () => {
-        if (!selectedIntervention) {
-            console.error("Aucune intervention sélectionnée.");
-            return;
-        }
-
-        try {
-            const { id, photos, label_photo } = selectedIntervention;
-            const updatedPhotos = photos.filter(
-                (photo) => photo === label_photo
-            );
-
-            const { error } = await supabase
-                .from("interventions")
-                .update({ photos: updatedPhotos })
-                .eq("id", id);
-
-            if (error) throw error;
-
-            setCleanupModalVisible(false); // Ferme la modale
-            console.log(
-                `Photos inutiles supprimées pour l'intervention ${id}.`
-            );
-        } catch (error) {
-            console.error("Erreur lors du nettoyage des photos :", error);
-        }
-    };
-
-    const checkForExpiredInterventions = async () => {
-        const now = new Date();
-
-        const { data: interventions, error } = await supabase
-            .from("interventions")
-            .select("*");
-
-        if (error) {
-            console.error(
-                "Erreur lors du chargement des interventions :",
-                error
-            );
-            return;
-        }
-
-        interventions.forEach((intervention) => {
-            const updatedAt = new Date(intervention.updatedAt);
-            const diffInDays = (now - updatedAt) / (1000 * 60 * 60 * 24); // Calcul en jours
-            // Exclure les interventions où seules les photos d'étiquette restent
-            const { photos, label_photo } = intervention;
-            // Vérifiez que l'intervention est marquée comme récupérée
-            if (status !== "Récupéré") {
-                return; // Passer si le statut n'est pas "Récupéré"
-            }
-            const nonLabelPhotos = photos.filter(
-                (photo) => photo !== label_photo
-            );
-            if (diffInDays > 10) {
-                // Vérifie si le délai dépasse 10 jours
-                triggerPhotoCleanupAlert(intervention);
-            }
-        });
-    };
-
+	const handlePhotoCleanup = async () => {
+		if (!selectedIntervention) {
+			console.error("Aucune intervention sélectionnée.");
+			return;
+		}
+	
+		try {
+			const { id, photos, label_photo } = selectedIntervention;
+			const updatedPhotos = photos.filter((photo) => photo === label_photo);
+	
+			const { error } = await supabase
+				.from("interventions")
+				.update({ photos: updatedPhotos })
+				.eq("id", id);
+	
+			if (error) throw error;
+	
+			console.log(`Photos inutiles supprimées pour l'intervention ${id}.`);
+			setCleanupModalVisible(false); // Ferme la modale
+			setSelectedIntervention(null); // Réinitialise l'intervention sélectionnée
+			processInterventionQueue(); // Passe à la fiche suivante
+		} catch (error) {
+			console.error("Erreur lors du nettoyage des photos :", error);
+		}
+	};
+	const handleModalClose = () => {
+		setCleanupModalVisible(false); // Ferme la modale
+		setSelectedIntervention(null); // Réinitialise l'intervention sélectionnée
+		processInterventionQueue(); // Passe à la fiche suivante
+	};
+	
+	const checkForExpiredInterventions = async () => {
+		try {
+			const now = new Date();
+			const { data: interventions, error } = await supabase
+				.from("interventions")
+				.select("id, updatedAt, photos, label_photo, status, client_id");
+	
+			if (error) {
+				throw new Error("Erreur lors du chargement des interventions : " + error.message);
+			}
+	
+			interventions.forEach((intervention) => {
+				const { updatedAt, photos, label_photo, status } = intervention;
+	
+				// Vérifiez le statut
+				if (status !== "Récupéré") return;
+	
+				// Vérifiez les photos
+				if (!photos || photos.length === 0) return;
+				const nonLabelPhotos = photos.filter((photo) => photo !== label_photo);
+				if (nonLabelPhotos.length === 0) return;
+	
+				// Vérifiez le délai de 10 jours
+				const diffInDays = (now - new Date(updatedAt)) / (1000 * 60 * 60 * 24);
+				if (diffInDays > 10) {
+					eligibleInterventions.push(intervention); // Ajoute l'intervention éligible
+				}
+			});
+	
+			// Lance la gestion des modales
+			processInterventionQueue();
+		} catch (err) {
+			console.error("Erreur lors de la vérification des interventions :", err);
+		}
+	};
+	const processInterventionQueue = () => {
+		if (eligibleInterventions.length === 0) {
+			console.log("Toutes les interventions ont été traitées.");
+			return; // Aucune intervention restante
+		}
+	
+		const nextIntervention = eligibleInterventions.shift(); // Récupère et retire la première fiche de la file
+		triggerPhotoCleanupAlert(nextIntervention); // Affiche la modale pour cette intervention
+	};
+	
+	
+	const eligibleInterventions = []; // File d'attente des fiches à traiter
     const updateClientNotification = async (selectedInterventionId, method) => {
         try {
             const { error } = await supabase
@@ -1557,9 +1554,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     clientTextSoldeRestant: {
-        fontSize: 16,
-        color: "#ff4500", // Rouge orangé pour attirer l'attention
-        fontWeight: "bmedium",
+        fontSize: 18,
+        color: "#920404", // Rouge orangé pour attirer l'attention
+        fontWeight: "bold",
     },
     expandedContent: {
         paddingTop: 10,

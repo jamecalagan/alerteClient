@@ -258,13 +258,21 @@ export default function EditClientPage({ route, navigation }) {
               <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
               <Text style={styles.interventionText}>Marque: {item.brand}</Text>
 			  <Text style={styles.interventionText}>Modèle: {item.model}</Text>
-              <Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text> 
+			  {item.serial_number && (
+        <Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text>
+    )}
               <Text style={styles.interventionText}>Référence: {item.reference}</Text> 
               <Text style={styles.interventionText}>Description de l'intervention,: {item.description}</Text>
+			  {item.cost && (
               <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>
+			)}
 			  <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus}</Text>
-			  <Text style={styles.interventionText}>Acompte de: {item.partialPayment} €</Text>
+			  {item.paymentStatus === 'reglement_partiel' && item.partialPayment && (
+        <Text style={styles.interventionText}>Acompte de: {item.partialPayment} €</Text>
+    )}
+				{item.solderestant && (
 			  <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>
+			)}
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
 			     
@@ -273,8 +281,9 @@ export default function EditClientPage({ route, navigation }) {
 						Acceptation du risque de casse écran : Oui
 					</Text>
 				)}
+				{item.password && (
 			  <Text style={styles.interventionText}>Mdp: {item.password}</Text>
-
+			)}
               <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
               <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
 

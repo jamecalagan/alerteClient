@@ -307,9 +307,9 @@ setTimeout(() => {
       <Ionicons name="arrow-up-circle-outline" size={30} color="blue" />
     </TouchableOpacity>
               <View style={styles.infoContainer}>
-                <Text style={styles.interventionText}>Fiche N° : {item.clients.ficheNumber}</Text>
-                <Text style={styles.interventionText}>Client : {item.clients.name}</Text>
-				<Text style={styles.interventionText}>Tel : {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}</Text>
+                <Text style={styles.interventionTextBold}>Fiche N° : {item.clients.ficheNumber}</Text>
+                <Text style={styles.interventionTextBold}>Client : {item.clients.name}</Text>
+				<Text style={styles.interventionTextBold}>Tel : {item.clients.phone.replace(/(\d{2})(?=\d)/g, '$1 ')}</Text>
                 <Text style={styles.interventionText}>Type d'appareil: {item.deviceType}</Text>
                 <Text style={styles.interventionText}>Marque: {item.brand}</Text>
 				<Text style={styles.interventionText}>Modèle: {item.model}</Text>
@@ -317,7 +317,7 @@ setTimeout(() => {
                 <Text style={styles.interventionText}>Référence: {item.reference}</Text>
                 <Text style={styles.interventionText}>Description du problème: {item.description}</Text>
                 <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
-                <Text style={styles.interventionText}>Coût: {item.cost} €</Text>
+                <Text style={styles.interventionTextBold}>Coût: {item.cost} €</Text>
 				
   <Text
     style={[
@@ -327,7 +327,10 @@ setTimeout(() => {
   >
     Etat du règlement: {item.paymentStatus}
   </Text>
-
+  {item.paymentStatus === 'reglement_partiel' && item.partialPayment && (
+        <Text style={styles.interventionText}>Acompte de: {item.partialPayment} €</Text>
+    )}
+  <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>
                 <Text style={styles.interventionText}>Statut: {item.status}</Text>
                 <Text style={styles.interventionText}>Commande: {item.commande}</Text>
                 <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
@@ -538,7 +541,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(167, 164, 164, 0.678)',
+    backgroundColor: 'rgba(167, 164, 164, 0)',
     padding: 20,
   },
   title: {
@@ -572,16 +575,26 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   interventionText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 5,
+  },
+  interventionTextBold:{
+	fontSize: 18,
+	fontWeight:'bold',
     color: '#333',
     marginBottom: 5,
   },
   interventionTextNon: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#f50202',
     marginBottom: 5,
+  },
+  interventionTextReste: {
+    fontSize: 20,
+    color: '#dd0606',
+    marginBottom: 5, // Ajoute un espacement entre les lignes
   },
   detailInput: {
     borderColor: 'gray',

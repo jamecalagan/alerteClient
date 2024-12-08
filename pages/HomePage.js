@@ -274,7 +274,7 @@ export default function HomePage({ navigation, route }) {
                 // Renommer les champs updatedAt pour les clients et les interventions
                 const updatedData = data.map((client) => ({
                     ...client,
-					totalInterventions: client.interventions.length,
+                    totalInterventions: client.interventions.length,
                     clientUpdatedAt: client.updatedAt, // Renommage manuel pour le champ client
                     interventions: client.interventions.map((intervention) => ({
                         ...intervention,
@@ -339,7 +339,7 @@ export default function HomePage({ navigation, route }) {
         loadRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
 
-/*     // Charger les données lors du premier rendu
+    /*     // Charger les données lors du premier rendu
     useEffect(() => {
         setIsLoading(true); // Démarre le loader
         loadClients("createdAt", false); // Tri par date de création en ordre décroissant
@@ -352,7 +352,7 @@ export default function HomePage({ navigation, route }) {
         currentPage * itemsPerPage
     );
 
-/*     const handlePageChange = (newPage) => {
+    /*     const handlePageChange = (newPage) => {
         setIsLoading(true); // Démarre le loader lorsque l'utilisateur change de page
         setTimeout(() => {
             setCurrentPage(newPage); // Change la page après un délai simulé
@@ -514,11 +514,42 @@ export default function HomePage({ navigation, route }) {
             }
         }
     };
-
+    const getIconName = (status) => {
+        switch (status) {
+            case "En attente de pièces":
+                return "cube"; // Icône Ionicons pour "En attente de pièces"
+            case "Devis accepté":
+                return "document-text"; // Icône Ionicons pour "Devis accepté"
+            case "Réparation en cours":
+                return "construct"; // Icône Ionicons pour "Réparation en cours"
+            case "Réparé":
+                return "checkmark-circle"; // Icône Ionicons pour "Réparé"
+            case "Devis en cours":
+                return "document-text-outline"; // Icône Ionicons pour "Devis en cours"
+            default:
+                return "information-circle"; // Icône par défaut
+        }
+    };
+    const getIconColor = (status) => {
+        switch (status) {
+            case "En attente de pièces":
+                return "#6b579c"; // Violet
+            case "Devis accepté":
+                return "#FFD700"; // Doré
+            case "Réparation en cours":
+                return "#528fe0"; // Bleu
+            case "Réparé":
+                return "#006400"; // Vert
+            case "Devis en cours":
+                return "#f37209"; // Orange
+            default:
+                return "#555"; // Gris par défaut
+        }
+    };
     const getStatusStyle = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return { borderColor: "#270381", borderWidth: 2 };
+                return { borderColor: "#6b579c", borderWidth: 2 };
             case "Devis accepté":
                 return { borderColor: "#FFD700", borderWidth: 2 };
             case "Réparation en cours":
@@ -775,49 +806,35 @@ export default function HomePage({ navigation, route }) {
                                     latestIntervention?.photos?.length || 0;
                                 const commande = latestIntervention?.commande;
 
-                                const getProgressStatus = (status) => {
-                                    switch (status) {
-                                        case "En attente de pièces":
-                                            return {
-                                                percentage: 25,
-                                                color: "#270381",
-                                            };
-                                        case "Devis accepté":
-                                            return {
-                                                percentage: 50,
-                                                color: "#FFD700",
-                                            };
-                                        case "Réparation en cours":
-                                            return {
-                                                percentage: 75,
-                                                color: "#1E90FF",
-                                            };
-                                        case "Réparé":
-                                            return {
-                                                percentage: 100,
-                                                color: "#32CD32",
-                                            };
-                                        case "Devis en cours":
-                                            return {
-                                                percentage: 0,
-                                                color: "#f37209",
-                                            };
-                                        default:
-                                            return {
-                                                percentage: 0,
-                                                color: "#e0e0e0",
-                                            };
-                                    }
-                                };
-
                                 return (
                                     // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
+
                                     <View
                                         style={[
                                             styles.clientCard,
                                             getStatusStyle(status),
                                         ]}
                                     >
+                                        <View style={styles.statusContent}>
+                                            <View style={styles.iconCircle}>
+                                                <Ionicons
+                                                    name={getIconName(
+                                                        item.latestIntervention
+                                                            ?.status
+                                                    )}
+                                                    size={20}
+                                                    color={getIconColor(
+                                                        item.latestIntervention
+                                                            ?.status
+                                                    )}
+                                                    style={styles.statusIcon}
+                                                />
+                                            </View>
+                                            <Text style={styles.statusText}>
+                                                {item.latestIntervention
+                                                    ?.status || "Aucun statut"}
+                                            </Text>
+                                        </View>
                                         {/* Informations de base du client */}
                                         <TouchableOpacity
                                             onPress={() =>
@@ -1053,7 +1070,7 @@ export default function HomePage({ navigation, route }) {
                                                             )
                                                         }
                                                     >
-                                                         <FontAwesome5
+                                                        <FontAwesome5
                                                             name="tools"
                                                             size={20}
                                                             color="#000"
@@ -1064,7 +1081,9 @@ export default function HomePage({ navigation, route }) {
                                                             }
                                                         >
                                                             {" "}
-                                                            {item.totalInterventions}
+                                                            {
+                                                                item.totalInterventions
+                                                            }
                                                         </Text>
                                                     </TouchableOpacity>
                                                 </View>
@@ -1076,31 +1095,6 @@ export default function HomePage({ navigation, route }) {
                                             <View
                                                 style={styles.expandedContent}
                                             >
-                                                <Text style={styles.statusText}>
-                                                    Statut : {status}
-                                                </Text>
-                                                <View
-                                                    style={
-                                                        styles.progressBarContainer
-                                                    }
-                                                >
-                                                    <View
-                                                        style={[
-                                                            styles.progressBar,
-                                                            {
-                                                                width: `${
-                                                                    getProgressStatus(
-                                                                        status
-                                                                    ).percentage
-                                                                }%`,
-                                                                backgroundColor:
-                                                                    getProgressStatus(
-                                                                        status
-                                                                    ).color,
-                                                            },
-                                                        ]}
-                                                    />
-                                                </View>
                                                 {status ===
                                                     "En attente de pièces" &&
                                                     commande && (
@@ -1123,16 +1117,26 @@ export default function HomePage({ navigation, route }) {
                                                     )}{" "}
                                                     €
                                                 </Text>
-												{/* Ajout du solde restant dû */}
-{latestIntervention?.solderestant !== undefined && latestIntervention?.solderestant > 0 && (
-    <Text style={styles.clientTextSoldeRestant}>
-        Solde restant dû :{" "}
-        {latestIntervention.solderestant.toLocaleString("fr-FR", {
-            minimumFractionDigits: 2,
-        })}{" "}
-        €
-    </Text>
-)}
+                                                {/* Ajout du solde restant dû */}
+                                                {latestIntervention?.solderestant !==
+                                                    undefined &&
+                                                    latestIntervention?.solderestant >
+                                                        0 && (
+                                                        <Text
+                                                            style={
+                                                                styles.clientTextSoldeRestant
+                                                            }
+                                                        >
+                                                            Solde restant dû :{" "}
+                                                            {latestIntervention.solderestant.toLocaleString(
+                                                                "fr-FR",
+                                                                {
+                                                                    minimumFractionDigits: 2,
+                                                                }
+                                                            )}{" "}
+                                                            €
+                                                        </Text>
+                                                    )}
                                                 <Text style={styles.clientText}>
                                                     Nombre d'images :{" "}
                                                     {totalImages}
@@ -1203,29 +1207,33 @@ export default function HomePage({ navigation, route }) {
                         />
 
                         <View style={styles.paginationContainer}>
-						<TouchableOpacity
-        onPress={goToPreviousPage}
-        disabled={currentPage === 1}
-    >
-        <Ionicons
-            name="chevron-back"
-            size={32}
-            color={currentPage === 1 ? '#ccc' : '#000'} // Grisé si désactivé
-        />
-    </TouchableOpacity>
-    <Text style={styles.paginationText}>
-        Page {currentPage} sur {totalPages}
-    </Text>
-    <TouchableOpacity
-        onPress={goToNextPage}
-        disabled={currentPage === totalPages}
-    >
-        <Ionicons
-            name="chevron-forward"
-            size={32}
-            color={currentPage === totalPages ? '#cccccc' : '#000000'} // Grisé si désactivé
-        />
-    </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={goToPreviousPage}
+                                disabled={currentPage === 1}
+                            >
+                                <Ionicons
+                                    name="chevron-back"
+                                    size={32}
+                                    color={currentPage === 1 ? "#ccc" : "#000"} // Grisé si désactivé
+                                />
+                            </TouchableOpacity>
+                            <Text style={styles.paginationText}>
+                                Page {currentPage} sur {totalPages}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={goToNextPage}
+                                disabled={currentPage === totalPages}
+                            >
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={32}
+                                    color={
+                                        currentPage === totalPages
+                                            ? "#cccccc"
+                                            : "#000000"
+                                    } // Grisé si désactivé
+                                />
+                            </TouchableOpacity>
                         </View>
                     </>
                 )}
@@ -1542,21 +1550,17 @@ const styles = StyleSheet.create({
         paddingRight: 10,
     },
     ficheNumber: {
+        fontSize: 18,
         fontWeight: "bold",
     },
     clientText: {
         fontSize: 16,
     },
-	clientTextSoldeRestant: {
-		fontSize: 16,
-		color: '#ff4500', // Rouge orangé pour attirer l'attention
-		fontWeight: 'bmedium',
-	},
-    statusText: {
+    clientTextSoldeRestant: {
         fontSize: 16,
-        fontWeight: "bold",
+        color: "#ff4500", // Rouge orangé pour attirer l'attention
+        fontWeight: "bmedium",
     },
- 
     expandedContent: {
         paddingTop: 10,
         backgroundColor: "#e0e0e0",
@@ -1571,10 +1575,6 @@ const styles = StyleSheet.create({
         marginTop: 10,
         marginBottom: 10,
     },
-    progressBar: {
-        height: "100%",
-        borderRadius: 5,
-    },
     deviceIconContainer: {
         position: "absolute",
         bottom: 10,
@@ -1584,6 +1584,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     ficheNumber: {
+        fontSize: 16,
         fontWeight: "bold",
         color: "#000",
         marginBottom: 5,
@@ -1607,10 +1608,11 @@ const styles = StyleSheet.create({
         color: "#000",
     },
     statusText: {
-        fontSize: 18,
-        fontStyle: "italic",
+        fontSize: 20,
+        fontStyle: "normal",
         fontWeight: "bold",
-        color: "#801919",
+        marginBottom: 10,
+        color: "#802d07",
     },
     commandeText: {
         fontSize: 16,
@@ -1810,7 +1812,7 @@ const styles = StyleSheet.create({
     },
     interventionsCount: {
         fontSize: 16,
-		fontWeight: "bold",
+        fontWeight: "bold",
         marginLeft: 5, // Espace entre l'icône et le texte
         color: "#000", // Couleur du texte
     },
@@ -1845,11 +1847,11 @@ const styles = StyleSheet.create({
         fontWeight: "bold", // Texte en gras
         fontSize: 16, // Taille du texte
     },
-	totalInterventions:{
+    totalInterventions: {
         color: "#fff", // Texte blanc
         fontWeight: "bold", // Texte en gras
         fontSize: 16, // Taille du texte
-	},
+    },
     loaderContainer: {
         flex: 1,
         justifyContent: "center",
@@ -1944,14 +1946,35 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 10,
     },
-	paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-},
-paginationText: {
-    fontSize: 20,
-    color: '#fff',
-},
+    paginationContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 20,
+    },
+    paginationText: {
+        fontSize: 20,
+        color: "#fff",
+    },
+
+    statusContent: {
+        flexDirection: "row", // Aligne l'icône et le texte côte à côte
+        alignItems: "center", // Centrage vertical
+        marginBottom: 10,
+    },
+
+    statusText: {
+        color: "#202020", // Couleur du texte
+        fontWeight: "bold",
+        fontSize: 20,
+    },
+    iconCircle: {
+        width: 32, // Diamètre du cercle
+        height: 32, // Diamètre du cercle
+        borderRadius: 5, // Moitié de la largeur/hauteur pour faire un cercle
+        backgroundColor: "#2e2d2d", // Couleur de fond gris
+        justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
+        alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
+        marginRight: 8, // Espace entre le cercle et le texte
+    },
 });

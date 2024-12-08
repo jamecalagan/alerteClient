@@ -510,7 +510,11 @@ export default function EditInterventionPage({ route, navigation }) {
 
     {/* Groupe pour les autres cases */}
     <View style={styles.checkboxContainer}>
-        <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
+        <TouchableOpacity onPress={() => {
+            setPaymentStatus('non_regle');
+            setPartialPayment(''); // Réinitialise l'acompte
+        }} style={styles.checkboxRow}>
+		
             <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
                 {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
             </View>

@@ -69,7 +69,7 @@ export default function HomePage({ navigation, route }) {
             prevId === clientId ? null : clientId
         );
     };
-    const itemsPerPage = 5;
+    const itemsPerPage = 4;
     useEffect(() => {
         checkForExpiredInterventions();
     }, []);

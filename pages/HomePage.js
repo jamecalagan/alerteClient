@@ -349,13 +349,13 @@ export default function HomePage({ navigation, route }) {
         currentPage * itemsPerPage
     );
 
-    /*     const handlePageChange = (newPage) => {
+    const handlePageChange = (newPage) => {
         setIsLoading(true); // Démarre le loader lorsque l'utilisateur change de page
         setTimeout(() => {
             setCurrentPage(newPage); // Change la page après un délai simulé
             setIsLoading(false); // Arrête le loader
         }, 0); // Délai pour s'assurer que le loader reste visible pendant un moment
-    }; */
+    }; 
 
     const goToNextPage = () => {
         if (currentPage < totalPages) {
@@ -1211,7 +1211,7 @@ export default function HomePage({ navigation, route }) {
                                 <Ionicons
                                     name="chevron-back"
                                     size={32}
-                                    color={currentPage === 1 ? "#ccc" : "#000"} // Grisé si désactivé
+                                    color={currentPage === 1 ? "#202020" : "#ffffff"} // Grisé si désactivé
                                 />
                             </TouchableOpacity>
                             <Text style={styles.paginationText}>
@@ -1226,8 +1226,8 @@ export default function HomePage({ navigation, route }) {
                                     size={32}
                                     color={
                                         currentPage === totalPages
-                                            ? "#cccccc"
-                                            : "#000000"
+                                            ? "#202020"
+                                            : "#ffffff"
                                     } // Grisé si désactivé
                                 />
                             </TouchableOpacity>

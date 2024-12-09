@@ -115,6 +115,8 @@ export default function EditClientPage({ route, navigation }) {
         return { borderColor: '#98fb98', borderWidth: 4 }; // Vert clair
       case 'Non réparable':
         return { borderColor: '#e9967a', borderWidth: 4 }; // Rouge clair
+	  case "Devis en cours":
+		return { borderColor: '#f37209', borderWidth: 4}; // Orange
       default:
         return { borderColor: '#e0e0e0', borderWidth: 4 }; // Grise par défaut
     }

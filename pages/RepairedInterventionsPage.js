@@ -280,31 +280,51 @@ setTimeout(() => {
                     setNotifyModalVisible(true);
                   }}
                 >
-                  <Ionicons
-                    name={
-                      item?.notifiedBy === 'SMS'
-                        ? 'chatbubbles-outline'
-                        : item?.notifiedBy === 'Téléphone'
-                        ? 'call-outline'
-                        : 'notifications-off-outline'
-                    }
-                    size={40}
-                    color={item?.notifiedBy ? 'green' : 'gray'}
-                  />
+<Image
+    source={
+        item?.notifiedBy === 'SMS'
+            ? require("../assets/icons/sms.png")
+            : item?.notifiedBy === 'Téléphone'
+            ? require("../assets/icons/call.png")
+            : require("../assets/icons/notifications_off.png")
+    }
+    style={{
+        width: 40,       // Largeur de l'image
+        height: 40,      // Hauteur de l'image
+        tintColor: item?.notifiedBy ? 'green' : 'gray', // Applique la couleur dynamique
+    }}
+/>
+
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.iconStyle}
                   onPress={() => takePhoto(item.id)}
                 >
-                  <FontAwesome5 name="camera" size={40} color="black" />
+                  <Image
+    source={require("../assets/icons/photo.png")} // Chemin vers votre image de caméra
+    style={{
+        width: 40,       // Largeur de l'image
+        height: 40,      // Hauteur de l'image
+        tintColor: "black", // Applique la couleur noire
+    }}
+/>
+
                 </TouchableOpacity>
               </View>
 			  <TouchableOpacity
       style={styles.moveToTopButton}
       onPress={() => moveToTop(item.id)}
     >
-      <Ionicons name="arrow-up-circle-outline" size={30} color="blue" />
+      <Image
+    source={require("../assets/icons/arrow.png")} // Chemin vers votre image de flèche
+    style={{
+        width: 30,       // Largeur de l'image
+        height: 30,      // Hauteur de l'image
+        tintColor: "blue", // Applique la couleur bleue
+    }}
+/>
+
     </TouchableOpacity>
               <View style={styles.infoContainer}>
                 <Text style={styles.interventionTextBold}>Fiche N° : {item.clients.ficheNumber}</Text>
@@ -355,12 +375,18 @@ setTimeout(() => {
                     style={styles.saveButton}
                     onPress={() => saveDetailIntervention(item.id)}
                   >
-				    <Icon
-                            name="save"
-                            size={20}
-                            color="#202020"
-                            style={styles.buttonIcon}
-                        />
+<Image
+    source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
+    style={[
+        styles.buttonIcon, // Styles existants
+        {
+            width: 20,       // Largeur de l'image
+            height: 20,      // Hauteur de l'image
+            tintColor: "#202020", // Couleur de l'image (noir foncé ici)
+        },
+    ]}
+/>
+
                     <Text style={styles.buttonText}>Sauvegarder les détails</Text>
                   </TouchableOpacity>
 
@@ -380,12 +406,18 @@ setTimeout(() => {
     item.paymentStatus === 'non_regle' // Désactiver si le paiement n'est pas réglé
   }
 >
-  <Icon
-    name="check-circle"
-    size={20}
-    color="#202020"
-    style={styles.buttonIcon}
-  />
+<Image
+    source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
+    style={[
+        styles.buttonIcon, // Styles existants
+        {
+            width: 20,       // Largeur de l'image
+            height: 20,      // Hauteur de l'image
+            tintColor: "#202020", // Couleur de l'image (noir foncé ici)
+        },
+    ]}
+/>
+
   <Text style={styles.buttonText}>Restitution</Text>
 </TouchableOpacity>
 
@@ -396,12 +428,18 @@ setTimeout(() => {
                       clientId: item.client_id
                     })}
                   >
-				  				    <Icon
-                            name="edit"
-                            size={20}
-                            color="#202020"
-                            style={styles.buttonIcon}
-                        />
+<Image
+    source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
+    style={[
+        styles.buttonIcon, // Styles existants
+        {
+            width: 20,       // Largeur de l'image
+            height: 20,      // Hauteur de l'image
+            tintColor: "#202020", // Couleur de l'image (noir foncé ici)
+        },
+    ]}
+/>
+
                     <Text style={styles.buttonText}>Éditer la fiche</Text>
                   </TouchableOpacity>
                 </View>
@@ -422,7 +460,15 @@ setTimeout(() => {
                     style={styles.deleteIcon}
                     onPress={() => deleteImage(image.id, item.id)}
                 >
-                    <Ionicons name="trash" size={20} color="red" />
+                    <Image
+    source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
+    style={{
+        width: 20,       // Largeur de l'image
+        height: 20,      // Hauteur de l'image
+        tintColor: "red", // Applique la couleur rouge
+    }}
+/>
+
                 </TouchableOpacity>
             </View>
         ))}

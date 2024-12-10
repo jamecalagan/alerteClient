@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Alert,TouchableOpacity } from 'react-native';
+import { Alert,TouchableOpacity, Image } from 'react-native';
 import { supabase } from './supabaseClient';
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
@@ -66,30 +66,60 @@ function MainTabs({ navigation }) {
 
   return (
 	<Tab.Navigator screenOptions={{ headerShown: false }}>
-	  <Tab.Screen 
-		name="Home" 
-		component={HomePage} 
-		options={{ 
-		  title: 'Accueil', 
-		  tabBarIcon: ({ color, size }) => (<Icon name="home" color={color} size={size} />)
-		}} 
-	  />
-	  <Tab.Screen 
-		name="AddClient" 
-		component={AddClientPage} 
-		options={{ 
-		  title: 'Ajouter Client', 
-		  tabBarIcon: ({ color, size }) => (<Icon name="person-add" color={color} size={size} />)
-		}} 
-	  />
-	  <Tab.Screen 
-		name="RepairedInterventions" 
-		component={RepairedInterventionsPage} 
-		options={{ 
-		  title: 'Réparé', 
-		  tabBarIcon: ({ color, size }) => (<Icon name="construct" color={color} size={size} />)
-		}} 
-	  />
+<Tab.Screen
+    name="Home"
+    component={HomePage}
+    options={{
+        title: 'Accueil',
+        tabBarIcon: ({ color, size }) => (
+            <Image
+                source={require("./assets/icons/home.png")} // Chemin vers votre image
+                style={{
+                    width: size,       // Taille de l'icône (provenant de l'API)
+                    height: size,      // Taille de l'icône
+                    tintColor: color,  // Couleur appliquée
+                }}
+            />
+        ),
+    }}
+/>
+
+<Tab.Screen
+    name="AddClient"
+    component={AddClientPage}
+    options={{
+        title: 'Ajouter Client',
+        tabBarIcon: ({ color, size }) => (
+            <Image
+                source={require("./assets/icons/add.png")} // Chemin vers l'image
+                style={{
+                    width: size,       // Ajuste la largeur à la taille dynamique
+                    height: size,      // Ajuste la hauteur à la taille dynamique
+                    tintColor: color,  // Applique la couleur dynamique
+                }}
+            />
+        ),
+    }}
+/>
+
+<Tab.Screen
+    name="RepairedInterventions"
+    component={RepairedInterventionsPage}
+    options={{
+        title: 'Réparé',
+        tabBarIcon: ({ color, size }) => (
+            <Image
+                source={require("./assets/icons/tools1.png")} // Chemin vers l'image
+                style={{
+                    width: size,       // Ajuste la largeur à la taille dynamique
+                    height: size,      // Ajuste la hauteur à la taille dynamique
+                    tintColor: color,  // Applique la couleur dynamique
+                }}
+            />
+        ),
+    }}
+/>
+
 	  <Tab.Screen
 		name="RecoveredClients"
 		component={RecoveredClientsPage}
@@ -100,30 +130,50 @@ function MainTabs({ navigation }) {
 		  ),
 		}}
 	  />
-	  <Tab.Screen 
-		name="Admin" 
-		component={AdminPage}  // Votre nouvelle page d'administration
-		options={{ 
-		  title: 'Administration', 
-		  tabBarIcon: ({ color, size }) => (<Icon name="settings" color={color} size={size} />)
-		}} 
-	  />
-	  <Tab.Screen 
-		name="Logout" 
-		component={HomePage}  // Remplacez HomePage ou tout autre composant par défaut
-		options={{ 
-		  title: 'Déconnexion', 
-		  tabBarIcon: ({ color, size }) => (<Icon name="log-out" color={color} size={size} />),
-		  tabBarButton: (props) => (
-			<TouchableOpacity
-			  {...props}
-			  onPress={() => {
-				confirmLogout();
-			  }}
-			/>
-		  )
-		}}
-	  />
+<Tab.Screen
+    name="Admin"
+    component={AdminPage} // Votre nouvelle page d'administration
+    options={{
+        title: 'Administration',
+        tabBarIcon: ({ color, size }) => (
+            <Image
+                source={require("./assets/icons/Config.png")} // Chemin vers votre image personnalisée
+                style={{
+                    width: size,       // Adapte la largeur à la taille dynamique
+                    height: size,      // Adapte la hauteur à la taille dynamique
+                    tintColor: color,  // Applique la couleur dynamique
+                }}
+            />
+        ),
+    }}
+/>
+
+<Tab.Screen
+    name="Logout"
+    component={HomePage} // Remplacez HomePage ou tout autre composant par défaut
+    options={{
+        title: 'Déconnexion',
+        tabBarIcon: ({ color, size }) => (
+            <Image
+                source={require("./assets/icons/disconnects.png")} // Chemin vers votre image personnalisée
+                style={{
+                    width: size,       // Adapte la largeur à la taille dynamique
+                    height: size,      // Adapte la hauteur à la taille dynamique
+                    tintColor: color,  // Applique la couleur dynamique
+                }}
+            />
+        ),
+        tabBarButton: (props) => (
+            <TouchableOpacity
+                {...props}
+                onPress={() => {
+                    confirmLogout(); // Appelle votre fonction de déconnexion
+                }}
+            />
+        ),
+    }}
+/>
+
 	</Tab.Navigator>
   );
 }

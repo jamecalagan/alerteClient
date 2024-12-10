@@ -512,26 +512,26 @@ export default function HomePage({ navigation, route }) {
             }
         }
     };
-    const getIconName = (status) => {
-        switch (status) {
-            case "En attente de pièces":
-                return "cube"; // Icône Ionicons pour "En attente de pièces"
-            case "Devis accepté":
-                return "document-text"; // Icône Ionicons pour "Devis accepté"
-            case "Réparation en cours":
-                return "construct"; // Icône Ionicons pour "Réparation en cours"
-            case "Réparé":
-                return "checkmark-circle"; // Icône Ionicons pour "Réparé"
-            case "Devis en cours":
-                return "document-text-outline"; // Icône Ionicons pour "Devis en cours"
-            default:
-                return "information-circle"; // Icône par défaut
-        }
-    };
+	const getIconSource  = (status) => {
+		switch (status) {
+			case "En attente de pièces":
+				return require("../assets/icons/parts.png"); // Image pour "En attente de pièces"
+			case "Devis accepté":
+				return require("../assets/icons/devisAccepte.png"); // Image pour "Devis accepté"
+			case "Réparation en cours":
+				return require("../assets/icons/tools1.png"); // Image pour "Réparation en cours"
+			case "Réparé":
+				return require("../assets/icons/ok.png"); // Image pour "Réparé"
+			case "Devis en cours":
+				return require("../assets/icons/devisEnCours.png"); // Image pour "Devis en cours"
+			default:
+				return require("../assets/icons/point-dinterrogation.png"); // Image par défaut
+		}
+	};
     const getIconColor = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return "#6b579c"; // Violet
+                return "#b396f8"; // Violet
             case "Devis accepté":
                 return "#FFD700"; // Doré
             case "Réparation en cours":
@@ -547,7 +547,7 @@ export default function HomePage({ navigation, route }) {
     const getStatusStyle = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return { borderColor: "#6b579c", borderWidth: 2 };
+                return { borderColor: "#b396f8", borderWidth: 2 };
             case "Devis accepté":
                 return { borderColor: "#FFD700", borderWidth: 2 };
             case "Réparation en cours":
@@ -866,18 +866,15 @@ export default function HomePage({ navigation, route }) {
                                     >
                                         <View style={styles.statusContent}>
                                             <View style={styles.iconCircle}>
-                                                <Ionicons
-                                                    name={getIconName(
-                                                        item.latestIntervention
-                                                            ?.status
-                                                    )}
-                                                    size={20}
-                                                    color={getIconColor(
-                                                        item.latestIntervention
-                                                            ?.status
-                                                    )}
-                                                    style={styles.statusIcon}
-                                                />
+											<Image
+    source={getIconSource(status)}
+    style={{
+        width: 20,
+        height: 20,
+        tintColor: getIconColor(status), // Ajoute la couleur définie
+    }}
+/>
+
                                             </View>
                                             <Text style={styles.statusText}>
                                                 {item.latestIntervention
@@ -968,11 +965,15 @@ export default function HomePage({ navigation, route }) {
                                                                 );
                                                             }}
                                                         >
-                                                            <FontAwesome5
-                                                                name="shipping-fast"
-                                                                size={20}
-                                                                color="#270381"
-                                                            />
+<Image
+    source={require("../assets/icons/shipping.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#5906f3", // Couleur de l'icône (ici noir)
+    }}
+/>
+
                                                         </TouchableOpacity>
                                                     )}
 
@@ -988,11 +989,15 @@ export default function HomePage({ navigation, route }) {
                                                         )
                                                     }
                                                 >
-                                                    <Ionicons
-                                                        name="create-outline"
-                                                        size={20}
-                                                        color="#000"
-                                                    />
+<Image
+    source={require("../assets/icons/edit.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
+
                                                 </TouchableOpacity>
                                                 <TouchableOpacity
                                                     style={[
@@ -1009,11 +1014,15 @@ export default function HomePage({ navigation, route }) {
                                                         )
                                                     }
                                                 >
-                                                    <Ionicons
-                                                        name="print"
-                                                        size={20}
-                                                        color="#000000"
-                                                    />
+<Image
+    source={require("../assets/icons/print.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
+
                                                 </TouchableOpacity>
                                                 {totalImages > 0 && (
                                                     <TouchableOpacity
@@ -1027,11 +1036,14 @@ export default function HomePage({ navigation, route }) {
                                                             )
                                                         }
                                                     >
-                                                        <FontAwesome5
-                                                            name="image"
-                                                            size={20}
-                                                            color="#000000"
-                                                        />
+<Image
+    source={require("../assets/icons/image.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
                                                     </TouchableOpacity>
                                                 )}
                                                 <TouchableOpacity
@@ -1045,11 +1057,15 @@ export default function HomePage({ navigation, route }) {
                                                         )
                                                     }
                                                 >
-                                                    <Ionicons
-                                                        name="trash"
-                                                        size={20}
-                                                        color="#000"
-                                                    />
+ <Image
+    source={require("../assets/icons/trash.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
+
                                                 </TouchableOpacity>
                                                 {/* Section additionnelle pour les icônes de notification et tools sous les icônes principales */}
                                             </View>
@@ -1082,24 +1098,33 @@ export default function HomePage({ navigation, route }) {
                                                     >
                                                         {latestIntervention?.notifiedBy ===
                                                         "SMS" ? (
-                                                            <Ionicons
-                                                                name="chatbubbles-outline"
-                                                                size={24}
-                                                                color="green"
-                                                            />
+															<Image
+    source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
                                                         ) : latestIntervention?.notifiedBy ===
                                                           "Téléphone" ? (
-                                                            <Ionicons
-                                                                name="call-outline"
-                                                                size={24}
-                                                                color="blue"
-                                                            />
+															<Image
+    source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
                                                         ) : (
-                                                            <Ionicons
-                                                                name="notifications-off-outline"
-                                                                size={24}
-                                                                color="gray"
-                                                            />
+															<Image
+    source={require("../assets/icons/notifications_off.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
                                                         )}
                                                     </TouchableOpacity>
 
@@ -1119,11 +1144,14 @@ export default function HomePage({ navigation, route }) {
                                                             )
                                                         }
                                                     >
-                                                        <FontAwesome5
-                                                            name="tools"
-                                                            size={20}
-                                                            color="#000"
-                                                        />
+															<Image
+    source={require("../assets/icons/tools.png")} // Chemin vers votre icône poubelle
+    style={{
+        width: 28,
+        height: 28,
+        tintColor: "#000", // Couleur de l'icône (ici noir)
+    }}
+/>
                                                         <Text
                                                             style={
                                                                 styles.interventionsCount
@@ -1260,11 +1288,15 @@ export default function HomePage({ navigation, route }) {
                                 onPress={goToPreviousPage}
                                 disabled={currentPage === 1}
                             >
-                                <Ionicons
-                                    name="chevron-back"
-                                    size={32}
-                                    color={currentPage === 1 ? "#202020" : "#ffffff"} // Grisé si désactivé
-                                />
+<Image
+    source={require("../assets/icons/chevrong.png")} // Chemin vers l'image personnalisée
+    style={{
+        width: 32, // Largeur de l'image
+        height: 32, // Hauteur de l'image
+        tintColor: currentPage === 1 ? "#202020" : "#ffffff", // Couleur dynamique
+    }}
+/>
+
                             </TouchableOpacity>
                             <Text style={styles.paginationText}>
                                 Page {currentPage} sur {totalPages}
@@ -1273,15 +1305,15 @@ export default function HomePage({ navigation, route }) {
                                 onPress={goToNextPage}
                                 disabled={currentPage === totalPages}
                             >
-                                <Ionicons
-                                    name="chevron-forward"
-                                    size={32}
-                                    color={
-                                        currentPage === totalPages
-                                            ? "#202020"
-                                            : "#ffffff"
-                                    } // Grisé si désactivé
-                                />
+<Image
+    source={require("../assets/icons/chevrond.png")} // Chemin vers l'image personnalisée
+    style={{
+        width: 32, // Largeur de l'image
+        height: 32, // Hauteur de l'image
+        tintColor: currentPage === 1 ? "#ffffff" : "#202020", // Couleur dynamique
+    }}
+/>
+
                             </TouchableOpacity>
                         </View>
                     </>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text, Image } from 'react-native';
 import { supabase } from '../supabaseClient'; // Import du client Supabase
 import Icon from 'react-native-vector-icons/FontAwesome'; // Pour les icônes
 import AlertBox from '../components/AlertBox'; // Import du composant AlertBox
@@ -334,12 +334,31 @@ export default function EditClientPage({ route, navigation }) {
 
   </>
 )}
-              <TouchableOpacity style={styles.trashButton} onPress={() => handleDeleteIntervention(item.id)}>
-                <Icon name="trash" size={20} color="#000" />
-              </TouchableOpacity>
+<TouchableOpacity
+    style={styles.trashButton}
+    onPress={() => handleDeleteIntervention(item.id)}
+>
+    <Image
+        source={require("../assets/icons/trash.png")} // Chemin vers votre icône de suppression
+        style={{
+            width: 24,       // Largeur de l'image
+            height: 24,      // Hauteur de l'image
+            tintColor: "#000", // Couleur de l'image (noir ici)
+        }}
+    />
+</TouchableOpacity>
+
 			  <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
-        <FontAwesome5 name="print" size={24} color="#000" />
-      </TouchableOpacity>
+    <Image
+        source={require("../assets/icons/print.png")} // Chemin vers votre image
+        style={{
+            width: 28, // Largeur de l'image
+            height: 28, // Hauteur de l'image
+            tintColor: "#000", // Couleur de l'image
+        }}
+    />
+</TouchableOpacity>
+
             </TouchableOpacity>
 			
           )}

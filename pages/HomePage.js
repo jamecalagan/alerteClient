@@ -9,6 +9,7 @@ import {
     Modal,
     ImageBackground,
     ActivityIndicator,
+	Image,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -559,36 +560,80 @@ export default function HomePage({ navigation, route }) {
                 return { borderColor: "#e0e0e0", borderWidth: 2 };
         }
     };
-    const getDeviceIcon = (deviceType) => {
-        switch (deviceType) {
-            case "PC portable":
-                return <FontAwesome5 name="laptop" size={30} color="#000" />;
-            case "PC Fixe":
-                return <FontAwesome5 name="desktop" size={30} color="#000" />;
-            case "Tablette":
-                return (
-                    <FontAwesome5 name="tablet-alt" size={30} color="#000" />
-                );
-            case "Smartphone":
-                return <FontAwesome5 name="mobile" size={30} color="#000" />;
-            case "Console":
-                return <FontAwesome5 name="gamepad" size={30} color="#000" />;
-            case "Disque dur":
-                return <FontAwesome5 name="hdd" size={30} color="#000" />;
-            case "Carte SD":
-                return <FontAwesome5 name="sd-card" size={30} color="#000" />;
-            case "Cle usb":
-                return (
-                    <MaterialCommunityIcons
-                        name="usb-flash-drive"
-                        size={30}
-                        color="#000"
-                    />
-                );
-            default:
-                return <FontAwesome5 name="question" size={30} color="#000" />;
-        }
-    };
+	const getDeviceIcon = (deviceType) => {
+		switch (deviceType) {
+			case "PC portable":
+				return (
+					<Image
+						source={require("../assets/icons/portable.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "PC Fixe":
+				return (
+					<Image
+						source={require("../assets/icons/ordinateur (1).png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "PC tout en un":
+					return (
+						<Image
+							source={require("../assets/icons/allInone.png")}
+							style={{ width: 40, height: 40 }}
+						/>
+					);
+			case "Tablette":
+				return (
+					<Image
+						source={require("../assets/icons/tablette.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "Smartphone":
+				return (
+					<Image
+						source={require("../assets/icons/ordinateur.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "Console":
+				return (
+					<Image
+						source={require("../assets/icons/console-de-jeu.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "Disque dur":
+				return (
+					<Image
+						source={require("../assets/icons/disque-dur.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "Carte SD":
+				return (
+					<Image
+						source={require("../assets/icons/carte-memoire.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			case "Cle usb":
+				return (
+					<Image
+						source={require("../assets/icons/cle-usb.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+			default:
+				return (
+					<Image
+						source={require("../assets/icons/point-dinterrogation.png")}
+						style={{ width: 40, height: 40 }}
+					/>
+				);
+		}
+	};
 
     const filterByStatus = (status) => {
         const filtered = clients.filter((client) =>
@@ -609,23 +654,33 @@ export default function HomePage({ navigation, route }) {
                 onPress={() => filterByStatus("En attente de pièces")}
             >
                 <View style={styles.legendItem}>
-                    <Ionicons name="cube" size={24} color="#270381" />
+				<Image
+            source={require("../assets/icons/parts.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#5e54eb" }}
+        />
                     <Text style={styles.legendText}>En attente de pièces</Text>
                 </View>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => filterByStatus("Devis accepté")}>
-                <View style={styles.legendItem}>
-                    <Ionicons name="document-text" size={24} color="#FFD700" />
-                    <Text style={styles.legendText}>Devis accepté</Text>
-                </View>
-            </TouchableOpacity>
+			<TouchableOpacity onPress={() => filterByStatus("Devis accepté")}>
+    <View style={styles.legendItem}>
+        <Image
+            source={require("../assets/icons/devisAccepte.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#dbbb04" }}
+        />
+        <Text style={styles.legendText}>Devis accepté</Text>
+    </View>
+</TouchableOpacity>
+
 
             <TouchableOpacity
                 onPress={() => filterByStatus("Réparation en cours")}
             >
                 <View style={styles.legendItem}>
-                    <Ionicons name="construct" size={24} color="#528fe0" />
+				<Image
+            source={require("../assets/icons/tools.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#528fe0" }}
+        />
                     <Text style={styles.legendText}>Réparation en cours</Text>
                 </View>
             </TouchableOpacity>
@@ -635,28 +690,29 @@ export default function HomePage({ navigation, route }) {
                 onPress={() => navigation.navigate("RepairedInterventions")}
             >
                 <View style={styles.legendItem}>
-                    <Ionicons
-                        name="checkmark-circle"
-                        size={24}
-                        color="#98fb98"
-                    />
+				<Image
+            source={require("../assets/icons/ok.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#98fb98" }}
+        />
                     <Text style={styles.legendText}>Réparé</Text>
                 </View>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => filterByStatus("Devis en cours")}>
                 <View style={styles.legendItem}>
-                    <Ionicons
-                        name="document-text-outline"
-                        size={24}
-                        color="#f37209"
-                    />
+				<Image
+            source={require("../assets/icons/devisEnCours.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#f37209" }}
+        />
                     <Text style={styles.legendText}>devis en cours</Text>
                 </View>
             </TouchableOpacity>
             {/* Bouton Reset */}
             <TouchableOpacity onPress={resetFilter} style={styles.resetButton}>
-                <Ionicons name="refresh-circle" size={30} color="#FF6347" />
+			<Image
+            source={require("../assets/icons/reload.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#FF6347" }}
+        />
             </TouchableOpacity>
         </View>
     );
@@ -684,12 +740,10 @@ export default function HomePage({ navigation, route }) {
                                 }
                                 style={styles.repairedCountButton}
                             >
-                                <Ionicons
-                                    name="warning"
-                                    size={24} // Taille de l'icône
-                                    color="yellow" // Couleur jaune pour l'avertissement
-                                    style={styles.iconStyle} // Style optionnel
-                                />
+			<Image
+            source={require("../assets/icons/warning.png")} // Chemin vers votre icône
+            style={{ width: 20, height: 20, tintColor:"#fffc47" }}
+        />
                                 <Text style={styles.repairedCountText}>
                                     Produits réparés en attente de restitution :{" "}
                                     {repairedNotReturnedCount}
@@ -709,12 +763,10 @@ export default function HomePage({ navigation, route }) {
                         value={searchText}
                         onChangeText={filterClients}
                     />
-                    <Ionicons
-                        name="search"
-                        size={24}
-                        color="#999"
-                        style={styles.searchIcon}
-                    />
+<Image
+    source={require("../assets/icons/search.png")} // Chemin vers votre image
+    style={[styles.searchIcon, { width: 24, height: 24, tintColor: "#999" }]} // Ajoutez la propriété tintColor pour la couleur
+/>
                 </View>
 
                 <View style={styles.buttonContainer}>

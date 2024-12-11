@@ -41,7 +41,10 @@ export default function SignUpPage({ navigation }) {
 
         {/* Champ Email avec icône */}
         <View style={styles.inputContainer}>
-          <Icon name="mail-outline" size={20} color="#888" style={styles.icon} />
+		<Image
+    source={require('./assets/icons/mail.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 22, height: 22, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+/>
           <TextInput
             style={styles.input}
             placeholder="Email"

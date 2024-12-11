@@ -17,8 +17,6 @@ import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import { MaterialIcons } from "@expo/vector-icons"; // Pour l'icône de coche
-import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
 import * as ImageManipulator from 'expo-image-manipulator';
 export default function EditInterventionPage({ route, navigation }) {
 	const { clientId } = route.params || {};
@@ -437,12 +435,11 @@ export default function EditInterventionPage({ route, navigation }) {
                         placeholder="Référence du produit"
                     />
                     {labelPhoto && (
-                        <MaterialIcons
-                            name="check-circle"
-                            size={24}
-                            color="green"
-                            style={styles.checkIcon}
-                        />
+						<Image
+    source={require('../assets/icons/ok.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: 'green' }]} // Personnalisation de l'image
+/>
+
                     )}
                 </View>
 
@@ -450,12 +447,10 @@ export default function EditInterventionPage({ route, navigation }) {
                     style={styles.button}
                     onPress={pickLabelImage}
                 >
-                    <Icon
-                        name="camera"
-                        size={20}
-                        color="#222177"
-                        style={styles.buttonIcon}
-                    />
+						<Image
+    source={require('../assets/icons/photo1.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 24, height: 24, tintColor: 'black' }]} // Personnalisation de l'image
+/>
                     <Text style={styles.buttonText}>
                         Prendre une photo de l'étiquette
                     </Text>
@@ -654,7 +649,10 @@ export default function EditInterventionPage({ route, navigation }) {
                         style={{ position: "absolute", top: 5, right: 5 }}
                         onPress={() => deletePhoto(photo)}
                     >
-                        <MaterialIcons name="close" size={24} color="red" />
+                        						<Image
+    source={require('../assets/icons/delete.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: 'red' }]} // Personnalisation de l'image
+/>
                     </TouchableOpacity>
                 )}
       </TouchableOpacity>
@@ -687,12 +685,10 @@ export default function EditInterventionPage({ route, navigation }) {
                         style={[styles.iconButton, styles.button]}
                         onPress={pickAdditionalImage}
                     >
-                        <Icon
-                            name="camera"
-                            size={20}
-                            color="#222177"
-                            style={styles.buttonIcon}
-                        />
+                        						<Image
+    source={require('../assets/icons/photo1.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 22, height: 22, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+/>
                         <Text style={styles.buttonText}>
                             Prendre une autre photo
                         </Text>
@@ -701,12 +697,10 @@ export default function EditInterventionPage({ route, navigation }) {
                         style={[styles.iconButton, styles.saveButton]}
                         onPress={handleSaveIntervention}
                     >
-                        <Icon
-                            name="save"
-                            size={20}
-                            color="#084710"
-                            style={styles.buttonIcon}
-                        />
+                        						<Image
+    source={require('../assets/icons/save.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#00160c", marginRight: 10, }]} // Personnalisation de l'image
+/>
                         <Text style={styles.buttonText}>
                             Sauvegarder l'intervention
                         </Text>

@@ -13,10 +13,7 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import RoundedButton from "../components/RoundedButton";
-import Ionicons from "react-native-vector-icons/Ionicons";
 
 // Import de l'image depuis le dossier assets
 const backgroundImage = require("../assets/listing2.jpg");
@@ -369,26 +366,24 @@ export default function HomePage({ navigation, route }) {
             handlePageChange(currentPage - 1);
         }
     };
-    useFocusEffect(
-        React.useCallback(() => {
-            if (route.params?.reloadClients) {
-                setSortBy("createdAt"); // Tri par date de création
-                setOrderAsc(false); // Tri décroissant pour afficher les plus récents en premier
-                loadClients(); // Recharger la liste des clients
-            }
-        }, [route.params?.reloadClients])
-    );
-    // Utilisez useFocusEffect pour recharger les données à chaque fois que la page Home est affichée
-    useFocusEffect(
-        React.useCallback(() => {
-            loadRepairedNotReturnedCount();
-        }, [])
-    );
-    useFocusEffect(
-        React.useCallback(() => {
-            loadClients(sortBy, orderAsc);
-        }, [sortBy, orderAsc])
-    );
+	useFocusEffect(
+		React.useCallback(() => {
+			// Si un rechargement est demandé depuis une autre page
+			if (route.params?.reloadClients) {
+				setSortBy("createdAt"); // Tri par date
+				setOrderAsc(false); // Tri décroissant
+				loadClients(); // Charger les clients triés
+			} else {
+				// Charger les clients selon les critères actuels
+				loadClients(sortBy, orderAsc);
+			}
+	
+			// Charger le compte des réparés non restitués
+			loadRepairedNotReturnedCount();
+	
+		}, [route.params?.reloadClients, sortBy, orderAsc])
+	);
+	
     const openNotifyModal = () => {
         setAlertVisible(false); // Ferme la modale de nettoyage
         setTransportModalVisible(false);
@@ -515,7 +510,7 @@ export default function HomePage({ navigation, route }) {
 	const getIconSource  = (status) => {
 		switch (status) {
 			case "En attente de pièces":
-				return require("../assets/icons/parts.png"); // Image pour "En attente de pièces"
+				return require("../assets/icons/shipping.png"); // Image pour "En attente de pièces"
 			case "Devis accepté":
 				return require("../assets/icons/devisAccepte.png"); // Image pour "Devis accepté"
 			case "Réparation en cours":
@@ -625,6 +620,27 @@ export default function HomePage({ navigation, route }) {
 						style={{ width: 40, height: 40 }}
 					/>
 				);
+				case "Casque audio":
+					return (
+						<Image
+							source={require("../assets/icons/playaudio.png")}
+							style={{ width: 40, height: 40 }}
+						/>
+					);
+					case "Retro-projecteur":
+						return (
+							<Image
+								source={require("../assets/icons/Projector.png")}
+								style={{ width: 40, height: 40 }}
+							/>
+						);
+						case "Clavier":
+							return (
+								<Image
+									source={require("../assets/icons/keyboard.png")}
+									style={{ width: 40, height: 40 }}
+								/>
+							);
 			default:
 				return (
 					<Image
@@ -655,8 +671,8 @@ export default function HomePage({ navigation, route }) {
             >
                 <View style={styles.legendItem}>
 				<Image
-            source={require("../assets/icons/parts.png")} // Chemin vers votre icône
-            style={{ width: 20, height: 20, tintColor:"#5e54eb" }}
+            source={require("../assets/icons/shipping.png")} // Chemin vers votre icône
+            style={{ width: 24, height: 24, tintColor:"#5e54eb" }}
         />
                     <Text style={styles.legendText}>En attente de pièces</Text>
                 </View>
@@ -774,11 +790,10 @@ export default function HomePage({ navigation, route }) {
                         <RoundedButton
                             title={
                                 <View style={styles.buttonContent}>
-                                    <Ionicons
-                                        name="calendar-outline"
-                                        size={20}
-                                        color="black"
-                                    />
+<Image
+    source={require('../assets/icons/calendar.png')} // Remplacez par le chemin de votre image
+    style={{ width: 20, height: 20, tintColor: 'black' }} // Styles de l'image
+/>
                                     <Text style={styles.buttonTextTrier}>
                                         Trier par{" "}
                                         {sortBy === "createdAt"
@@ -800,11 +815,11 @@ export default function HomePage({ navigation, route }) {
                         <RoundedButton
                             title={
                                 <View style={styles.buttonContent}>
-                                    <Ionicons
-                                        name="funnel-outline"
-                                        size={20}
-                                        color="black"
-                                    />
+<Image
+    source={require('../assets/icons/filter.png')} // Remplacez par le chemin de votre image
+    style={{ width: 20, height: 20, tintColor: 'black' }} // Styles de l'image
+/>
+
                                     <Text style={styles.buttonTextTrier}>
                                         Ordre{" "}
                                         {orderAsc ? "Ascendant" : "Descendant"}

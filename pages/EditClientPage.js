@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text, Image } from 'react-native';
 import { supabase } from '../supabaseClient'; // Import du client Supabase
-import Icon from 'react-native-vector-icons/FontAwesome'; // Pour les icônes
+
 import AlertBox from '../components/AlertBox'; // Import du composant AlertBox
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+
 import * as Print from 'expo-print'; // Pour l'impression
 export default function EditClientPage({ route, navigation }) {
   const { client } = route.params;
@@ -373,11 +373,27 @@ export default function EditClientPage({ route, navigation }) {
           style={[styles.iconButton, styles.addButton]}
           onPress={() => navigation.navigate('AddIntervention', { clientId: client.id })}
         >
-          <Icon name="plus" size={20} color="#222170" style={styles.buttonIcon} />
+              <Image
+        source={require("../assets/icons/plus.png")} // Chemin vers votre image
+        style={{
+            width: 20, // Largeur de l'image
+            height: 20, // Hauteur de l'image
+            tintColor: "#000", // Couleur de l'image
+			marginRight: 10 ,
+        }}
+    />
           <Text style={styles.buttonText}>Ajouter une intervention</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconButton} onPress={handleSaveClient}>
-          <Icon name="save" size={20} color="#084710" style={styles.buttonIcon} />
+		<Image
+        source={require("../assets/icons/save.png")} // Chemin vers votre image
+        style={{
+            width: 20, // Largeur de l'image
+            height: 20, // Hauteur de l'image
+            tintColor: "#000", // Couleur de l'image
+			marginRight: 10 ,
+        }}
+    />
           <Text style={styles.buttonText}>Sauvegarder</Text>
         </TouchableOpacity>
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, ImageBackground, Keyboard, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, ImageBackground, Keyboard, Alert, Image } from 'react-native';
 import { supabase } from '../supabaseClient';
 import RoundedButton from '../components/RoundedButton';
 import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
-import Icon from 'react-native-vector-icons/Ionicons'; // Importer les icônes
+
 
 // Import de l'image depuis le dossier assets
 const backgroundImage = require('../assets/listing2.jpg');
@@ -135,7 +135,10 @@ export default function AddClientPage({ navigation, route }) {
 	  <View style={styles.container}>
   {/* Champ Nom du client */}
   <View style={styles.inputContainer}>
-    <Icon name="person-outline" size={20} color="#888" style={styles.iconLeft} />
+  <Image
+    source={require('../assets/icons/person.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+/>
     <TextInput
       style={styles.input}
       placeholder="Nom du client"
@@ -148,7 +151,10 @@ export default function AddClientPage({ navigation, route }) {
 
   {/* Champ Numéro de téléphone */}
   <View style={styles.inputContainer}>
-    <Icon name="call-outline" size={20} color="#888888" style={styles.iconLeft} />
+  <Image
+    source={require('../assets/icons/call.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+/>
     <TextInput
       style={styles.input}
       placeholder="Numéro de téléphone"
@@ -161,7 +167,10 @@ export default function AddClientPage({ navigation, route }) {
 
   {/* Champ Adresse e-mail */}
   <View style={styles.inputContainer}>
-    <Icon name="mail-outline" size={20} color="#888" style={styles.iconLeft} />
+  <Image
+    source={require('../assets/icons/mail.png')} // Chemin vers votre image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+/>
     <TextInput
       style={styles.input}
       placeholder="Adresse e-mail (optionnel)"

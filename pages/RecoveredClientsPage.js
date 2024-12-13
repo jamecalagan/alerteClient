@@ -15,25 +15,42 @@ export default function RecoveredClientsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 2;
 
-    const loadRecoveredClients = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('interventions')
-                .select(`
-                    *,
-                    clients (name, ficheNumber, phone)
-                `)
-                .eq('status', 'Récupéré')
-                .order('updatedAt', { ascending: false });
-
-            if (error) throw error;
-
-            setRecoveredClients(data);
-            setFilteredClients(data); // Initialize filteredClients with all recoveredClients
-        } catch (error) {
-            console.error('Erreur lors du chargement des clients récupérés :', error);
-        }
-    };
+	const loadRecoveredClients = async () => {
+		try {
+			// Récupérez les interventions
+			const { data: interventions, error: interventionsError } = await supabase
+				.from('interventions')
+				.select(`
+					*,
+					clients (name, ficheNumber, phone)
+				`)
+				.eq('status', 'Récupéré')
+				.order('updatedAt', { ascending: false });
+	
+			if (interventionsError) throw interventionsError;
+	
+			// Récupérez les images depuis la table intervention_image
+			const { data: images, error: imagesError } = await supabase
+				.from('intervention_images')
+				.select('intervention_id, image_data');
+	
+			if (imagesError) throw imagesError;
+	
+			// Associez les images aux interventions
+			const combinedData = interventions.map((intervention) => ({
+				...intervention,
+				intervention_images: images
+					.filter((img) => img.intervention_id === intervention.id)
+					.map((img) => img.image_data), // Prenez uniquement les données d'image
+			}));
+	
+			setRecoveredClients(combinedData);
+			setFilteredClients(combinedData);
+		} catch (error) {
+			console.error('Erreur lors du chargement des clients récupérés :', error);
+		}
+	};
+	
 
     useFocusEffect(
         React.useCallback(() => {
@@ -127,25 +144,39 @@ export default function RecoveredClientsPage() {
                             <Text style={styles.interventionInfo}>Remarques: {item.remarks}</Text>
                             <Text style={styles.interventionInfo}>Statut du règlement: {item.paymentStatus}</Text>
 
-                            {/* Affichage des images d'intervention depuis la table interventions */}
-                            {item.photos && item.photos.length > 0 && (
-                                <View style={styles.imageContainer}>
-                                    {item.photos.map((photo, index) => (
-                                        <TouchableOpacity
-                                            key={index}
-                                            onPress={() => setSelectedImage(`data:image/jpeg;base64,${photo}`)}
-                                        >
-                                            <Image
-                                                source={{ uri: `data:image/jpeg;base64,${photo}` }}
-                                                style={[
-                                                    styles.imageThumbnail,
-                                                    item.label_photo === photo ? styles.labelImage : null,
-                                                ]}
-                                            />
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
+							<View style={styles.imageContainer}>
+    {/* Images existantes avec bordure verte si c'est une étiquette */}
+    {item.photos && item.photos.map((photo, index) => (
+        <TouchableOpacity
+            key={`photo-${index}`}
+            onPress={() => setSelectedImage(`data:image/jpeg;base64,${photo}`)}
+        >
+            <Image
+                source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                style={[
+                    styles.imageThumbnail,
+                    item.label_photo === photo ? styles.labelImage : null, // Bordure verte pour l'image "label"
+                ]}
+            />
+        </TouchableOpacity>
+    ))}
+
+    {/* Nouvelles images avec bordure bleue */}
+    {item.intervention_images && item.intervention_images.map((image, index) => (
+        <TouchableOpacity
+            key={`intervention-image-${index}`}
+            onPress={() => setSelectedImage(`data:image/jpeg;base64,${image}`)}
+        >
+            <Image
+                source={{ uri: `data:image/jpeg;base64,${image}` }}
+                style={[
+                    styles.imageThumbnail,
+                    styles.newImageThumbnail, // Bordure bleue pour les nouvelles images
+                ]}
+            />
+        </TouchableOpacity>
+    ))}
+</View>
 
                             <TouchableOpacity
                                 style={styles.toggleButton}
@@ -292,6 +323,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     resizeMode: 'cover',
   },
+  newImageThumbnail: {
+    borderWidth: 2, // Ajoute une bordure
+    borderColor: 'blue', // Bordure bleue pour les nouvelles images
+},
   modalBackground: {
     flex: 1,
     justifyContent: 'center',

@@ -1293,23 +1293,13 @@ export default function HomePage({ navigation, route }) {
                                                             "SMS" ? (
                                                                 <Image
                                                                     source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
-                                                                    style={{
-                                                                        width: 28,
-                                                                        height: 28,
-                                                                        tintColor:
-                                                                            "#000", // Couleur de l'icône (ici noir)
-                                                                    }}
+                                                                    style={{ width: 28, height: 28, tintColor: "#019b53" }}
                                                                 />
                                                             ) : latestIntervention?.notifiedBy ===
                                                               "Téléphone" ? (
                                                                 <Image
                                                                     source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
-                                                                    style={{
-                                                                        width: 28,
-                                                                        height: 28,
-                                                                        tintColor:
-                                                                            "#000", // Couleur de l'icône (ici noir)
-                                                                    }}
+                                                                    style={{ width: 28, height: 28, tintColor: "#3c92f5" }}
                                                                 />
                                                             ) : (
                                                                 <Image

@@ -153,7 +153,9 @@ export default function RecoveredClientsPage() {
             case "Console":
                 return require("../assets/icons/console-de-jeu.png");
             case "Disque dur":
-                return require("../assets/icons/disque-dur.png");
+                return require("../assets/icons/disk.png");
+				case "Disque dur externe":
+					return require("../assets/icons/disque-dur.png");
             case "Carte SD":
                 return require("../assets/icons/carte-memoire.png");
             case "Cle usb":
@@ -189,7 +191,13 @@ export default function RecoveredClientsPage() {
             scrollToCard(index);
         }
     };
-
+    // Basculer l'état d'affichage des détails
+    const toggleDetails = (id) => {
+        setExpandedCards((prev) => ({
+            ...prev,
+            [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
+        }));
+    };
     return (
         <ImageBackground
             source={backgroundImage}
@@ -365,9 +373,31 @@ export default function RecoveredClientsPage() {
                                                     </TouchableOpacity>
                                                 )
                                             )}
+											<TouchableOpacity
+                style={styles.toggleButton}
+                onPress={() => toggleSignatureVisibility(item.id)}
+              >
+                <Icon
+                  name={visibleSignatures[item.id] ? 'eye-slash' : 'eye'}
+                  size={20}
+                  color="#202020"
+                  style={styles.icon}
+                />
+                <Text style={styles.toggleButtonText}>
+                  {visibleSignatures[item.id] ? 'Masquer la signature' : 'Afficher la signature'}
+                </Text>
+              </TouchableOpacity>
+
+              {visibleSignatures[item.id] && item.signature ? (
+                <Image
+                  source={{ uri: item.signature }}
+                  style={styles.signatureImage}
+                />
+              ) : null}
                                     </View>
                                 </>
                             )}
+							
                         </View>
 						</Animatable.View>
                     )}
@@ -401,6 +431,7 @@ export default function RecoveredClientsPage() {
                     </TouchableOpacity>
                 </View>
             </View>
+			
             <Modal
                 visible={selectedImage !== null}
                 transparent={true}
@@ -479,7 +510,7 @@ const styles = StyleSheet.create({
         marginLeft: 10, // Espacement entre les informations et l'icône
     },
     cardEven: {
-        backgroundColor: "rgba(224, 224, 224, 1)", // Gris clair pour les fiches paires
+        backgroundColor: "rgba(236, 235, 235, 1)", // Gris clair pour les fiches paires
     },
     cardOdd: {
         backgroundColor: "rgba(255, 255, 255, 1)", // Blanc pour les fiches impaires
@@ -494,6 +525,7 @@ const styles = StyleSheet.create({
         color: "#555",
     },
     toggleButton: {
+		width: "100%",
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",

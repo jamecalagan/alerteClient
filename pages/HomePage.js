@@ -124,36 +124,122 @@ export default function HomePage({ navigation, route }) {
             processInterventionQueue(); // Passe à la fiche suivante en cas d'erreur
         }
     };
-
-    const handlePhotoCleanup = async () => {
-        if (!selectedIntervention) {
-            console.error("Aucune intervention sélectionnée.");
-            return;
-        }
-
-        try {
-            const { id, photos, label_photo } = selectedIntervention;
-            const updatedPhotos = photos.filter(
-                (photo) => photo === label_photo
-            );
-
-            const { error } = await supabase
-                .from("interventions")
-                .update({ photos: updatedPhotos })
-                .eq("id", id);
-
-            if (error) throw error;
-
-            console.log(
-                `Photos inutiles supprimées pour l'intervention ${id}.`
-            );
-            setCleanupModalVisible(false); // Ferme la modale
-            setSelectedIntervention(null); // Réinitialise l'intervention sélectionnée
-            processInterventionQueue(); // Passe à la fiche suivante
-        } catch (error) {
-            console.error("Erreur lors du nettoyage des photos :", error);
-        }
-    };
+	useEffect(() => {
+		// Appeler la fonction de suppression automatique des images expirées
+		checkAndDeleteExpiredImages();
+	}, []); // Le tableau vide garantit que cela se produit uniquement lors du premier rendu
+	
+	const checkAndDeleteExpiredImages = async () => {
+		try {
+			const now = new Date();
+			const tenDaysAgo = new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString();
+	
+			// Récupérer les images dépassant 10 jours dans intervention_images
+			const { data: expiredImages, error: fetchError } = await supabase
+				.from("intervention_images")
+				.select("id, created_at")
+				.lt("created_at", tenDaysAgo); // Images créées avant il y a 10 jours
+	
+			if (fetchError) {
+				console.error("Erreur lors de la récupération des images expirées :", fetchError);
+				return;
+			}
+	
+			if (expiredImages.length === 0) {
+				console.log("Aucune image à supprimer.");
+				return;
+			}
+	
+			console.log("Images expirées à supprimer :", expiredImages);
+	
+			// Supprimer les images expirées
+			const imageIdsToDelete = expiredImages.map((img) => img.id);
+	
+			const { data: deletedImages, error: deleteError } = await supabase
+				.from("intervention_images")
+				.delete()
+				.in("id", imageIdsToDelete);
+	
+			if (deleteError) {
+				console.error("Erreur lors de la suppression des images expirées :", deleteError);
+			} else {
+				console.log("Images supprimées avec succès :", deletedImages);
+			}
+		} catch (err) {
+			console.error("Erreur inattendue lors de la suppression des images expirées :", err);
+		}
+	};
+	
+	const handlePhotoCleanup = async () => {
+		try {
+			const now = new Date();
+			const tenDaysAgo = new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString();
+	
+			// Récupérer les interventions contenant des photos inutiles
+			const { data: interventions, error: interventionError } = await supabase
+				.from("interventions")
+				.select("id, photos, label_photo, updatedAt")
+				.lt("updatedAt", tenDaysAgo) // Interventions mises à jour avant 10 jours
+				.eq("status", "Récupéré"); // Filtrer sur le statut Récupéré
+	
+			if (interventionError) {
+				console.error("Erreur lors de la récupération des interventions :", interventionError);
+				return;
+			}
+	
+			console.log("Interventions à nettoyer :", interventions);
+	
+			// Pour chaque intervention, supprimer les photos inutiles
+			for (const intervention of interventions) {
+				const { id, photos, label_photo } = intervention;
+	
+				// Filtrer les photos inutiles
+				const updatedPhotos = photos.filter((photo) => photo === label_photo);
+	
+				if (updatedPhotos.length !== photos.length) {
+					// Mettre à jour les photos dans la base
+					const { error: updateError } = await supabase
+						.from("interventions")
+						.update({ photos: updatedPhotos })
+						.eq("id", id);
+	
+					if (updateError) {
+						console.error(`Erreur lors de la mise à jour des photos pour l'intervention ${id} :`, updateError);
+					} else {
+						console.log(`Photos inutiles supprimées pour l'intervention ${id}`);
+					}
+				}
+			}
+	
+			// Supprimer les images expirées dans intervention_images
+			const { data: expiredImages, error: expiredImagesError } = await supabase
+				.from("intervention_images")
+				.select("id, created_at")
+				.lt("created_at", tenDaysAgo);
+	
+			if (expiredImagesError) {
+				console.error("Erreur lors de la récupération des images expirées :", expiredImagesError);
+			} else if (expiredImages.length > 0) {
+				console.log("Images expirées à supprimer :", expiredImages);
+	
+				const imageIdsToDelete = expiredImages.map((img) => img.id);
+	
+				const { data: deletedImages, error: deleteError } = await supabase
+					.from("intervention_images")
+					.delete()
+					.in("id", imageIdsToDelete);
+	
+				if (deleteError) {
+					console.error("Erreur lors de la suppression des images expirées :", deleteError);
+				} else {
+					console.log("Images supprimées avec succès :", deletedImages);
+				}
+			}
+		} catch (err) {
+			console.error("Erreur inattendue lors du nettoyage des photos :", err);
+		}
+	};
+	
     const handleModalClose = () => {
         setCleanupModalVisible(false); // Ferme la modale
         setSelectedIntervention(null); // Réinitialise l'intervention sélectionnée
@@ -251,37 +337,36 @@ export default function HomePage({ navigation, route }) {
     };
 
     // Fonction pour supprimer les images inutiles
-    const handleImageDeletion = async (imagesToDelete) => {
-        if (imagesToDelete.length === 0) {
-            console.log("Aucune image à supprimer.");
-            return;
-        }
-
-        try {
-            console.log("Suppression des images :", imagesToDelete);
-
-            // Supprimer les images dans intervention_images
-            const { error: deleteImageError } = await supabase
-                .from("intervention_images")
-                .delete()
-                .in("id", imagesToDelete);
-
-            if (deleteImageError) {
-                console.error(
-                    "Erreur lors de la suppression des images :",
-                    deleteImageError
-                );
-            } else {
-                console.log(
-                    `Images supprimées avec succès : ${imagesToDelete.join(
-                        ", "
-                    )}.`
-                );
-            }
-        } catch (err) {
-            console.error("Erreur lors de la suppression des images :", err);
-        }
-    };
+	const handleImageDeletion = async (imagesToDelete) => {
+		if (!Array.isArray(imagesToDelete) || imagesToDelete.length === 0) {
+			console.error("Liste des images à supprimer invalide ou vide :", imagesToDelete);
+			Alert.alert("Erreur", "Aucune image valide trouvée pour suppression.");
+			return;
+		}
+	
+		try {
+			console.log("Tentative de suppression des images :", imagesToDelete);
+	
+			const { data, error } = await supabase
+				.from("intervention_images")
+				.delete()
+				.in("id", imagesToDelete);
+	
+			if (error) {
+				console.error("Erreur retournée par Supabase :", JSON.stringify(error, null, 2));
+				Alert.alert("Erreur", "Impossible de supprimer les images. Vérifiez les données.");
+			} else {
+				console.log("Images supprimées avec succès :", data);
+				Alert.alert("Succès", `${imagesToDelete.length} image(s) supprimée(s) avec succès.`);
+			}
+		} catch (err) {
+			console.error("Erreur inattendue lors de la suppression :", err);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue. Réessayez.");
+		}
+	};
+	
+	
+	
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
@@ -427,6 +512,8 @@ export default function HomePage({ navigation, route }) {
         } finally {
             setIsLoading(false);
         }
+		    // Nettoyage des images expirées après le chargement des clients
+			await checkAndDeleteExpiredImages();
     };
 
     const fetchDetails = (deviceType, marque, model) => {
@@ -709,10 +796,17 @@ export default function HomePage({ navigation, route }) {
             case "Disque dur":
                 return (
                     <Image
-                        source={require("../assets/icons/disque-dur.png")}
+                        source={require("../assets/icons/disk.png")}
                         style={{ width: 40, height: 40 }}
                     />
                 );
+				case "Disque dur externe":
+					return (
+						<Image
+							source={require("../assets/icons/disque-dur.png")}
+							style={{ width: 40, height: 40 }}
+						/>
+					);
             case "Carte SD":
                 return (
                     <Image
@@ -1474,6 +1568,7 @@ export default function HomePage({ navigation, route }) {
                                                                                         intervention.deviceType
                                                                                     )}
                                                                                 </TouchableOpacity>
+																				
                                                                             </View>
                                                                         )
                                                                     )}
@@ -1482,6 +1577,7 @@ export default function HomePage({ navigation, route }) {
                                                 </View>
                                             )}
                                         </View>
+										
                                     </Animatable.View>
                                 );
                             }}

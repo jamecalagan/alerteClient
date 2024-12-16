@@ -19,12 +19,12 @@ import { supabase } from "../supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
+
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import Icon from "react-native-vector-icons/FontAwesome"; // Pour les icônes
+
 import * as ImageManipulator from "expo-image-manipulator";
-// Import de l'image depuis le dossier assets
+import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
 
 export default function RepairedInterventionsPage({ navigation }) {
@@ -40,6 +40,7 @@ export default function RepairedInterventionsPage({ navigation }) {
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
+	const [expandedCards, setExpandedCards] = useState({});
     const sortedInterventions = repairedInterventions.sort((a, b) => {
         if (a.id === pinnedInterventionId) return -1; // La fiche épinglée est toujours en haut
         if (b.id === pinnedInterventionId) return 1;
@@ -297,6 +298,13 @@ export default function RepairedInterventionsPage({ navigation }) {
             });
         }
     }, 0);
+	    // Basculer l'état d'affichage des détails
+		const toggleDetails = (id) => {
+			setExpandedCards((prev) => ({
+				...prev,
+				[id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
+			}));
+		};
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -393,6 +401,27 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     <Text style={styles.interventionText}>
                                         Marque: {item.brand}
                                     </Text>
+									<TouchableOpacity
+    style={styles.toggleButton}
+    onPress={() => toggleDetails(item.id)}
+>
+    <Text style={styles.toggleButtonText}>
+        {expandedCards[item.id] ? "Masquer les détails" : "Afficher les détails"}
+    </Text>
+    <Ionicons
+        name={expandedCards[item.id] ? "chevron-up" : "chevron-down"}
+        size={20}
+        color="#202020"
+    />
+</TouchableOpacity>
+
+                                {/* Détails masqués ou affichés avec animation */}
+                                {expandedCards[item.id] && (
+                                    <Animatable.View
+                                        animation="slideInDown" // Animation pour afficher les détails
+                                        duration={500} // Durée de l'animation
+                                        style={styles.cardDetails}
+                                    >
                                     <Text style={styles.interventionText}>
                                         Modèle: {item.model}
                                     </Text>
@@ -627,12 +656,16 @@ export default function RepairedInterventionsPage({ navigation }) {
                                                                     }}
                                                                 />
                                                             </TouchableOpacity>
+															
                                                         </View>
                                                     )
                                                 )}
                                             </View>
                                         )}
+										</Animatable.View>
+									)}
                                 </View>
+								
                             </View>
                         )}
                     />
@@ -988,4 +1021,26 @@ const styles = StyleSheet.create({
         padding: 5,
         elevation: 5,
     },
+toggleButton: {
+	position: "absolute",
+	top: 95,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-end", // Positionner le bouton à droite
+    backgroundColor: "#cacaca", // Couleur du bouton
+    paddingVertical: 8,
+    paddingHorizontal: 12, // Réduire la largeur du bouton
+    borderRadius: 5,
+    marginTop: 10,
+	elevation: 5,
+	borderWidth: 2,
+	borderColor: "#02572f"
+},
+toggleButtonText: {
+    color: "#202020",
+    fontSize: 14, // Texte légèrement plus petit
+    fontWeight: "bold",
+    marginRight: 5, // Espacement entre le texte et l'icône
+}
 });

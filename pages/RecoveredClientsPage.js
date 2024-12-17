@@ -142,6 +142,8 @@ export default function RecoveredClientsPage() {
         switch (deviceType) {
             case "PC portable":
                 return require("../assets/icons/portable.png");
+			case "MacBook":
+				return require("../assets/icons/macbook_air.png");
             case "PC Fixe":
                 return require("../assets/icons/ordinateur (1).png");
             case "PC tout en un":

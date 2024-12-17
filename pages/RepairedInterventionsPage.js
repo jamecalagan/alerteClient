@@ -354,19 +354,25 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         />
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity
-                                        style={styles.iconStyle}
-                                        onPress={() => takePhoto(item.id)}
-                                    >
-                                        <Image
-                                            source={require("../assets/icons/photo.png")} // Chemin vers votre image de caméra
-                                            style={{
-                                                width: 40, // Largeur de l'image
-                                                height: 40, // Hauteur de l'image
-                                                tintColor: "black", // Applique la couleur noire
-                                            }}
-                                        />
-                                    </TouchableOpacity>
+									<TouchableOpacity
+    style={styles.iconStyle}
+    onPress={() => takePhoto(item.id)}
+>
+    <Image
+        source={
+            item?.intervention_images?.length > 0
+                ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
+                : require("../assets/icons/photo.png") // Icône par défaut
+        }
+        style={{
+            width: 40, // Largeur de l'image
+            height: 40, // Hauteur de l'image
+            tintColor: item?.intervention_images?.length > 0 ? "blue" : "black", // Bleu si photo présente, sinon noir
+        }}
+    />
+</TouchableOpacity>
+
+
                                 </View>
                                 <TouchableOpacity
                                     style={styles.moveToTopButton}

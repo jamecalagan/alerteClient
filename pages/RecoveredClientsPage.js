@@ -144,6 +144,8 @@ export default function RecoveredClientsPage() {
                 return require("../assets/icons/portable.png");
 			case "MacBook":
 				return require("../assets/icons/macbook_air.png");
+				case "iMac":
+					return require("../assets/icons/iMac.png");
             case "PC Fixe":
                 return require("../assets/icons/ordinateur (1).png");
             case "PC tout en un":

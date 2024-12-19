@@ -10,7 +10,7 @@ import {
     ImageBackground,
     ActivityIndicator,
     Image,
-	Alert
+    Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -42,15 +42,15 @@ export default function HomePage({ navigation, route }) {
     const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-	const [showLogs, setShowLogs] = useState(true); // Contrôle l'affichage des logs
-	const [processLogs, setProcessLogs] = useState([]); // État pour stocker les messages de log
+    const [showLogs, setShowLogs] = useState(true); // Contrôle l'affichage des logs
+    const [processLogs, setProcessLogs] = useState([]); // État pour stocker les messages de log
 
     const [modalData, setModalData] = useState({
         title: "",
         message: "",
         onConfirm: null,
     });
-	const itemsPerPage = 4;
+    const itemsPerPage = 4;
 
     // Ajoutez d'autres états de modale si nécessaire
     const closeAllModals = () => {
@@ -81,89 +81,108 @@ export default function HomePage({ navigation, route }) {
             });
         }
     };
-	const logMessage = (message) => {
-		setProcessLogs((prevLogs) => [...prevLogs, message]); // Ajouter un message à l'état
-	};
-	
-	const deleteExpiredPhotos = async () => {
-		try {
-			const now = new Date();
-			const tenDaysAgoUTC = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
-			const formattedDate = tenDaysAgoUTC.toISOString();
-	
-			logMessage(`📅 Date limite pour suppression : ${formattedDate}`);
-	
-			// Récupérer les interventions dépassant 10 jours
-			const { data: interventions, error: fetchInterventionsError } = await supabase
-				.from("interventions")
-				.select("id, photos, created_at")
-				.lt("created_at", formattedDate);
-	
-			if (fetchInterventionsError) {
-				logMessage("❌ Erreur lors de la récupération des interventions.");
-				console.error(fetchInterventionsError.message);
-				return;
-			}
-	
-			if (interventions.length === 0) {
-				logMessage("✅ Aucune intervention avec des photos à supprimer.");
-			} else {
-				logMessage(`🔍 Interventions trouvées : ${interventions.length}`);
-			}
-	
-			const interventionIds = interventions.map((intervention) => intervention.id);
-	
-			// Effacer les photos
-			for (const intervention of interventions) {
-				if (intervention.photos) {
-					const { error: updateError } = await supabase
-						.from("interventions")
-						.update({ photos: null })
-						.eq("id", intervention.id);
-	
-					if (!updateError) {
-						logMessage(`🗑️ Photos supprimées dans intervention ID : ${intervention.id}`);
-					} else {
-						logMessage(`❌ Erreur suppression photos pour ID ${intervention.id}.`);
-					}
-				} else {
-					logMessage(`ℹ️ Aucune photo dans l'intervention ID : ${intervention.id}`);
-				}
-			}
-	
-			// Supprimer les images dans intervention_images
-			const { data: expiredImages, error: fetchImagesError } = await supabase
-				.from("intervention_images")
-				.select("id, created_at")
-				.in("intervention_id", interventionIds)
-				.lt("created_at", formattedDate);
-	
-			if (expiredImages?.length > 0) {
-				const imageIdsToDelete = expiredImages.map((img) => img.id);
-				const { error: deleteError } = await supabase
-					.from("intervention_images")
-					.delete()
-					.in("id", imageIdsToDelete);
-	
-				if (!deleteError) {
-					logMessage(`🗑️ ${expiredImages.length} image(s) supprimée(s) dans 'intervention_images'.`);
-				} else {
-					logMessage("❌ Erreur lors de la suppression des images.");
-				}
-			} else {
-				logMessage("✅ Aucune image à supprimer dans 'intervention_images'.");
-			}
-		} catch (err) {
-			logMessage(`❌ Erreur inattendue : ${err.message}`);
-		}
-	};
-	
-	
-	
-	
+    const logMessage = (message) => {
+        setProcessLogs((prevLogs) => [...prevLogs, message]); // Ajouter un message à l'état
+    };
+
+    const deleteExpiredPhotos = async () => {
+        try {
+            const now = new Date();
+            const tenDaysAgoUTC = new Date(
+                now.getTime() - 10 * 24 * 60 * 60 * 1000
+            );
+            const formattedDate = tenDaysAgoUTC.toISOString();
+
+            logMessage(`📅 Date limite pour suppression : ${formattedDate}`);
+
+            // Récupérer les interventions dépassant 10 jours
+            const { data: interventions, error: fetchInterventionsError } =
+                await supabase
+                    .from("interventions")
+                    .select("id, photos, created_at")
+                    .lt("created_at", formattedDate);
+
+            if (fetchInterventionsError) {
+                logMessage(
+                    "❌ Erreur lors de la récupération des interventions."
+                );
+                console.error(fetchInterventionsError.message);
+                return;
+            }
+
+            if (interventions.length === 0) {
+                logMessage(
+                    "✅ Aucune intervention avec des photos à supprimer."
+                );
+            } else {
+                logMessage(
+                    `🔍 Interventions trouvées : ${interventions.length}`
+                );
+            }
+
+            const interventionIds = interventions.map(
+                (intervention) => intervention.id
+            );
+
+            // Effacer les photos
+            for (const intervention of interventions) {
+                if (intervention.photos) {
+                    const { error: updateError } = await supabase
+                        .from("interventions")
+                        .update({ photos: null })
+                        .eq("id", intervention.id);
+
+                    if (!updateError) {
+                        logMessage(
+                            `🗑️ Photos supprimées dans intervention ID : ${intervention.id}`
+                        );
+                    } else {
+                        logMessage(
+                            `❌ Erreur suppression photos pour ID ${intervention.id}.`
+                        );
+                    }
+                } else {
+                    logMessage(
+                        `ℹ️ Aucune photo dans l'intervention ID : ${intervention.id}`
+                    );
+                }
+            }
+
+            // Supprimer les images dans intervention_images
+            const { data: expiredImages, error: fetchImagesError } =
+                await supabase
+                    .from("intervention_images")
+                    .select("id, created_at")
+                    .in("intervention_id", interventionIds)
+                    .lt("created_at", formattedDate);
+
+            if (expiredImages?.length > 0) {
+                const imageIdsToDelete = expiredImages.map((img) => img.id);
+                const { error: deleteError } = await supabase
+                    .from("intervention_images")
+                    .delete()
+                    .in("id", imageIdsToDelete);
+
+                if (!deleteError) {
+                    logMessage(
+                        `🗑️ ${expiredImages.length} image(s) supprimée(s) dans 'intervention_images'.`
+                    );
+                } else {
+                    logMessage("❌ Erreur lors de la suppression des images.");
+                }
+            } else {
+                logMessage(
+                    "✅ Aucune image à supprimer dans 'intervention_images'."
+                );
+            }
+        } catch (err) {
+            logMessage(`❌ Erreur inattendue : ${err.message}`);
+        }
+    };
+
     useEffect(() => {
         deleteExpiredPhotos(); // Suppression automatique des photos expirées
-		checkForExpiredInterventions();
+        checkForExpiredInterventions();
     }, []);
 
     const triggerPhotoCleanupAlert = async (intervention) => {
@@ -211,85 +230,109 @@ export default function HomePage({ navigation, route }) {
         }
     };
 
-	
-	const checkForExpiredInterventions = async () => {
-		try {
-			const dateLimit = new Date();
-			dateLimit.setDate(dateLimit.getDate() - 10); // Date limite (10 jours en arrière)
-	
-			// Récupération des interventions avec des photos dépassant 10 jours
-			const { data: expiredInterventions, error } = await supabase
-				.from("interventions")
-				.select("id, photos, created_at")
-				.lt("created_at", dateLimit.toISOString())
-				.not("photos", "is", null); // Vérifie que des photos existent
-	
-			if (error) throw error;
-	
-			if (expiredInterventions.length > 0) {
-				console.log(
-					`🟡 ${expiredInterventions.length} intervention(s) avec des images à supprimer.`
-				);
-				promptImageDeletion(expiredInterventions); // Demander confirmation
-			} else {
-				console.log("✅ Aucune image à supprimer.");
-			}
-		} catch (error) {
-			console.error("Erreur lors de la vérification des interventions :", error);
-		}
-	};
-	
+    const checkForExpiredInterventions = async () => {
+        try {
+            const dateLimit = new Date();
+            dateLimit.setDate(dateLimit.getDate() - 10); // Date limite (10 jours en arrière)
+
+            // Récupération des interventions avec des photos dépassant 10 jours
+            const { data: expiredInterventions, error } = await supabase
+                .from("interventions")
+                .select("id, photos, created_at")
+                .lt("created_at", dateLimit.toISOString())
+                .not("photos", "is", null); // Vérifie que des photos existent
+
+            if (error) throw error;
+
+            if (expiredInterventions.length > 0) {
+                console.log(
+                    `🟡 ${expiredInterventions.length} intervention(s) avec des images à supprimer.`
+                );
+                promptImageDeletion(expiredInterventions); // Demander confirmation
+            } else {
+                console.log("✅ Aucune image à supprimer.");
+            }
+        } catch (error) {
+            console.error(
+                "Erreur lors de la vérification des interventions :",
+                error
+            );
+        }
+    };
 
     // Fonction pour supprimer les images inutiles
-	const handleImageDeletion = async (imagesToDelete) => {
-		if (!Array.isArray(imagesToDelete) || imagesToDelete.length === 0) {
-			console.error("Liste des images à supprimer invalide ou vide :", imagesToDelete);
-			Alert.alert("Erreur", "Aucune image valide trouvée pour suppression.");
-			return;
-		}
-	
-		// Demander confirmation avant de supprimer
-		Alert.alert(
-			"Confirmation",
-			`Êtes-vous sûr de vouloir supprimer ${imagesToDelete.length} image(s) ?`,
-			[
-				{
-					text: "Annuler",
-					onPress: () => console.log("Suppression annulée."),
-					style: "cancel",
-				},
-				{
-					text: "Confirmer",
-					onPress: async () => {
-						try {
-							console.log("Tentative de suppression des images :", imagesToDelete);
-	
-							const { data, error } = await supabase
-								.from("intervention_images")
-								.delete()
-								.in("id", imagesToDelete);
-	
-							if (error) {
-								console.error("Erreur retournée par Supabase :", JSON.stringify(error, null, 2));
-								Alert.alert("Erreur", "Impossible de supprimer les images. Vérifiez les données.");
-							} else {
-								console.log("Images supprimées avec succès :", data);
-								Alert.alert("Succès", `${imagesToDelete.length} image(s) supprimée(s) avec succès.`);
-							}
-						} catch (err) {
-							console.error("Erreur inattendue lors de la suppression :", err);
-							Alert.alert("Erreur", "Une erreur inattendue est survenue. Réessayez.");
-						}
-					},
-				},
-			],
-			{ cancelable: false }
-		);
-	};
-	
-	
-	
-	
+    const handleImageDeletion = async (imagesToDelete) => {
+        if (!Array.isArray(imagesToDelete) || imagesToDelete.length === 0) {
+            console.error(
+                "Liste des images à supprimer invalide ou vide :",
+                imagesToDelete
+            );
+            Alert.alert(
+                "Erreur",
+                "Aucune image valide trouvée pour suppression."
+            );
+            return;
+        }
+
+        // Demander confirmation avant de supprimer
+        Alert.alert(
+            "Confirmation",
+            `Êtes-vous sûr de vouloir supprimer ${imagesToDelete.length} image(s) ?`,
+            [
+                {
+                    text: "Annuler",
+                    onPress: () => console.log("Suppression annulée."),
+                    style: "cancel",
+                },
+                {
+                    text: "Confirmer",
+                    onPress: async () => {
+                        try {
+                            console.log(
+                                "Tentative de suppression des images :",
+                                imagesToDelete
+                            );
+
+                            const { data, error } = await supabase
+                                .from("intervention_images")
+                                .delete()
+                                .in("id", imagesToDelete);
+
+                            if (error) {
+                                console.error(
+                                    "Erreur retournée par Supabase :",
+                                    JSON.stringify(error, null, 2)
+                                );
+                                Alert.alert(
+                                    "Erreur",
+                                    "Impossible de supprimer les images. Vérifiez les données."
+                                );
+                            } else {
+                                console.log(
+                                    "Images supprimées avec succès :",
+                                    data
+                                );
+                                Alert.alert(
+                                    "Succès",
+                                    `${imagesToDelete.length} image(s) supprimée(s) avec succès.`
+                                );
+                            }
+                        } catch (err) {
+                            console.error(
+                                "Erreur inattendue lors de la suppression :",
+                                err
+                            );
+                            Alert.alert(
+                                "Erreur",
+                                "Une erreur inattendue est survenue. Réessayez."
+                            );
+                        }
+                    },
+                },
+            ],
+            { cancelable: false }
+        );
+    };
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
@@ -435,7 +478,6 @@ export default function HomePage({ navigation, route }) {
         } finally {
             setIsLoading(false);
         }
-		
     };
 
     const fetchDetails = (deviceType, marque, model) => {
@@ -639,6 +681,11 @@ export default function HomePage({ navigation, route }) {
                 return require("../assets/icons/point-dinterrogation.png"); // Image par défaut
         }
     };
+	const HorizontalSeparator = () => {
+		return (
+			<View style={styles.separator} />
+		);
+	};
     const getIconColor = (status) => {
         switch (status) {
             case "En attente de pièces":
@@ -655,22 +702,22 @@ export default function HomePage({ navigation, route }) {
                 return "#555"; // Gris par défaut
         }
     };
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case "En attente de pièces":
-                return { borderColor: "#b396f8", borderWidth: 2 };
-            case "Devis accepté":
-                return { borderColor: "#FFD700", borderWidth: 2 };
-            case "Réparation en cours":
-                return { borderColor: "#528fe0", borderWidth: 2 };
-            case "Réparé":
-                return { borderColor: "#98fb98", borderWidth: 2 };
-            case "Devis en cours":
-                return { borderColor: "#f37209", borderWidth: 2 };
-            default:
-                return { borderColor: "#e0e0e0", borderWidth: 2 };
-        }
-    };
+	const getStatusStyle = (status) => {
+		switch (status) {
+			case "En attente de pièces":
+				return { borderLeftColor: "#b396f8", borderLeftWidth: 8 };
+			case "Devis accepté":
+				return { borderLeftColor: "#FFD700", borderLeftWidth: 8 };
+			case "Réparation en cours":
+				return { borderLeftColor: "#528fe0", borderLeftWidth: 8 };
+			case "Réparé":
+				return { borderLeftColor: "#98fb98", borderLeftWidth: 8 };
+			case "Devis en cours":
+				return { borderLeftColor: "#f37209", borderLeftWidth: 8 };
+			default:
+				return { borderLeftColor: "#e0e0e0", borderLeftWidth: 8 };
+		}
+	};
     const getDeviceIcon = (deviceType) => {
         switch (deviceType) {
             case "PC portable":
@@ -680,20 +727,20 @@ export default function HomePage({ navigation, route }) {
                         style={{ width: 40, height: 40 }}
                     />
                 );
-				case "MacBook":
-					return (
-						<Image
-							source={require("../assets/icons/macbook_air.png")}
-							style={{ width: 40, height: 40 }}
-						/>
-					);
-					case "iMac":
-						return (
-							<Image
-								source={require("../assets/icons/iMac.png")}
-								style={{ width: 40, height: 40 }}
-							/>
-						);
+            case "MacBook":
+                return (
+                    <Image
+                        source={require("../assets/icons/macbook_air.png")}
+                        style={{ width: 40, height: 40 }}
+                    />
+                );
+            case "iMac":
+                return (
+                    <Image
+                        source={require("../assets/icons/iMac.png")}
+                        style={{ width: 40, height: 40 }}
+                    />
+                );
             case "PC Fixe":
                 return (
                     <Image
@@ -736,13 +783,13 @@ export default function HomePage({ navigation, route }) {
                         style={{ width: 40, height: 40 }}
                     />
                 );
-				case "Disque dur externe":
-					return (
-						<Image
-							source={require("../assets/icons/disque-dur.png")}
-							style={{ width: 40, height: 40 }}
-						/>
-					);
+            case "Disque dur externe":
+                return (
+                    <Image
+                        source={require("../assets/icons/disque-dur.png")}
+                        style={{ width: 40, height: 40 }}
+                    />
+                );
             case "Carte SD":
                 return (
                     <Image
@@ -1112,6 +1159,9 @@ export default function HomePage({ navigation, route }) {
                                                         )}
                                                     </Text>
                                                 </View>
+												<View>
+												<HorizontalSeparator />
+												</View>
                                                 {latestIntervention?.accept_screen_risk && (
                                                     <Text
                                                         style={
@@ -1323,13 +1373,23 @@ export default function HomePage({ navigation, route }) {
                                                             "SMS" ? (
                                                                 <Image
                                                                     source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
-                                                                    style={{ width: 28, height: 28, tintColor: "#019b53" }}
+                                                                    style={{
+                                                                        width: 28,
+                                                                        height: 28,
+                                                                        tintColor:
+                                                                            "#019b53",
+                                                                    }}
                                                                 />
                                                             ) : latestIntervention?.notifiedBy ===
                                                               "Téléphone" ? (
                                                                 <Image
                                                                     source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
-                                                                    style={{ width: 28, height: 28, tintColor: "#3c92f5" }}
+                                                                    style={{
+                                                                        width: 28,
+                                                                        height: 28,
+                                                                        tintColor:
+                                                                            "#3c92f5",
+                                                                    }}
                                                                 />
                                                             ) : (
                                                                 <Image
@@ -1504,7 +1564,6 @@ export default function HomePage({ navigation, route }) {
                                                                                         intervention.deviceType
                                                                                     )}
                                                                                 </TouchableOpacity>
-																				
                                                                             </View>
                                                                         )
                                                                     )}
@@ -1513,41 +1572,75 @@ export default function HomePage({ navigation, route }) {
                                                 </View>
                                             )}
                                         </View>
-										
                                     </Animatable.View>
                                 );
                             }}
                             showsVerticalScrollIndicator={false}
                         />
-{showLogs && (
-    <View style={{ marginTop: 20, padding: 10, backgroundColor: "#f0f0f0", borderRadius: 10 }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 16 }}>Logs du processus :</Text>
-            {/* Bouton pour fermer la fenêtre */}
-            <TouchableOpacity
-                onPress={() => setShowLogs(false)}
-                style={{
-                    padding: 5,
-                    backgroundColor: "#d9534f",
-                    borderRadius: 5,
-                }}
-            >
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>Fermer</Text>
-            </TouchableOpacity>
-        </View>
+                        {showLogs && (
+                            <View
+                                style={{
+                                    marginTop: 20,
+                                    padding: 10,
+                                    backgroundColor: "#f0f0f0",
+                                    borderRadius: 10,
+                                }}
+                            >
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontWeight: "bold",
+                                            fontSize: 16,
+                                        }}
+                                    >
+                                        Logs du processus :
+                                    </Text>
+                                    {/* Bouton pour fermer la fenêtre */}
+                                    <TouchableOpacity
+                                        onPress={() => setShowLogs(false)}
+                                        style={{
+                                            padding: 5,
+                                            backgroundColor: "#d9534f",
+                                            borderRadius: 5,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: "#fff",
+                                                fontWeight: "bold",
+                                            }}
+                                        >
+                                            Fermer
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
 
-        {/* Liste des logs */}
-        {processLogs.length > 0 ? (
-            processLogs.map((log, index) => (
-                <Text key={index} style={{ fontSize: 14, marginVertical: 2 }}>
-                    {log}
-                </Text>
-            ))
-        ) : (
-            <Text>Aucun processus exécuté pour le moment.</Text>
-        )}
-    </View>
-)}
+                                {/* Liste des logs */}
+                                {processLogs.length > 0 ? (
+                                    processLogs.map((log, index) => (
+                                        <Text
+                                            key={index}
+                                            style={{
+                                                fontSize: 14,
+                                                marginVertical: 2,
+                                            }}
+                                        >
+                                            {log}
+                                        </Text>
+                                    ))
+                                ) : (
+                                    <Text>
+                                        Aucun processus exécuté pour le moment.
+                                    </Text>
+                                )}
+                            </View>
+                        )}
 
                         <View style={styles.paginationContainer}>
                             <TouchableOpacity
@@ -1889,12 +1982,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     clientCard: {
-        borderWidth: 1,
-        borderColor: "#ddd",
+       
+       
         padding: 10,
         marginVertical: 5,
-        borderRadius: 5,
-        backgroundColor: "#e0e0e0",
+  
+        backgroundColor: "#ffffff",
     },
     clientInfo: {
         flex: 1,
@@ -1914,7 +2007,7 @@ const styles = StyleSheet.create({
     },
     expandedContent: {
         paddingTop: 10,
-        backgroundColor: "#e0e0e0",
+        backgroundColor: "#ffffff",
         marginTop: 10,
         width: "100%",
     },
@@ -2144,7 +2237,7 @@ const styles = StyleSheet.create({
         borderWidth: 2, // Bordure de 2px
         borderRadius: 5, // Bords arrondis
         borderColor: "#000", // Couleur de la bordure en noir
-        backgroundColor: "#fff", // Fond blanc
+        /* backgroundColor: "#fff", // Fond blanc */
     },
     interventionContainerRight: {
         marginTop: 70, // Espacement du haut
@@ -2218,9 +2311,9 @@ const styles = StyleSheet.create({
         borderWidth: 2, // Bordure de 2px
         borderColor: "#000", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
-        backgroundColor: "#fff", // Fond blanc
+       /*  backgroundColor: "#fff", // Fond blanc */
     },
-    interventionIconContainer: {
+/*     interventionIconContainer: {
         flexDirection: "row", // Aligne l'icône et le texte côte à côte
         alignItems: "center", // Centre verticalement
         padding: 10, // Padding pour l'icône
@@ -2228,7 +2321,7 @@ const styles = StyleSheet.create({
         borderRadius: 5, // Bords arrondis
         borderColor: "#000", // Couleur de la bordure en noir
         backgroundColor: "#fff", // Fond blanc
-    },
+    }, */
 
     icon: {
         marginRight: 5,
@@ -2327,5 +2420,10 @@ const styles = StyleSheet.create({
         justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
         alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
         marginRight: 8, // Espace entre le cercle et le texte
+    },
+	separator: {
+        height: 2, // Épaisseur de la barre
+        backgroundColor: '#e0e0e0', // Couleur de la barre
+        marginVertical: 8, // Espacement vertical optionnel
     },
 });

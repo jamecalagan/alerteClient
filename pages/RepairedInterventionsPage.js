@@ -383,7 +383,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         style={{
                                             width: 40, // Largeur de l'image
                                             height: 40, // Hauteur de l'image
-                                            tintColor: "grey", // Applique la couleur bleue
+                                            tintColor: "#757575", // Applique la couleur bleue
                                         }}
                                     />
                                 </TouchableOpacity>
@@ -417,7 +417,7 @@ export default function RepairedInterventionsPage({ navigation }) {
     <Ionicons
         name={expandedCards[item.id] ? "chevron-up" : "chevron-down"}
         size={20}
-        color="#202020"
+        color="#817f7f"
     />
 </TouchableOpacity>
 
@@ -743,7 +743,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                 style={styles.button}
                                 onPress={() => setPhotoAlertVisible(false)}
                             >
-                                <Text style={styles.buttonText}>OK</Text>
+                                <Text style={styles.buttonTextSms}>OK</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -769,7 +769,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         )
                                     }
                                 >
-                                    <Text style={styles.buttonText}>SMS</Text>
+                                    <Text style={styles.buttonTextSms}>SMS</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.button}
@@ -780,7 +780,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         )
                                     }
                                 >
-                                    <Text style={styles.buttonText}>
+                                    <Text style={styles.buttonTextSms}>
                                         Téléphone
                                     </Text>
                                 </TouchableOpacity>
@@ -788,7 +788,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     style={styles.button}
                                     onPress={() => setNotifyModalVisible(false)}
                                 >
-                                    <Text style={styles.buttonText}>
+                                    <Text style={styles.buttonTextSms}>
                                         Annuler
                                     </Text>
                                 </TouchableOpacity>
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
     interventionCard: {
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "rgba(241, 241, 241, 1)",
+        backgroundColor: "#ffffff",
         borderRadius: 10,
     },
     notificationAndToolsContainer: {
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     iconStyle: {
         padding: 10,
         borderWidth: 2,
-        borderRadius: 10,
+        borderRadius: 5,
         borderColor: "#000",
         backgroundColor: "#fff",
         marginHorizontal: 5,
@@ -921,6 +921,11 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontWeight: "bold",
     },
+	buttonTextSms: {
+        color: "#fff",
+        textAlign: "center",
+        fontWeight: "bold",
+    },
     buttonIcon: {
         marginRight: 10, // Espace entre l'icône et le texte
     },
@@ -952,7 +957,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: "bold",
         marginBottom: 10,
-        color: "#333",
+        color: "#333333",
     },
     modalButtonRow: {
         flexDirection: "row",
@@ -962,7 +967,7 @@ const styles = StyleSheet.create({
     button: {
         backgroundColor: "#007BFF",
         padding: 10,
-        borderRadius: 10,
+        borderRadius: 5,
         marginHorizontal: 10,
     },
     disabledButton: {
@@ -1023,7 +1028,7 @@ const styles = StyleSheet.create({
         top: 5,
         right: 5,
         backgroundColor: "white",
-        borderRadius: 15,
+        borderRadius: 5,
         padding: 5,
         elevation: 5,
     },
@@ -1034,17 +1039,17 @@ toggleButton: {
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end", // Positionner le bouton à droite
-    backgroundColor: "#cacaca", // Couleur du bouton
+    backgroundColor: "#ffffff", // Couleur du bouton
     paddingVertical: 8,
-    paddingHorizontal: 12, // Réduire la largeur du bouton
+    paddingHorizontal: 40, // Réduire la largeur du bouton
     borderRadius: 5,
     marginTop: 10,
-	elevation: 5,
-	borderWidth: 2,
-	borderColor: "#02572f"
+
+	borderWidth: 3,
+	borderColor: "#c1c4c2"
 },
 toggleButtonText: {
-    color: "#202020",
+    color: "#929292",
     fontSize: 14, // Texte légèrement plus petit
     fontWeight: "bold",
     marginRight: 5, // Espacement entre le texte et l'icône

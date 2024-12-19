@@ -150,6 +150,7 @@ Responsabilité en cas de perte de données : Le client est seul responsable de 
 En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
 
 Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
+Aucune réclamation ne sera acceptée au-delà d’un délai de 10 jours suivant la restitution du matériel.
 
 En signant ce document, vous acceptez les conditions ci-dessus.
 

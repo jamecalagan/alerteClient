@@ -702,6 +702,7 @@ export default function HomePage({ navigation, route }) {
                 return "#555"; // Gris par défaut
         }
     };
+	
 	const getStatusStyle = (status) => {
 		switch (status) {
 			case "En attente de pièces":
@@ -1912,7 +1913,7 @@ export default function HomePage({ navigation, route }) {
 const styles = StyleSheet.create({
     searchContainer: {
         position: "relative", // Pour permettre le positionnement absolu de l'icône
-        borderRadius: 8,
+        borderRadius: 5,
     },
     searchIcon: {
         marginTop: 10,
@@ -1976,18 +1977,17 @@ const styles = StyleSheet.create({
         borderColor: "#cccccc",
         padding: 10,
         marginBottom: 20,
-        borderRadius: 8,
+        borderRadius: 5,
         backgroundColor: "#e0e0e0",
         color: "#333333",
         fontSize: 16,
     },
     clientCard: {
-       
-       
         padding: 10,
         marginVertical: 5,
-  
-        backgroundColor: "#ffffff",
+		backgroundColor: "#ffffff",
+		borderBottomLeftRadius: 20,
+		borderTopRightRadius: 20,
     },
     clientInfo: {
         flex: 1,
@@ -2010,14 +2010,6 @@ const styles = StyleSheet.create({
         backgroundColor: "#ffffff",
         marginTop: 10,
         width: "100%",
-    },
-    progressBarContainer: {
-        height: 3,
-        width: "100%",
-        backgroundColor: "#e0e0e0", // Couleur de fond de la barre (pour le reste non rempli)
-        borderRadius: 5,
-        marginTop: 10,
-        marginBottom: 10,
     },
     deviceIconContainer: {
         position: "absolute",
@@ -2165,7 +2157,7 @@ const styles = StyleSheet.create({
         width: 300,
         padding: 20,
         backgroundColor: "rgba(255, 255, 255, 0.9)",
-        borderRadius: 20,
+        borderRadius: 5,
         alignItems: "center",
     },
     alertTitle: {
@@ -2260,18 +2252,6 @@ const styles = StyleSheet.create({
         marginLeft: 5, // Espace entre l'icône et le texte
         color: "#000", // Couleur du texte
     },
-    progressBarContainer: {
-        height: 3,
-        width: "100%",
-        backgroundColor: "#e0e0e0", // Couleur de fond de la barre (pour le reste non rempli)
-        borderRadius: 5,
-        marginTop: 10,
-        marginBottom: 10,
-    },
-    progressBar: {
-        height: "100%",
-        borderRadius: 5, // Bordures arrondies pour correspondre au style général
-    },
     interventionsEnCoursContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -2313,16 +2293,6 @@ const styles = StyleSheet.create({
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
        /*  backgroundColor: "#fff", // Fond blanc */
     },
-/*     interventionIconContainer: {
-        flexDirection: "row", // Aligne l'icône et le texte côte à côte
-        alignItems: "center", // Centre verticalement
-        padding: 10, // Padding pour l'icône
-        borderWidth: 2, // Bordure de 2px
-        borderRadius: 5, // Bords arrondis
-        borderColor: "#000", // Couleur de la bordure en noir
-        backgroundColor: "#fff", // Fond blanc
-    }, */
-
     icon: {
         marginRight: 5,
     },

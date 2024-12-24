@@ -16,9 +16,10 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
 
-const backgroundImage = require("../assets/listing2.jpg");
+
 
 export default function RecoveredClientsPage() {
+	const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null); // Référence pour la FlatList
     const [recoveredClients, setRecoveredClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
@@ -153,7 +154,7 @@ export default function RecoveredClientsPage() {
             case "Tablette":
                 return require("../assets/icons/tablette.png");
             case "Smartphone":
-                return require("../assets/icons/ordinateur.png");
+                return require("../assets/icons/smartphone.png");
             case "Console":
                 return require("../assets/icons/console-de-jeu.png");
             case "Disque dur":

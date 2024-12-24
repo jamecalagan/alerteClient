@@ -26,7 +26,8 @@ import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
-
+ScrollView.defaultProps = { showsVerticalScrollIndicator: false };
+FlatList.defaultProps = { showsVerticalScrollIndicator: false };
 export default function RepairedInterventionsPage({ navigation }) {
     const repairedInterventionsRef = useRef(null); // Créez une référence
     const [repairedInterventions, setRepairedInterventions] = useState([]);
@@ -40,7 +41,7 @@ export default function RepairedInterventionsPage({ navigation }) {
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-	const [expandedCards, setExpandedCards] = useState({});
+    const [expandedCards, setExpandedCards] = useState({});
     const sortedInterventions = repairedInterventions.sort((a, b) => {
         if (a.id === pinnedInterventionId) return -1; // La fiche épinglée est toujours en haut
         if (b.id === pinnedInterventionId) return 1;
@@ -298,13 +299,13 @@ export default function RepairedInterventionsPage({ navigation }) {
             });
         }
     }, 0);
-	    // Basculer l'état d'affichage des détails
-		const toggleDetails = (id) => {
-			setExpandedCards((prev) => ({
-				...prev,
-				[id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
-			}));
-		};
+    // Basculer l'état d'affichage des détails
+    const toggleDetails = (id) => {
+        setExpandedCards((prev) => ({
+            ...prev,
+            [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
+        }));
+    };
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -354,25 +355,28 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         />
                                     </TouchableOpacity>
 
-									<TouchableOpacity
-    style={styles.iconStyle}
-    onPress={() => takePhoto(item.id)}
->
-    <Image
-        source={
-            item?.intervention_images?.length > 0
-                ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
-                : require("../assets/icons/photo.png") // Icône par défaut
-        }
-        style={{
-            width: 40, // Largeur de l'image
-            height: 40, // Hauteur de l'image
-            tintColor: item?.intervention_images?.length > 0 ? "blue" : "black", // Bleu si photo présente, sinon noir
-        }}
-    />
-</TouchableOpacity>
-
-
+                                    <TouchableOpacity
+                                        style={styles.iconStyle}
+                                        onPress={() => takePhoto(item.id)}
+                                    >
+                                        <Image
+                                            source={
+                                                item?.intervention_images
+                                                    ?.length > 0
+                                                    ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
+                                                    : require("../assets/icons/photo.png") // Icône par défaut
+                                            }
+                                            style={{
+                                                width: 40, // Largeur de l'image
+                                                height: 40, // Hauteur de l'image
+                                                tintColor:
+                                                    item?.intervention_images
+                                                        ?.length > 0
+                                                        ? "blue"
+                                                        : "black", // Bleu si photo présente, sinon noir
+                                            }}
+                                        />
+                                    </TouchableOpacity>
                                 </View>
                                 <TouchableOpacity
                                     style={styles.moveToTopButton}
@@ -407,271 +411,339 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     <Text style={styles.interventionText}>
                                         Marque: {item.brand}
                                     </Text>
-									<TouchableOpacity
-    style={styles.toggleButton}
-    onPress={() => toggleDetails(item.id)}
->
-    <Text style={styles.toggleButtonText}>
-        {expandedCards[item.id] ? "Masquer les détails" : "Afficher les détails"}
-    </Text>
-    <Ionicons
-        name={expandedCards[item.id] ? "chevron-up" : "chevron-down"}
-        size={20}
-        color="#817f7f"
-    />
-</TouchableOpacity>
-
-                                {/* Détails masqués ou affichés avec animation */}
-                                {expandedCards[item.id] && (
-                                    <Animatable.View
-                                        animation="slideInDown" // Animation pour afficher les détails
-                                        duration={500} // Durée de l'animation
-                                        style={styles.cardDetails}
+                                    <TouchableOpacity
+                                        style={styles.toggleButton}
+                                        onPress={() => toggleDetails(item.id)}
                                     >
-                                    <Text style={styles.interventionText}>
-                                        Modèle: {item.model}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Numéro de série: {item.serial_number}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Référence: {item.reference}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Description du problème:{" "}
-                                        {item.description}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Chargeur:{" "}
-                                        {item.chargeur ? "Oui" : "Non"}
-                                    </Text>
-                                    <Text style={styles.interventionTextBold}>
-                                        Coût: {item.cost} €
-                                    </Text>
+                                        <Text style={styles.toggleButtonText}>
+                                            {expandedCards[item.id]
+                                                ? "Masquer les détails"
+                                                : "Afficher les détails"}
+                                        </Text>
+                                        <Ionicons
+                                            name={
+                                                expandedCards[item.id]
+                                                    ? "chevron-up"
+                                                    : "chevron-down"
+                                            }
+                                            size={20}
+                                            color="#817f7f"
+                                        />
+                                    </TouchableOpacity>
 
-                                    <Text
-                                        style={[
-                                            styles.interventionText,
-                                            item.paymentStatus === "solde"
-                                                ? styles.interventionTextSolde
-                                                : styles.interventionTextNon,
-                                        ]}
-                                    >
-                                        Etat du règlement: {item.paymentStatus}
-                                    </Text>
-                                    {item.paymentStatus ===
-                                        "reglement_partiel" &&
-                                        item.partialPayment && (
+                                    {/* Détails masqués ou affichés avec animation */}
+                                    {expandedCards[item.id] && (
+                                        <Animatable.View
+                                            animation="slideInDown" // Animation pour afficher les détails
+                                            duration={500} // Durée de l'animation
+                                            style={styles.cardDetails}
+                                        >
                                             <Text
                                                 style={styles.interventionText}
                                             >
-                                                Acompte de:{" "}
-                                                {item.partialPayment} €
+                                                Modèle: {item.model}
                                             </Text>
-                                        )}
-                                    <Text style={styles.interventionTextReste}>
-                                        Montant restant dû: {item.solderestant}€
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Statut: {item.status}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Commande: {item.commande}
-                                    </Text>
-                                    <Text style={styles.interventionText}>
-                                        Date:{" "}
-                                        {new Date(
-                                            item.createdAt
-                                        ).toLocaleDateString("fr-FR")}
-                                    </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Numéro de série:{" "}
+                                                {item.serial_number}
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Référence: {item.reference}
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Description du problème:{" "}
+                                                {item.description}
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Chargeur:{" "}
+                                                {item.chargeur ? "Oui" : "Non"}
+                                            </Text>
+                                            <Text
+                                                style={
+                                                    styles.interventionTextBold
+                                                }
+                                            >
+                                                Coût: {item.cost} €
+                                            </Text>
 
-                                    <TextInput
-                                        style={styles.detailInput}
-                                        value={
-                                            editingDetail[item.id] !== undefined
-                                                ? editingDetail[item.id]
-                                                : item.detailIntervention || ""
-                                        }
-                                        placeholder="Entrez les détails ici..."
-                                        onFocus={() => {
-                                            if (
-                                                editingDetail[item.id] ===
-                                                undefined
-                                            ) {
-                                                setEditingDetail((prev) => ({
-                                                    ...prev,
-                                                    [item.id]:
-                                                        item.detailIntervention ||
-                                                        "",
-                                                }));
-                                            }
-                                        }}
-                                        onChangeText={(text) => {
-                                            setEditingDetail({
-                                                ...editingDetail,
-                                                [item.id]: text,
-                                            });
-                                            setIsSaved((prevState) => ({
-                                                ...prevState,
-                                                [item.id]: false,
-                                            }));
-                                        }}
-                                    />
-
-                                    <View style={styles.buttonContainer}>
-                                        <TouchableOpacity
-                                            style={styles.saveButton}
-                                            onPress={() =>
-                                                saveDetailIntervention(item.id)
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
+                                            <Text
                                                 style={[
-                                                    styles.buttonIcon, // Styles existants
-                                                    {
-                                                        width: 20, // Largeur de l'image
-                                                        height: 20, // Hauteur de l'image
-                                                        tintColor: "#202020", // Couleur de l'image (noir foncé ici)
-                                                    },
+                                                    styles.interventionText,
+                                                    item.paymentStatus ===
+                                                    "solde"
+                                                        ? styles.interventionTextSolde
+                                                        : styles.interventionTextNon,
                                                 ]}
-                                            />
-
-                                            <Text style={styles.buttonText}>
-                                                Sauvegarder les détails
+                                            >
+                                                Etat du règlement:{" "}
+                                                {item.paymentStatus}
                                             </Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.restitutionButton,
-                                                !isSaved[item.id] ||
-                                                (!editingDetail[item.id] &&
-                                                    !item.detailIntervention) ||
-                                                item.paymentStatus ===
-                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
-                                                    ? styles.disabledButton
-                                                    : null,
-                                            ]}
-                                            onPress={() =>
-                                                handleRestitution(item)
-                                            }
-                                            disabled={
-                                                !isSaved[item.id] ||
-                                                (!editingDetail[item.id] &&
-                                                    !item.detailIntervention) ||
-                                                item.paymentStatus ===
-                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
-                                                style={[
-                                                    styles.buttonIcon, // Styles existants
-                                                    {
-                                                        width: 20, // Largeur de l'image
-                                                        height: 20, // Hauteur de l'image
-                                                        tintColor: "#202020", // Couleur de l'image (noir foncé ici)
-                                                    },
-                                                ]}
-                                            />
-
-                                            <Text style={styles.buttonText}>
-                                                Restitution
-                                            </Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity
-                                            style={styles.editButton}
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "EditIntervention",
-                                                    {
-                                                        interventionId: item.id,
-                                                        clientId:
-                                                            item.client_id,
-                                                    }
-                                                )
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
-                                                style={[
-                                                    styles.buttonIcon, // Styles existants
-                                                    {
-                                                        width: 20, // Largeur de l'image
-                                                        height: 20, // Hauteur de l'image
-                                                        tintColor: "#202020", // Couleur de l'image (noir foncé ici)
-                                                    },
-                                                ]}
-                                            />
-
-                                            <Text style={styles.buttonText}>
-                                                Éditer la fiche
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {item.intervention_images &&
-                                        item.intervention_images.length > 0 && (
-                                            <View style={styles.imageContainer}>
-                                                {item.intervention_images.map(
-                                                    (image, index) => (
-                                                        <View
-                                                            key={index}
-                                                            style={
-                                                                styles.imageWrapper
-                                                            }
-                                                        >
-                                                            <TouchableOpacity
-                                                                onPress={() =>
-                                                                    openImageModal(
-                                                                        `data:image/jpeg;base64,${image.image_data}`,
-                                                                        image.id,
-                                                                        item.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Image
-                                                                    source={{
-                                                                        uri: `data:image/jpeg;base64,${image.image_data}`,
-                                                                    }}
-                                                                    style={
-                                                                        styles.imageThumbnail
-                                                                    }
-                                                                />
-                                                            </TouchableOpacity>
-                                                            <TouchableOpacity
-                                                                style={
-                                                                    styles.deleteIcon
-                                                                }
-                                                                onPress={() =>
-                                                                    deleteImage(
-                                                                        image.id,
-                                                                        item.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Image
-                                                                    source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
-                                                                    style={{
-                                                                        width: 20, // Largeur de l'image
-                                                                        height: 20, // Hauteur de l'image
-                                                                        tintColor:
-                                                                            "red", // Applique la couleur rouge
-                                                                    }}
-                                                                />
-                                                            </TouchableOpacity>
-															
-                                                        </View>
-                                                    )
+                                            {item.paymentStatus ===
+                                                "reglement_partiel" &&
+                                                item.partialPayment && (
+                                                    <Text
+                                                        style={
+                                                            styles.interventionText
+                                                        }
+                                                    >
+                                                        Acompte de:{" "}
+                                                        {item.partialPayment} €
+                                                    </Text>
                                                 )}
+                                            <Text
+                                                style={
+                                                    styles.interventionTextReste
+                                                }
+                                            >
+                                                Montant restant dû:{" "}
+                                                {item.solderestant}€
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Statut: {item.status}
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Commande: {item.commande}
+                                            </Text>
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Date:{" "}
+                                                {new Date(
+                                                    item.createdAt
+                                                ).toLocaleDateString("fr-FR")}
+                                            </Text>
+
+                                            <TextInput
+                                                style={styles.detailInput}
+                                                value={
+                                                    editingDetail[item.id] !==
+                                                    undefined
+                                                        ? editingDetail[item.id]
+                                                        : item.detailIntervention ||
+                                                          ""
+                                                }
+                                                placeholder="Entrez les détails ici..."
+                                                onFocus={() => {
+                                                    if (
+                                                        editingDetail[
+                                                            item.id
+                                                        ] === undefined
+                                                    ) {
+                                                        setEditingDetail(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                [item.id]:
+                                                                    item.detailIntervention ||
+                                                                    "",
+                                                            })
+                                                        );
+                                                    }
+                                                }}
+                                                onChangeText={(text) => {
+                                                    setEditingDetail({
+                                                        ...editingDetail,
+                                                        [item.id]: text,
+                                                    });
+                                                    setIsSaved((prevState) => ({
+                                                        ...prevState,
+                                                        [item.id]: false,
+                                                    }));
+                                                }}
+                                            />
+
+                                            <View
+                                                style={styles.buttonContainer}
+                                            >
+                                                <TouchableOpacity
+                                                    style={styles.saveButton}
+                                                    onPress={() =>
+                                                        saveDetailIntervention(
+                                                            item.id
+                                                        )
+                                                    }
+                                                >
+                                                    <Image
+                                                        source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
+                                                        style={[
+                                                            styles.buttonIcon, // Styles existants
+                                                            {
+                                                                width: 20, // Largeur de l'image
+                                                                height: 20, // Hauteur de l'image
+                                                                tintColor:
+                                                                    "#202020", // Couleur de l'image (noir foncé ici)
+                                                            },
+                                                        ]}
+                                                    />
+
+                                                    <Text
+                                                        style={
+                                                            styles.buttonText
+                                                        }
+                                                    >
+                                                        Sauvegarder les détails
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.restitutionButton,
+                                                        !isSaved[item.id] ||
+                                                        (!editingDetail[
+                                                            item.id
+                                                        ] &&
+                                                            !item.detailIntervention) ||
+                                                        item.paymentStatus ===
+                                                            "non_regle" // Désactiver si le paiement n'est pas réglé
+                                                            ? styles.disabledButton
+                                                            : null,
+                                                    ]}
+                                                    onPress={() =>
+                                                        handleRestitution(item)
+                                                    }
+                                                    disabled={
+                                                        !isSaved[item.id] ||
+                                                        (!editingDetail[
+                                                            item.id
+                                                        ] &&
+                                                            !item.detailIntervention) ||
+                                                        item.paymentStatus ===
+                                                            "non_regle" // Désactiver si le paiement n'est pas réglé
+                                                    }
+                                                >
+                                                    <Image
+                                                        source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
+                                                        style={[
+                                                            styles.buttonIcon, // Styles existants
+                                                            {
+                                                                width: 20, // Largeur de l'image
+                                                                height: 20, // Hauteur de l'image
+                                                                tintColor:
+                                                                    "#202020", // Couleur de l'image (noir foncé ici)
+                                                            },
+                                                        ]}
+                                                    />
+
+                                                    <Text
+                                                        style={
+                                                            styles.buttonText
+                                                        }
+                                                    >
+                                                        Restitution
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={styles.editButton}
+                                                    onPress={() =>
+                                                        navigation.navigate(
+                                                            "EditIntervention",
+                                                            {
+                                                                interventionId:
+                                                                    item.id,
+                                                                clientId:
+                                                                    item.client_id,
+                                                            }
+                                                        )
+                                                    }
+                                                >
+                                                    <Image
+                                                        source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
+                                                        style={[
+                                                            styles.buttonIcon, // Styles existants
+                                                            {
+                                                                width: 20, // Largeur de l'image
+                                                                height: 20, // Hauteur de l'image
+                                                                tintColor:
+                                                                    "#202020", // Couleur de l'image (noir foncé ici)
+                                                            },
+                                                        ]}
+                                                    />
+
+                                                    <Text
+                                                        style={
+                                                            styles.buttonText
+                                                        }
+                                                    >
+                                                        Éditer la fiche
+                                                    </Text>
+                                                </TouchableOpacity>
                                             </View>
-                                        )}
-										</Animatable.View>
-									)}
+
+                                            {item.intervention_images &&
+                                                item.intervention_images
+                                                    .length > 0 && (
+                                                    <View
+                                                        style={
+                                                            styles.imageContainer
+                                                        }
+                                                    >
+                                                        {item.intervention_images.map(
+                                                            (image, index) => (
+                                                                <View
+                                                                    key={index}
+                                                                    style={
+                                                                        styles.imageWrapper
+                                                                    }
+                                                                >
+                                                                    <TouchableOpacity
+                                                                        onPress={() =>
+                                                                            openImageModal(
+                                                                                `data:image/jpeg;base64,${image.image_data}`,
+                                                                                image.id,
+                                                                                item.id
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Image
+                                                                            source={{
+                                                                                uri: `data:image/jpeg;base64,${image.image_data}`,
+                                                                            }}
+                                                                            style={
+                                                                                styles.imageThumbnail
+                                                                            }
+                                                                        />
+                                                                    </TouchableOpacity>
+                                                                    <TouchableOpacity
+                                                                        style={
+                                                                            styles.deleteIcon
+                                                                        }
+                                                                        onPress={() =>
+                                                                            deleteImage(
+                                                                                image.id,
+                                                                                item.id
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Image
+                                                                            source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
+                                                                            style={{
+                                                                                width: 20, // Largeur de l'image
+                                                                                height: 20, // Hauteur de l'image
+                                                                                tintColor:
+                                                                                    "red", // Applique la couleur rouge
+                                                                            }}
+                                                                        />
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            )
+                                                        )}
+                                                    </View>
+                                                )}
+                                        </Animatable.View>
+                                    )}
                                 </View>
-								
                             </View>
                         )}
                     />
@@ -769,7 +841,9 @@ export default function RepairedInterventionsPage({ navigation }) {
                                         )
                                     }
                                 >
-                                    <Text style={styles.buttonTextSms}>SMS</Text>
+                                    <Text style={styles.buttonTextSms}>
+                                        SMS
+                                    </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.button}
@@ -833,9 +907,9 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     notificationAndToolsContainer: {
-		position: "absolute",
-		top: 20,
-		right: 100,
+        position: "absolute",
+        top: 20,
+        right: 100,
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
@@ -921,7 +995,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontWeight: "bold",
     },
-	buttonTextSms: {
+    buttonTextSms: {
         color: "#fff",
         textAlign: "center",
         fontWeight: "bold",
@@ -1032,26 +1106,26 @@ const styles = StyleSheet.create({
         padding: 5,
         elevation: 5,
     },
-toggleButton: {
-	position: "absolute",
-	top: 95,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "flex-end", // Positionner le bouton à droite
-    backgroundColor: "#ffffff", // Couleur du bouton
-    paddingVertical: 8,
-    paddingHorizontal: 40, // Réduire la largeur du bouton
-    borderRadius: 5,
-    marginTop: 10,
+    toggleButton: {
+        position: "absolute",
+        top: 95,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        alignSelf: "flex-end", // Positionner le bouton à droite
+        backgroundColor: "#ffffff", // Couleur du bouton
+        paddingVertical: 8,
+        paddingHorizontal: 40, // Réduire la largeur du bouton
+        borderRadius: 5,
+        marginTop: 10,
 
-	borderWidth: 3,
-	borderColor: "#c1c4c2"
-},
-toggleButtonText: {
-    color: "#929292",
-    fontSize: 14, // Texte légèrement plus petit
-    fontWeight: "bold",
-    marginRight: 5, // Espacement entre le texte et l'icône
-}
+        borderWidth: 3,
+        borderColor: "#c1c4c2",
+    },
+    toggleButtonText: {
+        color: "#929292",
+        fontSize: 14, // Texte légèrement plus petit
+        fontWeight: "bold",
+        marginRight: 5, // Espacement entre le texte et l'icône
+    },
 });

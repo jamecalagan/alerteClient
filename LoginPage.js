@@ -4,9 +4,10 @@ import Icon from 'react-native-vector-icons/Ionicons'; // Importer les icônes
 import CustomAlert from './components/CustomAlert'; // Assure-toi d'importer le composant CustomAlert
 import { supabase } from './supabaseClient';
 // Import de l'image depuis le dossier assets
-const backgroundImage = require('./assets/signInUp.jpg');
+
 
 export default function LoginPage({ navigation }) {
+	const backgroundImage = require('./assets/signInUp.jpg');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);

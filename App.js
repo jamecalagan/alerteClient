@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react'; // Ajout de useEffect et useState
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Alert,TouchableOpacity, Image } from 'react-native';
+import { Alert, TouchableOpacity, Image } from 'react-native';
 import { supabase } from './supabaseClient';
+
+// Import des pages
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
-// Import des pages
 import HomePage from './pages/HomePage';
 import AddClientPage from './pages/AddClientPage';
 import EditClientPage from './pages/EditClientPage';
-import EditInterventionPage from './pages/EditInterventionPage'; 
+import EditInterventionPage from './pages/EditInterventionPage';
 import AddInterventionPage from './pages/AddInterventionPage';
 import RepairedInterventionsPage from './pages/RepairedInterventionsPage';
 import SignaturePage from './pages/SignaturePage';
@@ -19,223 +22,185 @@ import LoginPage from './LoginPage';
 import SignUpPage from './SignUpPage';
 import ClientPreviewPage from './pages/ClientPreviewPage';
 import SignatureClient from './pages/SignatureClient';
-import ImageGallery from './pages/ImageGallery';  // Chemin correct pour ton fichier
+import ImageGallery from './pages/ImageGallery';
 import ClientInterventionsPage from './pages/ClientInterventionsPage';
-import ListingProduits from './pages/ListingProduits'
+import ListingProduits from './pages/ListingProduits';
 import ArticlesPage from './pages/ArticlesPage';
 import BrandsPage from './pages/BrandsPage';
 import ModelsPage from './pages/ModelsPage';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Onglets principaux
 function MainTabs({ navigation }) {
-  // Fonction de déconnexion
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (!error) {
-        navigation.replace('Login');  // Redirige vers la page de connexion après déconnexion
-      } else {
-        console.error('Erreur lors de la déconnexion :', error);
+    const handleLogout = async () => {
+		try {
+		  const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur de Supabase
+		  if (error) {
+			console.error('Erreur lors de la déconnexion :', error);
+			Alert.alert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
+		  } else {
+			navigation.replace('Login'); // Redirige vers l'écran de connexion
+		  }
+		} catch (err) {
+		  console.error('Erreur inattendue lors de la déconnexion :', err);
+		  Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+		}
+	  };
+	  
+	  const confirmLogout = () => {
+		Alert.alert(
+		  "Confirmation",
+		  "Êtes-vous sûr de vouloir vous déconnecter ?", 
+		  [
+			{
+			  text: "Annuler",
+			  style: "cancel",
+			},
+			{
+			  text: "Déconnexion",
+			  onPress: () => handleLogout(), // Appelle la déconnexion
+			}
+		  ],
+		  { cancelable: true }
+		);
+	  };
+	  
+
+    return (
+<Tab.Navigator
+  screenOptions={({ route }) => ({
+    headerShown: false, // Masque les en-têtes pour tous les écrans
+    tabBarActiveTintColor: "blue", // Couleur des icônes actives
+    tabBarInactiveTintColor: "gray", // Couleur des icônes inactives
+    tabBarIcon: ({ focused, color, size }) => {
+      let iconSource;
+
+      // Définir les icônes pour chaque onglet
+      switch (route.name) {
+        case "Home":
+          iconSource = require("./assets/icons/home.png");
+          break;
+        case "AddClient":
+          iconSource = require("./assets/icons/add.png");
+          break;
+        case "RepairedInterventions":
+          iconSource = require("./assets/icons/tools1.png");
+          break;
+        case "RecoveredClients":
+			iconSource = require("./assets/icons/ok.png");
+			break;
+        case "Logout":
+          iconSource = require("./assets/icons/disconnects.png");
+          break;
+        default:
+          iconSource = null;
       }
-    } catch (error) {
-      console.error('Erreur lors de la déconnexion :', error);
-    }
-  };
 
-  // Fonction pour afficher l'alerte de confirmation avant déconnexion
-  const confirmLogout = () => {
-    Alert.alert(
-      "Confirmation",
-      "Êtes-vous sûr de vouloir vous déconnecter ?", 
-      [
-        {
-          text: "Annuler", 
-          style: "cancel", 
-          onPress: () => navigation.navigate('Home') // Rediriger vers "Home" après annulation
-        },
-        { 
-          text: "Déconnexion", 
-          onPress: () => handleLogout()  // Bouton de confirmation pour déconnexion
-        }
-      ],
-      { cancelable: true }
-    );
-  };
-
-  return (
-	<Tab.Navigator screenOptions={{ headerShown: false }}>
-<Tab.Screen
+      // Retourne l'icône avec les couleurs dynamiques
+      return (
+        <Image
+          source={iconSource}
+          style={{
+            width: size,
+            height: size,
+            tintColor: color, // Couleur dynamique basée sur "focused"
+          }}
+        />
+      );
+    },
+  })}
+>
+  <Tab.Screen
     name="Home"
     component={HomePage}
     options={{
-        title: 'Accueil',
-        tabBarIcon: ({ color, size }) => (
-            <Image
-                source={require("./assets/icons/home.png")} // Chemin vers votre image
-                style={{
-                    width: size,       // Taille de l'icône (provenant de l'API)
-                    height: size,      // Taille de l'icône
-                    tintColor: color,  // Couleur appliquée
-                }}
-            />
-        ),
+      title: "Accueil",
+      tabBarStyle: { display: "none" }, // Cache la barre pour cet écran
     }}
-/>
-
-<Tab.Screen
+  />
+  <Tab.Screen
     name="AddClient"
     component={AddClientPage}
     options={{
-        title: 'Ajouter Client',
-        tabBarIcon: ({ color, size }) => (
-            <Image
-                source={require("./assets/icons/add.png")} // Chemin vers l'image
-                style={{
-                    width: size,       // Ajuste la largeur à la taille dynamique
-                    height: size,      // Ajuste la hauteur à la taille dynamique
-                    tintColor: color,  // Applique la couleur dynamique
-                }}
-            />
-        ),
-    }}
-/>
+      title: "Ajouter Client",
 
-<Tab.Screen
+    }}
+  />
+  <Tab.Screen
     name="RepairedInterventions"
     component={RepairedInterventionsPage}
     options={{
-        title: 'Réparé',
-        tabBarIcon: ({ color, size }) => (
-            <Image
-                source={require("./assets/icons/tools1.png")} // Chemin vers l'image
-                style={{
-                    width: size,       // Ajuste la largeur à la taille dynamique
-                    height: size,      // Ajuste la hauteur à la taille dynamique
-                    tintColor: color,  // Applique la couleur dynamique
-                }}
-            />
-        ),
+      title: "Réparé",
     }}
-/>
-
-	  <Tab.Screen
-		name="RecoveredClients"
-		component={RecoveredClientsPage}
-		options={{
-		  tabBarLabel: 'Récupéré',
-		  tabBarIcon: ({ color, size }) => (
-			<Icon name="checkmark-done" color={color} size={size} />
-		  ),
-		}}
-	  />
-<Tab.Screen
-    name="Admin"
-    component={AdminPage} // Votre nouvelle page d'administration
+  />
+  <Tab.Screen
+    name="RecoveredClients"
+    component={RecoveredClientsPage}
     options={{
-        title: 'Administration',
-        tabBarIcon: ({ color, size }) => (
-            <Image
-                source={require("./assets/icons/Config.png")} // Chemin vers votre image personnalisée
-                style={{
-                    width: size,       // Adapte la largeur à la taille dynamique
-                    height: size,      // Adapte la hauteur à la taille dynamique
-                    tintColor: color,  // Applique la couleur dynamique
-                }}
-            />
-        ),
+      tabBarLabel: "Récupéré",
+
     }}
+  />
+  <Tab.Screen
+  name="Admin"
+  component={AdminPage}
+  options={{
+    title: "Administration",
+    tabBarIcon: ({ color, size }) => (
+      <Image
+        source={require("./assets/icons/Config.png")} // Icône pour l'administration
+        style={{
+          width: size,
+          height: size,
+          tintColor: color, // Couleur dynamique
+        }}
+      />
+    ),
+  }}
 />
 
-<Tab.Screen
+  <Tab.Screen
     name="Logout"
-    component={HomePage} // Remplacez HomePage ou tout autre composant par défaut
+    component={HomePage} // Remplacez HomePage ou utilisez un écran par défaut
     options={{
-        title: 'Déconnexion',
-        tabBarIcon: ({ color, size }) => (
-            <Image
-                source={require("./assets/icons/disconnects.png")} // Chemin vers votre image personnalisée
-                style={{
-                    width: size,       // Adapte la largeur à la taille dynamique
-                    height: size,      // Adapte la hauteur à la taille dynamique
-                    tintColor: color,  // Applique la couleur dynamique
-                }}
-            />
-        ),
-        tabBarButton: (props) => (
-            <TouchableOpacity
-                {...props}
-                onPress={() => {
-                    confirmLogout(); // Appelle votre fonction de déconnexion
-                }}
-            />
-        ),
+      title: "Déconnexion",
+      tabBarButton: (props) => (
+        <TouchableOpacity
+          {...props}
+          onPress={() => confirmLogout()} // Affiche l'alerte de confirmation
+        />
+      ),
     }}
-/>
+  />
+</Tab.Navigator>
 
-	</Tab.Navigator>
-  );
+    );
 }
 
 // Stack principal
 function MainStack() {
-  return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="MainTabs" 
-        component={MainTabs} 
-        options={{ headerShown: false }} 
-      />
-      <Stack.Screen 
-        name="EditClient" 
-        component={EditClientPage} 
-        options={{ headerTitle: '', headerBackTitleVisible: false }}
-      />
-      <Stack.Screen 
-        name="EditIntervention" 
-        component={EditInterventionPage} 
-        options={{ headerTitle: '', headerBackTitleVisible: false }}
-      />
-      <Stack.Screen 
-        name="AddIntervention" 
-        component={AddInterventionPage} 
-        options={{ headerTitle: '', headerBackTitleVisible: false }}
-      />
-      <Stack.Screen 
-        name="SignaturePage" 
-        component={SignaturePage} 
-        options={{ headerTitle: 'Restitution du Matériel' }}
-      />
-      <Stack.Screen 
-        name="RecoveredClientsPage" 
-        component={RecoveredClientsPage} 
-        options={{ headerTitle: 'Fiches récupérées' }} 
-      />
-      <Stack.Screen 
-        name="ClientPreviewPage" 
-        component={ClientPreviewPage} 
-        options={{ headerTitle: 'Aperçu de la fiche client' }}  // Corrigez les options si nécessaire
-/>
-      <Stack.Screen 
-        name="SignatureClient" 
-        component={SignatureClient} 
-        options={{ headerTitle: 'Réception du Matériel' }}
-      />
-      <Stack.Screen 
-      name="ImageGallery" 
-      component={ImageGallery}
-       />
-      <Stack.Screen 
-      name="ClientInterventionsPage" 
-      component={ClientInterventionsPage} 
-		/>
-      <Stack.Screen 
-      name="RepairedInterventionsPage" 
-      component={RepairedInterventionsPage}
-	  options={{ headerShown: false }} // Masquer le header
-		/> 
-		<Stack.Screen 
+    return (
+        <Stack.Navigator
+            screenOptions={{
+                headerShown: false,
+                gestureEnabled: true,
+                cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+            }}
+        >
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="EditClient" component={EditClientPage} />
+            <Stack.Screen name="EditIntervention" component={EditInterventionPage} />
+            <Stack.Screen name="AddIntervention" component={AddInterventionPage} />
+            <Stack.Screen name="SignaturePage" component={SignaturePage} />
+            <Stack.Screen name="RecoveredClientsPage" component={RecoveredClientsPage} />
+			<Stack.Screen name="RepairedInterventionsPage" component={RepairedInterventionsPage} />
+            <Stack.Screen name="ClientPreviewPage" component={ClientPreviewPage} />
+            <Stack.Screen name="SignatureClient" component={SignatureClient} />
+            <Stack.Screen name="ImageGallery" component={ImageGallery} />
+            <Stack.Screen name="ClientInterventionsPage" component={ClientInterventionsPage} />
+			<Stack.Screen 
         name="ListingProduits" 
          component={ListingProduits} 
         options={{ title: 'Gestion des Produits' }} 
@@ -243,57 +208,43 @@ function MainStack() {
 		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
         <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />
         <Stack.Screen name="ModelsPage" component={ModelsPage} options={{ title: 'Modèles' }} />
-    </Stack.Navigator>
-  );
+        </Stack.Navigator>
+    );
 }
 
 // Stack pour l'authentification
 function AuthStack() {
-  return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="Login" 
-        component={LoginPage} 
-        options={{ headerShown: false }} 
-      />
-      <Stack.Screen 
-        name="SignUp" 
-        component={SignUpPage} 
-        options={{ headerShown: false }} 
-      />
-    </Stack.Navigator>
-  );
+    return (
+        <Stack.Navigator>
+            <Stack.Screen name="Login" component={LoginPage} options={{ headerShown: false }} />
+            <Stack.Screen name="SignUp" component={SignUpPage} options={{ headerShown: false }} />
+        </Stack.Navigator>
+    );
 }
 
 export default function App() {
-  const [user, setUser] = useState(null);  // Stocke l'utilisateur connecté
+    const [user, setUser] = useState(null);
 
-  // Vérifie la session utilisateur au démarrage
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-    };
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
+        };
 
-    checkSession();
+        checkSession();
 
-    // Écoute les changements de session (connexion/déconnexion)
-    const { subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+        const { subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
+        return () => {
+            subscription?.unsubscribe();
+        };
+    }, []);
 
-  return (
-    <NavigationContainer>
-      {user ? (
-        <MainStack />  // Affiche l'application principale si l'utilisateur est connecté
-      ) : (
-        <AuthStack />  // Affiche les écrans d'authentification si l'utilisateur n'est pas connecté
-      )}
-    </NavigationContainer>
-  );
+    return (
+        <NavigationContainer>
+            {user ? <MainStack /> : <AuthStack />}
+        </NavigationContainer>
+    );
 }

@@ -5,10 +5,11 @@ import RoundedButton from '../components/RoundedButton';
 import CustomAlert from '../components/CustomAlert'; // Import du composant CustomAlert
 
 
-// Import de l'image depuis le dossier assets
-const backgroundImage = require('../assets/listing2.jpg');
+
 
 export default function AddClientPage({ navigation, route }) {
+	// Import de l'image depuis le dossier assets
+const backgroundImage = require('../assets/listing2.jpg');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); // Ajout de l'email

@@ -423,7 +423,9 @@ export default function HomePage({ navigation, route }) {
 					const ongoingInterventions = client.interventions?.filter(
 						(intervention) =>
 							intervention.status !== "Réparé" &&
-							intervention.status !== "Récupéré"
+							intervention.status !== "Récupéré" &&
+							intervention.status !== "Non réparable"
+
 					) || [];
 	
 					// Calculer le montant total des interventions non soldées
@@ -451,7 +453,8 @@ export default function HomePage({ navigation, route }) {
 						client.interventions.some(
 							(intervention) =>
 								intervention.status !== "Réparé" &&
-								intervention.status !== "Récupéré"
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
 						)
 					)
 					.map((client) => {
@@ -459,7 +462,8 @@ export default function HomePage({ navigation, route }) {
 							.filter(
 								(intervention) =>
 									intervention.status !== "Réparé" &&
-									intervention.status !== "Récupéré"
+									intervention.status !== "Récupéré" &&
+									intervention.status !== "Non réparable"
 							)
 							.sort(
 								(a, b) =>
@@ -686,6 +690,8 @@ export default function HomePage({ navigation, route }) {
                 return require("../assets/icons/ok.png"); // Image pour "Réparé"
             case "Devis en cours":
                 return require("../assets/icons/devisEnCours.png"); // Image pour "Devis en cours"
+			case "Non réparable":
+				return require("../assets/icons/no.png"); // Image pour "Devis en cours"				
             default:
                 return require("../assets/icons/point-dinterrogation.png"); // Image par défaut
         }
@@ -705,6 +711,8 @@ export default function HomePage({ navigation, route }) {
                 return "#006400"; // Vert
             case "Devis en cours":
                 return "#f37209"; // Orange
+			case "Non réparable":
+				return "#ff0000"; // Orange
             default:
                 return "#555"; // Gris par défaut
         }
@@ -722,6 +730,8 @@ export default function HomePage({ navigation, route }) {
                 return { borderLeftColor: "#98fb98", borderLeftWidth: 8 };
             case "Devis en cours":
                 return { borderLeftColor: "#f37209", borderLeftWidth: 8 };
+			case "Non réparable":
+				return { borderLeftColor: "#ff0000", borderLeftWidth: 8 };
             default:
                 return { borderLeftColor: "#e0e0e0", borderLeftWidth: 8 };
         }
@@ -833,6 +843,13 @@ export default function HomePage({ navigation, route }) {
                         style={{ width: 40, height: 40 }}
                     />
                 );
+				case "Ecran":
+					return (
+						<Image
+							source={require("../assets/icons/screen.png")}
+							style={{ width: 40, height: 40 }}
+						/>
+					);
             default:
                 return (
                     <Image
@@ -1158,6 +1175,28 @@ export default function HomePage({ navigation, route }) {
                             />
                             <Text style={styles.drawerItemText}>
                                 DEVIS EN COURS
+                            </Text>
+                        </TouchableOpacity>
+						<TouchableOpacity
+                            style={styles.drawerItem}
+                            onPress={() => {
+                                toggleMenu(); // Ferme le menu
+                                filterByStatus("Non réparable");
+                            }}
+                        >
+                            <Image
+                                source={require("../assets/icons/no.png")} // Icône pour "Réparation en cours"
+                                style={[
+                                    styles.drawerItemIcon,
+                                    {
+                                        tintColor: getIconColor(
+                                            "Non réparable"
+                                        ),
+                                    }, // Applique la couleur en fonction du statut
+                                ]}
+                            />
+                            <Text style={styles.drawerItemText}>
+                                NON REPARABLE
                             </Text>
                         </TouchableOpacity>
 

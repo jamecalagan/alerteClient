@@ -48,56 +48,43 @@ export default function RepairedInterventionsPage({ navigation }) {
         return 0; // Conserve l'ordre des autres fiches
     });
 
-    const loadRepairedInterventions = async () => {
-        try {
-            const { data, error } = await supabase
-                .from("interventions")
-                .select(
-                    `
-                *,
-                clients (name, ficheNumber, phone)
-            `
-                )
-                .eq("status", "Réparé");
-
-            if (error) throw error;
-
-            const { data: imagesData, error: imagesError } = await supabase
-                .from("intervention_images")
-                .select("*");
-
-            if (imagesError) throw imagesError;
-
-            const interventionsWithImages = data.map((intervention) => {
-                const images = imagesData.filter(
-                    (image) => image.intervention_id === intervention.id
-                );
-                return { ...intervention, intervention_images: images };
-            });
-
-            // Trier les interventions pour mettre la fiche épinglée en haut
-            const sortedInterventions = interventionsWithImages.sort((a, b) => {
-                if (a.id === pinnedInterventionId) return -1; // La fiche épinglée reste en haut
-                if (b.id === pinnedInterventionId) return 1;
-                return 0; // Conserve l'ordre des autres fiches
-            });
-
-            setRepairedInterventions(sortedInterventions);
-
-            const savedStatus = {};
-            sortedInterventions.forEach((intervention) => {
-                savedStatus[intervention.id] =
-                    intervention.detailIntervention &&
-                    intervention.detailIntervention.trim() !== "";
-            });
-            setIsSaved(savedStatus);
-        } catch (error) {
-            console.error(
-                "Erreur lors du chargement des interventions réparées :",
-                error
-            );
-        }
-    };
+	const loadRepairedInterventions = async () => {
+		try {
+		  // Charger les interventions avec le statut "Réparé" ou "Non réparable"
+		  const { data, error } = await supabase
+			.from('interventions')
+			.select(`
+			  *,
+			  clients (phone, name, ficheNumber)
+			`)
+			.in('status', ['Réparé', 'Non réparable']); // Inclure les deux statuts
+	  
+		  if (error) throw error;
+	  
+		  const { data: imagesData, error: imagesError } = await supabase
+			.from('intervention_images')
+			.select('*');
+	  
+		  if (imagesError) throw imagesError;
+	  
+		  const interventionsWithImages = data.map((intervention) => {
+			const images = imagesData.filter((image) => image.intervention_id === intervention.id);
+			return { ...intervention, intervention_images: images };
+		  });
+	  
+		  setRepairedInterventions(interventionsWithImages);
+	  
+		  const savedStatus = {};
+		  interventionsWithImages.forEach((intervention) => {
+			savedStatus[intervention.id] =
+			  intervention.detailIntervention && intervention.detailIntervention.trim() !== '';
+		  });
+		  setIsSaved(savedStatus);
+		} catch (error) {
+		  console.error('Erreur lors du chargement des interventions réparées :', error);
+		}
+	  };
+	  
     const deleteImage = async (imageId, interventionId) => {
         try {
             const { error } = await supabase
@@ -306,6 +293,7 @@ export default function RepairedInterventionsPage({ navigation }) {
             [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
         }));
     };
+    const flatListRef = useRef(null);
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -318,14 +306,26 @@ export default function RepairedInterventionsPage({ navigation }) {
                 <View style={styles.overlay}>
                     <Text style={styles.title}>Interventions terminées</Text>
                     <FlatList
-                        ref={repairedInterventionsRef}
+					
+                        ref={flatListRef}
                         data={repairedInterventions}
                         keyExtractor={(item) => item.id.toString()}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
-                        contentContainerStyle={{ paddingBottom: 20 }} // Espace sous la liste
+                        contentContainerStyle={{ paddingBottom: 100 }} // Espace sous la liste
                         renderItem={({ item }) => (
-                            <View style={styles.interventionCard}>
+
+							<TouchableOpacity
+            style={styles.interventionCard} // Style pour la carte
+            onPress={() => toggleDetails(item.id)} // Action au clic sur la fiche
+        >
+
+<View
+    style={[
+      styles.interventionCard,
+      item.status === 'Non réparable' ? { backgroundColor: '#f8d7da' } : {},
+    ]}
+  >
                                 <View
                                     style={styles.notificationAndToolsContainer}
                                 >
@@ -398,20 +398,20 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     <Text style={styles.interventionTextBold}>
                                         Client : {item.clients.name}
                                     </Text>
-                                    <Text style={styles.interventionTextBold}>
-                                        Tel :{" "}
-                                        {item.clients.phone.replace(
-                                            /(\d{2})(?=\d)/g,
-                                            "$1 "
-                                        )}
-                                    </Text>
+									<Text style={styles.interventionTextBold}>
+										Tel :{" "}
+										{item.clients.phone
+											? item.clients.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
+											: "Téléphone non disponible"}
+										</Text>
+
                                     <Text style={styles.interventionText}>
                                         Type d'appareil: {item.deviceType}
                                     </Text>
                                     <Text style={styles.interventionText}>
                                         Marque: {item.brand}
                                     </Text>
-                                    <TouchableOpacity
+									{/* <TouchableOpacity
                                         style={styles.toggleButton}
                                         onPress={() => toggleDetails(item.id)}
                                     >
@@ -429,7 +429,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                             size={20}
                                             color="#817f7f"
                                         />
-                                    </TouchableOpacity>
+                                    </TouchableOpacity> */}
 
                                     {/* Détails masqués ou affichés avec animation */}
                                     {expandedCards[item.id] && (
@@ -527,40 +527,30 @@ export default function RepairedInterventionsPage({ navigation }) {
 
                                             <TextInput
                                                 style={styles.detailInput}
-                                                value={
-                                                    editingDetail[item.id] !==
-                                                    undefined
-                                                        ? editingDetail[item.id]
-                                                        : item.detailIntervention ||
-                                                          ""
-                                                }
                                                 placeholder="Entrez les détails ici..."
                                                 onFocus={() => {
-                                                    if (
-                                                        editingDetail[
-                                                            item.id
-                                                        ] === undefined
-                                                    ) {
-                                                        setEditingDetail(
-                                                            (prev) => ({
-                                                                ...prev,
-                                                                [item.id]:
-                                                                    item.detailIntervention ||
-                                                                    "",
-                                                            })
+                                                    setTimeout(() => {
+                                                        flatListRef.current.scrollToIndex(
+                                                            {
+                                                                index: repairedInterventions.findIndex(
+                                                                    (i) =>
+                                                                        i.id ===
+                                                                        item.id
+                                                                ),
+                                                                animated: true,
+                                                            }
                                                         );
-                                                    }
+                                                    }, 100); // Petit délai pour garantir le bon affichage
                                                 }}
-                                                onChangeText={(text) => {
+                                                value={
+                                                    editingDetail[item.id] || ""
+                                                }
+                                                onChangeText={(text) =>
                                                     setEditingDetail({
                                                         ...editingDetail,
                                                         [item.id]: text,
-                                                    });
-                                                    setIsSaved((prevState) => ({
-                                                        ...prevState,
-                                                        [item.id]: false,
-                                                    }));
-                                                }}
+                                                    })
+                                                }
                                             />
 
                                             <View
@@ -743,10 +733,14 @@ export default function RepairedInterventionsPage({ navigation }) {
                                                 )}
                                         </Animatable.View>
                                     )}
+									
                                 </View>
                             </View>
+							</TouchableOpacity>
                         )}
+						ListFooterComponent={<View style={{ height: 100 }} />}
                     />
+					
                 </View>
 
                 <Modal
@@ -1127,5 +1121,20 @@ const styles = StyleSheet.create({
         fontSize: 14, // Texte légèrement plus petit
         fontWeight: "bold",
         marginRight: 5, // Espacement entre le texte et l'icône
+    },
+	ficheContainer: {
+        backgroundColor: "#f9f9f9",
+        padding: 10,
+        marginVertical: 5,
+        borderRadius: 8,
+        elevation: 2, // Ajoute une ombre pour Android
+    },
+    itemTitle: {
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+    itemSubtitle: {
+        fontSize: 14,
+        color: "#555",
     },
 });

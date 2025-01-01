@@ -37,7 +37,7 @@ export default function EditClientPage({ route, navigation }) {
   const loadClientData = async () => {
     const { data, error } = await supabase
       .from('clients')
-      .select('*, interventions(*)')  // Sélectionne également les interventions liées
+      .select('*, interventions(*)')  
       .eq('id', client.id);
     if (error) {
       showAlert('Erreur', 'Erreur lors du chargement du client');
@@ -47,14 +47,14 @@ export default function EditClientPage({ route, navigation }) {
     if (data && data.length > 0) {
       const updatedClient = data[0];
 
-      // Filtrer les interventions pour exclure celles avec le statut 'Récupéré'
+     
       const filteredInterventions = updatedClient.interventions.filter(
         (intervention) => intervention.status !== 'Récupéré'
       );
 
       setName(updatedClient.name);
       setPhone(updatedClient.phone);
-      setInterventions(filteredInterventions || []);  // Mettre à jour avec les interventions filtrées
+      setInterventions(filteredInterventions || []); 
 	  
     }
   };
@@ -81,7 +81,7 @@ export default function EditClientPage({ route, navigation }) {
   };
 
   const handleDeleteIntervention = (interventionId) => {
-    // Afficher une alerte pour confirmer la suppression
+    
     showAlert(
       'Confirmer la suppression',
       'Êtes-vous sûr de vouloir supprimer cette intervention ?',
@@ -132,7 +132,7 @@ export default function EditClientPage({ route, navigation }) {
   const formattedPhone = formatWithSpaces(phone);
   
 
-  // Fonction d'impression des informations du client
+ 
   const handlePrint = async () => {
     const htmlContent = `
 <html>
@@ -289,7 +289,7 @@ export default function EditClientPage({ route, navigation }) {
               <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString('fr-FR')}</Text>
               <Text style={styles.interventionText}>Chargeur: {item.chargeur ? 'Oui' : 'Non'}</Text>
 
-              {/* Affichage du produit en commande si le statut est "En attente de pièces" */}
+             
               {item.status === 'En attente de pièces' && (
   <>
     <Text style={styles.interventionText}>Produit en commande: {item.commande}</Text>
@@ -400,7 +400,7 @@ export default function EditClientPage({ route, navigation }) {
 
       </View>
 
-      {/* AlertBox pour les alertes */}
+    
       <AlertBox
         visible={alertVisible}
         title={alertTitle}

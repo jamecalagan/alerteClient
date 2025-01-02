@@ -31,7 +31,92 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
 
     return (
         <View style={styles.bottomMenuContainer}>
-            {/* Section Navigation */}
+                    
+					<View style={styles.filterRow}>
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={() => filterByStatus("En attente de pièces")}
+                >
+                    <Image
+                        source={require("../assets/icons/shipping.png")}
+                        style={[
+                            styles.icon,
+                            { tintColor: getIconColor("En attente de pièces") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>Commande</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={() => filterByStatus("Devis en cours")}
+                >
+                    <Image
+                        source={require("../assets/icons/devisEnCours.png")}
+                        style={[
+                            styles.icon,
+                            { tintColor: getIconColor("Devis en cours") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>Devis</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={() => filterByStatus("Devis accepté")}
+                >
+                    <Image
+                        source={require("../assets/icons/devisAccepte.png")}
+                        style={[
+                            styles.icon,
+                            { tintColor: getIconColor("Devis accepté") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>Devis OK</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={() => filterByStatus("Réparation en cours")}
+                >
+                    <Image
+                        source={require("../assets/icons/tools1.png")}
+                        style={[
+                            styles.icon,
+                            { tintColor: getIconColor("Réparation en cours") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>En réparation</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={() => filterByStatus("Non réparable")}
+                >
+                    <Image
+                        source={require("../assets/icons/no.png")}
+						style={[
+                            styles.icon,
+                            { tintColor: getIconColor("Non réparable") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>Non réparable</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.filterItem}
+                    onPress={resetFilter}
+                >
+                    <Image
+                        source={require("../assets/icons/reload.png")}
+                        style={[
+                            styles.icon,
+                            { tintColor: getIconColor("Réinitialiser") },
+                        ]}
+                    />
+                    <Text style={styles.filterText}>Réinitialiser</Text>
+                </TouchableOpacity>
+            </View>
+			<View style={styles.separator} />
+			
             <View style={styles.navigationRow}>
                 <TouchableOpacity
                     style={styles.menuItem}
@@ -129,91 +214,8 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                     <Text style={styles.menuText}>Déconnexion</Text>
                 </TouchableOpacity>
             </View>
-			<View style={styles.separator} />
-            
-            <View style={styles.filterRow}>
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={() => filterByStatus("En attente de pièces")}
-                >
-                    <Image
-                        source={require("../assets/icons/shipping.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("En attente de pièces") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Commande</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={() => filterByStatus("Devis en cours")}
-                >
-                    <Image
-                        source={require("../assets/icons/devisEnCours.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Devis en cours") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Devis</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={() => filterByStatus("Devis accepté")}
-                >
-                    <Image
-                        source={require("../assets/icons/devisAccepte.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Devis accepté") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Devis OK</Text>
-                </TouchableOpacity>
+			
 
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={() => filterByStatus("Réparation en cours")}
-                >
-                    <Image
-                        source={require("../assets/icons/tools1.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Réparation en cours") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>En réparation</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={() => filterByStatus("Non réparable")}
-                >
-                    <Image
-                        source={require("../assets/icons/no.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Non réparable") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Non réparable</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.filterItem}
-                    onPress={resetFilter}
-                >
-                    <Image
-                        source={require("../assets/icons/reload.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Réinitialiser") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Réinitialiser</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 }

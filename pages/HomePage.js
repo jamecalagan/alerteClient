@@ -2122,43 +2122,43 @@ useEffect(() => {
                                     </View>
                                 )}
 
-                                <View style={styles.paginationContainer}>
-                                    <TouchableOpacity
-                                        onPress={goToPreviousPage}
-                                        disabled={currentPage === 1}
-                                    >
-                                        <Image
-                                            source={require("../assets/icons/chevrong.png")} // Chemin vers l'image personnalisée
-                                            style={{
-                                                width: 25, // Largeur de l'image
-                                                height: 25, // Hauteur de l'image
-                                                tintColor:
-                                                    currentPage === 1
-                                                        ? "#202020"
-                                                        : "#ffffff", // Couleur dynamique
-                                            }}
-                                        />
-                                    </TouchableOpacity>
-                                    <Text style={styles.paginationText}>
-                                        Page {currentPage} sur {totalPages}
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={goToNextPage}
-                                        disabled={currentPage === totalPages}
-                                    >
-                                        <Image
-                                            source={require("../assets/icons/chevrond.png")} // Chemin vers l'image personnalisée
-                                            style={{
-                                                width: 25, // Largeur de l'image
-                                                height: 25, // Hauteur de l'image
-                                                tintColor:
-                                                    currentPage === 1
-                                                        ? "#ffffff"
-                                                        : "#202020", // Couleur dynamique
-                                            }}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
+								<View style={styles.paginationContainer}>
+    {/* Flèche gauche - Précédent */}
+    <TouchableOpacity
+        onPress={goToPreviousPage}
+        disabled={currentPage === 1}
+    >
+        <Image
+            source={require("../assets/icons/chevrong.png")} // Chemin vers l'image personnalisée
+            style={{
+                width: 25, // Largeur de l'image
+                height: 25, // Hauteur de l'image
+                tintColor: currentPage === 1 ? "#202020" : "#ffffff", // Couleur grise si désactivée, blanche sinon
+            }}
+        />
+    </TouchableOpacity>
+
+    {/* Texte d'état de la pagination */}
+    <Text style={styles.paginationText}>
+        Page {currentPage} sur {totalPages}
+    </Text>
+
+    {/* Flèche droite - Suivant */}
+    <TouchableOpacity
+        onPress={goToNextPage}
+        disabled={currentPage === totalPages}
+    >
+        <Image
+            source={require("../assets/icons/chevrond.png")} // Chemin vers l'image personnalisée
+            style={{
+                width: 25, // Largeur de l'image
+                height: 25, // Hauteur de l'image
+                tintColor: currentPage === totalPages ? "#202020" : "#ffffff", // Couleur grise si désactivée, blanche sinon
+            }}
+        />
+    </TouchableOpacity>
+</View>
+
                             </>
                         )}
                         <Modal
@@ -2420,39 +2420,43 @@ useEffect(() => {
                     ;
                 </View>
             </TouchableWithoutFeedback>
-            <View style={styles.paginationContainer}>
-                <TouchableOpacity
-                    onPress={goToPreviousPage}
-                    disabled={currentPage === 1}
-                >
-                    <Image
-                        source={require("../assets/icons/chevrong.png")} // Chemin vers l'image personnalisée
-                        style={{
-                            width: 25, // Largeur de l'image
-                            height: 25, // Hauteur de l'image
-                            tintColor:
-                                currentPage === 1 ? "#202020" : "#ffffff", // Couleur dynamique
-                        }}
-                    />
-                </TouchableOpacity>
-                <Text style={styles.paginationText}>
-                    Page {currentPage} sur {totalPages}
-                </Text>
-                <TouchableOpacity
-                    onPress={goToNextPage}
-                    disabled={currentPage === totalPages}
-                >
-                    <Image
-                        source={require("../assets/icons/chevrond.png")} // Chemin vers l'image personnalisée
-                        style={{
-                            width: 25, // Largeur de l'image
-                            height: 25, // Hauteur de l'image
-                            tintColor:
-                                currentPage === 1 ? "#ffffff" : "#202020", // Couleur dynamique
-                        }}
-                    />
-                </TouchableOpacity>
-            </View>
+			<View style={styles.paginationContainer}>
+    {/* Flèche gauche */}
+    <TouchableOpacity
+        onPress={goToPreviousPage}
+        disabled={currentPage === 1}
+    >
+        <Image
+            source={require("../assets/icons/chevrong.png")}
+            style={{
+                width: 25,
+                height: 25,
+                tintColor: currentPage === 1 ? "gray" : "white", // Grise si première page
+            }}
+        />
+    </TouchableOpacity>
+
+    {/* Texte de pagination */}
+    <Text style={styles.paginationText}>
+        Page {currentPage} sur {totalPages}
+    </Text>
+
+    {/* Flèche droite */}
+    <TouchableOpacity
+        onPress={goToNextPage}
+        disabled={currentPage === totalPages}
+    >
+        <Image
+            source={require("../assets/icons/chevrond.png")}
+            style={{
+                width: 25,
+                height: 25,
+                tintColor: currentPage === totalPages ? "gray" : "white", // Grise si dernière page
+            }}
+        />
+    </TouchableOpacity>
+</View>
+
         </ImageBackground>
     );
 }
@@ -2487,15 +2491,15 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
-        top: 20, // Distance depuis le haut
+        top: 10, // Distance depuis le haut
         right: 120, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
         borderRadius: 5, // Bords arrondis pour un style plus moderne
     },
     menuIcon: {
-        width: 30,
-        height: 30,
-        tintColor: "#fff", // Supprimez si vos images ont déjà une couleur
+        width: 40,
+        height: 40,
+        tintColor: "#ee9c05", // Supprimez si vos images ont déjà une couleur
     },
     drawer: {
         position: "absolute",

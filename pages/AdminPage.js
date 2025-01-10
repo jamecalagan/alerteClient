@@ -12,6 +12,7 @@ import {
     Platform,
     Keyboard,
     TouchableWithoutFeedback,
+	Image,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { Picker } from "@react-native-picker/picker";
@@ -74,23 +75,50 @@ export default function AdminPage() {
             Alert.alert("Erreur", "Erreur lors du chargement des produits.");
         } else {
             setProductTypes(data);
+			setProducts(sortedProducts);  // Tri alphabétique des produits
         }
     };
 
-    const loadBrands = async (productTypeId) => {
-        const { data, error } = await supabase
-            .from("marque")
-            .select("*")
-            .eq("article_id", productTypeId);
-
-        if (error) {
-            console.log("Erreur chargement marques:", error.message);
-            Alert.alert("Erreur", "Erreur lors du chargement des marques.");
-        } else {
-            setBrands(data);
-        }
-    };
-
+	const loadBrands = async (productTypeId) => {
+		console.log("Chargement des marques pour le produit ID :", productTypeId);
+		if (!productTypeId) {
+			console.log("Aucun produit sélectionné.");
+			setSelectedBrand(null);  // Utilisation de `setSelectedBrand` pour réinitialiser le Picker des marques
+			return;
+		}
+		try {
+			const { data: associatedBrands, error: brandError } = await supabase
+				.from("marque")
+				.select("*")
+				.eq("article_id", productTypeId);
+	
+			if (brandError) throw brandError;
+	
+			let brandsToDisplay = associatedBrands;
+	
+			if (associatedBrands.length === 0) {
+				console.log("Aucune marque associée au produit, chargement de toutes les marques disponibles.");
+				const { data: allBrands, error: allBrandError } = await supabase.from("marque").select("*");
+				if (allBrandError) throw allBrandError;
+				brandsToDisplay = allBrands;
+			}
+	
+			const uniqueBrands = Array.from(new Map(brandsToDisplay.map(brand => [brand.nom, brand])).values());
+			uniqueBrands.sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+	
+			console.log("Marques triées sans doublons :", uniqueBrands);
+			setBrands(uniqueBrands);
+			setSelectedBrand(null);  // Réinitialiser le Picker des marques après le chargement
+		} catch (error) {
+			console.error("Erreur lors du chargement des marques :", error);
+			Alert.alert("Erreur", "Impossible de charger les marques.");
+		}
+	};
+	
+	
+	
+	
+	
     const loadModels = async (brandId) => {
         const { data, error } = await supabase
             .from("modele")
@@ -218,36 +246,33 @@ export default function AdminPage() {
         }
     };
 
-    const addBrand = async () => {
-        if (!selectedProductType) {
-            Alert.alert(
-                "Erreur",
-                "Sélectionnez un type de produit avant d'ajouter une marque."
-            );
-            return;
-        }
-        if (!newBrand.trim()) {
-            Alert.alert("Erreur", "Le nom de la marque ne peut pas être vide.");
-            return;
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from("marque")
-                .insert([{ nom: newBrand, article_id: selectedProductType }])
-                .select();
-
-            if (error) throw error;
-
-            setBrands([...brands, data[0]]);
-            setNewBrand("");
-            Alert.alert("Succès", "Marque ajoutée avec succès.");
-        } catch (error) {
-            console.error("Erreur lors de l'ajout de la marque :", error);
-            Alert.alert("Erreur", "Erreur lors de l'ajout de la marque.");
-        }
-    };
-
+	const addBrand = async () => {
+		if (!selectedProductType) {
+			Alert.alert("Erreur", "Sélectionnez un type de produit avant d'ajouter une marque.");
+			return;
+		}
+		if (!newBrand.trim()) {
+			Alert.alert("Erreur", "Le nom de la marque ne peut pas être vide.");
+			return;
+		}
+	
+		console.log("Ajout de la marque :", newBrand, "pour le produit ID :", selectedProductType);
+	
+		const { data, error } = await supabase.from("marque").insert([{ nom: newBrand, article_id: selectedProductType }]).select();
+	
+		if (error) {
+			console.error("Erreur lors de l'ajout de la marque :", error);
+			Alert.alert("Erreur", "Erreur lors de l'ajout de la marque.");
+		} else {
+			console.log("Marque ajoutée avec succès :", data[0]);
+			setNewBrand("");  // Vide le champ "Nouvelle Marque"
+			setSelectedBrandId(null);  // Réinitialiser la sélection de la marque
+			Alert.alert("Succès", "Marque ajoutée avec succès.");
+			loadBrands(selectedProductType);  // Rafraîchir la liste des marques
+		}
+	};
+	
+	
     const addModel = async () => {
         if (!selectedProductType) {
             Alert.alert(
@@ -304,6 +329,16 @@ export default function AdminPage() {
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.container}>
+				<TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.navigate("SearchClientsPage")}
+            >
+                <Image
+                    source={require("../assets/icons/search.png")} // Icône de recherche
+                    style={styles.iconSearch}
+                />
+                <Text style={styles.buttonText}>Recherche multi-critères</Text>
+            </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.navigateButton}
                         onPress={() => navigation.navigate("ArticlesPage")}
@@ -442,379 +477,7 @@ export default function AdminPage() {
                         </>
                     )}
 
-                    <TouchableOpacity
-                        style={styles.toggleButton}
-                        onPress={() => setShowStatusPickers(!showStatusPickers)}
-                    >
-                        <Text style={styles.buttonText}>
-                            {showStatusPickers
-                                ? "Masquer les filtres par statut"
-                                : "Afficher les filtres par statut"}
-                        </Text>
-                        <MaterialIcons
-                            name={
-                                showStatusPickers
-                                    ? "expand-less"
-                                    : "expand-more"
-                            }
-                            size={24}
-                            color="#ebeaea"
-                        />
-                    </TouchableOpacity>
 
-                    {showStatusPickers && (
-                        <View>
-                            {/* Picker pour "En attente de pièces" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowPending(!showPending)}
-                            >
-                                <Text style={styles.buttonText}>
-                                    En attente de pièces
-                                </Text>
-                                <MaterialIcons
-                                    name={
-                                        showPending
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showPending && (
-                                <FlatList
-                                    data={clients.pending}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : En attente de pièces
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                            {/* Toggle pour les clients "devis accepter" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowOnAir(!showOnAir)}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Devis en cours
-                                </Text>
-                                <MaterialIcons
-                                    name={
-                                        showOnAir
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showOnAir && (
-                                <FlatList
-                                    data={clients.onAir}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Devis en cours
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                            {/* Toggle pour les clients "devis accepter" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowEstimate(!showEstimate)}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Devis accepté
-                                </Text>
-                                <MaterialIcons
-                                    name={
-                                        showEstimate
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showEstimate && (
-                                <FlatList
-                                    data={clients.estimate}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Devis accepté
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-
-                            {/* Toggle pour les clients "Réparation en cours" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() =>
-                                    setShowInProgress(!showInProgress)
-                                }
-                            >
-                                <Text style={styles.buttonText}>
-                                    Réparation en cours
-                                </Text>
-                                <MaterialIcons
-                                    name={
-                                        showInProgress
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showInProgress && (
-                                <FlatList
-                                    data={clients.inProgress}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Réparation en cours
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-
-                            {/* Toggle pour les clients "Réparé" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowRepaired(!showRepaired)}
-                            >
-                                <Text style={styles.buttonText}>Réparé</Text>
-                                <MaterialIcons
-                                    name={
-                                        showRepaired
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showRepaired && (
-                                <FlatList
-                                    data={clients.repaired}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Réparé
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-
-                            {/* Toggle pour les clients "Récupéré" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowRecovered(!showRecovered)}
-                            >
-                                <Text style={styles.buttonText}>Récupéré</Text>
-                                <MaterialIcons
-                                    name={
-                                        showRecovered
-                                            ? "expand-less"
-                                            : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showRecovered && (
-                                <FlatList
-                                    data={clients.recovered}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Récupéré
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                            {/* Toggle pour les clients "non réparable" */}
-                            <TouchableOpacity
-                                style={styles.toggleButton}
-                                onPress={() => setShowNot(!showNot)}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Non réparable
-                                </Text>
-                                <MaterialIcons
-                                    name={
-                                        showNot ? "expand-less" : "expand-more"
-                                    }
-                                    size={24}
-                                    color="#ebeaea"
-                                />
-                            </TouchableOpacity>
-                            {showRecovered && (
-                                <FlatList
-                                    data={clients.not}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    renderItem={({ item, index }) => (
-                                        <View
-                                            style={[
-                                                styles.clientItem,
-                                                {
-                                                    backgroundColor:
-                                                        index % 2 === 0
-                                                            ? "#f9f9f9"
-                                                            : "#ffffff",
-                                                },
-                                            ]}
-                                        >
-                                            <Text style={styles.clientText}>
-                                                N° client : {item.ficheNumber}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Nom : {item.name}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Téléphone : {item.phone}
-                                            </Text>
-                                            <Text style={styles.clientText}>
-                                                Statut : Récupéré
-                                            </Text>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                        </View>
-                    )}
                     <Text style={styles.sectionTitle}>
                         Recherche dans la liste complète des clients
                     </Text>
@@ -946,6 +609,12 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginVertical: 10,
     },
+	title: {
+        fontSize: 24,
+        fontWeight: "bold",
+        marginBottom: 20,
+        textAlign: "center",
+    },
     addButton: {
         backgroundColor: "#3c5068",
         paddingVertical: 12,
@@ -953,6 +622,14 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginVertical: 10,
         elevation: 2,
+    },
+	button: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#007bff",
+        padding: 15,
+        borderRadius: 10,
+        marginBottom: 20,
     },
     buttonText: {
         color: "#fff",
@@ -1008,6 +685,12 @@ const styles = StyleSheet.create({
     icon: {
         marginRight: 10,
     },
+	iconSearch: {
+        width: 24,
+        height: 24,
+        marginRight: 10,
+        tintColor: "blue",
+	},
     pickerContainer: {
         backgroundColor: "#f1efef",
         borderRadius: 5,

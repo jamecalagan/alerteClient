@@ -114,7 +114,7 @@ export default function SignaturePage({ route, navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Signature de restitution</Text>
 
-      {/* Affichage des informations du client et de l'intervention */}
+    
       {clientInfo && (
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>Client: {clientInfo.clients.name}</Text>
@@ -141,18 +141,18 @@ export default function SignaturePage({ route, navigation }) {
         Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || '________________________'} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
         AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
 
-Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
+		Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
 
-Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel. Le prix indiqué est donc indicatif, basé sur les informations fournies. En cas de remplacement de bloc vitre tactile ou d’écran LCD sur smartphone ou tablette, seuls les éléments remplacés seront couverts par la garantie. Vous demeurez responsable des autres problèmes éventuels qui pourraient survenir après la réparation.
+		Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel. Le prix indiqué est donc indicatif, basé sur les informations fournies. En cas de remplacement de bloc vitre tactile ou d’écran LCD sur smartphone ou tablette, seuls les éléments remplacés seront couverts par la garantie. Vous demeurez responsable des autres problèmes éventuels qui pourraient survenir après la réparation.
 
-Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
+		Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
 
-En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
+		En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
 
-Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
-Aucune réclamation ne sera acceptée au-delà d’un délai de 10 jours suivant la restitution du matériel.
+		Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
+		Aucune réclamation ne sera acceptée au-delà d’un délai de 10 jours suivant la restitution du matériel.
 
-En signant ce document, vous acceptez les conditions ci-dessus.
+		En signant ce document, vous acceptez les conditions ci-dessus.
 
 
       </Text>
@@ -174,7 +174,7 @@ En signant ce document, vous acceptez les conditions ci-dessus.
         />
       </View>
 
-      {/* Boutons pour capturer, confirmer et effacer la signature */}
+     
       <View style={styles.buttonsContainer}>
         <TouchableOpacity style={styles.button} onPress={handleCaptureAndConfirmSignature}>
           <Text style={styles.buttonText}>Capturer et Confirmer</Text>

@@ -89,20 +89,6 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
 
                 <TouchableOpacity
                     style={styles.filterItem}
-                    onPress={() => filterByStatus("Non réparable")}
-                >
-                    <Image
-                        source={require("../assets/icons/no.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Non réparable") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Non réparable</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.filterItem}
                     onPress={resetFilter}
                 >
                     <Image
@@ -182,37 +168,9 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                             { tintColor: getIconColor("Admin") },
                         ]}
                     />
-                    <Text style={styles.menuText}>Admin</Text>
+                    <Text style={styles.menuText}>Administartion</Text>
                 </TouchableOpacity>
 
-				<TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={() =>
-                        Alert.alert(
-                            "Confirmation",
-                            "Êtes-vous sûr de vouloir vous déconnecter ?",
-                            [
-                                { text: "Annuler", style: "cancel" },
-                                {
-                                    text: "Déconnexion",
-                                    onPress: async () => {
-                                        await handleLogout();
-                                    },
-                                    style: "destructive",
-                                },
-                            ]
-                        )
-                    }
-                >
-                    <Image
-                        source={require("../assets/icons/disconnects.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: "red" }, // Toujours rouge pour déconnexion
-                        ]}
-                    />
-                    <Text style={styles.menuText}>Déconnexion</Text>
-                </TouchableOpacity>
             </View>
 			
 

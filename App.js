@@ -28,7 +28,8 @@ import ListingProduits from './pages/ListingProduits';
 import ArticlesPage from './pages/ArticlesPage';
 import BrandsPage from './pages/BrandsPage';
 import ModelsPage from './pages/ModelsPage';
-
+import ImageCleanupPage from "./pages/ImageCleanupPage";
+import SearchClientsPage from "./pages/SearchClientsPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -200,6 +201,8 @@ function MainStack() {
             <Stack.Screen name="SignatureClient" component={SignatureClient} />
             <Stack.Screen name="ImageGallery" component={ImageGallery} />
             <Stack.Screen name="ClientInterventionsPage" component={ClientInterventionsPage} />
+			<Stack.Screen name="ImageCleanup" component={ImageCleanupPage} />
+			<Stack.Screen name="SearchClientsPage" component={SearchClientsPage} options={{ title: "Recherche multi-critères" }}/>
 			<Stack.Screen 
         name="ListingProduits" 
          component={ListingProduits} 

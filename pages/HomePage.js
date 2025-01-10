@@ -37,15 +37,16 @@ export default function HomePage({ navigation, route }) {
     const [selectedCommande, setSelectedCommande] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true); // Loader state
+    const [hasImagesToDelete, setHasImagesToDelete] = useState(false);
     const [notifyModalVisible, setNotifyModalVisible] = useState(false); // Gérer la visibilité de la modal de notification
     const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
+    const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
+        useState(0);
     const [expandedClientId, setExpandedClientId] = useState(null);
-    const [selectedIntervention, setSelectedIntervention] = useState(null);
     const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [showLogs, setShowLogs] = useState(true); // Contrôle l'affichage des logs
     const [processLogs, setProcessLogs] = useState([]); // État pour stocker les messages de log
     const slideAnim = useRef(new Animated.Value(-250)).current; // Position initiale hors écran
     const [menuVisible, setMenuVisible] = useState(false);
@@ -56,19 +57,173 @@ export default function HomePage({ navigation, route }) {
         onConfirm: null,
     });
     const [paginatedClients, setPaginatedClients] = useState([]);
-const itemsPerPage = 3;
+    const itemsPerPage = 3;
+    const checkImagesToDelete = async () => {
+        setIsLoading(true);
+        try {
+            const dateLimite = new Date(
+                Date.now() - 10 * 24 * 60 * 60 * 1000
+            ).toISOString();
+            console.log("Date limite pour filtrer :", dateLimite);
 
-useEffect(() => {
-    // Calculer les fiches à afficher pour la page courante
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
+            // Récupération des interventions
+            const { data: interventions, error: interventionError } =
+                await supabase
+                    .from("interventions")
+                    .select("id, photos")
+                    .eq("status", "Récupéré")
+                    .lte('"updatedAt"', dateLimite)
+                    .not("photos", "eq", "[]");
 
-    // Appliquer la pagination uniquement sur les fiches actuellement visibles
-    const clientsToDisplay = filteredClients.slice(startIndex, endIndex);
+            if (interventionError) throw interventionError;
 
-    setPaginatedClients(clientsToDisplay);
-}, [filteredClients, currentPage]);
+            const interventionIds = interventions.map(
+                (intervention) => intervention.id
+            );
+            console.log("Interventions récupérées :", interventionIds);
 
+            // Compter les images dans intervention_images
+            const { count: countImages, error: imagesError } = await supabase
+                .from("intervention_images")
+                .select("id", { count: "exact" })
+                .in("intervention_id", interventionIds);
+
+            if (imagesError) throw imagesError;
+            console.log("Nombre d'images à supprimer :", countImages || 0);
+
+            // Compter les photos valides dans interventions
+            let countPhotos = 0;
+            interventions.forEach((intervention) => {
+                try {
+                    const photos = intervention.photos;
+                    if (photos && typeof photos === "string") {
+                        // Vérification si la valeur est un tableau JSON
+                        if (photos.startsWith("[") && photos.endsWith("]")) {
+                            const photosArray = JSON.parse(photos);
+                            if (Array.isArray(photosArray)) {
+                                countPhotos += photosArray.length;
+                            }
+                        } else {
+                            console.warn(
+                                `La valeur de photos pour l'intervention ${intervention.id} n'est pas un tableau JSON.`
+                            );
+                        }
+                    }
+                } catch (err) {
+                    console.error(
+                        `Erreur de parsing JSON pour l'intervention ${intervention.id}:`,
+                        err
+                    );
+                }
+            });
+
+            console.log("Nombre de photos à supprimer :", countPhotos || 0);
+
+            setHasImagesToDelete(
+                (countImages || 0) > 0 || (countPhotos || 0) > 0
+            );
+        } catch (error) {
+            console.error("Erreur lors de la vérification des images :", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        checkImagesToDelete();
+    }, []);
+    const handleLoadRecoveredInterventions = async () => {
+        try {
+            const { data: interventions, error } = await supabase
+                .from("interventions")
+                .select("id, photos, updatedAt, status")
+                .eq("status", "Récupéré");
+
+            if (error) {
+                console.error(
+                    "Erreur lors de la récupération des interventions récupérées :",
+                    error
+                );
+                return [];
+            }
+
+            // Récupérer les interventions avec photos plus anciennes que 10 jours
+            const filteredInterventions = interventions.filter(
+                (intervention) => {
+                    const dateRestitution = new Date(intervention.updatedAt);
+                    const now = new Date();
+                    const diffInDays =
+                        (now - dateRestitution) / (1000 * 60 * 60 * 24);
+                    return diffInDays >= 10 && intervention.photos.length > 0;
+                }
+            );
+
+            return filteredInterventions;
+        } catch (error) {
+            console.error(
+                "Erreur lors du chargement des interventions récupérées :",
+                error
+            );
+            return [];
+        }
+    };
+
+    const handleDeleteImages = async (imagesToDelete) => {
+        Alert.alert(
+            "Confirmation",
+            `Voulez-vous vraiment supprimer ${imagesToDelete.length} image(s) ?`,
+            [
+                {
+                    text: "Annuler",
+                    style: "cancel",
+                },
+                {
+                    text: "Confirmer",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from("intervention_images")
+                                .delete()
+                                .in("id", imagesToDelete);
+
+                            if (error) {
+                                console.error(
+                                    "Erreur lors de la suppression des images :",
+                                    error
+                                );
+                                Alert.alert(
+                                    "Erreur",
+                                    "Impossible de supprimer les images."
+                                );
+                            } else {
+                                Alert.alert(
+                                    "Succès",
+                                    "Images supprimées avec succès !"
+                                );
+                                setCleanupModalVisible(false);
+                            }
+                        } catch (error) {
+                            console.error(
+                                "Erreur lors de la suppression :",
+                                error
+                            );
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    useEffect(() => {
+        // Calculer les fiches à afficher pour la page courante
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+
+        // Appliquer la pagination uniquement sur les fiches actuellement visibles
+        const clientsToDisplay = filteredClients.slice(startIndex, endIndex);
+
+        setPaginatedClients(clientsToDisplay);
+    }, [filteredClients, currentPage]);
 
     // Ajoutez d'autres états de modale si nécessaire
     const closeAllModals = () => {
@@ -101,267 +256,6 @@ useEffect(() => {
     };
     const logMessage = (message) => {
         setProcessLogs((prevLogs) => [...prevLogs, message]); // Ajouter un message à l'état
-    };
-
-    const deleteExpiredPhotos = async () => {
-        try {
-            const now = new Date();
-            const tenDaysAgoUTC = new Date(
-                now.getTime() - 10 * 24 * 60 * 60 * 1000
-            );
-            const formattedDate = tenDaysAgoUTC.toISOString();
-
-            console.log(`📅 Date limite pour suppression : ${formattedDate}`);
-
-            // Récupérer les interventions dépassant 10 jours
-            const { data: interventions, error: fetchInterventionsError } =
-                await supabase
-                    .from("interventions")
-                    .select("id, photos, created_at")
-                    .lt("created_at", formattedDate);
-
-            if (fetchInterventionsError) {
-                console.error(
-                    "❌ Erreur lors de la récupération des interventions :",
-                    fetchInterventionsError
-                );
-                return;
-            }
-
-            if (!interventions || interventions.length === 0) {
-                console.log(
-                    "✅ Aucune intervention avec des photos à supprimer."
-                );
-                return;
-            }
-
-            console.log(`🔍 Interventions trouvées : ${interventions.length}`);
-
-            // Supprimer les images des interventions
-            for (const intervention of interventions) {
-                if (intervention.photos) {
-                    const { error: updateError } = await supabase
-                        .from("interventions")
-                        .update({ photos: null })
-                        .eq("id", intervention.id);
-
-                    if (!updateError) {
-                        console.log(
-                            `🗑️ Photos supprimées dans intervention ID : ${intervention.id}`
-                        );
-                    } else {
-                        console.error(
-                            `❌ Erreur suppression photos pour ID ${intervention.id} :`,
-                            updateError
-                        );
-                    }
-                }
-            }
-
-            // Récupérer les images à supprimer
-            const { data: expiredImages, error: fetchImagesError } =
-                await supabase
-                    .from("intervention_images")
-                    .select("id, created_at, intervention_id")
-                    .lt("created_at", formattedDate)
-                    .in(
-                        "intervention_id",
-                        interventions.map((intervention) => intervention.id)
-                    );
-
-            if (fetchImagesError) {
-                console.error(
-                    "❌ Erreur lors de la récupération des images liées :",
-                    fetchImagesError
-                );
-                return;
-            }
-
-            if (!expiredImages || expiredImages.length === 0) {
-                console.log(
-                    "✅ Aucune image associée aux interventions trouvées pour suppression."
-                );
-                return;
-            }
-
-            console.log(
-                `🔍 Images trouvées à supprimer : ${expiredImages.length}`
-            );
-
-            // Supprimer les images
-            const imageIdsToDelete = expiredImages.map((img) => img.id);
-            const { error: deleteError } = await supabase
-                .from("intervention_images")
-                .delete()
-                .in("id", imageIdsToDelete);
-
-            if (!deleteError) {
-                console.log(
-                    `🗑️ ${expiredImages.length} image(s) supprimée(s) dans 'intervention_images'.`
-                );
-            } else {
-                console.error(
-                    "❌ Erreur lors de la suppression des images :",
-                    deleteError
-                );
-            }
-        } catch (err) {
-            console.error(`❌ Erreur inattendue : ${err.message}`);
-        }
-    };
-
-    useEffect(() => {
-        deleteExpiredPhotos(); // Suppression automatique des photos expirées
-        checkForExpiredInterventions();
-    }, []);
-
-    const triggerPhotoCleanupAlert = async (intervention) => {
-        try {
-            closeAllModals();
-
-            const { photos, label_photo } = intervention;
-            if (
-                !photos ||
-                photos.length === 0 ||
-                photos.every((photo) => photo === label_photo)
-            ) {
-                console.log(
-                    `Pas de photos à nettoyer pour l'intervention ${intervention.id}.`
-                );
-                processInterventionQueue(); // Passe à la fiche suivante
-                return;
-            }
-
-            const { data: clientData, error } = await supabase
-                .from("clients")
-                .select("name, ficheNumber")
-                .eq("id", intervention.client_id)
-                .single();
-
-            if (error) {
-                throw new Error(
-                    "Impossible de récupérer les informations du client."
-                );
-            }
-
-            const clientName = clientData.name || "Nom inconnu";
-            const clientNumber = clientData.ficheNumber || "Numéro inconnu";
-
-            setAlertTitle("Nettoyage des photos");
-            setAlertMessage(
-                `Le client ${clientName} (N°${clientNumber}) a dépassé le délai de 10 jours. Voulez-vous supprimer les photos inutiles ?`
-            );
-
-            setSelectedIntervention(intervention); // Stocke l'intervention actuelle
-            setCleanupModalVisible(true); // Ouvre la modale
-        } catch (err) {
-            console.error("Erreur lors du déclenchement de l'alerte :", err);
-            processInterventionQueue(); // Passe à la fiche suivante en cas d'erreur
-        }
-    };
-
-    const checkForExpiredInterventions = async () => {
-        try {
-            const dateLimit = new Date();
-            dateLimit.setDate(dateLimit.getDate() - 10); // Date limite (10 jours en arrière)
-
-            // Récupération des interventions avec des photos dépassant 10 jours
-            const { data: expiredInterventions, error } = await supabase
-                .from("interventions")
-                .select("id, photos, created_at")
-                .lt("created_at", dateLimit.toISOString())
-                .not("photos", "is", null); // Vérifie que des photos existent
-
-            if (error) throw error;
-
-            if (expiredInterventions.length > 0) {
-                console.log(
-                    `🟡 ${expiredInterventions.length} intervention(s) avec des images à supprimer.`
-                );
-                promptImageDeletion(expiredInterventions); // Demander confirmation
-            } else {
-                console.log("✅ Aucune image à supprimer.");
-            }
-        } catch (error) {
-            console.error(
-                "Erreur lors de la vérification des interventions :",
-                error
-            );
-        }
-    };
-
-    // Fonction pour supprimer les images inutiles
-    const handleImageDeletion = async (imagesToDelete) => {
-        if (!Array.isArray(imagesToDelete) || imagesToDelete.length === 0) {
-            console.error(
-                "Liste des images à supprimer invalide ou vide :",
-                imagesToDelete
-            );
-            Alert.alert(
-                "Erreur",
-                "Aucune image valide trouvée pour suppression."
-            );
-            return;
-        }
-
-        // Demander confirmation avant de supprimer
-        Alert.alert(
-            "Confirmation",
-            `Êtes-vous sûr de vouloir supprimer ${imagesToDelete.length} image(s) ?`,
-            [
-                {
-                    text: "Annuler",
-                    onPress: () => console.log("Suppression annulée."),
-                    style: "cancel",
-                },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            console.log(
-                                "Tentative de suppression des images :",
-                                imagesToDelete
-                            );
-
-                            const { data, error } = await supabase
-                                .from("intervention_images")
-                                .delete()
-                                .in("id", imagesToDelete);
-
-                            if (error) {
-                                console.error(
-                                    "Erreur retournée par Supabase :",
-                                    JSON.stringify(error, null, 2)
-                                );
-                                Alert.alert(
-                                    "Erreur",
-                                    "Impossible de supprimer les images. Vérifiez les données."
-                                );
-                            } else {
-                                console.log(
-                                    "Images supprimées avec succès :",
-                                    data
-                                );
-                                Alert.alert(
-                                    "Succès",
-                                    `${imagesToDelete.length} image(s) supprimée(s) avec succès.`
-                                );
-                            }
-                        } catch (err) {
-                            console.error(
-                                "Erreur inattendue lors de la suppression :",
-                                err
-                            );
-                            Alert.alert(
-                                "Erreur",
-                                "Une erreur inattendue est survenue. Réessayez."
-                            );
-                        }
-                    },
-                },
-            ],
-            { cancelable: false }
-        );
     };
 
     const processInterventionQueue = () => {
@@ -415,6 +309,25 @@ useEffect(() => {
         } catch (error) {
             console.error(
                 "Erreur lors du chargement des fiches réparées non restituées:",
+                error
+            );
+        }
+    };
+
+    const loadNotRepairedNotReturnedCount = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("interventions")
+                .select("*")
+                .eq("status", "Non réparable")
+                .eq("restitue", false); // Filtrer les fiches non restituées
+
+            if (error) throw error;
+
+            setNotRepairedNotReturnedCount(data.length); // Met à jour le nombre
+        } catch (error) {
+            console.error(
+                "Erreur lors du chargement des fiches non réparables non restituées:",
                 error
             );
         }
@@ -543,7 +456,8 @@ useEffect(() => {
     };
 
     useEffect(() => {
-        loadRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
+        loadRepairedNotReturnedCount();
+        loadNotRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
 
     /*     // Charger les données lors du premier rendu
@@ -559,25 +473,17 @@ useEffect(() => {
         currentPage * itemsPerPage
     );
 
-    const handlePageChange = (newPage) => {
-        setIsLoading(true); // Démarre le loader lorsque l'utilisateur change de page
-        setTimeout(() => {
-            setCurrentPage(newPage); // Change la page après un délai simulé
-            setIsLoading(false); // Arrête le loader
-        }, 0); // Délai pour s'assurer que le loader reste visible pendant un moment
+    const goToPreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage((prevPage) => prevPage - 1);
+        }
     };
 
-	const goToPreviousPage = () => {
-		if (currentPage > 1) {
-			setCurrentPage((prevPage) => prevPage - 1);
-		}
-	};
-	
-	const goToNextPage = () => {
-		if (currentPage < totalPages) {
-			setCurrentPage((prevPage) => prevPage + 1);
-		}
-	};
+    const goToNextPage = () => {
+        if (currentPage < totalPages) {
+            setCurrentPage((prevPage) => prevPage + 1);
+        }
+    };
     useFocusEffect(
         React.useCallback(() => {
             // Si un rechargement est demandé depuis une autre page
@@ -592,15 +498,9 @@ useEffect(() => {
 
             // Charger le compte des réparés non restitués
             loadRepairedNotReturnedCount();
+            loadNotRepairedNotReturnedCount();
         }, [route.params?.reloadClients, sortBy, orderAsc])
     );
-
-    const openNotifyModal = () => {
-        setAlertVisible(false); // Ferme la modale de nettoyage
-        setTransportModalVisible(false);
-        setModalVisible(false);
-        setNotifyModalVisible(true); // Affiche la modale de notification
-    };
 
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
@@ -690,7 +590,8 @@ useEffect(() => {
                     const relevantInterventions = client.interventions?.filter(
                         (intervention) =>
                             intervention.status !== "Réparé" &&
-                            intervention.status !== "Récupéré"
+                            intervention.status !== "Récupéré" &&
+                            intervention.status !== "Non réparable"
                     );
 
                     if (relevantInterventions.length > 0) {
@@ -776,151 +677,58 @@ useEffect(() => {
                 return { borderLeftColor: "#e0e0e0", borderLeftWidth: 8 };
         }
     };
+    const deviceIcons = {
+        "PC portable": require("../assets/icons/portable.png"),
+        MacBook: require("../assets/icons/macbook_air.png"),
+        iMac: require("../assets/icons/iMac.png"),
+        "PC Fixe": require("../assets/icons/ordinateur (1).png"),
+        "PC tout en un": require("../assets/icons/allInone.png"),
+        Tablette: require("../assets/icons/tablette.png"),
+        Smartphone: require("../assets/icons/smartphone.png"),
+        Console: require("../assets/icons/console-de-jeu.png"),
+        "Disque dur": require("../assets/icons/disk.png"),
+        "Disque dur externe": require("../assets/icons/disque-dur.png"),
+        "Carte SD": require("../assets/icons/carte-memoire.png"),
+        "Cle usb": require("../assets/icons/cle-usb.png"),
+        "Casque audio": require("../assets/icons/playaudio.png"),
+        "Video-projecteur": require("../assets/icons/Projector.png"),
+        Clavier: require("../assets/icons/keyboard.png"),
+        Ecran: require("../assets/icons/screen.png"),
+        iPAD: require("../assets/icons/iPad.png"),
+        Imprimante: require("../assets/icons/printer.png"),
+        Joystick: require("../assets/icons/joystick.png"),
+        Processeur: require("../assets/icons/cpu.png"),
+
+        default: require("../assets/icons/point-dinterrogation.png"),
+    };
+
+    // Fonction pour récupérer l'icône
     const getDeviceIcon = (deviceType) => {
-        switch (deviceType) {
-            case "PC portable":
-                return (
-                    <Image
-                        source={require("../assets/icons/portable.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "MacBook":
-                return (
-                    <Image
-                        source={require("../assets/icons/macbook_air.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "iMac":
-                return (
-                    <Image
-                        source={require("../assets/icons/iMac.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "PC Fixe":
-                return (
-                    <Image
-                        source={require("../assets/icons/ordinateur (1).png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "PC tout en un":
-                return (
-                    <Image
-                        source={require("../assets/icons/allInone.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Tablette":
-                return (
-                    <Image
-                        source={require("../assets/icons/tablette.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Smartphone":
-                return (
-                    <Image
-                        source={require("../assets/icons/smartphone.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Console":
-                return (
-                    <Image
-                        source={require("../assets/icons/console-de-jeu.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Disque dur":
-                return (
-                    <Image
-                        source={require("../assets/icons/disk.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Disque dur externe":
-                return (
-                    <Image
-                        source={require("../assets/icons/disque-dur.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Carte SD":
-                return (
-                    <Image
-                        source={require("../assets/icons/carte-memoire.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Cle usb":
-                return (
-                    <Image
-                        source={require("../assets/icons/cle-usb.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Casque audio":
-                return (
-                    <Image
-                        source={require("../assets/icons/playaudio.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Retro-projecteur":
-                return (
-                    <Image
-                        source={require("../assets/icons/Projector.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Clavier":
-                return (
-                    <Image
-                        source={require("../assets/icons/keyboard.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            case "Ecran":
-                return (
-                    <Image
-                        source={require("../assets/icons/screen.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
-            default:
-                return (
-                    <Image
-                        source={require("../assets/icons/point-dinterrogation.png")}
-                        style={{ width: 40, height: 40 }}
-                    />
-                );
+        const iconSource = deviceIcons[deviceType] || deviceIcons.default; // Utilise l'icône par défaut si le type n'existe pas
+        return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
+    };
+
+    const filterByStatus = (status) => {
+        if (!showClients) {
+            // Si les fiches sont masquées, afficher uniquement celles correspondant au statut
+            const filtered = clients.filter((client) =>
+                client.interventions.some(
+                    (intervention) => intervention.status === status
+                )
+            );
+            setFilteredClients(filtered);
+            setShowClients(true); // Afficher les fiches filtrées
+        } else {
+            // Si les fiches sont déjà visibles, appliquer le filtre normalement
+            const filtered = clients.filter((client) =>
+                client.interventions.some(
+                    (intervention) => intervention.status === status
+                )
+            );
+            setFilteredClients(filtered);
         }
     };
 
-	const filterByStatus = (status) => {
-		if (!showClients) {
-			// Si les fiches sont masquées, afficher uniquement celles correspondant au statut
-			const filtered = clients.filter((client) =>
-				client.interventions.some(
-					(intervention) => intervention.status === status
-				)
-			);
-			setFilteredClients(filtered);
-			setShowClients(true); // Afficher les fiches filtrées
-		} else {
-			// Si les fiches sont déjà visibles, appliquer le filtre normalement
-			const filtered = clients.filter((client) =>
-				client.interventions.some(
-					(intervention) => intervention.status === status
-				)
-			);
-			setFilteredClients(filtered);
-		}
-	};
-	
     const resetFilter = () => {
         setFilteredClients(clients);
     };
@@ -945,45 +753,23 @@ useEffect(() => {
     };
     const handleLogout = async () => {
         try {
-            const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur de Supabase
-            if (error) {
-                console.error("Erreur lors de la déconnexion :", error);
-                Alert.alert(
-                    "Erreur",
-                    "Impossible de se déconnecter. Veuillez réessayer."
-                );
-            } else {
-                navigation.replace("Login"); // Redirige vers l'écran de connexion
-            }
-        } catch (err) {
-            console.error("Erreur inattendue lors de la déconnexion :", err);
-            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+            // Déconnexion de Supabase (ou autre service d'authentification)
+            const { error } = await supabase.auth.signOut(); // ou l'API utilisée
+            if (error) throw error;
+
+            // Navigation vers la page de login
+            navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }], // Vérifiez que le nom de votre page Login est correct
+            });
+        } catch (error) {
+            console.error("Erreur lors de la déconnexion :", error);
+            Alert.alert(
+                "Erreur",
+                "La déconnexion a échoué. Veuillez réessayer."
+            );
         }
     };
-
-    const confirmLogout = () => {
-        Alert.alert(
-            "Confirmation",
-            "Êtes-vous sûr de vouloir vous déconnecter ?",
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Déconnexion",
-                    onPress: () => handleLogout(), // Appelle la déconnexion
-                },
-            ],
-            { cancelable: true }
-        );
-    };
-	const toggleFiches = () => {
-		setAreFichesVisible((prev) => !prev);
-		if (!areFichesVisible) {
-			setCurrentPage(1); // Revenir à la première page lorsque les fiches sont affichées
-		}
-	};
 
     return (
         <ImageBackground
@@ -1136,8 +922,15 @@ useEffect(() => {
                                         {
                                             text: "Déconnexion",
                                             onPress: async () => {
-                                                toggleMenu();
-                                                await handleLogout();
+                                                try {
+                                                    await handleLogout(); // Déconnexion
+                                                    toggleMenu(); // Ferme le menu uniquement après déconnexion réussie
+                                                } catch (error) {
+                                                    console.error(
+                                                        "Erreur de déconnexion :",
+                                                        error
+                                                    );
+                                                }
                                             },
                                             style: "destructive",
                                         },
@@ -1147,10 +940,10 @@ useEffect(() => {
                             }}
                         >
                             <Image
-                                source={require("../assets/icons/disconnects.png")} // Icône pour déconnexion
+                                source={require("../assets/icons/disconnects.png")}
                                 style={[
                                     styles.drawerItemIcon,
-                                    { tintColor: "red" }, // Toujours rouge pour la déconnexion
+                                    { tintColor: "red" },
                                 ]}
                             />
                             <Text style={styles.drawerItemText}>
@@ -1158,7 +951,6 @@ useEffect(() => {
                             </Text>
                         </TouchableOpacity>
 
-                       
                         <Text style={styles.sectionTitle}>Filtres</Text>
                         <TouchableOpacity
                             style={styles.drawerItem}
@@ -1311,15 +1103,67 @@ useEffect(() => {
                                                 width: 20,
                                                 height: 20,
                                                 tintColor: "#fffc47",
+                                                marginBottom: 10, // Espacement sous l'icône
                                             }}
                                         />
-                                        <Text style={styles.repairedCountText}>
-                                            Produits réparés en attente de
-                                            restitution :{" "}
-                                            {repairedNotReturnedCount}
-                                        </Text>
+                                        <View
+                                            style={{
+                                                flexDirection: "column",
+                                                alignItems: "center",
+                                            }}
+                                        >
+                                            <Text
+                                                style={styles.repairedCountText}
+                                            >
+                                                Produits réparés en attente de
+                                                restitution :{" "}
+                                                {repairedNotReturnedCount}
+                                            </Text>
+                                            <Text
+                                                style={styles.repairedCountText}
+                                            >
+                                                Produits non réparables :{" "}
+                                                {NotRepairedNotReturnedCount}
+                                            </Text>
+                                        </View>
                                     </TouchableOpacity>
                                 </View>
+                            )}
+                            {isLoading ? (
+                                <ActivityIndicator size="large" color="blue" />
+                            ) : hasImagesToDelete ? (
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        navigation.navigate("ImageCleanup")
+                                    }
+                                    style={{
+                                        marginRight: 110,
+                                        padding: 10,
+                                        backgroundColor: "blue",
+                                        borderRadius: 5,
+                                        borderWidth: 1,
+                                        borderColor: "#888787",
+                                    }}
+                                >
+                                    <Text style={{ color: "white" }}>
+                                        Nettoyer les images
+                                    </Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <Text
+                                    style={{
+                                        color: "white",
+                                        marginTop: 18,
+                                        marginRight: 5,
+                                        padding: 10,
+                                        backgroundColor: "green",
+                                        borderRadius: 5,
+                                        borderWidth: 1,
+                                        borderColor: "#888787",
+                                    }}
+                                >
+                                    Aucune image à supprimer.
+                                </Text>
                             )}
                             <Text style={styles.pageNumberText}>
                                 Page {currentPage} / {totalPages}
@@ -1437,6 +1281,8 @@ useEffect(() => {
                                     <FlatList
                                         initialNumToRender={10}
                                         maxToRenderPerBatch={5}
+										showsVerticalScrollIndicator={false}
+										scrollEnabled={true}
                                         windowSize={5}
                                         data={paginatedClients}
                                         keyExtractor={(item) =>
@@ -1867,7 +1713,6 @@ useEffect(() => {
                                                                         )}
                                                                     </TouchableOpacity>
 
-                                                                    
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
@@ -1907,7 +1752,6 @@ useEffect(() => {
                                                             </View>
                                                         </View>
 
-                                                        
                                                         {isExpanded && (
                                                             <View
                                                                 style={
@@ -1944,7 +1788,7 @@ useEffect(() => {
                                                                     )}{" "}
                                                                     €
                                                                 </Text>
-                                                                
+
                                                                 {latestIntervention?.solderestant !==
                                                                     undefined &&
                                                                     latestIntervention?.solderestant >
@@ -2049,115 +1893,12 @@ useEffect(() => {
                                                 </Animatable.View>
                                             );
                                         }}
-                                        showsVerticalScrollIndicator={false}
+                                        
                                         contentContainerStyle={{
-                                            paddingBottom: 40,
+                                            paddingBottom: 20,
                                         }} // Ajoute un espace en bas
                                     />
                                 )}
-                                {showLogs && (
-                                    <View
-                                        style={{
-                                            marginTop: 20,
-                                            padding: 10,
-                                            backgroundColor: "#f0f0f0",
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        <View
-                                            style={{
-                                                flexDirection: "row",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontWeight: "bold",
-                                                    fontSize: 16,
-                                                }}
-                                            >
-                                                Logs du processus :
-                                            </Text>
-
-                                            <TouchableOpacity
-                                                onPress={() =>
-                                                    setShowLogs(false)
-                                                }
-                                                style={{
-                                                    padding: 5,
-                                                    backgroundColor: "#d9534f",
-                                                    borderRadius: 5,
-                                                }}
-                                            >
-                                                <Text
-                                                    style={{
-                                                        color: "#fff",
-                                                        fontWeight: "bold",
-                                                    }}
-                                                >
-                                                    Fermer
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        {processLogs.length > 0 ? (
-                                            processLogs.map((log, index) => (
-                                                <Text
-                                                    key={index}
-                                                    style={{
-                                                        fontSize: 14,
-                                                        marginVertical: 2,
-                                                    }}
-                                                >
-                                                    {log}
-                                                </Text>
-                                            ))
-                                        ) : (
-                                            <Text>
-                                                Aucun processus exécuté pour le
-                                                moment.
-                                            </Text>
-                                        )}
-                                    </View>
-                                )}
-
-								<View style={styles.paginationContainer}>
-    {/* Flèche gauche - Précédent */}
-    <TouchableOpacity
-        onPress={goToPreviousPage}
-        disabled={currentPage === 1}
-    >
-        <Image
-            source={require("../assets/icons/chevrong.png")} // Chemin vers l'image personnalisée
-            style={{
-                width: 25, // Largeur de l'image
-                height: 25, // Hauteur de l'image
-                tintColor: currentPage === 1 ? "#202020" : "#ffffff", // Couleur grise si désactivée, blanche sinon
-            }}
-        />
-    </TouchableOpacity>
-
-    {/* Texte d'état de la pagination */}
-    <Text style={styles.paginationText}>
-        Page {currentPage} sur {totalPages}
-    </Text>
-
-    {/* Flèche droite - Suivant */}
-    <TouchableOpacity
-        onPress={goToNextPage}
-        disabled={currentPage === totalPages}
-    >
-        <Image
-            source={require("../assets/icons/chevrond.png")} // Chemin vers l'image personnalisée
-            style={{
-                width: 25, // Largeur de l'image
-                height: 25, // Hauteur de l'image
-                tintColor: currentPage === totalPages ? "#202020" : "#ffffff", // Couleur grise si désactivée, blanche sinon
-            }}
-        />
-    </TouchableOpacity>
-</View>
 
                             </>
                         )}
@@ -2420,43 +2161,40 @@ useEffect(() => {
                     ;
                 </View>
             </TouchableWithoutFeedback>
-			<View style={styles.paginationContainer}>
-    {/* Flèche gauche */}
-    <TouchableOpacity
-        onPress={goToPreviousPage}
-        disabled={currentPage === 1}
-    >
-        <Image
-            source={require("../assets/icons/chevrong.png")}
-            style={{
-                width: 25,
-                height: 25,
-                tintColor: currentPage === 1 ? "gray" : "white", // Grise si première page
-            }}
-        />
-    </TouchableOpacity>
+            <View style={styles.paginationContainer}>
+                <TouchableOpacity
+                    onPress={goToPreviousPage}
+                    disabled={currentPage === 1}
+                >
+                    <Image
+                        source={require("../assets/icons/chevrong.png")}
+                        style={{
+                            width: 25,
+                            height: 25,
+                            tintColor: currentPage === 1 ? "gray" : "white", // Grise si première page
+                        }}
+                    />
+                </TouchableOpacity>
 
-    {/* Texte de pagination */}
-    <Text style={styles.paginationText}>
-        Page {currentPage} sur {totalPages}
-    </Text>
+                <Text style={styles.paginationText}>
+                    Page {currentPage} sur {totalPages}
+                </Text>
 
-    {/* Flèche droite */}
-    <TouchableOpacity
-        onPress={goToNextPage}
-        disabled={currentPage === totalPages}
-    >
-        <Image
-            source={require("../assets/icons/chevrond.png")}
-            style={{
-                width: 25,
-                height: 25,
-                tintColor: currentPage === totalPages ? "gray" : "white", // Grise si dernière page
-            }}
-        />
-    </TouchableOpacity>
-</View>
-
+                <TouchableOpacity
+                    onPress={goToNextPage}
+                    disabled={currentPage === totalPages}
+                >
+                    <Image
+                        source={require("../assets/icons/chevrond.png")}
+                        style={{
+                            width: 25,
+                            height: 25,
+                            tintColor:
+                                currentPage === totalPages ? "gray" : "white", // Grise si dernière page
+                        }}
+                    />
+                </TouchableOpacity>
+            </View>
         </ImageBackground>
     );
 }
@@ -2466,14 +2204,14 @@ const styles = StyleSheet.create({
     },
     toggleButton: {
         flexDirection: "row",
-		flex: 1,
+        flex: 1,
         alignItems: "center",
         justifyContent: "center",
         padding: 10,
         backgroundColor: "#f0f0f0",
         borderRadius: 5,
         marginBottom: 10,
-		marginRight: 10,
+        marginRight: 10,
     },
     toggleText: {
         marginLeft: 10,
@@ -2491,8 +2229,8 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
-        top: 10, // Distance depuis le haut
-        right: 120, // Distance depuis la droite (remplacez `left`)
+        top: 25, // Distance depuis le haut
+        right: 100, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
         borderRadius: 5, // Bords arrondis pour un style plus moderne
     },
@@ -2570,7 +2308,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         borderWidth: 1,
         borderColor: "#888787",
-        marginRight: 55,
+        marginTop: 15,
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -2582,6 +2320,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: 16,
         marginLeft: 8,
+		marginVertical: 5,
     },
     searchInput: {
         paddingRight: 50, // Ajoute un espace à droite pour l'icône
@@ -2945,13 +2684,13 @@ const styles = StyleSheet.create({
     sortButtonContainer: {
         flexDirection: "row", // Aligne les boutons côte à côte
         justifyContent: "space-between", // Espace entre les boutons
-        paddingHorizontal: 10, // Espacement de chaque côté du conteneur                                                                            
+        paddingHorizontal: 10, // Espacement de chaque côté du conteneur
     },
     buttonWrapper: {
-		flex: 1,
+        flex: 1,
         width: "38%",
-		marginRight: 5,
-		marginLeft: 3,
+        marginRight: 5,
+        marginLeft: 3,
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement

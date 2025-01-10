@@ -50,11 +50,11 @@ export default function LoginPage({ navigation }) {
   return (
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
       <View style={styles.overlay}>
-        {/* Affichage du logo */}
+       
         <Image source={require('./assets/logo_phone.png')} style={styles.logo} />
         <Text style={styles.title}>Connexion</Text>
 
-        {/* Champ Email avec icône */}
+       
         <View style={styles.inputContainer}>
           <Icon name="mail-outline" size={20} color="#888" style={styles.icon} />
           <TextInput
@@ -68,7 +68,7 @@ export default function LoginPage({ navigation }) {
           />
         </View>
 
-        {/* Champ mot de passe avec icône */}
+       
         <View style={styles.inputContainer}>
           <Icon name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
           <TextInput
@@ -84,7 +84,7 @@ export default function LoginPage({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Container pour les deux boutons côte à côte */}
+        
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Icon name="log-in-outline" size={20} color="#202020" style={styles.icon} />
@@ -97,7 +97,7 @@ export default function LoginPage({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Alerte personnalisée */}
+       
         <CustomAlert visible={alertVisible} title={alertTitle} message={alertMessage} onClose={() => setAlertVisible(false)} />
 
 		<Text style={styles.copyright}>-- Alerte Client Copyright 2024 Avenir Informatique --</Text>

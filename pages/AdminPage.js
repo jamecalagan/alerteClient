@@ -68,25 +68,28 @@ export default function AdminPage() {
         loadClients();
     }, []);
 
-    const loadProductTypes = async () => {
-        const { data, error } = await supabase.from("article").select("*");
-        if (error) {
-            console.log("Erreur chargement produits:", error.message);
-            Alert.alert("Erreur", "Erreur lors du chargement des produits.");
-        } else {
-            setProductTypes(data);
-			setProducts(sortedProducts);  // Tri alphabétique des produits
-        }
-    };
+	const loadProductTypes = async () => {
+		const { data, error } = await supabase.from("article").select("*");
+		if (error) {
+			console.log("Erreur chargement produits:", error.message);
+			Alert.alert("Erreur", "Erreur lors du chargement des produits.");
+		} else {
+			// Trier les articles par ordre alphabétique sur la colonne "nom"
+			const sortedProducts = data.sort((a, b) => a.nom.localeCompare(b.nom));
+			setProductTypes(sortedProducts);  // Appliquer le tri alphabétique
+		}
+	};
+	
 
 	const loadBrands = async (productTypeId) => {
 		console.log("Chargement des marques pour le produit ID :", productTypeId);
 		if (!productTypeId) {
 			console.log("Aucun produit sélectionné.");
-			setSelectedBrand(null);  // Utilisation de `setSelectedBrand` pour réinitialiser le Picker des marques
+			setSelectedBrand(null);  // Réinitialisation du Picker des marques
 			return;
 		}
 		try {
+			// Requête pour les marques associées à l'article sélectionné
 			const { data: associatedBrands, error: brandError } = await supabase
 				.from("marque")
 				.select("*")
@@ -96,6 +99,7 @@ export default function AdminPage() {
 	
 			let brandsToDisplay = associatedBrands;
 	
+			// Si aucune marque associée, charger toutes les marques disponibles
 			if (associatedBrands.length === 0) {
 				console.log("Aucune marque associée au produit, chargement de toutes les marques disponibles.");
 				const { data: allBrands, error: allBrandError } = await supabase.from("marque").select("*");
@@ -103,12 +107,18 @@ export default function AdminPage() {
 				brandsToDisplay = allBrands;
 			}
 	
+			// Suppression des doublons par nom de marque
 			const uniqueBrands = Array.from(new Map(brandsToDisplay.map(brand => [brand.nom, brand])).values());
-			uniqueBrands.sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+	
+			// Tri alphabétique des marques
+			uniqueBrands.sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 	
 			console.log("Marques triées sans doublons :", uniqueBrands);
+	
+			// Mettre à jour l'état des marques dans le Picker
 			setBrands(uniqueBrands);
 			setSelectedBrand(null);  // Réinitialiser le Picker des marques après le chargement
+	
 		} catch (error) {
 			console.error("Erreur lors du chargement des marques :", error);
 			Alert.alert("Erreur", "Impossible de charger les marques.");
@@ -119,18 +129,44 @@ export default function AdminPage() {
 	
 	
 	
-    const loadModels = async (brandId) => {
-        const { data, error } = await supabase
-            .from("modele")
-            .select("*")
-            .eq("marque_id", brandId);
-        if (error) {
-            console.log("Erreur chargement modèles:", error.message);
-            Alert.alert("Erreur", "Erreur lors du chargement des modèles.");
-        } else {
-            setModels(data);
-        }
-    };
+	const loadModels = async (brandId) => {
+		console.log("Chargement des modèles pour la marque ID :", brandId);
+		if (!brandId) {
+			console.log("Aucune marque sélectionnée.");
+			setModels([]);  // Réinitialisation des modèles si aucune marque sélectionnée
+			return;
+		}
+		try {
+			// Requête pour récupérer les modèles associés à la marque sélectionnée
+			const { data: models, error } = await supabase
+				.from("modele")
+				.select("*")
+				.eq("marque_id", brandId);
+	
+			if (error) throw error;
+	
+			if (models.length === 0) {
+				console.log("Aucun modèle trouvé pour cette marque.");
+				setModels([]);
+				return;
+			}
+	
+			// Suppression des doublons (par nom)
+			const uniqueModels = Array.from(new Map(models.map(model => [model.nom, model])).values());
+	
+			// Tri alphabétique des modèles
+			uniqueModels.sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+	
+			console.log("Modèles triés sans doublons :", uniqueModels);
+	
+			setModels(uniqueModels);  // Mettre à jour l'état avec les modèles triés
+	
+		} catch (error) {
+			console.error("Erreur lors du chargement des modèles :", error.message);
+			Alert.alert("Erreur", "Impossible de charger les modèles.");
+		}
+	};
+	
 
     const loadClients = async () => {
         try {
@@ -314,7 +350,12 @@ export default function AdminPage() {
             Alert.alert("Erreur", "Erreur lors de l'ajout du modèle.");
         }
     };
-
+	useEffect(() => {
+		if (selectedProductType) {
+			setSelectedBrand(null);  // Réinitialiser la marque
+			setModels([]);  // Réinitialiser la liste des modèles
+		}
+	}, [selectedProductType]);
     const goToNextPage = () => {
         if (currentPage < totalPages) setCurrentPage(currentPage + 1);
     };
@@ -322,6 +363,16 @@ export default function AdminPage() {
     const goToPreviousPage = () => {
         if (currentPage > 1) setCurrentPage(currentPage - 1);
     };
+	const resetFields = () => {
+		setSelectedProductType(null); // Réinitialise le produit
+		setSelectedBrand(null); // Réinitialise la marque
+		setModel(""); // Réinitialise le champ modèle
+		setNewProductType(""); // Réinitialise le champ d'ajout de produit
+		setNewBrand(""); // Réinitialise le champ d'ajout de marque
+		console.log("Champs réinitialisés !");
+	};
+	
+	
     return (
         <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -354,128 +405,105 @@ export default function AdminPage() {
                         </Text>
                     </TouchableOpacity>
                     {/* Bouton pour afficher/masquer les champs d'ajout */}
-                    <TouchableOpacity
-                        style={styles.toggleButtonCreer}
-                        onPress={() => setShowAddFields(!showAddFields)}
-                    >
-                        <Text style={styles.buttonText}>
-                            {showAddFields
-                                ? "Fermer la création de produit"
-                                : "Créer un produit"}
-                        </Text>
-                        <MaterialIcons
-                            name={
-                                showAddFields
-                                    ? "keyboard-arrow-up"
-                                    : "keyboard-arrow-down"
-                            }
-                            size={24}
-                            color="#ebeaea"
-                        />
-                    </TouchableOpacity>
+					<TouchableOpacity
+    style={styles.toggleButtonCreer}
+    onPress={() => {
+        setShowAddFields(!showAddFields); // Ouvre ou ferme la section
+        resetFields(); // Réinitialise les champs lors de l'ouverture/fermeture
+    }}
+>
+    <Text style={styles.buttonText}>
+        {showAddFields ? "Fermer la création de produit" : "Créer un produit"}
+    </Text>
+    <MaterialIcons
+        name={showAddFields ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+        size={24}
+        color="#ebeaea"
+    />
+</TouchableOpacity>
 
-                    {/* Section d'ajout de produit, marque, modèle */}
-                    {showAddFields && (
-                        <>
-                            {/* Sélection ou ajout d'un produit */}
-                            <Text style={styles.sectionTitle}>
-                                Sélectionner ou ajouter un produit
-                            </Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedProductType}
-                                    onValueChange={(value) => {
-                                        setSelectedProductType(value);
-                                        loadBrands(value);
-                                    }}
-                                    style={styles.picker}
-                                >
-                                    <Picker.Item
-                                        label="Sélectionnez un produit"
-                                        value={null}
-                                    />
-                                    {productTypes.map((type) => (
-                                        <Picker.Item
-                                            key={type.id}
-                                            label={type.nom}
-                                            value={type.id}
-                                        />
-                                    ))}
-                                </Picker>
-                            </View>
-                            <TextInput
-                                value={newProductType}
-                                onChangeText={setNewProductType}
-                                placeholder="Ajouter un nouveau produit"
-                                style={styles.input}
-                            />
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={addProductType}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Ajouter Produit
-                                </Text>
-                            </TouchableOpacity>
 
-                            {/* Sélection ou ajout d'une marque */}
-                            <Text style={styles.sectionTitle}>
-                                Sélectionner ou ajouter une marque
-                            </Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedBrand}
-                                    onValueChange={setSelectedBrand}
-                                    style={styles.picker}
-                                >
-                                    <Picker.Item
-                                        label="Sélectionnez une marque"
-                                        value={null}
-                                    />
-                                    {brands.map((brand) => (
-                                        <Picker.Item
-                                            key={brand.id}
-                                            label={brand.nom}
-                                            value={brand.id}
-                                        />
-                                    ))}
-                                </Picker>
-                            </View>
-                            <TextInput
-                                value={newBrand}
-                                onChangeText={setNewBrand}
-                                placeholder="Ajouter une nouvelle marque"
-                                style={styles.input}
-                            />
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={addBrand}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Ajouter Marque
-                                </Text>
-                            </TouchableOpacity>
+					{showAddFields && (
+    <>
+        {/* Sélection ou ajout d'un produit */}
+        <Text style={styles.sectionTitle}>Sélectionner ou ajouter un produit</Text>
+        <View style={styles.pickerContainer}>
+            <Picker
+                selectedValue={selectedProductType}
+                onValueChange={(value) => {
+                    console.log("Produit sélectionné :", value);
+                    setSelectedProductType(value);
+                    setSelectedBrand(null); // Réinitialise la marque
+                    setModel(""); // Réinitialise le modèle
+                    if (value) {
+                        loadBrands(value); // Charger les marques associées
+                    } else {
+                        setBrands([]); // Vider la liste si aucun produit sélectionné
+                    }
+                }}
+                style={styles.picker}
+            >
+                <Picker.Item label="Sélectionnez un produit" value={null} />
+                {productTypes.map((type) => (
+                    <Picker.Item key={type.id} label={type.nom} value={type.id} />
+                ))}
+            </Picker>
+        </View>
 
-                            {/* Ajout d'un modèle */}
-                            <Text style={styles.sectionTitle}>
-                                Ajouter un modèle
-                            </Text>
-                            <TextInput
-                                value={model}
-                                onChangeText={setModel}
-                                placeholder="Nom du modèle"
-                                style={styles.input}
-                            />
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={addModel}
-                            >
-                                <Text style={styles.buttonText}>
-                                    Ajouter Modèle
-                                </Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
+        <TextInput
+            value={newProductType}
+            onChangeText={setNewProductType}
+            placeholder="Ajouter un nouveau produit"
+            style={styles.input}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addProductType}>
+            <Text style={styles.buttonText}>Ajouter Produit</Text>
+        </TouchableOpacity>
+
+        {/* Sélection ou ajout d'une marque */}
+        <Text style={styles.sectionTitle}>Sélectionner ou ajouter une marque</Text>
+        <View style={styles.pickerContainer}>
+            <Picker
+                selectedValue={selectedBrand}
+                onValueChange={(value) => {
+                    console.log("Marque sélectionnée :", value);
+                    setSelectedBrand(value);
+                    setModel(""); // Réinitialise le modèle
+                }}
+                style={styles.picker}
+                enabled={!!selectedProductType}
+            >
+                <Picker.Item label="Sélectionnez une marque" value={null} />
+                {brands.map((brand) => (
+                    <Picker.Item key={brand.id} label={brand.nom} value={brand.id} />
+                ))}
+            </Picker>
+        </View>
+
+        <TextInput
+            value={newBrand}
+            onChangeText={setNewBrand}
+            placeholder="Ajouter une nouvelle marque"
+            style={styles.input}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addBrand}>
+            <Text style={styles.buttonText}>Ajouter Marque</Text>
+        </TouchableOpacity>
+
+        {/* Ajout d'un modèle */}
+        <Text style={styles.sectionTitle}>Ajouter un modèle</Text>
+        <TextInput
+            value={model}
+            onChangeText={setModel}
+            placeholder="Nom du modèle"
+            style={styles.input}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addModel}>
+            <Text style={styles.buttonText}>Ajouter Modèle</Text>
+        </TouchableOpacity>
+    </>
+)}
+
 
 
                     <Text style={styles.sectionTitle}>

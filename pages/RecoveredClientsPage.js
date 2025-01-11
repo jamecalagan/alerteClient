@@ -167,10 +167,20 @@ export default function RecoveredClientsPage() {
                 return require("../assets/icons/cle-usb.png");
             case "Casque audio":
                 return require("../assets/icons/playaudio.png");
-            case "Retro-projecteur":
+            case "Video-projecteur":
                 return require("../assets/icons/Projector.png");
             case "Clavier":
                 return require("../assets/icons/keyboard.png");
+				case "Ecran":
+					return require("../assets/icons/screen.png");
+				case "iPAD":
+					return require("../assets/icons/iPad.png");
+				case "Imprimante":
+					return require("../assets/icons/printer.png");
+				case "Joystick":
+					return require("../assets/icons/joystick.png");
+				case "Processeur":
+					return require("../assets/icons/cpu.png");
             default:
                 return require("../assets/icons/point-dinterrogation.png");
         }

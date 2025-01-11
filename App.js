@@ -30,6 +30,7 @@ import BrandsPage from './pages/BrandsPage';
 import ModelsPage from './pages/ModelsPage';
 import ImageCleanupPage from "./pages/ImageCleanupPage";
 import SearchClientsPage from "./pages/SearchClientsPage";
+import OngoingAmountsPage from "./pages/OngoingAmountsPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -203,6 +204,7 @@ function MainStack() {
             <Stack.Screen name="ClientInterventionsPage" component={ClientInterventionsPage} />
 			<Stack.Screen name="ImageCleanup" component={ImageCleanupPage} />
 			<Stack.Screen name="SearchClientsPage" component={SearchClientsPage} options={{ title: "Recherche multi-critères" }}/>
+			<Stack.Screen name="OngoingAmountsPage" component={OngoingAmountsPage} />
 			<Stack.Screen 
         name="ListingProduits" 
          component={ListingProduits} 

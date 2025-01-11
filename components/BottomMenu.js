@@ -1,179 +1,151 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
 
 export default function BottomMenu({ navigation, filterByStatus, resetFilter }) {
-    const getIconColor = (status) => {
+    const getButtonColor = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return "#b396f8"; // Violet
+                return "#8a68d4"; // Violet plus sombre pour plus de contraste
             case "Devis accepté":
-                return "#FFD700"; // Doré
+                return "#ffc107"; // Doré plus lumineux
             case "Réparation en cours":
-                return "#528fe0"; // Bleu
+                return "#396ab1"; // Bleu plus foncé
             case "Réparé":
-                return "#037903"; // Vert
+                return "#037903"; // Vert plus sombre
             case "Devis en cours":
-                return "#f37209"; // Orange
-			case "Non réparable":
-				return "#ff0000"; // Orange
-				case "Réinitialiser":
-					return "#ff9100"; // Orange
-				case "Restitués":
-					return "#2eee37"; // Orange
-				case "Admin":
-					return "#a0a3a0"; // Orange
-					case "Ajouter":
-						return "#22a0f3"; // Orange	
+                return "#d35400"; // Orange foncé
+            case "Non réparable":
+                return "#b80000"; // Rouge plus foncé
+            case "Réinitialiser":
+                return "#ff8c00"; // Orange vif
+            case "Restitués":
+                return "#198754"; // Vert bouteille
+            case "Admin":
+                return "#6c757d"; // Gris sombre
+            case "Ajouter":
+                return "#0d6efd"; // Bleu bouton classique
             default:
-                return "#555"; // Gris par défaut
+                return "#6c757d"; // Gris sombre
         }
+    };
+
+    const getTextColor = (status) => {
+        return status === "Devis accepté" || status === "Réparé" ? "black" : "white"; // Texte noir pour les boutons clairs
     };
 
     return (
         <View style={styles.bottomMenuContainer}>
-                    
-					<View style={styles.filterRow}>
+            <View style={styles.filterRow}>
                 <TouchableOpacity
-                    style={styles.filterItem}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("En attente de pièces") }]}
                     onPress={() => filterByStatus("En attente de pièces")}
                 >
-                    <Image
-                        source={require("../assets/icons/shipping.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("En attente de pièces") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Commande</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
+                        <Text style={[styles.filterText, { color: getTextColor("En attente de pièces") }]}>
+                            Commande
+                        </Text>
+                    </View>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                    style={styles.filterItem}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Devis en cours") }]}
                     onPress={() => filterByStatus("Devis en cours")}
                 >
-                    <Image
-                        source={require("../assets/icons/devisEnCours.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Devis en cours") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Devis</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/devisEnCours.png")} style={styles.icon} />
+                        <Text style={[styles.filterText, { color: getTextColor("Devis en cours") }]}>Devis</Text>
+                    </View>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                    style={styles.filterItem}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Devis accepté") }]}
                     onPress={() => filterByStatus("Devis accepté")}
                 >
-                    <Image
-                        source={require("../assets/icons/devisAccepte.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Devis accepté") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Devis OK</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/devisAccepte.png")} style={styles.icon} />
+                        <Text style={[styles.filterText, { color: getTextColor("Devis accepté") }]}>Devis OK</Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.filterItem}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Réparation en cours") }]}
                     onPress={() => filterByStatus("Réparation en cours")}
                 >
-                    <Image
-                        source={require("../assets/icons/tools1.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Réparation en cours") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>En réparation</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/tools1.png")} style={styles.icon} />
+                        <Text style={[styles.filterText, { color: getTextColor("Réparation en cours") }]}>
+                            En Réparation
+                        </Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.filterItem}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Réinitialiser") }]}
                     onPress={resetFilter}
                 >
-                    <Image
-                        source={require("../assets/icons/reload.png")}
-                        style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Réinitialiser") },
-                        ]}
-                    />
-                    <Text style={styles.filterText}>Réinitialiser</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/reload.png")} style={styles.icon} />
+                        <Text style={[styles.filterText, { color: getTextColor("Réinitialiser") }]}>
+                            Réinitialiser
+                        </Text>
+                    </View>
                 </TouchableOpacity>
             </View>
-			<View style={styles.separator} />
-			
+
+            <View style={styles.separator} />
+
             <View style={styles.navigationRow}>
                 <TouchableOpacity
-                    style={styles.menuItem}
+                    style={[styles.menuButton, { backgroundColor: getButtonColor("Home") }]}
                     onPress={() => navigation.navigate("Home")}
                 >
-                    <Image
-                        source={require("../assets/icons/home.png")}
-                        style={styles.icon}
-                    />
-                    <Text style={styles.menuText}>Accueil</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/home.png")} style={styles.icon} />
+                        <Text style={[styles.menuText, { color: getTextColor("Home") }]}>Accueil</Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.menuItem}
+                    style={[styles.menuButton, { backgroundColor: getButtonColor("Ajouter") }]}
                     onPress={() => navigation.navigate("AddClient")}
                 >
-                    <Image
-                        source={require("../assets/icons/add.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Ajouter") },
-                        ]}
-                    />
-                    <Text style={styles.menuText}>Ajouter</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/add.png")} style={styles.icon} />
+                        <Text style={[styles.menuText, { color: getTextColor("Ajouter") }]}>Ajouter</Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.menuItem}
+                    style={[styles.menuButton, { backgroundColor: getButtonColor("Réparé") }]}
                     onPress={() => navigation.navigate("RepairedInterventions")}
                 >
-                    <Image
-                        source={require("../assets/icons/finished.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Réparé") },
-                        ]}
-                    />
-                    <Text style={styles.menuText}>Réparés</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/finished.png")} style={styles.icon} />
+                        <Text style={[styles.menuText, { color: getTextColor("Réparé") }]}>Réparés</Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.menuItem}
+                    style={[styles.menuButton, { backgroundColor: getButtonColor("Restitués") }]}
                     onPress={() => navigation.navigate("RecoveredClients")}
                 >
-                    <Image
-                        source={require("../assets/icons/restitue.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Restitués") },
-                        ]}
-                    />
-                    <Text style={styles.menuText}>Restitués</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/restitue.png")} style={styles.icon} />
+                        <Text style={[styles.menuText, { color: getTextColor("Restitués") }]}>Restitués</Text>
+                    </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.menuItem}
+                    style={[styles.menuButton, { backgroundColor: getButtonColor("Admin") }]}
                     onPress={() => navigation.navigate("Admin")}
                 >
-                    <Image
-                        source={require("../assets/icons/Config.png")}
-						style={[
-                            styles.icon,
-                            { tintColor: getIconColor("Admin") },
-                        ]}
-                    />
-                    <Text style={styles.menuText}>Administartion</Text>
+                    <View style={styles.buttonContent}>
+                        <Image source={require("../assets/icons/Config.png")} style={styles.icon} />
+                        <Text style={[styles.menuText, { color: getTextColor("Admin") }]}>Administration</Text>
+                    </View>
                 </TouchableOpacity>
-
             </View>
-			
-
         </View>
     );
 }
@@ -183,10 +155,10 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 0,
         width: "100%",
-        backgroundColor: "#1f3750",
+        backgroundColor: "#2e2e2e",
         paddingVertical: 10,
-		paddingBottom: 10,
-		borderRadius: 5,
+        paddingBottom: 10,
+        borderRadius: 5,
     },
     navigationRow: {
         flexDirection: "row",
@@ -198,30 +170,45 @@ const styles = StyleSheet.create({
         justifyContent: "space-around",
         marginTop: 10,
     },
-    menuItem: {
+    menuButton: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        flex: 1,
+        marginHorizontal: 5,
         alignItems: "center",
+		elevation: 2,
     },
-    filterItem: {
+    filterButton: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        flex: 1,
+        marginHorizontal: 5,
+		elevation: 2,
+    },
+    buttonContent: {
+        flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
     },
     icon: {
-        width: 30,
-        height: 30,
-        tintColor: "white", // Couleur par défaut
+        width: 20,
+        height: 20,
+        marginRight: 8,
+        tintColor: "white",
     },
     menuText: {
-        color: "white",
-        fontSize: 12,
-        marginTop: 5,
+        fontSize: 14,
+        fontWeight: "bold",
     },
     filterText: {
-        color: "white",
-        fontSize: 12,
-        marginTop: 5,
+        fontSize: 14,
+        fontWeight: "bold",
     },
-	separator: {
-    height: 1,
-    backgroundColor: '#ccc', // Couleur de la ligne
-    marginVertical: 10, // Espacement autour de la ligne
-},
+    separator: {
+        height: 1,
+        backgroundColor: "#ccc",
+        marginVertical: 10,
+    },
 });

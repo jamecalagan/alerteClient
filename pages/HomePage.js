@@ -51,6 +51,7 @@ export default function HomePage({ navigation, route }) {
     const slideAnim = useRef(new Animated.Value(-250)).current; // Position initiale hors écran
     const [menuVisible, setMenuVisible] = useState(false);
     const [showClients, setShowClients] = useState(false); // Par défaut, les fiches sont masquées
+	const [allInterventions, setAllInterventions] = useState([]);
     const [modalData, setModalData] = useState({
         title: "",
         message: "",
@@ -167,7 +168,34 @@ export default function HomePage({ navigation, route }) {
             return [];
         }
     };
-
+	const calculateTotalOngoingCost = (clients) => {
+		// Extraire toutes les interventions des clients
+		const allInterventions = clients.flatMap((client) =>
+			client.interventions.filter((intervention) =>
+				["Réparé", "Réparation en cours", "En attente de pièces"].includes(intervention.status)
+			)
+		);
+	
+		// Calculer la somme totale
+		const totalCost = allInterventions.reduce(
+			(sum, intervention) => sum + (intervention.solderestant || 0),
+			0
+		);
+	
+		return totalCost.toFixed(2); // Retourne un format en 2 décimales
+	};
+	
+	
+	
+	
+	const [totalCost, setTotalCost] = useState(0);
+	useEffect(() => {
+		if (clients.length > 0) {
+			const total = calculateTotalOngoingCost(clients);
+			setTotalCost(total); // Met à jour le montant total
+		}
+	}, [clients]);
+	
     const handleDeleteImages = async (imagesToDelete) => {
         Alert.alert(
             "Confirmation",
@@ -337,13 +365,13 @@ export default function HomePage({ navigation, route }) {
         navigation.navigate("ImageGallery", { clientId });
     };
 
-    const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from("clients")
-                .select(
-                    `
+	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+		setIsLoading(true);
+		try {
+			const { data, error } = await supabase
+				.from("clients")
+				.select(
+					`
 					*,
 					updatedAt,
 					interventions(
@@ -362,90 +390,118 @@ export default function HomePage({ navigation, route }) {
 						accept_screen_risk
 					)
 					`
-                )
-                .order(sortBy, { ascending: orderAsc });
-
-            if (error) throw error;
-
-            if (data) {
-                // Renommer les champs updatedAt pour les clients et les interventions
-                const updatedData = data.map((client) => {
-                    // Filtrer les interventions en cours (non "Réparé" ou "Récupéré")
-                    const ongoingInterventions =
-                        client.interventions?.filter(
-                            (intervention) =>
-                                intervention.status !== "Réparé" &&
-                                intervention.status !== "Récupéré" &&
-                                intervention.status !== "Non réparable"
-                        ) || [];
-
-                    // Calculer le montant total des interventions non soldées
-                    const totalAmountOngoing = ongoingInterventions.reduce(
-                        (total, intervention) =>
-                            total + (intervention.solderestant || 0),
-                        0
-                    );
-
-                    return {
-                        ...client,
-                        totalInterventions: client.interventions.length,
-                        clientUpdatedAt: client.updatedAt, // Renommage manuel pour le champ client
-                        interventions: client.interventions.map(
-                            (intervention) => ({
-                                ...intervention,
-                                interventionUpdatedAt: intervention.updatedAt, // Renommage manuel pour chaque intervention
-                            })
-                        ),
-                        totalAmountOngoing, // Montant total des interventions non soldées
-                    };
-                });
-
-                // Filtrer et trier les clients selon les interventions en cours
-                const clientsWithOngoingInterventions = updatedData
-                    .filter((client) =>
-                        client.interventions.some(
-                            (intervention) =>
-                                intervention.status !== "Réparé" &&
-                                intervention.status !== "Récupéré" &&
-                                intervention.status !== "Non réparable"
-                        )
-                    )
-                    .map((client) => {
-                        client.interventions = client.interventions
-                            .filter(
-                                (intervention) =>
-                                    intervention.status !== "Réparé" &&
-                                    intervention.status !== "Récupéré" &&
-                                    intervention.status !== "Non réparable"
-                            )
-                            .sort(
-                                (a, b) =>
-                                    new Date(b.createdAt) -
-                                    new Date(a.createdAt)
-                            );
-                        client.latestIntervention = client.interventions[0];
-                        return client;
-                    });
-
-                // Tri des clients en fonction de sortBy et de orderAsc
-                const sortedClients = clientsWithOngoingInterventions.sort(
-                    (a, b) => {
-                        const dateA = new Date(a[sortBy]);
-                        const dateB = new Date(b[sortBy]);
-                        return orderAsc ? dateA - dateB : dateB - dateA;
-                    }
-                );
-
-                setClients(sortedClients);
-                setFilteredClients(sortedClients);
-            }
-        } catch (error) {
-            console.error("Erreur lors du chargement des clients:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+				)
+				.order("createdAt", { ascending: false }); 
+	
+			if (error) throw error;
+	
+			if (data) {
+				const updatedData = data.map((client) => {
+					// Inclure les interventions "Réparé"
+					const ongoingInterventions =
+						client.interventions?.filter(
+							(intervention) =>
+								intervention.status !== "Réparé" && 
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
+						) || [];
+	
+					const totalAmountOngoing = ongoingInterventions.reduce(
+						(total, intervention) => total + (intervention.solderestant || 0),
+						0
+					);
+	
+					return {
+						...client,
+						totalInterventions: client.interventions.length,
+						clientUpdatedAt: client.updatedAt,
+						interventions: client.interventions.map((intervention) => ({
+							...intervention,
+							interventionUpdatedAt: intervention.updatedAt,
+						})),
+						totalAmountOngoing,
+					};
+				});
+	
+				const clientsWithOngoingInterventions = updatedData
+					.filter((client) =>
+						client.interventions.some(
+							(intervention) =>
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
+						)
+					)
+					.map((client) => {
+						client.interventions = client.interventions
+							.filter(
+								(intervention) =>
+									intervention.status !== "Récupéré" &&
+									intervention.status !== "Non réparable"
+							)
+							.sort(
+								(a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+							);
+						client.latestIntervention = client.interventions[0];
+						return client;
+					});
+	
+				const sortedClients = clientsWithOngoingInterventions.sort((a, b) => {
+					const dateA = new Date(a[sortBy]);
+					const dateB = new Date(b[sortBy]);
+					return orderAsc ? dateA - dateB : dateB - dateA;
+				});
+	
+				setClients(sortedClients);
+				setFilteredClients(sortedClients);
+			}
+		} catch (error) {
+			console.error("Erreur lors du chargement des clients:", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+	
+	const loadOngoingInterventions = async () => {
+		try {
+			const { data, error } = await supabase
+				.from("interventions")
+				.select("*")
+				.in("status", ["Réparé", "En attente de pièces", "Réparation en cours", "Devis en cours"]);
+	
+			if (error) throw error;
+	
+			return data || [];
+		} catch (error) {
+			console.error("Erreur lors de la récupération des interventions :", error);
+			return [];
+		}
+	};
+	useEffect(() => {
+		const fetchAllInterventions = async () => {
+			console.log("Démarrage du chargement des interventions...");
+			try {
+				const { data, error } = await supabase
+					.from("interventions")
+					.select("*")
+					.in("status", ["Réparé", "En attente de pièces", "Réparation en cours", "Devis en cours"]);
+	
+				if (error) throw error;
+	
+				console.log("Interventions récupérées :", data);
+				setAllInterventions(data); // Stocker toutes les interventions
+				const total = data.reduce((sum, intervention) => sum + (intervention.solderestant || 0), 0);
+				console.log("Montant total calculé :", total.toFixed(2));
+				setTotalCost(total.toFixed(2)); // Mettre à jour le montant total affiché
+			} catch (error) {
+				console.error("Erreur lors de la récupération des interventions :", error);
+			}
+		};
+	
+		fetchAllInterventions(); // Appeler la fonction au chargement de la page
+	}, []); // Ne dépend que du chargement initial
+	
+	
+	
     const fetchDetails = (deviceType, marque, model) => {
         setSelectedDevice({
             deviceType,
@@ -702,11 +758,26 @@ export default function HomePage({ navigation, route }) {
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
-    // Fonction pour récupérer l'icône
-    const getDeviceIcon = (deviceType) => {
-        const iconSource = deviceIcons[deviceType] || deviceIcons.default; // Utilise l'icône par défaut si le type n'existe pas
-        return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
-    };
+// Fonction pour récupérer l'icône en fonction du type d'appareil
+const getDeviceIcon = (deviceType) => {
+    if (!deviceType) return <Image source={deviceIcons.default} style={{ width: 40, height: 40 }} />;
+
+    const lowerCaseName = deviceType.toLowerCase(); // Convertir en minuscule pour éviter les problèmes de casse
+
+    // Vérification pour MacBook
+    if (lowerCaseName.includes("macbook")) {
+        return <Image source={deviceIcons.MacBook} style={{ width: 40, height: 40 }} />;
+    }
+
+    // Vérification pour iMac
+    if (lowerCaseName.includes("imac")) {
+        return <Image source={deviceIcons.iMac} style={{ width: 40, height: 40 }} />;
+    }
+
+    // Retourner l'icône correspondante ou l'icône par défaut
+    const iconSource = deviceIcons[deviceType] || deviceIcons.default;
+    return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
+};
 
     const filterByStatus = (status) => {
         if (!showClients) {
@@ -1129,42 +1200,53 @@ export default function HomePage({ navigation, route }) {
                                     </TouchableOpacity>
                                 </View>
                             )}
-                            {isLoading ? (
-                                <ActivityIndicator size="large" color="blue" />
-                            ) : hasImagesToDelete ? (
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        navigation.navigate("ImageCleanup")
-                                    }
-                                    style={{
-                                        marginRight: 110,
-                                        padding: 10,
-                                        backgroundColor: "blue",
-                                        borderRadius: 5,
-                                        borderWidth: 1,
-                                        borderColor: "#888787",
-                                    }}
-                                >
-                                    <Text style={{ color: "white" }}>
-                                        Nettoyer les images
-                                    </Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <Text
-                                    style={{
-                                        color: "white",
-                                        marginTop: 18,
-                                        marginRight: 5,
-                                        padding: 10,
-                                        backgroundColor: "green",
-                                        borderRadius: 5,
-                                        borderWidth: 1,
-                                        borderColor: "#888787",
-                                    }}
-                                >
-                                    Aucune image à supprimer.
-                                </Text>
-                            )}
+							{isLoading ? (
+    <ActivityIndicator size="large" color="blue" />
+) : hasImagesToDelete ? (
+    <TouchableOpacity
+        onPress={() => navigation.navigate("ImageCleanup")}
+        style={{
+            marginRight: 110,
+            marginTop: 15,
+            padding: 10,
+            backgroundColor: "blue",
+            borderRadius: 2,
+            borderWidth: 1,
+            borderColor: "#888787",
+        }}
+    >
+        <Text style={{ color: "white" }}>Nettoyer les images</Text>
+    </TouchableOpacity>
+) : (
+    <View>
+        <Text
+            style={{
+                color: "white",
+                marginTop: 18,
+                marginRight: 40,
+                padding: 10,
+                backgroundColor: "green",
+                borderRadius: 5,
+                borderWidth: 1,
+                borderColor: "#888787",
+            }}
+        >
+            Aucune image à supprimer.
+        </Text>
+
+        {/* Bouton pour naviguer vers la page des détails */}
+		<TouchableOpacity
+    onPress={() =>
+        navigation.navigate("OngoingAmountsPage", { interventions: allInterventions })
+    }
+>
+    <Text style={styles.totalText}>En cours : {totalCost} €</Text>
+</TouchableOpacity>
+
+
+    </View>
+)}
+
                             <Text style={styles.pageNumberText}>
                                 Page {currentPage} / {totalPages}
                             </Text>
@@ -2229,8 +2311,8 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
-        top: 25, // Distance depuis le haut
-        right: 100, // Distance depuis la droite (remplacez `left`)
+        top: 43, // Distance depuis le haut
+        right: 115, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
         borderRadius: 5, // Bords arrondis pour un style plus moderne
     },
@@ -2370,9 +2452,7 @@ const styles = StyleSheet.create({
         padding: 10,
         marginVertical: 5,
         backgroundColor: "#ffffff",
-        borderBottomLeftRadius: 20,
-        borderTopRightRadius: 20,
-        borderBottomRightRadius: 8,
+		borderRadius: 2,
     },
     clientInfo: {
         flex: 1,
@@ -2453,7 +2533,7 @@ const styles = StyleSheet.create({
     },
     photoButton: {
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         borderColor: "#000",
         borderWidth: 2,
         marginRight: 10,
@@ -2461,7 +2541,7 @@ const styles = StyleSheet.create({
     editButton: {
         //backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2469,7 +2549,7 @@ const styles = StyleSheet.create({
     printButton: {
         //backgroundColor: '#28a745',  // Vert pour l'icône d'impression
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2477,13 +2557,13 @@ const styles = StyleSheet.create({
     trashButton: {
         //backgroundColor: '#dc3545',  // Rouge pour l'icône de poubelle
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
     },
     transportButton: {
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2542,7 +2622,7 @@ const styles = StyleSheet.create({
         width: 300,
         padding: 20,
         backgroundColor: "rgba(255, 255, 255, 0.9)",
-        borderRadius: 5,
+        borderRadius: 2,
         alignItems: "center",
     },
     alertTitle: {
@@ -2569,7 +2649,7 @@ const styles = StyleSheet.create({
     button: {
         backgroundColor: "#007BFF",
         padding: 10,
-        borderRadius: 10,
+        borderRadius: 2,
         marginHorizontal: 5, // Espace entre les boutons
         minWidth: 80, // Largeur minimale pour chaque bouton
         alignItems: "center", // Centre le texte à l'intérieur du bouton
@@ -2599,7 +2679,7 @@ const styles = StyleSheet.create({
     legendColor: {
         width: 15,
         height: 15,
-        borderRadius: 7.5,
+        borderRadius: 2,
         marginRight: 10,
     },
     legendText: {
@@ -2612,7 +2692,7 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centre verticalement
         padding: 10, // Padding pour l'icône
         borderWidth: 2, // Bordure de 2px
-        borderRadius: 5, // Bords arrondis
+        borderRadius: 2, // Bords arrondis
         borderColor: "#000", // Couleur de la bordure en noir
         /* backgroundColor: "#fff", // Fond blanc */
     },
@@ -2624,7 +2704,7 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centrer verticalement
         padding: 10, // Ajouter du padding à l'intérieur du rectangle
         borderWidth: 2, // Épaisseur de la bordure
-        borderRadius: 10, // Bordures arrondies pour correspondre au style des autres icônes
+        borderRadius: 2, // Bordures arrondies pour correspondre au style des autres icônes
         borderColor: "#000", // Couleur de la bordure (vous pouvez l'adapter à vos besoins)
         backgroundColor: "#fff", // Couleur de fond (adaptez-la si nécessaire)
         shadowColor: "#000", // Ombre (si cela correspond au style des autres icônes)
@@ -2645,7 +2725,7 @@ const styles = StyleSheet.create({
     interventionCountCircle: {
         width: 30, // Taille du cercle
         height: 30, // Taille du cercle
-        borderRadius: 15, // Forme circulaire
+        borderRadius: 2, // Forme circulaire
         backgroundColor: "#32CD32", // Vert
         justifyContent: "center", // Centre verticalement
         alignItems: "center", // Centre horizontalement
@@ -2672,7 +2752,7 @@ const styles = StyleSheet.create({
     },
     notificationIconContainer: {
         padding: 10, // Padding pour l'icône
-        borderRadius: 5, // Bords arrondis
+        borderRadius: 2, // Bords arrondis
         borderWidth: 2, // Bordure de 2px
         borderColor: "#000", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
@@ -2735,7 +2815,7 @@ const styles = StyleSheet.create({
         width: "50%",
         backgroundColor: "#fff",
         padding: 20,
-        borderRadius: 10,
+        borderRadius: 5,
         alignItems: "center",
     },
     modalTitle: {
@@ -2762,7 +2842,7 @@ const styles = StyleSheet.create({
     iconCircle: {
         width: 32, // Diamètre du cercle
         height: 32, // Diamètre du cercle
-        borderRadius: 5, // Moitié de la largeur/hauteur pour faire un cercle
+        borderRadius: 2, // Moitié de la largeur/hauteur pour faire un cercle
         backgroundColor: "#2e2d2d", // Couleur de fond gris
         justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
         alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
@@ -2773,4 +2853,14 @@ const styles = StyleSheet.create({
         backgroundColor: "#e0e0e0", // Couleur de la barre
         marginVertical: 8, // Espacement vertical optionnel
     },
+	totalText: {
+		color: "white",
+		marginTop: 11,
+		marginRight: 40,
+		padding: 6,
+		backgroundColor: "#1d1d1d",
+		borderRadius: 5,
+		borderWidth: 1,
+		borderColor: "#888787",
+},
 });

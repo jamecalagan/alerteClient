@@ -326,12 +326,17 @@ export default function RepairedInterventionsPage({ navigation }) {
                                 onPress={() => toggleDetails(item.id)} // Action au clic sur la fiche
                             >
                                 <View
-                                    style={[
-                                        styles.interventionCard,
-                                        item.status === "Non réparable"
-                                            ? { backgroundColor: "#f8d7da" }
-                                            : {},
-                                    ]}
+style={[
+    styles.interventionCard,
+    item.status === "Non réparable"
+        ? {
+              backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
+              borderWidth: 2, // Épaisseur de la bordure
+              borderColor: "red", // Couleur rouge pour la bordure
+          }
+        : {},
+]}
+
                                 >
 
                                     <TouchableOpacity
@@ -957,8 +962,8 @@ const styles = StyleSheet.create({
     interventionCard: {
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "#ffffff",
-        borderRadius: 10,
+        backgroundColor: "#ececec",
+        borderRadius: 2,
     },
     notificationAndToolsContainer: {
 		zIndex: 1,

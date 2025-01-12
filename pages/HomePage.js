@@ -65,7 +65,7 @@ export default function HomePage({ navigation, route }) {
             const dateLimite = new Date(
                 Date.now() - 10 * 24 * 60 * 60 * 1000
             ).toISOString();
-            console.log("Date limite pour filtrer :", dateLimite);
+           
 
             // Récupération des interventions
             const { data: interventions, error: interventionError } =
@@ -81,7 +81,7 @@ export default function HomePage({ navigation, route }) {
             const interventionIds = interventions.map(
                 (intervention) => intervention.id
             );
-            console.log("Interventions récupérées :", interventionIds);
+           
 
             // Compter les images dans intervention_images
             const { count: countImages, error: imagesError } = await supabase
@@ -90,7 +90,7 @@ export default function HomePage({ navigation, route }) {
                 .in("intervention_id", interventionIds);
 
             if (imagesError) throw imagesError;
-            console.log("Nombre d'images à supprimer :", countImages || 0);
+           
 
             // Compter les photos valides dans interventions
             let countPhotos = 0;
@@ -118,7 +118,7 @@ export default function HomePage({ navigation, route }) {
                 }
             });
 
-            console.log("Nombre de photos à supprimer :", countPhotos || 0);
+            
 
             setHasImagesToDelete(
                 (countImages || 0) > 0 || (countPhotos || 0) > 0
@@ -288,7 +288,7 @@ export default function HomePage({ navigation, route }) {
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
-            console.log("Toutes les interventions ont été traitées.");
+           
             return; // Aucune intervention restante
         }
 
@@ -478,7 +478,7 @@ export default function HomePage({ navigation, route }) {
 	};
 	useEffect(() => {
 		const fetchAllInterventions = async () => {
-			console.log("Démarrage du chargement des interventions...");
+			
 			try {
 				const { data, error } = await supabase
 					.from("interventions")
@@ -487,10 +487,10 @@ export default function HomePage({ navigation, route }) {
 	
 				if (error) throw error;
 	
-				console.log("Interventions récupérées :", data);
+				
 				setAllInterventions(data); // Stocker toutes les interventions
 				const total = data.reduce((sum, intervention) => sum + (intervention.solderestant || 0), 0);
-				console.log("Montant total calculé :", total.toFixed(2));
+				
 				setTotalCost(total.toFixed(2)); // Mettre à jour le montant total affiché
 			} catch (error) {
 				console.error("Erreur lors de la récupération des interventions :", error);
@@ -688,7 +688,7 @@ export default function HomePage({ navigation, route }) {
             case "Devis en cours":
                 return require("../assets/icons/devisEnCours.png"); // Image pour "Devis en cours"
             case "Non réparable":
-                return require("../assets/icons/no.png"); // Image pour "Devis en cours"
+                return require("../assets/icons/no.png"); // Image pour "Non réparable"
             default:
                 return require("../assets/icons/point-dinterrogation.png"); // Image par défaut
         }
@@ -1371,8 +1371,8 @@ const getDeviceIcon = (deviceType) => {
                                             item.id.toString()
                                         }
                                         getItemLayout={(data, index) => ({
-                                            length: 130, // Hauteur de chaque fiche
-                                            offset: 130 * index,
+                                            length: 180, // Hauteur de chaque fiche
+                                            offset: 180 * index,
                                             index,
                                         })}
                                         renderItem={({ item, index }) => {

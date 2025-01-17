@@ -15,10 +15,10 @@ import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
+import BottomNavigation  from "../components/BottomNavigation";
 
 
-
-export default function RecoveredClientsPage() {
+export default function RecoveredClientsPage({ navigation, route }) {
 	const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null); // Référence pour la FlatList
     const [recoveredClients, setRecoveredClients] = useState([]);
@@ -417,7 +417,9 @@ export default function RecoveredClientsPage() {
 						</Animatable.View>
                     )}
                 />
-
+<View>
+<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+</View>
                 <View style={styles.paginationContainer}>
                     <TouchableOpacity
                         style={[
@@ -445,8 +447,9 @@ export default function RecoveredClientsPage() {
                         <Text style={styles.paginationButtonText}>Suivant</Text>
                     </TouchableOpacity>
                 </View>
+				
             </View>
-			
+
             <Modal
                 visible={selectedImage !== null}
                 transparent={true}

@@ -81,7 +81,7 @@ export default function ClientPreviewPage() {
 	  }
   
     // URL du QR code avec le nom et le numéro de fiche encodés
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Nom:${clientInfo.name} - Fiche:${clientInfo.ficheNumber}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${clientInfo.name} ${clientInfo.ficheNumber}`;
 
     // URL du code-barres avec le nom et le numéro de fiche encodés (sous forme simple)
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(clientInfo.name)}%20`;
@@ -183,16 +183,18 @@ export default function ClientPreviewPage() {
   
           <div class="section-title">Signature du Client</div>
           ${clientInfo.latestIntervention.signatureIntervention ? `<img src="${clientInfo.latestIntervention.signatureIntervention}" class="signature" alt="Signature du client"/>` : '<p>Aucune signature fournie</p>'}
-      <!-- QR Code et Code-barres côte à côte -->
-          <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 20px;">
-            <div>
-              <h3 style="text-align: center;">QR Code</h3>
-              <img src="${qrCodeUrl}" alt="QR Code" style="width: 100px; height: 100px;" />
-            </div>
-            <div>
-              <h3 style="text-align: center;">Code-barres</h3>
-              <img src="${barcodeUrl}" alt="Code-barres" style="width: 150px; height: 60px;" />
-            </div>
+<div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+  <div style="margin-right: 80px;">
+    <h3 style="text-align: center;">QR Infos</h3>
+    <img src="${qrCodeUrl}" alt="QR Code" style="width: 100px; height: 100px;" />
+  </div>
+  <div>
+    
+    <img src="${barcodeUrl}" alt="Code-barres" style="width: 150px; height: 60px;" />
+  </div>
+</div>
+
+
           </div>
         </body>
       </html>
@@ -297,16 +299,16 @@ export default function ClientPreviewPage() {
       {/* QR Code et Code-barres côte à côte */}
       <View style={styles.codeContainer}>
         <View style={styles.codeItem}>
-          <Text style={styles.qrTitle}>QR Code :</Text>
+          
           <Image
             source={{
-              uri: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Nom:${clientInfo.name} - Fiche:${clientInfo.ficheNumber}`,
+              uri: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${clientInfo.name} ${clientInfo.ficheNumber}`,
             }}
             style={{ width: 100, height: 100 }}
           />
         </View>
         <View style={styles.codeItem}>
-          <Text style={styles.barcodeTitle}>Code-barres :</Text>
+          
           <Image
             source={{
               uri: `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(clientInfo.name)}%20`,
@@ -466,12 +468,15 @@ const styles = StyleSheet.create({
 },
 codeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 20,
   },
   codeItem: {
     alignItems: 'center',
+  },
+  spacer: {
+    width: 20,  // Ajoute 20px d'espace entre les deux
   },
   qrTitle: {
     fontSize: 16,

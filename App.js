@@ -127,7 +127,7 @@ function MainTabs({ navigation }) {
     component={AddClientPage}
     options={{
       title: "Ajouter Client",
-
+      tabBarStyle: { display: "none" }, // Cache la barre pour cet écran
     }}
   />
   <Tab.Screen
@@ -135,6 +135,7 @@ function MainTabs({ navigation }) {
     component={RepairedInterventionsPage}
     options={{
       title: "Réparé",
+	  tabBarStyle: { display: "none" }, // Cache la barre pour cet écran
     }}
   />
   <Tab.Screen
@@ -142,7 +143,7 @@ function MainTabs({ navigation }) {
     component={RecoveredClientsPage}
     options={{
       tabBarLabel: "Récupéré",
-
+      tabBarStyle: { display: "none" }, // Cache la barre pour cet écran
     }}
   />
   <Tab.Screen
@@ -150,6 +151,7 @@ function MainTabs({ navigation }) {
   component={AdminPage}
   options={{
     title: "Administration",
+	tabBarStyle: { display: "none" }, // Cache la barre pour cet écran
     tabBarIcon: ({ color, size }) => (
       <Image
         source={require("./assets/icons/Config.png")} // Icône pour l'administration

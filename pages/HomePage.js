@@ -50,7 +50,7 @@ export default function HomePage({ navigation, route }) {
     const [processLogs, setProcessLogs] = useState([]); // État pour stocker les messages de log
     const slideAnim = useRef(new Animated.Value(-250)).current; // Position initiale hors écran
     const [menuVisible, setMenuVisible] = useState(false);
-    const [showClients, setShowClients] = useState(false); // Par défaut, les fiches sont masquées
+    const [showClients, setShowClients] = useState(true); // Par défaut, les fiches sont masquées
 	const [allInterventions, setAllInterventions] = useState([]);
     const [modalData, setModalData] = useState({
         title: "",
@@ -427,6 +427,7 @@ export default function HomePage({ navigation, route }) {
 					.filter((client) =>
 						client.interventions.some(
 							(intervention) =>
+								intervention.status !== "Réparé" && 
 								intervention.status !== "Récupéré" &&
 								intervention.status !== "Non réparable"
 						)
@@ -435,6 +436,7 @@ export default function HomePage({ navigation, route }) {
 						client.interventions = client.interventions
 							.filter(
 								(intervention) =>
+									intervention.status !== "Réparé" && 
 									intervention.status !== "Récupéré" &&
 									intervention.status !== "Non réparable"
 							)
@@ -540,23 +542,19 @@ export default function HomePage({ navigation, route }) {
             setCurrentPage((prevPage) => prevPage + 1);
         }
     };
-    useFocusEffect(
-        React.useCallback(() => {
-            // Si un rechargement est demandé depuis une autre page
-            if (route.params?.reloadClients) {
-                setSortBy("createdAt"); // Tri par date
-                setOrderAsc(false); // Tri décroissant
-                loadClients(); // Charger les clients triés
-            } else {
-                // Charger les clients selon les critères actuels
-                loadClients(sortBy, orderAsc);
-            }
-
-            // Charger le compte des réparés non restitués
-            loadRepairedNotReturnedCount();
-            loadNotRepairedNotReturnedCount();
-        }, [route.params?.reloadClients, sortBy, orderAsc])
-    );
+	useFocusEffect(
+		React.useCallback(() => {
+			// Toujours charger les clients triés par date décroissante
+			setSortBy("createdAt");
+			setOrderAsc(false);
+			loadClients(); // Charge la liste des clients triée
+	
+			// Charger les statistiques des réparés non restitués
+			loadRepairedNotReturnedCount();
+			loadNotRepairedNotReturnedCount();
+		}, [])
+	);
+	
 
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);

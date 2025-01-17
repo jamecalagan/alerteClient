@@ -22,13 +22,13 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-
+import BottomNavigation  from "../components/BottomNavigation";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
 ScrollView.defaultProps = { showsVerticalScrollIndicator: false };
 FlatList.defaultProps = { showsVerticalScrollIndicator: false };
-export default function RepairedInterventionsPage({ navigation }) {
+export default function RepairedInterventionsPage({ navigation, route }) {
     const repairedInterventionsRef = useRef(null); // Créez une référence
     const [repairedInterventions, setRepairedInterventions] = useState([]);
     const [editingDetail, setEditingDetail] = useState({});
@@ -42,56 +42,79 @@ export default function RepairedInterventionsPage({ navigation }) {
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [expandedCards, setExpandedCards] = useState({});
+	const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
+    const [currentPage, setCurrentPage] = useState(1); // Page actuelle
+    const itemsPerPage = 4; // Nombre d'éléments par page
     const sortedInterventions = repairedInterventions.sort((a, b) => {
         if (a.id === pinnedInterventionId) return -1; // La fiche épinglée est toujours en haut
         if (b.id === pinnedInterventionId) return 1;
         return 0; // Conserve l'ordre des autres fiches
     });
-
-    const loadRepairedInterventions = async () => {
-        try {
-            // Charger les interventions avec le statut "Réparé" ou "Non réparable"
-            const { data, error } = await supabase
-                .from("interventions")
-                .select(
-                    `
-			  *,
-			  clients (phone, name, ficheNumber)
-			`
-                )
-                .in("status", ["Réparé", "Non réparable"]); // Inclure les deux statuts
-
-            if (error) throw error;
-
-            const { data: imagesData, error: imagesError } = await supabase
-                .from("intervention_images")
-                .select("*");
-
-            if (imagesError) throw imagesError;
-
-            const interventionsWithImages = data.map((intervention) => {
-                const images = imagesData.filter(
-                    (image) => image.intervention_id === intervention.id
-                );
-                return { ...intervention, intervention_images: images };
-            });
-
-            setRepairedInterventions(interventionsWithImages);
-
-            const savedStatus = {};
-            interventionsWithImages.forEach((intervention) => {
-                savedStatus[intervention.id] =
-                    intervention.detailIntervention &&
-                    intervention.detailIntervention.trim() !== "";
-            });
-            setIsSaved(savedStatus);
-        } catch (error) {
-            console.error(
-                "Erreur lors du chargement des interventions réparées :",
-                error
-            );
-        }
+    // Fonction pour calculer les interventions paginées
+    const getPaginatedData = () => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return repairedInterventions.slice(startIndex, endIndex);
     };
+
+    // Fonction pour changer de page
+    const handlePageChange = (pageNumber) => {
+        setCurrentPage(pageNumber);
+    };
+
+    // Calculer le nombre total de pages
+    const totalPages = Math.ceil(repairedInterventions.length / itemsPerPage);
+	const loadRepairedInterventions = async () => {
+		try {
+			const { data, error } = await supabase
+				.from("interventions")
+				.select(
+					`
+					*,
+					clients (phone, name, ficheNumber)
+					`
+				)
+				.in("status", ["Réparé", "Non réparable"]); // Inclure les deux statuts
+	
+			if (error) throw error;
+	
+			const { data: imagesData, error: imagesError } = await supabase
+				.from("intervention_images")
+				.select("*");
+	
+			if (imagesError) throw imagesError;
+	
+			const interventionsWithImages = data.map((intervention) => {
+				const images = imagesData.filter(
+					(image) => image.intervention_id === intervention.id
+				);
+				return { ...intervention, intervention_images: images };
+			});
+	
+			// Calcul du montant total des interventions "Réparé"
+			const total = interventionsWithImages.reduce(
+				(sum, intervention) => sum + (intervention.cost || 0),
+				0
+			);
+			setRepairedTotal(total); // Met à jour le montant total
+	
+			setRepairedInterventions(interventionsWithImages);
+	
+			const savedStatus = {};
+			interventionsWithImages.forEach((intervention) => {
+				savedStatus[intervention.id] =
+					intervention.detailIntervention &&
+					intervention.detailIntervention.trim() !== "";
+			});
+			setIsSaved(savedStatus);
+		} catch (error) {
+			console.error(
+				"Erreur lors du chargement des interventions réparées :",
+				error
+			);
+		}
+	};
+	
 
     const deleteImage = async (imageId, interventionId) => {
         try {
@@ -313,9 +336,12 @@ export default function RepairedInterventionsPage({ navigation }) {
             >
                 <View style={styles.overlay}>
                     <Text style={styles.title}>Interventions terminées</Text>
+					<View style={styles.totalContainer}>
+            <Text style={styles.totalText}>Montant total des interventions Réparées : {repairedTotal.toFixed(2)} €</Text>
+        </View>
                     <FlatList
                         ref={flatListRef}
-                        data={repairedInterventions}
+                        data={getPaginatedData()} // Interventions paginées
                         keyExtractor={(item) => item.id.toString()}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
@@ -326,16 +352,16 @@ export default function RepairedInterventionsPage({ navigation }) {
                                 onPress={() => toggleDetails(item.id)} // Action au clic sur la fiche
                             >
                                 <View
-style={[
-    styles.interventionCard,
-    item.status === "Non réparable"
-        ? {
-              backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
-              borderWidth: 2, // Épaisseur de la bordure
-              borderColor: "red", // Couleur rouge pour la bordure
-          }
-        : {},
-]}
+							style={[
+								styles.interventionCard,
+								item.status === "Non réparable"
+									? {
+										backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
+										borderWidth: 2, // Épaisseur de la bordure
+										borderColor: "red", // Couleur rouge pour la bordure
+									}
+									: {},
+							]}
 
                                 >
 
@@ -801,13 +827,40 @@ style={[
                                             </Animatable.View>
                                         )}
                                     </View>
+									
                                 </View>
                             </TouchableOpacity>
                         )}
-                        ListFooterComponent={<View style={{ height: 100 }} />}
+						ListFooterComponent={
+                            <View style={styles.paginationContainer}>
+                                {Array.from({ length: totalPages }, (_, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.pageButton,
+                                            currentPage === index + 1
+                                                ? styles.activePageButton
+                                                : null,
+                                        ]}
+                                        onPress={() => handlePageChange(index + 1)}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.pageButtonText,
+                                                currentPage === index + 1
+                                                    ? styles.activePageButtonText
+                                                    : null,
+                                            ]}
+                                        >
+                                            {index + 1}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        }
                     />
                 </View>
-
+				<BottomNavigation  navigation={navigation} currentRoute={route.name} />
                 <Modal
                     visible={isModalVisible}
                     transparent={true}
@@ -1203,4 +1256,38 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#555",
     },
+	totalContainer: {
+    backgroundColor: "#78f89e",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+},
+totalText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#333",
+},
+paginationContainer: {
+	flexDirection: "row",
+	justifyContent: "center",
+	marginTop: 10,
+},
+pageButton: {
+	padding: 10,
+	margin: 5,
+	borderRadius: 5,
+	backgroundColor: "#ddd",
+},
+activePageButton: {
+	backgroundColor: "#007BFF",
+},
+pageButtonText: {
+	fontWeight: "bold",
+	color: "#333",
+},
+activePageButtonText: {
+	color: "#fff",
+},
+
 });

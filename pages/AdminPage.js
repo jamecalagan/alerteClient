@@ -18,9 +18,9 @@ import { supabase } from "../supabaseClient";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-
-export default function AdminPage() {
-    const navigation = useNavigation();
+import BottomNavigation  from "../components/BottomNavigation";
+export default function AdminPage({ navigation, route }) {
+    
     const [productType, setProductType] = useState("");
     const [brand, setBrand] = useState("");
     const [model, setModel] = useState("");
@@ -43,7 +43,7 @@ export default function AdminPage() {
     const [searchText, setSearchText] = useState(""); // Texte de recherche
     const [filteredClients, setFilteredClients] = useState([]); // Clients filtrés
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 7;
+    const itemsPerPage = 6;
 
     const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage);
     const currentData = (filteredClients || []).slice(
@@ -568,7 +568,9 @@ export default function AdminPage() {
 		Aucun client à afficher.
 	</Text>
 )}
-
+<View style={styles.BottomNavigation}>
+<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+</View>
 {/* Pagination Controls */}
 <View style={styles.paginationContainer}>
 	<TouchableOpacity
@@ -607,9 +609,13 @@ export default function AdminPage() {
 		</Text>
 	</TouchableOpacity>
 </View>
+
 </View>
+
             </TouchableWithoutFeedback>
+			
         </KeyboardAvoidingView>
+		
     );
 }
 
@@ -780,8 +786,10 @@ const styles = StyleSheet.create({
         backgroundColor: "#445a75",
         borderRadius: 5,
     },
+	
     paginationText: { color: "#fff", fontSize: 16 },
     disabledPaginationText: { color: "#ccc", fontSize: 16 },
 	paginationTextNumber: { color: "#202020", fontSize: 18 },
     disabledPaginationText: { color: "#ccc", fontSize: 16 },
+
 });

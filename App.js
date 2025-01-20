@@ -7,7 +7,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Alert, TouchableOpacity, Image } from 'react-native';
 import { supabase } from './supabaseClient';
-
+import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
 // Import des pages
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
@@ -207,6 +207,7 @@ function MainStack() {
 			<Stack.Screen name="ImageCleanup" component={ImageCleanupPage} />
 			<Stack.Screen name="SearchClientsPage" component={SearchClientsPage} options={{ title: "Recherche multi-critères" }}/>
 			<Stack.Screen name="OngoingAmountsPage" component={OngoingAmountsPage} />
+			<Stack.Screen name="PrintPage" component={PrintPage} />
 			<Stack.Screen 
         name="ListingProduits" 
          component={ListingProduits} 

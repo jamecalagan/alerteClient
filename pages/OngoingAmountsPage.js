@@ -20,7 +20,7 @@ export default function OngoingAmountsPage({ navigation }) {
         try {
             const { data, error } = await supabase
                 .from("interventions")
-                .select("*")
+                .select('*, clients(name, ficheNumber)')
                 .neq("status", "Récupéré")
                 .neq("status", "Non réparable")
                 .gt("solderestant", 0); // Filtrer uniquement les interventions avec des montants restants
@@ -57,6 +57,9 @@ export default function OngoingAmountsPage({ navigation }) {
                         keyExtractor={(item) => item.id.toString()}
                         renderItem={({ item }) => (
                             <View style={styles.card}>
+							    <Text style={styles.clientText}>
+                                    Nom : {item.clients.name || "Inconnu"}
+                                </Text>
                                 <Text style={styles.clientText}>
                                     Appareil : {item.deviceType || "Inconnu"}
                                 </Text>

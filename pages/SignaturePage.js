@@ -17,35 +17,33 @@ export default function SignaturePage({ route, navigation }) {
     setOrientation(dim.height >= dim.width ? 'portrait' : 'landscape');
   };
 
-  // Charger les informations du client et de l'intervention
+  const isValidUUID = (id) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[4][0-9a-fA-F]{3}-[89ab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+
   useEffect(() => {
-    const loadClientAndIntervention = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('interventions')
-          .select('*, clients(name, ficheNumber)')
-          .eq('id', interventionId)
-          .single(); // Récupère les infos de l'intervention et du client
-
-        if (error) throw error;
-
-        setClientInfo(data); // Enregistre les informations du client et de l'intervention
-      } catch (error) {
-        console.error('Erreur lors du chargement des infos :', error);
-      }
-    };
-
-    loadClientAndIntervention();
-
-    // Détecter l'orientation au chargement et à chaque changement
-    detectOrientation();
-    const subscription = Dimensions.addEventListener('change', detectOrientation);
-
-    return () => {
-      // Nettoyage de l'écouteur d'événements lors de la sortie de la page
-      subscription.remove();
-    };
+	if (!interventionId || !isValidUUID(interventionId)) {
+	  console.error('Erreur : interventionId n\'est pas un UUID valide ou est manquant.');
+	  return;
+	}
+  
+	const loadClientAndIntervention = async () => {
+	  try {
+		const { data, error } = await supabase
+		  .from('interventions')
+		  .select('*, clients(name, ficheNumber)')
+		  .eq('id', interventionId)
+		  .single();
+  
+		if (error) throw error;
+  
+		setClientInfo(data);
+	  } catch (error) {
+		console.error('Erreur lors du chargement des infos :', error);
+	  }
+	};
+  
+	loadClientAndIntervention();
   }, [interventionId]);
+  
 
   const handleCaptureAndConfirmSignature = async () => {
     try {
@@ -96,23 +94,91 @@ export default function SignaturePage({ route, navigation }) {
   .m-signature-pad--footer {display: none; margin: 0px;}
   body,html {
     width: 100%; 
-    height: 90%;  /* Réduit la hauteur pour le mode portrait */
+    height: 100%;  /* Réduit la hauteur pour le mode portrait */
     margin: 0; 
     padding: 0;
   }
   .m-signature-pad {
     box-shadow: none; 
-    border: 3px solid black;
+    border: 1px solid black;
     width: 100%; /* Prendre 100% de la largeur de l'écran */
     height: 100%;  /* Réduit la hauteur de la zone de signature */
     margin: 0 auto;
   }
   `;
-
+  const handleCaptureAndPrint = async () => {
+	try {
+	  if (!signature) {
+		Alert.alert('Erreur', 'Veuillez fournir une signature avant d\'imprimer.');
+		return;
+	  }
+  
+	  // Mettre à jour la base de données avec la signature et les informations nécessaires
+	  const { error } = await supabase
+		.from('interventions')
+		.update({
+		  status: 'Récupéré',
+		  signature,
+		  guarantee: guaranteeText,
+		  receiver_name: receiverName,
+		  updatedAt: new Date().toISOString(),
+		})
+		.eq('id', interventionId);
+  
+	  if (error) throw error;
+  
+	  // Naviguer vers la page PrintPage avec les données nécessaires
+	  navigation.navigate('PrintPage', {
+		clientInfo,
+		receiverName,
+		guaranteeText,
+		signature,
+	  });
+	} catch (error) {
+	  console.error('Erreur lors de la sauvegarde ou de la navigation :', error);
+	  Alert.alert('Erreur', 'Une erreur est survenue lors de l\'enregistrement.');
+	}
+  };
+  const handleSaveAndNavigateToPrint = async () => {
+	try {
+	  if (!signature) {
+		Alert.alert('Erreur', 'Veuillez fournir une signature.');
+		return;
+	  }
+  
+	  // Mise à jour dans la base de données
+	  const { error } = await supabase
+		.from('interventions')
+		.update({
+		  status: 'Récupéré',
+		  signature,
+		  guarantee: guaranteeText,
+		  receiver_name: receiverName,
+		  updatedAt: new Date().toISOString(),
+		})
+		.eq('id', interventionId);
+  
+	  if (error) {
+		throw error;
+	  }
+  
+	  // Navigation vers PrintPage après sauvegarde
+	  navigation.navigate('PrintPage', {
+		clientInfo,
+		receiverName,
+		guaranteeText,
+		signature,
+	  });
+	} catch (error) {
+	  console.error('Erreur lors de la sauvegarde et de la navigation :', error);
+	  Alert.alert('Erreur', 'Une erreur est survenue lors de la sauvegarde.');
+	}
+  };
+  
   return (
 	
     <View style={styles.container}>
-      <Text style={styles.title}>Signature de restitution</Text>
+      <Text style={styles.title}>Garantie et restitution</Text>
 
     
       {clientInfo && (
@@ -137,25 +203,29 @@ export default function SignaturePage({ route, navigation }) {
         value={receiverName}
         onChangeText={setReceiverName}
       />
-	   <Text style={styles.fixedText}>
-        Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || '________________________'} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
-        AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
+<Text style={styles.fixedText}>
+  Je soussigné(e), M. {receiverName || clientInfo?.clients?.name || "________________________"} , certifie avoir pris connaissance des conditions suivantes :
+  
+  {"\n\n"}<Text style={styles.boldText}>1. Garantie de 3 mois :</Text>
+  {"\n"}  - Le matériel récupéré bénéficie d'une garantie de <Text style={styles.boldText}>trois mois</Text> à compter de la date de restitution.
+  {"\n"}  - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge dans le cadre de cette garantie.
 
-		Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction. Les supports démontés pour être remplacés seront numérotés avec le numéro de la fiche client.
+  {"\n\n"}<Text style={styles.boldText}>2. Réclamations sur la réparation :</Text>
+  {"\n"}  - Le client dispose d'un délai de <Text style={styles.boldText}>10 jours</Text> à compter de la date de récupération pour signaler toute réclamation concernant la réparation effectuée.
+  {"\n"}  - Passé ce délai, aucune réclamation ne pourra être acceptée, et toute intervention ultérieure sera facturée.
 
-		Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel. Le prix indiqué est donc indicatif, basé sur les informations fournies. En cas de remplacement de bloc vitre tactile ou d’écran LCD sur smartphone ou tablette, seuls les éléments remplacés seront couverts par la garantie. Vous demeurez responsable des autres problèmes éventuels qui pourraient survenir après la réparation.
+  {"\n\n"}<Text style={styles.boldText}>3. Exclusions de garantie :</Text>
+  {"\n"}  - Les dommages causés par une mauvaise utilisation, des chocs, une exposition à des liquides ou toute intervention non autorisée annulent automatiquement la garantie.
 
-		Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
+  {"\n\n"}En récupérant le matériel, le client reconnaît que celui-ci a été testé et vérifié en présence du technicien ou du personnel d'AVENIR INFORMATIQUE.
 
-		En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.
+  {"\n\n"}<Text style={styles.boldText}>Responsabilité en cas de perte de données :</Text>
+  {"\n"}Le client est seul responsable de ses données personnelles et de leur sauvegarde régulière. En cas de perte de données lors d'une prestation ou manipulation, qu'elle soit d'origine logicielle ou matérielle, AVENIR INFORMATIQUE ne pourra être tenue responsable et aucune indemnisation ne pourra être réclamée.
 
-		Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
-		Aucune réclamation ne sera acceptée au-delà d’un délai de 10 jours suivant la restitution du matériel.
+  {"\n\n"}En signant ce document, le client accepte les conditions de garantie et de réclamation mentionnées ci-dessus.
 
-		En signant ce document, vous acceptez les conditions ci-dessus.
-
-
-      </Text>
+  {"\n\n"}Fait à : Drancy, le : {new Date().toLocaleDateString()}
+</Text>
 
       <View
         style={[
@@ -179,6 +249,9 @@ export default function SignaturePage({ route, navigation }) {
         <TouchableOpacity style={styles.button} onPress={handleCaptureAndConfirmSignature}>
           <Text style={styles.buttonText}>Capturer et Confirmer</Text>
         </TouchableOpacity>
+		<TouchableOpacity style={styles.button} onPress={handleSaveAndNavigateToPrint}>
+  <Text style={styles.buttonText}>Capturer et Imprimer</Text>
+</TouchableOpacity>
         <TouchableOpacity style={[styles.button, styles.clearButton]} onPress={handleClearSignature}>
           <Text style={styles.buttonText}>Effacer la signature</Text>
         </TouchableOpacity>
@@ -191,12 +264,12 @@ export default function SignaturePage({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    padding: 20,
     backgroundColor: '#f2f2f2',
   },
   fixedText: {
-    fontSize: 12,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 18,
     color: '#000',
   },
   title: {
@@ -249,7 +322,7 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#007BFF',
     padding: 15,
-    borderRadius: 50,
+    borderRadius: 2,
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 5,

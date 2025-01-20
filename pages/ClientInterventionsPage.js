@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, Modal, Alert } from 'react-native';
 import { supabase } from '../supabaseClient';
 
 export default function ClientInterventionsPage({ route, navigation }) {
@@ -81,6 +81,38 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const handleImagePress = (imageUri) => {
     setSelectedImage(imageUri);
   };
+  const handleDeleteIntervention = async (interventionId) => {
+	try {
+	  const { error } = await supabase
+		.from('interventions')
+		.delete()
+		.eq('id', interventionId);
+  
+	  if (error) {
+		Alert.alert('Erreur', 'Une erreur est survenue lors de la suppression.');
+		console.error('Erreur de suppression :', error);
+		return;
+	  }
+  
+	  Alert.alert('Succès', 'L\'intervention a été supprimée avec succès.');
+	  setInterventions((prevInterventions) =>
+		prevInterventions.filter((intervention) => intervention.id !== interventionId)
+	  );
+	} catch (err) {
+	  Alert.alert('Erreur', 'Impossible de supprimer l\'intervention.');
+	  console.error('Erreur :', err);
+	}
+  };
+  const confirmDeleteIntervention = (interventionId) => {
+	Alert.alert(
+	  'Confirmation',
+	  'Êtes-vous sûr de vouloir supprimer cette intervention ?',
+	  [
+		{ text: 'Annuler', style: 'cancel' },
+		{ text: 'Supprimer', onPress: () => handleDeleteIntervention(interventionId) },
+	  ]
+	);
+  };
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -125,7 +157,14 @@ export default function ClientInterventionsPage({ route, navigation }) {
           </Text>
         )}
       </View>
-
+	  <View style={styles.deleteButtonContainer}>
+    <TouchableOpacity
+      style={styles.deleteButton}
+      onPress={() => confirmDeleteIntervention(item.id)}
+    >
+      <Text style={styles.deleteButtonText}>Supprimer</Text>
+    </TouchableOpacity>
+  </View>
       {/* Image de l'étiquette */}
       <View style={styles.labelContainer}>
         {item.label_photo ? (
@@ -303,4 +342,23 @@ noPhotosText: {
   color: '#999',
   marginTop: 10,
 },
+deleteButtonContainer: {
+  flexDirection: 'row',
+  justifyContent: 'flex-end', // Positionne le bouton à droite
+  alignItems: 'flex-end', // Aligne le bouton en bas
+  marginTop: 10,
+},
+deleteButton: {
+  backgroundColor: '#FF6347', // Rouge pour suppression
+  paddingVertical: 10,
+  paddingHorizontal: 15,
+  borderRadius: 5,
+},
+deleteButtonText: {
+  color: '#fff',
+  fontWeight: 'bold',
+  fontSize: 14,
+},
+
+
 });

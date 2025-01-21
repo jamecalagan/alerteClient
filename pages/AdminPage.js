@@ -372,7 +372,11 @@ export default function AdminPage({ navigation, route }) {
 		console.log("Champs réinitialisés !");
 	};
 	
-	
+	const handlePageChange = (newPage) => {
+		if (newPage >= 1 && newPage <= totalPages) {
+			setCurrentPage(newPage); // Met à jour la page actuelle
+		}
+	};
     return (
         <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -571,44 +575,43 @@ export default function AdminPage({ navigation, route }) {
 <View style={styles.BottomNavigation}>
 <BottomNavigation  navigation={navigation} currentRoute={route.name} />
 </View>
-{/* Pagination Controls */}
 <View style={styles.paginationContainer}>
-	<TouchableOpacity
-		onPress={goToPreviousPage}
-		disabled={currentPage === 1}
-		style={styles.paginationButton}
-	>
-		<Text
-			style={
-				currentPage === 1
-					? styles.disabledPaginationText
-					: styles.paginationText
-			}
-		>
-			Précédent
-		</Text>
-	</TouchableOpacity>
+    {/* Bouton pour aller à la page précédente */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === 1 ? "gray" : "black" },
+            ]}
+        />
+    </TouchableOpacity>
 
-	<Text style={styles.paginationTextNumber}>
-		Page {currentPage} sur {totalPages}
-	</Text>
+    {/* Numéro de page au centre */}
+    <Text style={styles.paginationText}>
+        Page {currentPage} sur {totalPages}
+    </Text>
 
-	<TouchableOpacity
-		onPress={goToNextPage}
-		disabled={currentPage === totalPages}
-		style={styles.paginationButton}
-	>
-		<Text
-			style={
-				currentPage === totalPages
-					? styles.disabledPaginationText
-					: styles.paginationText
-			}
-		>
-			Suivant
-		</Text>
-	</TouchableOpacity>
+    {/* Bouton pour aller à la page suivante */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === totalPages ? "gray" : "black" },
+            ]}
+        />
+    </TouchableOpacity>
 </View>
+
 
 </View>
 
@@ -777,19 +780,21 @@ const styles = StyleSheet.create({
 	noDataText: { textAlign: "center", color: "#888", marginTop: 20 },
     paginationContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "center",
-        paddingVertical: 10,
+        marginVertical: 10, // Ajuste l'espacement vertical
     },
-    paginationButton: {
-        padding: 10,
-        backgroundColor: "#445a75",
-        borderRadius: 5,
+    chevronButton: {
+        padding: 5, // Réduit l'espace cliquable autour des chevrons
     },
-	
-    paginationText: { color: "#fff", fontSize: 16 },
-    disabledPaginationText: { color: "#ccc", fontSize: 16 },
-	paginationTextNumber: { color: "#202020", fontSize: 18 },
-    disabledPaginationText: { color: "#ccc", fontSize: 16 },
+    chevronIcon: {
+        width: 22, // Réduit la largeur du chevron
+        height: 22, // Réduit la hauteur du chevron
+    },
+    paginationText: {
+        marginHorizontal: 10, // Espace entre le texte et les chevrons
+        color: "black",
+        fontSize: 20, // Ajuste la taille du texte
+    },
 
 });

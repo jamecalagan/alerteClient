@@ -50,17 +50,20 @@ export default function RepairedInterventionsPage({ navigation, route }) {
         if (b.id === pinnedInterventionId) return 1;
         return 0; // Conserve l'ordre des autres fiches
     });
-    // Fonction pour calculer les interventions paginées
-    const getPaginatedData = () => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        return repairedInterventions.slice(startIndex, endIndex);
-    };
+	const getPaginatedData = () => {
+		if (!repairedInterventions || repairedInterventions.length === 0) {
+			return []; // Retourne un tableau vide si aucune donnée
+		}
+		const startIndex = (currentPage - 1) * itemsPerPage;
+		const endIndex = startIndex + itemsPerPage;
+		return repairedInterventions.slice(startIndex, endIndex);
+	};
 
-    // Fonction pour changer de page
-    const handlePageChange = (pageNumber) => {
-        setCurrentPage(pageNumber);
-    };
+	const handlePageChange = (newPage) => {
+		if (newPage >= 1 && newPage <= totalPages) {
+			setCurrentPage(newPage); // Met à jour la page actuelle
+		}
+	};
 
     // Calculer le nombre total de pages
     const totalPages = Math.ceil(repairedInterventions.length / itemsPerPage);
@@ -607,16 +610,14 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                     placeholder="Entrez les détails ici..."
                                                     onFocus={() => {
                                                         setTimeout(() => {
-                                                            flatListRef.current.scrollToIndex(
-                                                                {
-                                                                    index: repairedInterventions.findIndex(
-                                                                        (i) =>
-                                                                            i.id ===
-                                                                            item.id
-                                                                    ),
-                                                                    animated: true,
-                                                                }
-                                                            );
+														const globalIndex = repairedInterventions.findIndex((i) => i.id === item.id);
+														const localIndex = globalIndex - (currentPage - 1) * itemsPerPage;
+
+														if (localIndex >= 0 && localIndex < itemsPerPage) {
+															flatListRef.current.scrollToIndex({ index: localIndex, animated: true });
+														} else {
+															console.warn("Index invalide sur cette page :", localIndex);
+														}
                                                         }, 100); // Petit délai pour garantir le bon affichage
                                                     }}
                                                     value={
@@ -832,31 +833,43 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                             </TouchableOpacity>
                         )}
 						ListFooterComponent={
-                            <View style={styles.paginationContainer}>
-                                {Array.from({ length: totalPages }, (_, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.pageButton,
-                                            currentPage === index + 1
-                                                ? styles.activePageButton
-                                                : null,
-                                        ]}
-                                        onPress={() => handlePageChange(index + 1)}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.pageButtonText,
-                                                currentPage === index + 1
-                                                    ? styles.activePageButtonText
-                                                    : null,
-                                            ]}
-                                        >
-                                            {index + 1}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+<View style={styles.paginationContainer}>
+    {/* Bouton pour aller à la page précédente */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === 1 ? "gray" : "white" },
+            ]}
+        />
+    </TouchableOpacity>
+
+    {/* Numéro de page au centre */}
+    <Text style={styles.paginationText}>
+        Page {currentPage} sur {totalPages}
+    </Text>
+
+    {/* Bouton pour aller à la page suivante */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === totalPages ? "gray" : "white" },
+            ]}
+        />
+    </TouchableOpacity>
+</View>
+
                         }
                     />
                 </View>
@@ -1271,7 +1284,20 @@ totalText: {
 paginationContainer: {
 	flexDirection: "row",
 	justifyContent: "center",
-	marginTop: 10,
+	alignItems: "center",
+	marginVertical: 10, // Ajuste l'espacement vertical
+},
+chevronButton: {
+	padding: 5, // Réduit l'espace cliquable autour des chevrons
+},
+chevronIcon: {
+	width: 22, // Réduit la largeur du chevron
+	height: 22, // Réduit la hauteur du chevron
+},
+paginationText: {
+	marginHorizontal: 10, // Espace entre le texte et les chevrons
+	color: "white",
+	fontSize: 20, // Ajuste la taille du texte
 },
 pageButton: {
 	padding: 10,

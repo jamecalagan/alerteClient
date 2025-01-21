@@ -30,7 +30,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
 	};
 
 	const getTextColor = (status) => {
-		return status === "Devis accepté" || status === "Réparé" ? "black" : "white"; // Texte noir pour les boutons clairs
+		return status === "Devis accepté"  ? "black" : "white"; // Texte noir pour les boutons clairs
 	};
 
 	return (
@@ -97,7 +97,6 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		bottom: 0,
 		width: "100%",
-		backgroundColor: "#2e2e2e",
 		paddingVertical: 10,
 		paddingBottom: 10,
 		borderRadius: 5,

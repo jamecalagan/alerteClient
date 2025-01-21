@@ -213,6 +213,11 @@ export default function RecoveredClientsPage({ navigation, route }) {
             [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
         }));
     };
+	const handlePageChange = (newPage) => {
+		if (newPage >= 1 && newPage <= totalPages) {
+			setCurrentPage(newPage); // Met à jour la page actuelle
+		}
+	};
     return (
         <ImageBackground
             source={backgroundImage}
@@ -420,33 +425,43 @@ export default function RecoveredClientsPage({ navigation, route }) {
 <View>
 <BottomNavigation  navigation={navigation} currentRoute={route.name} />
 </View>
-                <View style={styles.paginationContainer}>
-                    <TouchableOpacity
-                        style={[
-                            styles.paginationButton,
-                            currentPage === 1 && styles.disabledButton,
-                        ]}
-                        onPress={handlePreviousPage}
-                        disabled={currentPage === 1}
-                    >
-                        <Text style={styles.paginationButtonText}>
-                            Précédent
-                        </Text>
-                    </TouchableOpacity>
-                    <Text style={styles.paginationInfo}>
-                        Page {currentPage} sur {totalPages}
-                    </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.paginationButton,
-                            currentPage === totalPages && styles.disabledButton,
-                        ]}
-                        onPress={handleNextPage}
-                        disabled={currentPage === totalPages}
-                    >
-                        <Text style={styles.paginationButtonText}>Suivant</Text>
-                    </TouchableOpacity>
-                </View>
+<View style={styles.paginationContainer}>
+    {/* Bouton pour aller à la page précédente */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === 1 ? "gray" : "white" },
+            ]}
+        />
+    </TouchableOpacity>
+
+    {/* Numéro de page au centre */}
+    <Text style={styles.paginationText}>
+        Page {currentPage} sur {totalPages}
+    </Text>
+
+    {/* Bouton pour aller à la page suivante */}
+    <TouchableOpacity
+        onPress={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        style={styles.chevronButton}
+    >
+        <Image
+            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
+            style={[
+                styles.chevronIcon,
+                { tintColor: currentPage === totalPages ? "gray" : "white" },
+            ]}
+        />
+    </TouchableOpacity>
+</View>
+
 				
             </View>
 
@@ -610,29 +625,21 @@ const styles = StyleSheet.create({
     },
     paginationContainer: {
         flexDirection: "row",
-        justifyContent: "space-evenly", // Espace équitablement les boutons et le texte
+        justifyContent: "center",
         alignItems: "center",
-
-        paddingHorizontal: 5, // Ajoute de l'espace sur les côtés
+        marginVertical: 10, // Ajuste l'espacement vertical
     },
-    paginationButton: {
-        backgroundColor: "#445a75",
-        paddingVertical: 5, // Ajoute de l'espace en haut et en bas
-        paddingHorizontal: 30, // Ajoute de l'espace sur les côtés
-        borderRadius: 5,
-        marginBottom: 2,
+    chevronButton: {
+        padding: 5, // Réduit l'espace cliquable autour des chevrons
     },
-    disabledButton: {
-        backgroundColor: "#ccc",
+    chevronIcon: {
+        width: 22, // Réduit la largeur du chevron
+        height: 22, // Réduit la hauteur du chevron
     },
-    paginationButtonText: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-    paginationInfo: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#fff",
+    paginationText: {
+        marginHorizontal: 10, // Espace entre le texte et les chevrons
+        color: "white",
+        fontSize: 20, // Ajuste la taille du texte
     },
     expandedCard: {
         borderWidth: 2,

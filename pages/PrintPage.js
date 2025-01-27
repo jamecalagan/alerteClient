@@ -18,7 +18,7 @@ export default function PrintPage({ route }) {
             <p>
               <strong>1. Garantie de 3 mois :</strong><br>
               - Le matériel récupéré bénéficie d'une garantie de <strong>trois mois</strong> à compter de la date de restitution.<br>
-              - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge.
+              - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge. Les interventions résultant d’un dommage causé par un liquide ne sont pas garanties en raison des risques imprévisibles liés à ce type de réparation.
             </p>
             <p>
               <strong>2. Réclamations sur la réparation :</strong><br>

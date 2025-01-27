@@ -840,7 +840,7 @@ const getDeviceIcon = (deviceType) => {
         }
     };
 
-    return (
+	return (
         <ImageBackground
             source={backgroundImage}
             style={styles.backgroundImage}
@@ -1197,53 +1197,66 @@ const getDeviceIcon = (deviceType) => {
                                         </View>
                                     </TouchableOpacity>
                                 </View>
+								
                             )}
-							{isLoading ? (
-    <ActivityIndicator size="large" color="blue" />
-) : hasImagesToDelete ? (
-    <TouchableOpacity
-        onPress={() => navigation.navigate("ImageCleanup")}
-        style={{
-            marginRight: 110,
-            marginTop: 15,
-            padding: 10,
-            backgroundColor: "blue",
-            borderRadius: 2,
-            borderWidth: 1,
-            borderColor: "#888787",
-        }}
-    >
-        <Text style={{ color: "white" }}>Nettoyer les images</Text>
-    </TouchableOpacity>
-) : (
-    <View>
-        <Text
-            style={{
-                color: "white",
-                marginTop: 18,
-                marginRight: 40,
-                padding: 10,
-                backgroundColor: "green",
-                borderRadius: 5,
-                borderWidth: 1,
-                borderColor: "#888787",
-            }}
-        >
-            Aucune image à supprimer.
-        </Text>
+                            {isLoading ? (
+                                <ActivityIndicator size="large" color="blue" />
+                            ) : hasImagesToDelete ? (
+								<View>
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        navigation.navigate("ImageCleanup")
+                                    }
+                                    style={{
+                                        marginRight: 110,
+                                        marginTop: 15,
+                                        padding: 10,
+                                        backgroundColor: "blue",
+                                        borderRadius: 2,
+                                        borderWidth: 1,
+                                        borderColor: "#888787",
+                                    }}
+                                >
+                                    <Text style={{ color: "white" }}>
+                                        Nettoyer les images
+                                    </Text>
+                                </TouchableOpacity>
+								
+								<TouchableOpacity
+                                        onPress={() =>
+                                            navigation.navigate(
+                                                "OngoingAmountsPage",
+                                                {
+                                                    interventions:
+                                                        allInterventions,
+                                                }
+                                            )
+                                        }
+                                    >
+                                        <Text style={styles.totalText}>
+                                            En cours : {totalCost} €
+                                        </Text>
+                                    </TouchableOpacity>
+								</View>
+                            ) : (
+                                <View>
+                                    <Text
+                                        style={{
+                                            color: "white",
+                                            marginTop: 18,
+                                            marginRight: 40,
+                                            padding: 10,
+                                            backgroundColor: "green",
+                                            borderRadius: 5,
+                                            borderWidth: 1,
+                                            borderColor: "#888787",
+                                        }}
+                                    >
+                                        Aucune image à supprimer.
+                                    </Text>
 
-        {/* Bouton pour naviguer vers la page des détails */}
-		<TouchableOpacity
-    onPress={() =>
-        navigation.navigate("OngoingAmountsPage", { interventions: allInterventions })
-    }
->
-    <Text style={styles.totalText}>En cours : {totalCost} €</Text>
-</TouchableOpacity>
-
-
-    </View>
-)}
+                                </View>
+                            )}
 
                             <Text style={styles.pageNumberText}>
                                 Page {currentPage} / {totalPages}
@@ -1361,8 +1374,8 @@ const getDeviceIcon = (deviceType) => {
                                     <FlatList
                                         initialNumToRender={10}
                                         maxToRenderPerBatch={5}
-										showsVerticalScrollIndicator={false}
-										scrollEnabled={true}
+                                        showsVerticalScrollIndicator={false}
+                                        scrollEnabled={true}
                                         windowSize={5}
                                         data={paginatedClients}
                                         keyExtractor={(item) =>
@@ -1605,7 +1618,7 @@ const getDeviceIcon = (deviceType) => {
                                                                 style={{
                                                                     flexDirection:
                                                                         "row",
-                                                                }}
+                                                 }}
                                                             >
                                                                 {status ===
                                                                     "En attente de pièces" &&
@@ -1635,6 +1648,54 @@ const getDeviceIcon = (deviceType) => {
                                                                             />
                                                                         </TouchableOpacity>
                                                                     )}
+                                                                <TouchableOpacity
+                                                                    style={[
+                                                                        styles.iconButton,
+                                                                        styles.notificationIconContainer,
+                                                                    ]}
+                                                                    onPress={() => {
+                                                                        setSelectedInterventionId(
+                                                                            latestIntervention.id
+                                                                        );
+                                                                        setNotifyModalVisible(
+                                                                            true
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    {latestIntervention?.notifiedBy ===
+                                                                    "SMS" ? (
+                                                                        <Image
+                                                                            source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
+                                                                            style={{
+                                                                                width: 28,
+                                                                                height: 28,
+                                                                                tintColor:
+                                                                                    "#019b53",
+                                                                            }}
+                                                                        />
+                                                                    ) : latestIntervention?.notifiedBy ===
+                                                                      "Téléphone" ? (
+                                                                        <Image
+                                                                            source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
+                                                                            style={{
+                                                                                width: 28,
+                                                                                height: 28,
+                                                                                tintColor:
+                                                                                    "#3c92f5",
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <Image
+                                                                            source={require("../assets/icons/notifications_off.png")} // Chemin vers votre icône poubelle
+                                                                            style={{
+                                                                                width: 28,
+                                                                                height: 28,
+                                                                                tintColor:
+                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </TouchableOpacity>
 
                                                                 <TouchableOpacity
                                                                     style={[
@@ -1709,33 +1770,6 @@ const getDeviceIcon = (deviceType) => {
                                                                         />
                                                                     </TouchableOpacity>
                                                                 )}
-                                                                <TouchableOpacity
-                                                                    style={[
-                                                                        styles.iconButton,
-                                                                        styles.trashButton,
-                                                                    ]}
-                                                                    onPress={() =>
-                                                                        confirmDeleteClient(
-                                                                            item.id
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Image
-                                                                        source={require("../assets/icons/trash.png")} // Chemin vers votre icône poubelle
-                                                                        style={{
-                                                                            width: 28,
-                                                                            height: 28,
-                                                                            tintColor:
-                                                                                "#000", // Couleur de l'icône (ici noir)
-                                                                        }}
-                                                                    />
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                            <View
-                                                                style={
-                                                                    styles.additionalIconsContainer
-                                                                }
-                                                            >
                                                                 <View
                                                                     style={{
                                                                         flexDirection:
@@ -1744,55 +1778,6 @@ const getDeviceIcon = (deviceType) => {
                                                                             "flex-end",
                                                                     }}
                                                                 >
-                                                                    <TouchableOpacity
-                                                                        style={[
-                                                                            styles.iconButton,
-                                                                            styles.notificationIconContainer,
-                                                                        ]}
-                                                                        onPress={() => {
-                                                                            setSelectedInterventionId(
-                                                                                latestIntervention.id
-                                                                            );
-                                                                            setNotifyModalVisible(
-                                                                                true
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        {latestIntervention?.notifiedBy ===
-                                                                        "SMS" ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#019b53",
-                                                                                }}
-                                                                            />
-                                                                        ) : latestIntervention?.notifiedBy ===
-                                                                          "Téléphone" ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#3c92f5",
-                                                                                }}
-                                                                            />
-                                                                        ) : (
-                                                                            <Image
-                                                                                source={require("../assets/icons/notifications_off.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#000", // Couleur de l'icône (ici noir)
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                    </TouchableOpacity>
-
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
@@ -1829,7 +1814,95 @@ const getDeviceIcon = (deviceType) => {
                                                                         </Text>
                                                                     </TouchableOpacity>
                                                                 </View>
+                                                                <TouchableOpacity
+                                                                    style={[
+                                                                        styles.iconButton,
+                                                                        styles.trashButton,
+                                                                    ]}
+                                                                    onPress={() =>
+                                                                        confirmDeleteClient(
+                                                                            item.id
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Image
+                                                                        source={require("../assets/icons/trash.png")} // Chemin vers votre icône poubelle
+                                                                        style={{
+                                                                            width: 28,
+                                                                            height: 28,
+
+                                                                            tintColor:
+                                                                                "red", // Couleur de l'icône (ici noir)
+                                                                        }}
+                                                                    />
+                                                                </TouchableOpacity>
                                                             </View>
+                                                            <View
+                                                                style={
+                                                                    styles.additionalIconsContainer
+                                                                }
+                                                            >
+                                                                {item.interventions
+                                                                    .filter(
+                                                                        (
+                                                                            intervention
+                                                                        ) =>
+                                                                            intervention.status !==
+                                                                                "Réparé" &&
+                                                                            intervention.status !==
+                                                                                "Récupéré"
+                                                                    ) // Filtrer uniquement les interventions en cours
+                                                                    .map(
+                                                                        (
+                                                                            intervention,
+                                                                            index
+                                                                        ) => (
+                                                                            <View
+                                                                                key={
+                                                                                    index
+                                                                                }
+                                                                                style={{
+																					borderWidth: 2,
+																					borderColor: "#000",
+																					width: 50,
+																					height: 50,
+
+																					alignItems: "center",
+                                                                                }}
+                                                                            >
+                                                                                <TouchableOpacity
+                                                                                    onPress={() =>
+                                                                                        fetchDetails(
+                                                                                            intervention.deviceType, // Type d'appareil
+                                                                                            intervention.brand, // Nom de la marque
+                                                                                            intervention.model // Nom du modèle
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    {getDeviceIcon(
+                                                                                        intervention.deviceType
+                                                                                    )}
+                                                                                </TouchableOpacity>
+                                                                            </View>
+                                                                        )
+                                                                    )}
+                                                                {item.interventions &&
+                                                                    item
+                                                                        .interventions
+                                                                        .length >
+                                                                        0 && (
+                                                                        <View
+                                                                            style={[
+                                                                                styles.deviceIconContainer,
+                                                                                {
+                                                                                    flexDirection:
+                                                                                        "row",
+                                                                                },
+                                                                            ]}
+                                                                        ></View>
+                                                                    )}
+                                                            </View>
+
                                                         </View>
 
                                                         {isExpanded && (
@@ -1925,47 +1998,7 @@ const getDeviceIcon = (deviceType) => {
                                                                                         "row",
                                                                                 },
                                                                             ]}
-                                                                        >
-                                                                            {item.interventions
-                                                                                .filter(
-                                                                                    (
-                                                                                        intervention
-                                                                                    ) =>
-                                                                                        intervention.status !==
-                                                                                            "Réparé" &&
-                                                                                        intervention.status !==
-                                                                                            "Récupéré"
-                                                                                ) // Filtrer uniquement les interventions en cours
-                                                                                .map(
-                                                                                    (
-                                                                                        intervention,
-                                                                                        index
-                                                                                    ) => (
-                                                                                        <View
-                                                                                            key={
-                                                                                                index
-                                                                                            }
-                                                                                            style={{
-                                                                                                marginLeft: 5,
-                                                                                            }}
-                                                                                        >
-                                                                                            <TouchableOpacity
-                                                                                                onPress={() =>
-                                                                                                    fetchDetails(
-                                                                                                        intervention.deviceType, // Type d'appareil
-                                                                                                        intervention.brand, // Nom de la marque
-                                                                                                        intervention.model // Nom du modèle
-                                                                                                    )
-                                                                                                }
-                                                                                            >
-                                                                                                {getDeviceIcon(
-                                                                                                    intervention.deviceType
-                                                                                                )}
-                                                                                            </TouchableOpacity>
-                                                                                        </View>
-                                                                                    )
-                                                                                )}
-                                                                        </View>
+                                                                        ></View>
                                                                     )}
                                                             </View>
                                                         )}
@@ -1973,13 +2006,11 @@ const getDeviceIcon = (deviceType) => {
                                                 </Animatable.View>
                                             );
                                         }}
-                                        
                                         contentContainerStyle={{
                                             paddingBottom: 20,
                                         }} // Ajoute un espace en bas
                                     />
                                 )}
-
                             </>
                         )}
                         <Modal
@@ -2400,7 +2431,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: 16,
         marginLeft: 8,
-		marginVertical: 5,
+        marginVertical: 5,
     },
     searchInput: {
         paddingRight: 50, // Ajoute un espace à droite pour l'icône
@@ -2450,7 +2481,7 @@ const styles = StyleSheet.create({
         padding: 10,
         marginVertical: 5,
         backgroundColor: "#ffffff",
-		borderRadius: 2,
+        borderRadius: 2,
     },
     clientInfo: {
         flex: 1,
@@ -2692,10 +2723,16 @@ const styles = StyleSheet.create({
         borderWidth: 2, // Bordure de 2px
         borderRadius: 2, // Bords arrondis
         borderColor: "#000", // Couleur de la bordure en noir
-        /* backgroundColor: "#fff", // Fond blanc */
+        marginRight: 8,
     },
     interventionContainerRight: {
         marginTop: 70, // Espacement du haut
+    },
+    additionalIconsContainer: {
+        flexDirection: "row",
+		justifyContent: "flex-end",
+		marginRight: 1,
+
     },
     interventionBox: {
         flexDirection: "row", // Aligner l'icône et le texte en ligne
@@ -2851,14 +2888,15 @@ const styles = StyleSheet.create({
         backgroundColor: "#e0e0e0", // Couleur de la barre
         marginVertical: 8, // Espacement vertical optionnel
     },
-	totalText: {
-		color: "white",
-		marginTop: 11,
-		marginRight: 40,
-		padding: 6,
-		backgroundColor: "#1d1d1d",
-		borderRadius: 5,
-		borderWidth: 1,
-		borderColor: "#888787",
-},
+    totalText: {
+        color: "white",
+        marginTop: 11,
+        marginRight: 40,
+        padding: 6,
+        backgroundColor: "#1d1d1d",
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: "#888787",
+    },
 });
+

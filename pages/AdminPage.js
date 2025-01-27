@@ -573,7 +573,7 @@ export default function AdminPage({ navigation, route }) {
 	</Text>
 )}
 <View style={styles.BottomNavigation}>
-<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+
 </View>
 <View style={styles.paginationContainer}>
     {/* Bouton pour aller à la page précédente */}
@@ -611,8 +611,9 @@ export default function AdminPage({ navigation, route }) {
         />
     </TouchableOpacity>
 </View>
-
-
+<View>
+<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+</View>
 </View>
 
             </TouchableWithoutFeedback>
@@ -782,7 +783,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginVertical: 10, // Ajuste l'espacement vertical
+        marginVertical: 70, // Ajuste l'espacement vertical
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons

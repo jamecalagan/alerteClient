@@ -197,16 +197,20 @@ const ImageCleanupPage = () => {
                                 keyExtractor={(photo) => photo.id.toString()}
                                 renderItem={({ item: photo }) => (
                                     <View style={{ marginRight: 10 }}>
-                                        <Image
-                                            source={{ uri: photo.base64 || photo.file_path }}
-                                            style={{
-                                                width: 100,
-                                                height: 100,
-                                                borderWidth: 2,
-                                                borderColor: "red",
-                                                borderRadius: 5,
-                                            }}
-                                        />
+								<Image
+									source={{
+										uri: photo.base64
+											? `data:image/jpeg;base64,${photo.base64}` // Image en base64
+											: photo.file_path, // Image avec chemin
+									}}
+									style={{
+										width: 100,
+										height: 100,
+										borderWidth: 2,
+										borderColor: "red",
+										borderRadius: 5,
+									}}
+								/>
                                         <TouchableOpacity
                                             onPress={() =>
                                                 deletePhoto(

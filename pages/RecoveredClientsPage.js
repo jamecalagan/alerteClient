@@ -422,9 +422,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
 						</Animatable.View>
                     )}
                 />
-<View>
-<BottomNavigation  navigation={navigation} currentRoute={route.name} />
-</View>
+
 <View style={styles.paginationContainer}>
     {/* Bouton pour aller à la page précédente */}
     <TouchableOpacity
@@ -462,7 +460,9 @@ export default function RecoveredClientsPage({ navigation, route }) {
     </TouchableOpacity>
 </View>
 
-				
+<View>
+<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+</View>
             </View>
 
             <Modal
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginVertical: 10, // Ajuste l'espacement vertical
+        marginVertical: 70, // Ajuste l'espacement vertical
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons

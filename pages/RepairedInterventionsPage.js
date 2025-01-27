@@ -832,7 +832,9 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                 </View>
                             </TouchableOpacity>
                         )}
-						ListFooterComponent={
+
+                    />
+											
 <View style={styles.paginationContainer}>
     {/* Bouton pour aller à la page précédente */}
     <TouchableOpacity
@@ -870,8 +872,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     </TouchableOpacity>
 </View>
 
-                        }
-                    />
+                       
                 </View>
 				<BottomNavigation  navigation={navigation} currentRoute={route.name} />
                 <Modal
@@ -1285,7 +1286,7 @@ paginationContainer: {
 	flexDirection: "row",
 	justifyContent: "center",
 	alignItems: "center",
-	marginVertical: 10, // Ajuste l'espacement vertical
+	marginVertical: 60, // Ajuste l'espacement vertical
 },
 chevronButton: {
 	padding: 5, // Réduit l'espace cliquable autour des chevrons

@@ -15,7 +15,7 @@ import {
     TouchableWithoutFeedback,
 } from "react-native";
 import { supabase } from "../supabaseClient";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, CommonActions } from "@react-navigation/native";
 import RoundedButton from "../components/RoundedButton";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
@@ -51,7 +51,7 @@ export default function HomePage({ navigation, route }) {
     const slideAnim = useRef(new Animated.Value(-250)).current; // Position initiale hors écran
     const [menuVisible, setMenuVisible] = useState(false);
     const [showClients, setShowClients] = useState(true); // Par défaut, les fiches sont masquées
-	const [allInterventions, setAllInterventions] = useState([]);
+    const [allInterventions, setAllInterventions] = useState([]);
     const [modalData, setModalData] = useState({
         title: "",
         message: "",
@@ -65,7 +65,6 @@ export default function HomePage({ navigation, route }) {
             const dateLimite = new Date(
                 Date.now() - 10 * 24 * 60 * 60 * 1000
             ).toISOString();
-           
 
             // Récupération des interventions
             const { data: interventions, error: interventionError } =
@@ -81,7 +80,6 @@ export default function HomePage({ navigation, route }) {
             const interventionIds = interventions.map(
                 (intervention) => intervention.id
             );
-           
 
             // Compter les images dans intervention_images
             const { count: countImages, error: imagesError } = await supabase
@@ -90,7 +88,6 @@ export default function HomePage({ navigation, route }) {
                 .in("intervention_id", interventionIds);
 
             if (imagesError) throw imagesError;
-           
 
             // Compter les photos valides dans interventions
             let countPhotos = 0;
@@ -117,8 +114,6 @@ export default function HomePage({ navigation, route }) {
                     );
                 }
             });
-
-            
 
             setHasImagesToDelete(
                 (countImages || 0) > 0 || (countPhotos || 0) > 0
@@ -168,34 +163,35 @@ export default function HomePage({ navigation, route }) {
             return [];
         }
     };
-	const calculateTotalOngoingCost = (clients) => {
-		// Extraire toutes les interventions des clients
-		const allInterventions = clients.flatMap((client) =>
-			client.interventions.filter((intervention) =>
-				["Réparé", "Réparation en cours", "En attente de pièces"].includes(intervention.status)
-			)
-		);
-	
-		// Calculer la somme totale
-		const totalCost = allInterventions.reduce(
-			(sum, intervention) => sum + (intervention.solderestant || 0),
-			0
-		);
-	
-		return totalCost.toFixed(2); // Retourne un format en 2 décimales
-	};
-	
-	
-	
-	
-	const [totalCost, setTotalCost] = useState(0);
-	useEffect(() => {
-		if (clients.length > 0) {
-			const total = calculateTotalOngoingCost(clients);
-			setTotalCost(total); // Met à jour le montant total
-		}
-	}, [clients]);
-	
+    const calculateTotalOngoingCost = (clients) => {
+        // Extraire toutes les interventions des clients
+        const allInterventions = clients.flatMap((client) =>
+            client.interventions.filter((intervention) =>
+                [
+                    "Réparé",
+                    "Réparation en cours",
+                    "En attente de pièces",
+                ].includes(intervention.status)
+            )
+        );
+
+        // Calculer la somme totale
+        const totalCost = allInterventions.reduce(
+            (sum, intervention) => sum + (intervention.solderestant || 0),
+            0
+        );
+
+        return totalCost.toFixed(2); // Retourne un format en 2 décimales
+    };
+
+    const [totalCost, setTotalCost] = useState(0);
+    useEffect(() => {
+        if (clients.length > 0) {
+            const total = calculateTotalOngoingCost(clients);
+            setTotalCost(total); // Met à jour le montant total
+        }
+    }, [clients]);
+
     const handleDeleteImages = async (imagesToDelete) => {
         Alert.alert(
             "Confirmation",
@@ -288,7 +284,6 @@ export default function HomePage({ navigation, route }) {
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
-           
             return; // Aucune intervention restante
         }
 
@@ -365,13 +360,13 @@ export default function HomePage({ navigation, route }) {
         navigation.navigate("ImageGallery", { clientId });
     };
 
-	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
-		setIsLoading(true);
-		try {
-			const { data, error } = await supabase
-				.from("clients")
-				.select(
-					`
+    const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("clients")
+                .select(
+                    `
 					*,
 					updatedAt,
 					interventions(
@@ -390,120 +385,143 @@ export default function HomePage({ navigation, route }) {
 						accept_screen_risk
 					)
 					`
-				)
-				.order("createdAt", { ascending: false }); 
-	
-			if (error) throw error;
-	
-			if (data) {
-				const updatedData = data.map((client) => {
-					// Inclure les interventions "Réparé"
-					const ongoingInterventions =
-						client.interventions?.filter(
-							(intervention) =>
-								intervention.status !== "Réparé" && 
-								intervention.status !== "Récupéré" &&
-								intervention.status !== "Non réparable"
-						) || [];
-	
-					const totalAmountOngoing = ongoingInterventions.reduce(
-						(total, intervention) => total + (intervention.solderestant || 0),
-						0
-					);
-	
-					return {
-						...client,
-						totalInterventions: client.interventions.length,
-						clientUpdatedAt: client.updatedAt,
-						interventions: client.interventions.map((intervention) => ({
-							...intervention,
-							interventionUpdatedAt: intervention.updatedAt,
-						})),
-						totalAmountOngoing,
-					};
-				});
-	
-				const clientsWithOngoingInterventions = updatedData
-					.filter((client) =>
-						client.interventions.some(
-							(intervention) =>
-								intervention.status !== "Réparé" && 
-								intervention.status !== "Récupéré" &&
-								intervention.status !== "Non réparable"
-						)
-					)
-					.map((client) => {
-						client.interventions = client.interventions
-							.filter(
-								(intervention) =>
-									intervention.status !== "Réparé" && 
-									intervention.status !== "Récupéré" &&
-									intervention.status !== "Non réparable"
-							)
-							.sort(
-								(a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-							);
-						client.latestIntervention = client.interventions[0];
-						return client;
-					});
-	
-				const sortedClients = clientsWithOngoingInterventions.sort((a, b) => {
-					const dateA = new Date(a[sortBy]);
-					const dateB = new Date(b[sortBy]);
-					return orderAsc ? dateA - dateB : dateB - dateA;
-				});
-	
-				setClients(sortedClients);
-				setFilteredClients(sortedClients);
-			}
-		} catch (error) {
-			console.error("Erreur lors du chargement des clients:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-	
-	const loadOngoingInterventions = async () => {
-		try {
-			const { data, error } = await supabase
-				.from("interventions")
-				.select("*")
-				.in("status", ["Réparé", "En attente de pièces", "Réparation en cours", "Devis en cours"]);
-	
-			if (error) throw error;
-	
-			return data || [];
-		} catch (error) {
-			console.error("Erreur lors de la récupération des interventions :", error);
-			return [];
-		}
-	};
-	useEffect(() => {
-		const fetchAllInterventions = async () => {
-			
-			try {
-				const { data, error } = await supabase
-					.from("interventions")
-					.select("*")
-					.in("status", ["Réparé", "En attente de pièces", "Réparation en cours", "Devis en cours"]);
-	
-				if (error) throw error;
-	
-				
-				setAllInterventions(data); // Stocker toutes les interventions
-				const total = data.reduce((sum, intervention) => sum + (intervention.solderestant || 0), 0);
-				
-				setTotalCost(total.toFixed(2)); // Mettre à jour le montant total affiché
-			} catch (error) {
-				console.error("Erreur lors de la récupération des interventions :", error);
-			}
-		};
-	
-		fetchAllInterventions(); // Appeler la fonction au chargement de la page
-	}, []); // Ne dépend que du chargement initial
-	
-	
-	
+                )
+                .order("createdAt", { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                const updatedData = data.map((client) => {
+                    // Inclure les interventions "Réparé"
+                    const ongoingInterventions =
+                        client.interventions?.filter(
+                            (intervention) =>
+                                intervention.status !== "Réparé" &&
+                                intervention.status !== "Récupéré" &&
+                                intervention.status !== "Non réparable"
+                        ) || [];
+
+                    const totalAmountOngoing = ongoingInterventions.reduce(
+                        (total, intervention) =>
+                            total + (intervention.solderestant || 0),
+                        0
+                    );
+
+                    return {
+                        ...client,
+                        totalInterventions: client.interventions.length,
+                        clientUpdatedAt: client.updatedAt,
+                        interventions: client.interventions.map(
+                            (intervention) => ({
+                                ...intervention,
+                                interventionUpdatedAt: intervention.updatedAt,
+                            })
+                        ),
+                        totalAmountOngoing,
+                    };
+                });
+
+                const clientsWithOngoingInterventions = updatedData
+                    .filter((client) =>
+                        client.interventions.some(
+                            (intervention) =>
+                                intervention.status !== "Réparé" &&
+                                intervention.status !== "Récupéré" &&
+                                intervention.status !== "Non réparable"
+                        )
+                    )
+                    .map((client) => {
+                        client.interventions = client.interventions
+                            .filter(
+                                (intervention) =>
+                                    intervention.status !== "Réparé" &&
+                                    intervention.status !== "Récupéré" &&
+                                    intervention.status !== "Non réparable"
+                            )
+                            .sort(
+                                (a, b) =>
+                                    new Date(b.createdAt) -
+                                    new Date(a.createdAt)
+                            );
+                        client.latestIntervention = client.interventions[0];
+                        return client;
+                    });
+
+                const sortedClients = clientsWithOngoingInterventions.sort(
+                    (a, b) => {
+                        const dateA = new Date(a[sortBy]);
+                        const dateB = new Date(b[sortBy]);
+                        return orderAsc ? dateA - dateB : dateB - dateA;
+                    }
+                );
+
+                setClients(sortedClients);
+                setFilteredClients(sortedClients);
+            }
+        } catch (error) {
+            console.error("Erreur lors du chargement des clients:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loadOngoingInterventions = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("interventions")
+                .select("*")
+                .in("status", [
+                    "Réparé",
+                    "En attente de pièces",
+                    "Réparation en cours",
+                    "Devis en cours",
+                ]);
+
+            if (error) throw error;
+
+            return data || [];
+        } catch (error) {
+            console.error(
+                "Erreur lors de la récupération des interventions :",
+                error
+            );
+            return [];
+        }
+    };
+    useEffect(() => {
+        const fetchAllInterventions = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("interventions")
+                    .select("*")
+                    .in("status", [
+                        "Réparé",
+                        "En attente de pièces",
+                        "Réparation en cours",
+                        "Devis en cours",
+                    ]);
+
+                if (error) throw error;
+
+                setAllInterventions(data); // Stocker toutes les interventions
+                const total = data.reduce(
+                    (sum, intervention) =>
+                        sum + (intervention.solderestant || 0),
+                    0
+                );
+
+                setTotalCost(total.toFixed(2)); // Mettre à jour le montant total affiché
+            } catch (error) {
+                console.error(
+                    "Erreur lors de la récupération des interventions :",
+                    error
+                );
+            }
+        };
+
+        fetchAllInterventions(); // Appeler la fonction au chargement de la page
+    }, []); // Ne dépend que du chargement initial
+
     const fetchDetails = (deviceType, marque, model) => {
         setSelectedDevice({
             deviceType,
@@ -542,19 +560,18 @@ export default function HomePage({ navigation, route }) {
             setCurrentPage((prevPage) => prevPage + 1);
         }
     };
-	useFocusEffect(
-		React.useCallback(() => {
-			// Toujours charger les clients triés par date décroissante
-			setSortBy("createdAt");
-			setOrderAsc(false);
-			loadClients(); // Charge la liste des clients triée
-	
-			// Charger les statistiques des réparés non restitués
-			loadRepairedNotReturnedCount();
-			loadNotRepairedNotReturnedCount();
-		}, [])
-	);
-	
+    useFocusEffect(
+        React.useCallback(() => {
+            // Toujours charger les clients triés par date décroissante
+            setSortBy("createdAt");
+            setOrderAsc(false);
+            loadClients(); // Charge la liste des clients triée
+
+            // Charger les statistiques des réparés non restitués
+            loadRepairedNotReturnedCount();
+            loadNotRepairedNotReturnedCount();
+        }, [])
+    );
 
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
@@ -756,26 +773,42 @@ export default function HomePage({ navigation, route }) {
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
-// Fonction pour récupérer l'icône en fonction du type d'appareil
-const getDeviceIcon = (deviceType) => {
-    if (!deviceType) return <Image source={deviceIcons.default} style={{ width: 40, height: 40 }} />;
+    // Fonction pour récupérer l'icône en fonction du type d'appareil
+    const getDeviceIcon = (deviceType) => {
+        if (!deviceType)
+            return (
+                <Image
+                    source={deviceIcons.default}
+                    style={{ width: 40, height: 40 }}
+                />
+            );
 
-    const lowerCaseName = deviceType.toLowerCase(); // Convertir en minuscule pour éviter les problèmes de casse
+        const lowerCaseName = deviceType.toLowerCase(); // Convertir en minuscule pour éviter les problèmes de casse
 
-    // Vérification pour MacBook
-    if (lowerCaseName.includes("macbook")) {
-        return <Image source={deviceIcons.MacBook} style={{ width: 40, height: 40 }} />;
-    }
+        // Vérification pour MacBook
+        if (lowerCaseName.includes("macbook")) {
+            return (
+                <Image
+                    source={deviceIcons.MacBook}
+                    style={{ width: 40, height: 40 }}
+                />
+            );
+        }
 
-    // Vérification pour iMac
-    if (lowerCaseName.includes("imac")) {
-        return <Image source={deviceIcons.iMac} style={{ width: 40, height: 40 }} />;
-    }
+        // Vérification pour iMac
+        if (lowerCaseName.includes("imac")) {
+            return (
+                <Image
+                    source={deviceIcons.iMac}
+                    style={{ width: 40, height: 40 }}
+                />
+            );
+        }
 
-    // Retourner l'icône correspondante ou l'icône par défaut
-    const iconSource = deviceIcons[deviceType] || deviceIcons.default;
-    return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
-};
+        // Retourner l'icône correspondante ou l'icône par défaut
+        const iconSource = deviceIcons[deviceType] || deviceIcons.default;
+        return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
+    };
 
     const filterByStatus = (status) => {
         if (!showClients) {
@@ -822,25 +855,28 @@ const getDeviceIcon = (deviceType) => {
     };
     const handleLogout = async () => {
         try {
-            // Déconnexion de Supabase (ou autre service d'authentification)
-            const { error } = await supabase.auth.signOut(); // ou l'API utilisée
-            if (error) throw error;
-
-            // Navigation vers la page de login
-            navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }], // Vérifiez que le nom de votre page Login est correct
-            });
-        } catch (error) {
-            console.error("Erreur lors de la déconnexion :", error);
-            Alert.alert(
-                "Erreur",
-                "La déconnexion a échoué. Veuillez réessayer."
-            );
+            const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
+            if (error) {
+                console.error("Erreur lors de la déconnexion :", error);
+                Alert.alert(
+                    "Erreur",
+                    "Impossible de se déconnecter. Veuillez réessayer."
+                );
+            } else {
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [{ name: "Login" }], // Assurez-vous que "Login" est bien défini dans AuthStack
+                    })
+                );
+            }
+        } catch (err) {
+            console.error("Erreur inattendue lors de la déconnexion :", err);
+            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
         }
     };
 
-	return (
+    return (
         <ImageBackground
             source={backgroundImage}
             style={styles.backgroundImage}
@@ -1197,12 +1233,10 @@ const getDeviceIcon = (deviceType) => {
                                         </View>
                                     </TouchableOpacity>
                                 </View>
-								
                             )}
                             {isLoading ? (
                                 <ActivityIndicator size="large" color="blue" />
                             ) : hasImagesToDelete ? (
-								<View>
                                 <TouchableOpacity
                                     onPress={() =>
                                         navigation.navigate("ImageCleanup")
@@ -1221,23 +1255,6 @@ const getDeviceIcon = (deviceType) => {
                                         Nettoyer les images
                                     </Text>
                                 </TouchableOpacity>
-								
-								<TouchableOpacity
-                                        onPress={() =>
-                                            navigation.navigate(
-                                                "OngoingAmountsPage",
-                                                {
-                                                    interventions:
-                                                        allInterventions,
-                                                }
-                                            )
-                                        }
-                                    >
-                                        <Text style={styles.totalText}>
-                                            En cours : {totalCost} €
-                                        </Text>
-                                    </TouchableOpacity>
-								</View>
                             ) : (
                                 <View>
                                     <Text
@@ -1255,6 +1272,21 @@ const getDeviceIcon = (deviceType) => {
                                         Aucune image à supprimer.
                                     </Text>
 
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            navigation.navigate(
+                                                "OngoingAmountsPage",
+                                                {
+                                                    interventions:
+                                                        allInterventions,
+                                                }
+                                            )
+                                        }
+                                    >
+                                        <Text style={styles.totalText}>
+                                            En cours : {totalCost} €
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 
@@ -1618,7 +1650,7 @@ const getDeviceIcon = (deviceType) => {
                                                                 style={{
                                                                     flexDirection:
                                                                         "row",
-                                                 }}
+                                                                }}
                                                             >
                                                                 {status ===
                                                                     "En attente de pièces" &&
@@ -1728,7 +1760,7 @@ const getDeviceIcon = (deviceType) => {
                                                                     ]}
                                                                     onPress={() =>
                                                                         navigation.navigate(
-                                                                            "ClientPreviewPage",
+                                                                            "SelectInterventionPage",
                                                                             {
                                                                                 clientId:
                                                                                     item.id,
@@ -1737,15 +1769,16 @@ const getDeviceIcon = (deviceType) => {
                                                                     }
                                                                 >
                                                                     <Image
-                                                                        source={require("../assets/icons/print.png")} // Chemin vers votre icône poubelle
+                                                                        source={require("../assets/icons/print.png")}
                                                                         style={{
                                                                             width: 28,
                                                                             height: 28,
                                                                             tintColor:
-                                                                                "#000", // Couleur de l'icône (ici noir)
+                                                                                "#000",
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
+
                                                                 {totalImages >
                                                                     0 && (
                                                                     <TouchableOpacity
@@ -1862,12 +1895,14 @@ const getDeviceIcon = (deviceType) => {
                                                                                     index
                                                                                 }
                                                                                 style={{
-																					borderWidth: 2,
-																					borderColor: "#000",
-																					width: 50,
-																					height: 50,
+                                                                                    borderWidth: 2,
+                                                                                    borderColor:
+                                                                                        "#000",
+                                                                                    width: 50,
+                                                                                    height: 50,
 
-																					alignItems: "center",
+                                                                                    alignItems:
+                                                                                        "center",
                                                                                 }}
                                                                             >
                                                                                 <TouchableOpacity
@@ -1902,7 +1937,6 @@ const getDeviceIcon = (deviceType) => {
                                                                         ></View>
                                                                     )}
                                                             </View>
-
                                                         </View>
 
                                                         {isExpanded && (
@@ -2730,9 +2764,9 @@ const styles = StyleSheet.create({
     },
     additionalIconsContainer: {
         flexDirection: "row",
-		justifyContent: "flex-end",
-		marginRight: 1,
-
+        justifyContent: "flex-end",
+        marginRight: 1,
+        gap: 10,
     },
     interventionBox: {
         flexDirection: "row", // Aligner l'icône et le texte en ligne
@@ -2899,4 +2933,3 @@ const styles = StyleSheet.create({
         borderColor: "#888787",
     },
 });
-

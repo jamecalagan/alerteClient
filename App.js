@@ -31,6 +31,8 @@ import ModelsPage from './pages/ModelsPage';
 import ImageCleanupPage from "./pages/ImageCleanupPage";
 import SearchClientsPage from "./pages/SearchClientsPage";
 import OngoingAmountsPage from "./pages/OngoingAmountsPage";
+import SelectInterventionPage from './pages/SelectInterventionPage';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -208,6 +210,8 @@ function MainStack() {
 			<Stack.Screen name="SearchClientsPage" component={SearchClientsPage} options={{ title: "Recherche multi-critères" }}/>
 			<Stack.Screen name="OngoingAmountsPage" component={OngoingAmountsPage} />
 			<Stack.Screen name="PrintPage" component={PrintPage} />
+			<Stack.Screen name="SelectInterventionPage" component={SelectInterventionPage} options={{ title: "Choisir une intervention" }}
+/>
 			<Stack.Screen 
         name="ListingProduits" 
          component={ListingProduits} 

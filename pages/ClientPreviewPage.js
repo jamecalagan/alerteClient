@@ -8,8 +8,8 @@ export default function ClientPreviewPage() {
   const [clientInfo, setClientInfo] = useState(null);
   const route = useRoute();
   const navigation = useNavigation();
-  const { clientId } = route.params;
 
+  const { clientId, interventionId } = route.params;
   // Fonction pour récupérer les informations du client et la dernière intervention
   const fetchClientInfo = async () => {
     try {
@@ -43,14 +43,16 @@ export default function ClientPreviewPage() {
 
       if (error) throw error;
 
-      // Trier les interventions par date de création (plus récentes en premier)
-      const latestIntervention = data.interventions?.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-      // console.log('Dernière intervention:', latestIntervention); // Vérifiez ici si la signature est bien récupérée
-      setClientInfo({ ...data, latestIntervention });
+        // Filtrer l'intervention sélectionnée
+        const selectedIntervention = data.interventions.find(
+            (intervention) => intervention.id === interventionId
+        );
+
+        setClientInfo({ ...data, latestIntervention: selectedIntervention });
     } catch (error) {
-      console.error('Erreur lors du chargement du client', error);
+        console.error("Erreur lors du chargement du client", error);
     }
-  };
+};
 
   useEffect(() => {
     fetchClientInfo();

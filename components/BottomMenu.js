@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 0,
         width: "100%",
-        backgroundColor: "#2e2e2e",
+      
         paddingVertical: 10,
         paddingBottom: 10,
         borderRadius: 5,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     menuButton: {
         paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 2,
+        borderRadius: 50,
         flex: 1,
         marginHorizontal: 5,
         alignItems: "center",

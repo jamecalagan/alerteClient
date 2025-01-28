@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
 	menuButton: {
 		paddingVertical: 12,
 		paddingHorizontal: 20,
-		borderRadius: 2,
+		borderRadius: 50,
 		flex: 1,
 		marginHorizontal: 5,
 		alignItems: "center",

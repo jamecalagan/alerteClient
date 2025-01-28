@@ -374,7 +374,9 @@ const handleSaveIntervention = async () => {
 		<Text style={styles.label}>Marque</Text>
                 <Picker selectedValue={brand} style={styles.input} onValueChange={handleBrandChange}>
                     <Picker.Item label="Sélectionnez une marque..." value="" />
-                    {brands.map((brandOption) => (
+					{brands
+        .sort((a, b) => a.nom.localeCompare(b.nom)) // Tri alphabétique
+        .map((brandOption) => (
                         <Picker.Item key={brandOption.id} label={brandOption.nom} value={brandOption.id} />
                     ))}
                     <Picker.Item label="Autre" value="Autre" />
@@ -392,7 +394,9 @@ const handleSaveIntervention = async () => {
 		<Text style={styles.label}>Modèle</Text>
                 <Picker selectedValue={model} style={styles.input} onValueChange={(itemValue) => setModel(itemValue)}>
                     <Picker.Item label="Sélectionnez un modèle..." value="" />
-                    {models.map((modelOption) => (
+					{models
+        .sort((a, b) => a.nom.localeCompare(b.nom)) // Tri alphabétique
+        .map((modelOption) => (
                         <Picker.Item key={modelOption.id} label={modelOption.nom} value={modelOption.id} />
                     ))}
                     <Picker.Item label="Autre" value="Autre" />

@@ -134,89 +134,86 @@ export default function EditClientPage({ route, navigation }) {
 
  
   const handlePrint = async () => {
-    const htmlContent = `
-<html>
-      <head>
-        <style>
-          body {
-            width: 62mm;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 2px;
-            font-size: 10px;
-            box-sizing: border-box;
-          }
-          p {
-            margin: 0;
-            line-height: 1.2;
-          }
-          .label-section {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-          }
-          .bold {
-            font-weight: bold;
-          }
-          .small-text {
-            font-size: 11px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="label-section">
-          <p class="bold">Numéro Client :</p>
-          <p>${client.ficheNumber}</p>
-        </div>
-        <div class="label-section">
-          <p class="bold">Nom :</p>
-          <p>${name}</p>
-        </div>
-
-		<div class="label-section">
-		<p class="bold">Téléphone :</p>
-		<p>${formattedPhone}</p>
-		</div>
-
-        ${interventions.length > 0
-          ? interventions.map((intervention) => `
-		          <div class="label-section">
-          <p class="bold">Mot de passe :</p>
-          <p>${intervention.password}</p>
-        </div>
-            <div class="label-section">
-              <p class="bold">Marque :</p>
-              <p>${intervention.brand}</p>
-            </div> 
-			 <div class="label-section">
-              <p class="bold">Modèle :</p>
-              <p>${intervention.model}</p>
-            </div>   
-		  	<div class="label-section">
-              <p class="bold">Intervention :</p>
-              <p>${intervention.description}</p>
-            </div>
-			 <div class="label-section">
-              <p class="bold">Coût :</p>
-              <p>${intervention.cost} €</p>
-            </div>
-            <div class="label-section">
-              <p class="bold">Chargeur :</p>
-              <p>${intervention.chargeur ? 'Oui' : 'Non'}</p>
-            </div>
-          `).join('')
-          : '<p>Aucune intervention</p>'
-        }
-      </body>
-    </html>
-    `;
-
-    try {
-      await Print.printAsync({ html: htmlContent });
-    } catch (error) {
-      console.error('Erreur lors de l\'impression :', error);
-    }
+	try {
+	  for (const intervention of interventions) {
+		const htmlContent = `
+		  <html>
+			<head>
+			  <style>
+				body {
+				  width: 62mm;
+				  font-family: Arial, sans-serif;
+				  margin: 0;
+				  padding: 2px;
+				  font-size: 10px;
+				  box-sizing: border-box;
+				}
+				p {
+				  margin: 0;
+				  line-height: 1.2;
+				}
+				.label-section {
+				  display: flex;
+				  justify-content: space-between;
+				  margin-bottom: 5px;
+				}
+				.bold {
+				  font-weight: bold;
+				}
+				.small-text {
+				  font-size: 11px;
+				}
+			  </style>
+			</head>
+			<body>
+			  <div class="label-section">
+				<p class="bold">Numéro Client :</p>
+				<p>${client.ficheNumber}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Nom :</p>
+				<p>${name}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Téléphone :</p>
+				<p>${formatWithSpaces(phone)}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Mot de passe :</p>
+				<p>${intervention.password || 'N/A'}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Marque :</p>
+				<p>${intervention.brand}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Modèle :</p>
+				<p>${intervention.model}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Description :</p>
+				<p>${intervention.description || 'N/A'}</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Coût :</p>
+				<p>${intervention.cost || '0'} €</p>
+			  </div>
+			  <div class="label-section">
+				<p class="bold">Chargeur :</p>
+				<p>${intervention.chargeur ? 'Oui' : 'Non'}</p>
+			  </div>
+			</body>
+		  </html>
+		`;
+  
+		// Imprime chaque fiche individuellement
+		await Print.printAsync({ html: htmlContent });
+	  }
+	} catch (error) {
+	  console.error('Erreur lors de l\'impression :', error);
+	}
   };
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Interventions</Text>

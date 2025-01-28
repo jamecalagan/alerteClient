@@ -769,7 +769,8 @@ export default function HomePage({ navigation, route }) {
         Imprimante: require("../assets/icons/printer.png"),
         Joystick: require("../assets/icons/joystick.png"),
         Processeur: require("../assets/icons/cpu.png"),
-
+		Batterie: require("../assets/icons/battery.png"),
+		Commande: require("../assets/icons/shipping_box.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -1237,12 +1238,13 @@ export default function HomePage({ navigation, route }) {
                             {isLoading ? (
                                 <ActivityIndicator size="large" color="blue" />
                             ) : hasImagesToDelete ? (
+								<View>
                                 <TouchableOpacity
                                     onPress={() =>
                                         navigation.navigate("ImageCleanup")
                                     }
                                     style={{
-                                        marginRight: 110,
+                                        marginRight: 40,
                                         marginTop: 15,
                                         padding: 10,
                                         backgroundColor: "blue",
@@ -1255,6 +1257,23 @@ export default function HomePage({ navigation, route }) {
                                         Nettoyer les images
                                     </Text>
                                 </TouchableOpacity>
+								
+								<TouchableOpacity
+                                        onPress={() =>
+                                            navigation.navigate(
+                                                "OngoingAmountsPage",
+                                                {
+                                                    interventions:
+                                                        allInterventions,
+                                                }
+                                            )
+                                        }
+                                    >
+                                        <Text style={styles.totalText}>
+                                            En cours : {totalCost} €
+                                        </Text>
+                                    </TouchableOpacity>
+								</View>
                             ) : (
                                 <View>
                                     <Text
@@ -1272,24 +1291,8 @@ export default function HomePage({ navigation, route }) {
                                         Aucune image à supprimer.
                                     </Text>
 
-                                    <TouchableOpacity
-                                        onPress={() =>
-                                            navigation.navigate(
-                                                "OngoingAmountsPage",
-                                                {
-                                                    interventions:
-                                                        allInterventions,
-                                                }
-                                            )
-                                        }
-                                    >
-                                        <Text style={styles.totalText}>
-                                            En cours : {totalCost} €
-                                        </Text>
-                                    </TouchableOpacity>
                                 </View>
                             )}
-
                             <Text style={styles.pageNumberText}>
                                 Page {currentPage} / {totalPages}
                             </Text>

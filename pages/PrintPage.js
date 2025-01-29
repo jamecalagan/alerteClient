@@ -18,10 +18,7 @@ export default function PrintPage({ route }) {
             <p>
               <strong>1. Garantie de 3 mois :</strong><br>
               - Le matériel récupéré bénéficie d'une garantie de <strong>trois mois</strong> à compter de la date de restitution.<br>
-              - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge. Les interventions résultant d’un dommage causé par un liquide ne sont pas garanties en raison des risques imprévisibles liés à ce type de réparation.
-            </p>
-            <p>
-              <strong>2. Réclamations sur la réparation :</strong><br>
+              - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge. Les interventions résultant d’un dommage causé par un liquide ne sont pas garanties en raison des risques imprévisibles liés à ce type de réparation.<br>
               - Le client dispose d'un délai de <strong>10 jours</strong> à compter de la date de récupération pour signaler toute réclamation.<br>
               - Passé ce délai, aucune réclamation ne sera acceptée.
             </p>
@@ -70,7 +67,7 @@ export default function PrintPage({ route }) {
   
   {"\n\n"}<Text style={styles.boldText}>1. Garantie de 3 mois :</Text>
   {"\n"}  - Le matériel récupéré bénéficie d'une garantie de <Text style={styles.boldText}>trois mois</Text> à compter de la date de restitution.
-  {"\n"}  - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge dans le cadre de cette garantie.
+  {"\n"}  - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge dans le cadre de cette garantie. Les interventions résultant d’un dommage causé par un liquide ne sont pas garanties en raison des risques imprévisibles liés à ce type de réparation.
 
   {"\n\n"}<Text style={styles.boldText}>2. Réclamations sur la réparation :</Text>
   {"\n"}  - Le client dispose d'un délai de <Text style={styles.boldText}>10 jours</Text> à compter de la date de récupération pour signaler toute réclamation concernant la réparation effectuée.

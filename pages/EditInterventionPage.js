@@ -411,7 +411,7 @@ export default function EditInterventionPage({ route, navigation }) {
                     </View>
                 </View>
 
-                <View style={styles.fullfWidthContainer}>
+{/*                 <View style={styles.fullfWidthContainer}>
                     <Text style={styles.label}>Numéro de série</Text>
                     <TextInput
                         style={styles.input}
@@ -422,7 +422,7 @@ export default function EditInterventionPage({ route, navigation }) {
                         autoCapitalize="characters" // Forcer la saisie en majuscules
                         placeholder="Numéro de série"
                     />
-                </View>
+                </View> */}
 
                 <View style={styles.referenceContainer}>
                     <TextInput

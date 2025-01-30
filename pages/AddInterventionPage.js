@@ -411,14 +411,14 @@ const handleSaveIntervention = async () => {
                 )}
 
 
-        <Text style={styles.label}>Numéro de série</Text>
+{/*         <Text style={styles.label}>Numéro de série</Text>
         <TextInput
           style={styles.input}
           value={serial_number.toUpperCase()}
           onChangeText={(text) => setSerial_number(text.toUpperCase())}
           autoCapitalize="characters"
           placeholder="Numéro de série"
-        />
+        /> */}
 
 
   <View style={styles.referenceContainer}>

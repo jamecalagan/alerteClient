@@ -45,24 +45,25 @@ export default function BrandsPage({ route, navigation }) {
     const handleSelectBrand = (brandId) => {
         navigation.navigate('ModelsPage', { brandId });
     };
+	const sortedBrands = [...brands].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 
     return (
-        <View style={styles.container}>
-            <FlatList
-                data={brands}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.itemContainer}>
-                        <TouchableOpacity onPress={() => handleSelectBrand(item.id)}>
-                            <Text style={styles.itemText}>{item.nom}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeleteBrand(item.id)}>
-                            <Icon name="trash" size={20} color="red" />
-                        </TouchableOpacity>
-                    </View>
-                )}
-            />
-        </View>
+<View style={styles.container}>
+    <FlatList
+        data={sortedBrands} // Liste triée par ordre alphabétique
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+            <View style={styles.itemContainer}>
+                <TouchableOpacity onPress={() => handleSelectBrand(item.id)}>
+                    <Text style={styles.itemText}>{item.nom}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteBrand(item.id)}>
+                    <Icon name="trash" size={20} color="red" />
+                </TouchableOpacity>
+            </View>
+        )}
+    />
+</View>
     );
 }
 

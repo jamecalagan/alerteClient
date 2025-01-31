@@ -41,24 +41,26 @@ export default function ModelsPage({ route }) {
             ]
         );
     };
+	const sortedModels = [...models].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 
     return (
-        <View style={styles.container}>
-            <FlatList
-                data={models}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.itemContainer}>
-                        <TouchableOpacity>
-                            <Text style={styles.itemText}>{item.nom}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeleteModel(item.id)}>
-                            <Icon name="trash" size={20} color="red" />
-                        </TouchableOpacity>
-                    </View>
-                )}
-            />
-        </View>
+<View style={styles.container}>
+    <FlatList
+        data={sortedModels} // Liste triée par ordre alphabétique
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+            <View style={styles.itemContainer}>
+                <TouchableOpacity>
+                    <Text style={styles.itemText}>{item.nom}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteModel(item.id)}>
+                    <Icon name="trash" size={20} color="red" />
+                </TouchableOpacity>
+            </View>
+        )}
+    />
+</View>
+
     );
 }
 

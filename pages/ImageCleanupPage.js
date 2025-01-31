@@ -4,13 +4,13 @@ import { supabase } from "../supabaseClient";
 
 const ImageCleanupPage = () => {
     const [interventionImagesGrouped, setInterventionImagesGrouped] = useState([]);
+    const [selectedImages, setSelectedImages] = useState([]); // État pour stocker les images sélectionnées
     const [isLoading, setIsLoading] = useState(false);
 
     const loadInterventionImagesAndPhotos = async () => {
         setIsLoading(true);
         try {
             const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
-            console.log("Date limite pour filtrer :", dateLimite);
 
             // Charger les interventions de la table "interventions"
             const { data: interventions, error: interventionError } = await supabase
@@ -91,8 +91,6 @@ const ImageCleanupPage = () => {
                 };
             });
 
-            console.log("Groupement des images :", groupedImages);
-
             setInterventionImagesGrouped(groupedImages.filter((group) => group.photos.length > 0));
         } catch (err) {
             console.error("Erreur inattendue :", err);
@@ -101,57 +99,53 @@ const ImageCleanupPage = () => {
         }
     };
 
-    // Fonction pour supprimer une photo de la table "interventions" ou "intervention_images"
-    const deletePhoto = async (interventionId, photoId, isInterventionPhoto) => {
+    // Fonction pour sélectionner/désélectionner une image
+    const toggleImageSelection = (imageId) => {
+        setSelectedImages((prevSelected) =>
+            prevSelected.includes(imageId)
+                ? prevSelected.filter((id) => id !== imageId) // Retire si déjà sélectionnée
+                : [...prevSelected, imageId] // Ajoute si pas encore sélectionnée
+        );
+    };
+
+    // Fonction pour supprimer les images sélectionnées
+    const deleteSelectedImages = async () => {
+        if (selectedImages.length === 0) {
+            Alert.alert("Aucune sélection", "Veuillez sélectionner au moins une image à supprimer.");
+            return;
+        }
+
         Alert.alert(
             "Confirmation",
-            "Voulez-vous vraiment supprimer cette photo ?",
+            `Voulez-vous vraiment supprimer ${selectedImages.length} images ?`,
             [
                 { text: "Annuler", style: "cancel" },
                 {
                     text: "Supprimer",
                     onPress: async () => {
                         try {
-                            if (isInterventionPhoto) {
-                                // Supprimer la photo dans la table "interventions"
-                                const { data: intervention, error } = await supabase
-                                    .from("interventions")
-                                    .select("photos")
-                                    .eq("id", interventionId)
-                                    .single();
+                            // Supprimer les images sélectionnées de la base de données
+                            const { error } = await supabase
+                                .from("intervention_images")
+                                .delete()
+                                .in("id", selectedImages);
 
-                                if (error || !intervention) {
-                                    console.error("Erreur lors de la récupération des photos :", error);
-                                    Alert.alert("Erreur", "Impossible de récupérer les photos.");
-                                    return;
-                                }
-
-                                const updatedPhotos = intervention.photos.filter((photo) => photo !== photoId);
-
-                                const { error: updateError } = await supabase
-                                    .from("interventions")
-                                    .update({ photos: updatedPhotos })
-                                    .eq("id", interventionId);
-
-                                if (updateError) {
-                                    console.error("Erreur lors de la mise à jour :", updateError);
-                                    Alert.alert("Erreur", "Impossible de supprimer la photo.");
-                                }
-                            } else {
-                                // Supprimer la photo dans la table "intervention_images"
-                                const { error: deleteError } = await supabase
-                                    .from("intervention_images")
-                                    .delete()
-                                    .eq("id", photoId);
-
-                                if (deleteError) {
-                                    console.error("Erreur lors de la suppression de l'image :", deleteError);
-                                    Alert.alert("Erreur", "Impossible de supprimer l'image.");
-                                }
+                            if (error) {
+                                console.error("Erreur lors de la suppression des images :", error);
+                                Alert.alert("Erreur", "Impossible de supprimer certaines images.");
+                                return;
                             }
 
-                            // Mettre à jour la liste des images
-                            loadInterventionImagesAndPhotos();
+                            // Mettre à jour l'affichage après suppression
+                            setInterventionImagesGrouped((prevData) =>
+                                prevData.map((group) => ({
+                                    ...group,
+                                    photos: group.photos.filter((photo) => !selectedImages.includes(photo.id)),
+                                }))
+                            );
+
+                            // Réinitialiser la sélection
+                            setSelectedImages([]);
                         } catch (err) {
                             console.error("Erreur inattendue lors de la suppression :", err);
                         }
@@ -175,65 +169,74 @@ const ImageCleanupPage = () => {
             ) : interventionImagesGrouped.length === 0 ? (
                 <Text>Aucune photo à supprimer.</Text>
             ) : (
-                <FlatList
-                    data={interventionImagesGrouped}
-                    keyExtractor={(item) => item.interventionId.toString()}
-                    renderItem={({ item }) => (
-                        <View style={{ marginBottom: 20 }}>
-                            <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 5 }}>
-                                Type : {item.deviceType} - Marque : {item.brand} - Modèle : {item.model}
-                            </Text>
-                            <Text style={{ fontSize: 14, marginBottom: 10, color: "gray" }}>
-                                Client : {item.clientName}
-                            </Text>
-                            <Text style={{ fontSize: 14, marginBottom: 10, color: "gray" }}>
-                                Date de restitution :{" "}
-                                {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("fr-FR") : "Date inconnue"}
-                            </Text>
+                <>
+                    <FlatList
+                        data={interventionImagesGrouped}
+                        keyExtractor={(item) => item.interventionId.toString()}
+                        renderItem={({ item }) => (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 5 }}>
+                                    Type : {item.deviceType} - Marque : {item.brand} - Modèle : {item.model}
+                                </Text>
+                                <Text style={{ fontSize: 14, marginBottom: 10, color: "gray" }}>
+                                    Client : {item.clientName}
+                                </Text>
 
-                            <FlatList
-                                data={item.photos}
-                                horizontal
-                                keyExtractor={(photo) => photo.id.toString()}
-                                renderItem={({ item: photo }) => (
-                                    <View style={{ marginRight: 10 }}>
-								<Image
-									source={{
-										uri: photo.base64
-											? `data:image/jpeg;base64,${photo.base64}` // Image en base64
-											: photo.file_path, // Image avec chemin
-									}}
-									style={{
-										width: 100,
-										height: 100,
-										borderWidth: 2,
-										borderColor: "red",
-										borderRadius: 5,
-									}}
-								/>
-                                        <TouchableOpacity
-                                            onPress={() =>
-                                                deletePhoto(
-                                                    item.interventionId,
-                                                    photo.base64 || photo.id,
-                                                    !!photo.base64
-                                                )
-                                            }
-                                            style={{
-                                                padding: 5,
-                                                backgroundColor: "red",
-                                                borderRadius: 3,
-                                                marginTop: 5,
-                                            }}
-                                        >
-                                            <Text style={{ color: "white", textAlign: "center" }}>Supprimer</Text>
+                                <FlatList
+                                    data={item.photos}
+                                    horizontal
+                                    keyExtractor={(photo) => photo.id.toString()}
+                                    renderItem={({ item: photo }) => (
+                                        <TouchableOpacity onPress={() => toggleImageSelection(photo.id)}>
+                                            <View style={{ position: "relative", marginRight: 10 }}>
+                                                <Image
+                                                    source={{
+                                                        uri: photo.base64
+                                                            ? `data:image/jpeg;base64,${photo.base64}`
+                                                            : photo.file_path,
+                                                    }}
+                                                    style={{
+                                                        width: 100,
+                                                        height: 100,
+                                                        borderWidth: selectedImages.includes(photo.id) ? 3 : 1,
+                                                        borderColor: selectedImages.includes(photo.id) ? "green" : "red",
+                                                        borderRadius: 5,
+                                                    }}
+                                                />
+                                                {selectedImages.includes(photo.id) && (
+                                                    <View
+                                                        style={{
+                                                            position: "absolute",
+                                                            top: 5,
+                                                            right: 5,
+                                                            backgroundColor: "green",
+                                                            padding: 5,
+                                                            borderRadius: 50,
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: "white", fontWeight: "bold" }}>✔</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </TouchableOpacity>
-                                    </View>
-                                )}
-                            />
-                        </View>
-                    )}
-                />
+                                    )}
+                                />
+                            </View>
+                        )}
+                    />
+                    <TouchableOpacity
+                        onPress={deleteSelectedImages}
+                        style={{
+                            padding: 10,
+                            backgroundColor: "red",
+                            borderRadius: 5,
+                            marginVertical: 10,
+                            alignItems: "center",
+                        }}
+                    >
+                        <Text style={{ color: "white", fontWeight: "bold" }}>Supprimer les images sélectionnées</Text>
+                    </TouchableOpacity>
+                </>
             )}
         </View>
     );

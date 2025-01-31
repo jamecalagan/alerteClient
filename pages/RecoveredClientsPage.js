@@ -627,7 +627,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginVertical: 70, // Ajuste l'espacement vertical
+        marginVertical: 10, // Ajuste l'espacement vertical
+		marginBottom: 90,
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons

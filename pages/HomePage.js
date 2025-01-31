@@ -2665,11 +2665,11 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginTop: 20,
-        marginBottom: 10,
+      
+        marginBottom: 20,
     },
     paginationText: {
-        fontSize: 16,
+        fontSize: 18,
         marginHorizontal: 10,
         color: "#fff",
     },

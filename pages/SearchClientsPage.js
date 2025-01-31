@@ -9,6 +9,7 @@ import {
     ScrollView,
     Alert,
     Image,
+	ActivityIndicator,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 
@@ -24,7 +25,8 @@ const SearchClientsPage = () => {
     const [selectedStatus, setSelectedStatus] = useState(null);
     const [statusOptions, setStatusOptions] = useState([]);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
+	const [searchQuery, setSearchQuery] = useState("");
+	const [loading, setLoading] = useState(false);
     useEffect(() => {
         const fetchStatuses = async () => {
             try {
@@ -80,7 +82,7 @@ const SearchClientsPage = () => {
             let query = supabase
                 .from("clients")
                 .select(
-                    `*, interventions!inner(id, status, description, deviceType, brand, model, cost, paymentStatus, solderestant, createdAt, updatedAt, commande, label_photo)`
+                    `*, interventions!inner(id, status, description, "deviceType", brand, model, cost, paymentStatus, solderestant, createdAt, updatedAt, commande, label_photo)`
                 )
                 .order("name", { ascending: true });
 
@@ -115,7 +117,7 @@ const SearchClientsPage = () => {
             const { data, error } = await supabase
                 .from("clients")
                 .select(
-                    `*, interventions!inner(id, status, description, deviceType, brand, model, cost, paymentStatus, solderestant, createdAt, updatedAt, commande, label_photo)`
+                    `*, interventions!inner(id, status, description, "deviceType", brand, model, cost, paymentStatus, solderestant, createdAt, updatedAt, commande, label_photo)`
                 )
                 .eq("interventions.status", status)
                 .order("name", { ascending: true });
@@ -148,6 +150,47 @@ const SearchClientsPage = () => {
     const goToPreviousPage = () => {
         if (currentPage > 1) {
             setCurrentPage((prevPage) => prevPage - 1);
+        }
+    };
+    const searchClientsByDeviceType = async () => {
+        if (!searchQuery.trim()) return; // Empêcher la recherche si le champ est vide
+
+        setLoading(true);
+        try {
+            console.log("🔍 Recherche des interventions contenant :", searchQuery);
+
+            // Étape 1: Récupérer les client_id ayant une intervention avec ce deviceType
+            const { data: interventionData, error: interventionError } = await supabase
+                .from("interventions")
+                .select("client_id")
+                .ilike("deviceType", `%${searchQuery}%`);
+
+            if (interventionError) throw interventionError;
+
+            // Extraire les IDs uniques des clients
+            const clientIds = [...new Set(interventionData.map((item) => item.client_id))];
+
+            if (clientIds.length === 0) {
+                setClients([]); // Aucune correspondance
+                setLoading(false);
+                return;
+            }
+
+            console.log("✅ Clients trouvés:", clientIds);
+
+            // Étape 2: Récupérer les informations des clients avec ces IDs
+            const { data: clientData, error: clientError } = await supabase
+                .from("clients")
+                .select("id, name, phone")
+                .in("id", clientIds);
+
+            if (clientError) throw clientError;
+
+            setClients(clientData || []);
+        } catch (error) {
+            console.error("❌ Erreur lors de la recherche :", error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -296,7 +339,34 @@ const SearchClientsPage = () => {
                     </TouchableOpacity>
                 </View>
             )}
+			<Text style={styles.title}>Rechercher un client par produit</Text>
+
+            {/* Champ de recherche */}
+            <TextInput
+                style={styles.input}
+                placeholder="Ex : programmeur, téléphone, PC..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={searchClientsByDeviceType} // Recherche quand on valide
+            />
+
+            {/* Affichage des résultats */}
+            {loading ? (
+                <ActivityIndicator size="large" color="blue" />
+            ) : (
+                <FlatList
+                    data={clients}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={styles.item}>
+                            <Text style={styles.name}>{item.name}</Text>
+                            <Text style={styles.phone}>{item.phone}</Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            )}
         </View>
+		
     );
 };
 
@@ -414,6 +484,25 @@ const styles = StyleSheet.create({
     pageText: {
         fontSize: 16,
         fontWeight: "bold",
+    },
+	item: {
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: "#ddd",
+    },
+    name: {
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+    phone: {
+        fontSize: 14,
+        color: "gray",
+    },
+    noResult: {
+        textAlign: "center",
+        marginTop: 20,
+        fontSize: 16,
+        color: "gray",
     },
 });
 

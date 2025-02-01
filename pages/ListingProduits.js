@@ -68,7 +68,7 @@ export default function ProductManagementPage() {
 
     return (
         <View style={styles.container}>
-            {/* Section Produits */}
+            
             <TouchableOpacity style={styles.toggleButton} onPress={() => setShowProducts(!showProducts)}>
                 <Text style={styles.toggleButtonText}>Produits</Text>
                 <MaterialIcons name={showProducts ? 'expand-less' : 'expand-more'} size={24} color="#fff" />
@@ -88,7 +88,7 @@ export default function ProductManagementPage() {
                 />
             )}
 
-            {/* Section Marques */}
+           
             <TouchableOpacity style={styles.toggleButton} onPress={() => setShowBrands(!showBrands)}>
                 <Text style={styles.toggleButtonText}>Marques</Text>
                 <MaterialIcons name={showBrands ? 'expand-less' : 'expand-more'} size={24} color="#fff" />
@@ -108,7 +108,7 @@ export default function ProductManagementPage() {
                 />
             )}
 
-            {/* Section Modèles */}
+           
             <TouchableOpacity style={styles.toggleButton} onPress={() => setShowModels(!showModels)}>
                 <Text style={styles.toggleButtonText}>Modèles</Text>
                 <MaterialIcons name={showModels ? 'expand-less' : 'expand-more'} size={24} color="#fff" />

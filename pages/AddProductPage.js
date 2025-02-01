@@ -126,34 +126,35 @@ const AddProductPage = () => {
         <View style={styles.container}>
             <Text style={styles.header}>Gestion des Produits</Text>
 
-            {/* Sélection d'un produit */}
-            {showProducts && (
-                <>
-                    <Text style={styles.sectionTitle}>1. Sélectionner ou Ajouter un Produit</Text>
-                    <FlatList
-                        data={productList}
-                        keyExtractor={(item) => item.id.toString()}
-                        numColumns={2}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[styles.box, selectedProduct === item.id && styles.selectedBox]}
-                                onPress={() => loadBrands(item.id)}
-                            >
-                                <Text style={styles.boxText}>{item.nom}</Text>
-                            </TouchableOpacity>
-                        )}
-                    />
-                    <TextInput
-                        value={newProduct}
-                        onChangeText={setNewProduct}
-                        placeholder="Ajouter un produit"
-                        style={styles.input}
-                    />
-                    <TouchableOpacity style={styles.addButton} onPress={addProduct}>
-                        <Text style={styles.buttonText}>Ajouter Produit</Text>
-                    </TouchableOpacity>
-                </>
+{/* Sélection d'un produit */}
+{showProducts && (
+    <>
+        <Text style={styles.sectionTitle}>1. Sélectionner ou Ajouter un Produit</Text>
+        <FlatList
+            data={[...productList].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }))} 
+            keyExtractor={(item) => item.id.toString()}
+            numColumns={2}
+            renderItem={({ item }) => (
+                <TouchableOpacity
+                    style={[styles.box, selectedProduct === item.id && styles.selectedBox]}
+                    onPress={() => loadBrands(item.id)}
+                >
+                    <Text style={styles.boxText}>{item.nom}</Text>
+                </TouchableOpacity>
             )}
+        />
+        <TextInput
+            value={newProduct}
+            onChangeText={setNewProduct}
+            placeholder="Ajouter un produit"
+            style={styles.input}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addProduct}>
+            <Text style={styles.buttonText}>Ajouter Produit</Text>
+        </TouchableOpacity>
+    </>
+)}
+
 
             {/* Sélection d'une marque */}
             {showBrands && (

@@ -9,12 +9,13 @@ import {
     ScrollView,
     Alert,
     Image,
-	ActivityIndicator,
+    ActivityIndicator,
 } from "react-native";
 import { supabase } from "../supabaseClient";
+import { Picker } from "@react-native-picker/picker";
 
 let debounceTimeout = null;
-const ITEMS_PER_PAGE = 3; // Nombre de fiches par page
+const ITEMS_PER_PAGE = 2; // Nombre de fiches par page
 
 const SearchClientsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
@@ -25,8 +26,43 @@ const SearchClientsPage = () => {
     const [selectedStatus, setSelectedStatus] = useState(null);
     const [statusOptions, setStatusOptions] = useState([]);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [loading, setLoading] = useState(false);
+    const [selectedDeviceType, setSelectedDeviceType] = useState("");
+    const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [deviceTypes, setDeviceTypes] = useState([]);
+    // 🔄 Charger les types d'appareils depuis la base de données
+    useEffect(() => {
+        const fetchDeviceTypes = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("interventions")
+                    .select("deviceType")
+                    .neq("deviceType", null);
+
+                if (error) {
+                    console.error(
+                        "❌ Erreur lors du chargement des types d'appareils :",
+                        error
+                    );
+                    Alert.alert(
+                        "Erreur",
+                        "Impossible de charger les types d'appareils."
+                    );
+                    return;
+                }
+
+                const uniqueDeviceTypes = [
+                    ...new Set(data.map((item) => item.deviceType)),
+                ].sort();
+                setDeviceTypes(uniqueDeviceTypes);
+            } catch (error) {
+                console.error("❌ Erreur inattendue :", error);
+            }
+        };
+
+        fetchDeviceTypes();
+    }, []);
+
     useEffect(() => {
         const fetchStatuses = async () => {
             try {
@@ -37,11 +73,16 @@ const SearchClientsPage = () => {
                     .neq("status", "");
 
                 if (error) {
-                    console.error("Erreur lors du chargement des statuts :", error);
+                    console.error(
+                        "Erreur lors du chargement des statuts :",
+                        error
+                    );
                     return;
                 }
 
-                const uniqueStatuses = Array.from(new Set(data.map((item) => item.status)));
+                const uniqueStatuses = Array.from(
+                    new Set(data.map((item) => item.status))
+                );
                 setStatusOptions(uniqueStatuses);
             } catch (error) {
                 console.error("Erreur inattendue :", error);
@@ -89,7 +130,9 @@ const SearchClientsPage = () => {
             if (searchTerm.trim()) {
                 const isNumber = /^\d+$/.test(searchTerm);
                 query = isNumber
-                    ? query.or(`ficheNumber.eq.${searchTerm},phone.ilike.%${searchTerm}%`)
+                    ? query.or(
+                          `ficheNumber.eq.${searchTerm},phone.ilike.%${searchTerm}%`
+                      )
                     : query.or(`name.ilike.%${searchTerm}%`);
             }
 
@@ -123,7 +166,10 @@ const SearchClientsPage = () => {
                 .order("name", { ascending: true });
 
             if (error) {
-                console.error("Erreur lors de la recherche par statut :", error);
+                console.error(
+                    "Erreur lors de la recherche par statut :",
+                    error
+                );
                 Alert.alert("Erreur", "Impossible de récupérer les résultats.");
             } else {
                 setClients(data || []);
@@ -135,10 +181,11 @@ const SearchClientsPage = () => {
     };
 
     const resetFilters = () => {
-        setSearchTerm("");
-        setSelectedStatus(null);
-        setClients([]);
-        setCurrentPage(1);
+        setSearchTerm(""); // Réinitialiser le champ de recherche texte
+        setSelectedStatus(null); // Réinitialiser le statut sélectionné
+        setSelectedDeviceType(""); // Réinitialiser le Picker des produits
+        setClients([]); // Vider les résultats
+        setCurrentPage(1); // Réinitialiser la pagination
     };
 
     const goToNextPage = () => {
@@ -152,43 +199,38 @@ const SearchClientsPage = () => {
             setCurrentPage((prevPage) => prevPage - 1);
         }
     };
-    const searchClientsByDeviceType = async () => {
-        if (!searchQuery.trim()) return; // Empêcher la recherche si le champ est vide
+    // 🔍 Recherche par `deviceType`
+    const searchByDeviceType = async (deviceType) => {
+        if (!deviceType) {
+            setClients([]);
+            return;
+        }
 
         setLoading(true);
         try {
-            console.log("🔍 Recherche des interventions contenant :", searchQuery);
-
-            // Étape 1: Récupérer les client_id ayant une intervention avec ce deviceType
-            const { data: interventionData, error: interventionError } = await supabase
-                .from("interventions")
-                .select("client_id")
-                .ilike("deviceType", `%${searchQuery}%`);
-
-            if (interventionError) throw interventionError;
-
-            // Extraire les IDs uniques des clients
-            const clientIds = [...new Set(interventionData.map((item) => item.client_id))];
-
-            if (clientIds.length === 0) {
-                setClients([]); // Aucune correspondance
-                setLoading(false);
-                return;
-            }
-
-            console.log("✅ Clients trouvés:", clientIds);
-
-            // Étape 2: Récupérer les informations des clients avec ces IDs
-            const { data: clientData, error: clientError } = await supabase
+            const { data, error } = await supabase
                 .from("clients")
-                .select("id, name, phone")
-                .in("id", clientIds);
+                .select(
+                    `
+				*,
+				interventions!inner(id, deviceType, status, description, brand, model, cost, paymentStatus, solderestant, createdAt, updatedAt, commande, label_photo)
+			`
+                )
+                .eq("interventions.deviceType", deviceType)
+                .order("name", { ascending: true });
 
-            if (clientError) throw clientError;
-
-            setClients(clientData || []);
+            if (error) {
+                console.error(
+                    "❌ Erreur lors de la recherche par produit :",
+                    error
+                );
+                Alert.alert("Erreur", "Impossible de récupérer les résultats.");
+            } else {
+                setClients(data || []);
+                setCurrentPage(1);
+            }
         } catch (error) {
-            console.error("❌ Erreur lors de la recherche :", error);
+            console.error("❌ Erreur inattendue :", error);
         } finally {
             setLoading(false);
         }
@@ -222,7 +264,7 @@ const SearchClientsPage = () => {
                     {statusOptions.map((status, index) => (
                         <TouchableOpacity
                             key={index}
-                            style={styles.dropdownItem}
+                            style={styles.dropdownItemStatus}
                             onPress={() => {
                                 setSearchTerm("");
                                 setSelectedStatus(status);
@@ -230,16 +272,54 @@ const SearchClientsPage = () => {
                                 searchByStatus(status);
                             }}
                         >
-                            <Text style={styles.dropdownItemText}>{status}</Text>
+                            <Text style={styles.dropdownItemText}>
+                                {status}
+                            </Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
             )}
 
-            <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
-                <Text style={styles.resetButtonText}>Réinitialiser les filtres</Text>
-            </TouchableOpacity>
+          
+                <Text style={styles.title}>
+                    Rechercher par type d'appareil :
+                </Text>
 
+                <TouchableOpacity
+                    style={styles.dropdownButton}
+                    onPress={() => setShowDeviceDropdown((prev) => !prev)}
+                >
+                    <Text style={styles.dropdownButtonText}>
+                        {selectedDeviceType ||
+                            "-- Sélectionner un type d'appareil --"}
+                    </Text>
+                </TouchableOpacity>
+
+
+                {showDeviceDropdown && (
+                    <ScrollView
+                        contentContainerStyle={styles.dropdownContainer}
+                    >
+                        <View style={styles.dropdownGrid}>
+                            {deviceTypes.map((type, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.dropdownItem}
+                                    onPress={() => {
+                                        setSelectedDeviceType(type);
+                                        setShowDeviceDropdown(false);
+                                        searchByDeviceType(type);
+                                    }}
+                                >
+                                    <Text style={styles.dropdownItemText}>
+                                        {type}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </ScrollView>
+                )}
+            
             <FlatList
                 data={paginatedClients}
                 keyExtractor={(item) => item.id.toString()}
@@ -247,13 +327,21 @@ const SearchClientsPage = () => {
                     <View style={styles.clientCard}>
                         <View style={styles.row}>
                             <View style={styles.clientDetails}>
-                                <Text style={styles.clientText}>Nom : {item.name}</Text>
-                                <Text style={styles.clientText}>Téléphone : {item.phone}</Text>
-                                <Text style={styles.clientText}>N° de fiche : {item.ficheNumber}</Text>
+                                <Text style={styles.clientText}>
+                                    Nom : {item.name}
+                                </Text>
+                                <Text style={styles.clientText}>
+                                    Téléphone : {item.phone}
+                                </Text>
+                                <Text style={styles.clientText}>
+                                    N° de fiche : {item.ficheNumber}
+                                </Text>
                             </View>
                             {item.interventions?.[0]?.label_photo && (
                                 <Image
-                                    source={{ uri: `data:image/png;base64,${item.interventions[0].label_photo}` }}
+                                    source={{
+                                        uri: `data:image/png;base64,${item.interventions[0].label_photo}`,
+                                    }}
                                     style={styles.labelPhoto}
                                 />
                             )}
@@ -265,13 +353,22 @@ const SearchClientsPage = () => {
                                     Intervention {index + 1}
                                 </Text>
                                 <Text style={styles.interventionText}>
-                                    Statut : {intervention.status || "Non renseigné"}
+                                    Statut :{" "}
+                                    {intervention.status || "Non renseigné"}
                                 </Text>
-                                <Text>Commande : {intervention.commande || "Non renseigné"}</Text>
-                                <Text>Description : {intervention.description || "N/A"}</Text>
                                 <Text>
-                                    Appareil : {intervention.deviceType || "N/A"} -{" "}
-                                    {intervention.brand || "N/A"} {intervention.model || "N/A"}
+                                    Commande :{" "}
+                                    {intervention.commande || "Non renseigné"}
+                                </Text>
+                                <Text>
+                                    Description :{" "}
+                                    {intervention.description || "N/A"}
+                                </Text>
+                                <Text>
+                                    Appareil :{" "}
+                                    {intervention.deviceType || "N/A"} -{" "}
+                                    {intervention.brand || "N/A"}{" "}
+                                    {intervention.model || "N/A"}
                                 </Text>
                                 <Text>
                                     Coût :{" "}
@@ -280,30 +377,40 @@ const SearchClientsPage = () => {
                                         : "Non spécifié"}
                                 </Text>
                                 <Text>
-                                    Paiement : {intervention.paymentStatus || "Non précisé"}
+                                    Paiement :{" "}
+                                    {intervention.paymentStatus ||
+                                        "Non précisé"}
                                 </Text>
                                 <Text>
                                     Solde restant dû :{" "}
                                     {intervention.solderestant
-                                        ? `${intervention.solderestant.toFixed(2)} €`
+                                        ? `${intervention.solderestant.toFixed(
+                                              2
+                                          )} €`
                                         : "0,00 €"}
                                 </Text>
                                 <Text>
                                     Créée le :{" "}
                                     {intervention.createdAt
-                                        ? new Date(intervention.createdAt).toLocaleDateString("fr-FR")
+                                        ? new Date(
+                                              intervention.createdAt
+                                          ).toLocaleDateString("fr-FR")
                                         : "Date inconnue"}
                                 </Text>
                                 <Text>
                                     Dernière mise à jour :{" "}
                                     {intervention.updatedAt
-                                        ? new Date(intervention.updatedAt).toLocaleDateString("fr-FR")
+                                        ? new Date(
+                                              intervention.updatedAt
+                                          ).toLocaleDateString("fr-FR")
                                         : "Non mise à jour"}
                                 </Text>
                                 <Text style={styles.clientText}>
                                     Date de récupération :{" "}
                                     {intervention.updatedAt
-                                        ? new Date(intervention.updatedAt).toLocaleDateString("fr-FR")
+                                        ? new Date(
+                                              intervention.updatedAt
+                                          ).toLocaleDateString("fr-FR")
                                         : "Non renseignée"}
                                 </Text>
                             </View>
@@ -311,7 +418,11 @@ const SearchClientsPage = () => {
                     </View>
                 )}
             />
-
+            <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
+                <Text style={styles.resetButtonText}>
+                    Réinitialiser les filtres
+                </Text>
+            </TouchableOpacity>
             {clients.length > ITEMS_PER_PAGE && (
                 <View style={styles.paginationContainer}>
                     <TouchableOpacity
@@ -339,34 +450,7 @@ const SearchClientsPage = () => {
                     </TouchableOpacity>
                 </View>
             )}
-			<Text style={styles.title}>Rechercher un client par produit</Text>
-
-            {/* Champ de recherche */}
-            <TextInput
-                style={styles.input}
-                placeholder="Ex : programmeur, téléphone, PC..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={searchClientsByDeviceType} // Recherche quand on valide
-            />
-
-            {/* Affichage des résultats */}
-            {loading ? (
-                <ActivityIndicator size="large" color="blue" />
-            ) : (
-                <FlatList
-                    data={clients}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.item}>
-                            <Text style={styles.name}>{item.name}</Text>
-                            <Text style={styles.phone}>{item.phone}</Text>
-                        </TouchableOpacity>
-                    )}
-                />
-            )}
         </View>
-		
     );
 };
 
@@ -384,6 +468,7 @@ const styles = StyleSheet.create({
     input: {
         borderWidth: 1,
         borderColor: "#ccc",
+        backgroundColor: "#fff",
         padding: 10,
         borderRadius: 5,
         marginBottom: 10,
@@ -416,16 +501,41 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#ccc",
         borderRadius: 5,
-        maxHeight: 150,
+        maxHeight: 250,
+        marginTop: 10,
     },
     dropdownItem: {
+        width: "48%", // Deux colonnes
         padding: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: "#eee",
+        backgroundColor: "#f0f0f0",
+        borderRadius: 5,
+        marginBottom: 8,
+        alignItems: "center",
+    },
+	dropdownItemStatus: {
+        width: "100%", // Deux colonnes
+        padding: 10,
+        backgroundColor: "#f0f0f0",
+        borderRadius: 5,
+        marginBottom: 8,
+        alignItems: "center",
     },
     dropdownItemText: {
         fontSize: 16,
         color: "#333",
+    },
+    dropdownContainer: {
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 5,
+        padding: 10,
+        maxHeight: 700,
+    },
+    dropdownGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
     },
     clientCard: {
         backgroundColor: "#fff",
@@ -485,7 +595,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
-	item: {
+    item: {
         padding: 15,
         borderBottomWidth: 1,
         borderBottomColor: "#ddd",

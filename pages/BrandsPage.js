@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 export default function BrandsPage({ route, navigation }) {
     const { articleId } = route.params;
     const [brands, setBrands] = useState([]);
+    const numColumns = 2; // Nombre de colonnes
 
     useEffect(() => {
         loadBrands();
@@ -45,30 +46,82 @@ export default function BrandsPage({ route, navigation }) {
     const handleSelectBrand = (brandId) => {
         navigation.navigate('ModelsPage', { brandId });
     };
-	const sortedBrands = [...brands].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+
+    const sortedBrands = [...brands].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
 
     return (
-<View style={styles.container}>
-    <FlatList
-        data={sortedBrands} // Liste triée par ordre alphabétique
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-            <View style={styles.itemContainer}>
-                <TouchableOpacity onPress={() => handleSelectBrand(item.id)}>
-                    <Text style={styles.itemText}>{item.nom}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeleteBrand(item.id)}>
-                    <Icon name="trash" size={20} color="red" />
-                </TouchableOpacity>
-            </View>
-        )}
-    />
-</View>
+        <View style={styles.container}>
+            <FlatList
+                data={sortedBrands}
+                keyExtractor={(item) => item.id.toString()}
+                numColumns={numColumns}
+                key={numColumns} // Forcer le rafraîchissement lors du changement de colonnes
+                renderItem={({ item }) => (
+                    <View style={styles.itemContainer}>
+                        <TouchableOpacity 
+                            style={styles.brandButton} 
+                            onPress={() => handleSelectBrand(item.id)}
+                        >
+                            <Text style={styles.itemText}>{item.nom}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.deleteButton} 
+                            onPress={() => handleDeleteBrand(item.id)}
+                        >
+                            <Icon name="trash" size={16} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+                contentContainerStyle={styles.listContainer}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    itemContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderBottomWidth: 1, borderBottomColor: '#ddd' },
-    itemText: { fontSize: 16, flex: 1 },
+    container: { 
+        flex: 1, 
+        padding: 10, 
+        backgroundColor: '#f9f9f9' 
+    },
+    listContainer: {
+        justifyContent: 'space-between',
+    },
+    itemContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
+        margin: 5,
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        elevation: 2, // Ombre pour Android
+        shadowColor: '#000', // Ombre pour iOS
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+    },
+    brandButton: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#04305e', // Couleur de fond du bouton
+        borderRadius: 8,
+        width: '100%', // Prendre toute la largeur du conteneur
+    },
+    itemText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#fff', // Texte en blanc pour plus de contraste
+        textAlign: 'center',
+    },
+    deleteButton: {
+        marginTop: 10,
+        backgroundColor: 'red',
+        padding: 8,
+        borderRadius: 5,
+        width: '100%',
+        alignItems: 'center',
+    }
 });

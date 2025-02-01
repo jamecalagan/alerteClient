@@ -36,11 +36,11 @@ export default function SignUpPage({ navigation }) {
   return (
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
       <View style={styles.overlay}>
-        {/* Affichage du logo */}
+       
         <Image source={require('./assets/logo_phone.png')} style={styles.logo} />
         <Text style={styles.title}>Créer un compte</Text>
 
-        {/* Champ Email avec icône */}
+     
         <View style={styles.inputContainer}>
 		<Image
     source={require('./assets/icons/mail.png')} // Chemin vers votre image
@@ -57,7 +57,7 @@ export default function SignUpPage({ navigation }) {
           />
         </View>
 
-        {/* Champ mot de passe avec icône */}
+        
         <View style={styles.inputContainer}>
           <Icon name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
           <TextInput
@@ -73,7 +73,7 @@ export default function SignUpPage({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Boutons d'inscription et de retour */}
+        
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.loginButton} onPress={handleSignUp}>
             <Icon name="person-add-outline" size={20} color="#202020" style={styles.icon} />

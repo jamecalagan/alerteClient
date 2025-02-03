@@ -192,51 +192,7 @@ export default function HomePage({ navigation, route }) {
         }
     }, [clients]);
 
-    const handleDeleteImages = async (imagesToDelete) => {
-        Alert.alert(
-            "Confirmation",
-            `Voulez-vous vraiment supprimer ${imagesToDelete.length} image(s) ?`,
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from("intervention_images")
-                                .delete()
-                                .in("id", imagesToDelete);
-
-                            if (error) {
-                                console.error(
-                                    "Erreur lors de la suppression des images :",
-                                    error
-                                );
-                                Alert.alert(
-                                    "Erreur",
-                                    "Impossible de supprimer les images."
-                                );
-                            } else {
-                                Alert.alert(
-                                    "Succès",
-                                    "Images supprimées avec succès !"
-                                );
-                                setCleanupModalVisible(false);
-                            }
-                        } catch (error) {
-                            console.error(
-                                "Erreur lors de la suppression :",
-                                error
-                            );
-                        }
-                    },
-                },
-            ]
-        );
-    };
+  
 
     useEffect(() => {
         // Calculer les fiches à afficher pour la page courante
@@ -536,11 +492,6 @@ export default function HomePage({ navigation, route }) {
         loadNotRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
     }, []);
 
-    /*     // Charger les données lors du premier rendu
-    useEffect(() => {
-        setIsLoading(true); // Démarre le loader
-        loadClients("createdAt", false); // Tri par date de création en ordre décroissant
-    }, []); */
 
     // Pagination
     const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
@@ -915,8 +866,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            navigation.getState().index === 0
+                                        tintColor: navigation.getState().index === 0
                                                 ? "blue"
                                                 : "gray", // Couleur dynamique des icônes
                                     },
@@ -937,8 +887,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            navigation.getState().index === 1
+                                        tintColor: navigation.getState().index === 1
                                                 ? "blue"
                                                 : "gray", // Couleur dynamique des icônes
                                     },
@@ -983,8 +932,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            navigation.getState().index === 2
+                                        tintColor: navigation.getState().index === 2
                                                 ? "blue"
                                                 : "gray", // Couleur dynamique des icônes
                                     },
@@ -1093,8 +1041,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            getIconColor("Devis accepté"),
+                                        tintColor: getIconColor("Devis accepté"),
                                     }, // Applique la couleur en fonction du statut
                                 ]}
                             />
@@ -1115,9 +1062,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor: getIconColor(
-                                            "Réparation en cours"
-                                        ),
+                                        tintColor: getIconColor( "Réparation en cours"),
                                     }, // Applique la couleur en fonction du statut
                                 ]}
                             />
@@ -1138,8 +1083,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            getIconColor("Devis en cours"),
+                                        tintColor: getIconColor("Devis en cours"),
                                     }, // Applique la couleur en fonction du statut
                                 ]}
                             />
@@ -1159,8 +1103,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            getIconColor("Non réparable"),
+                                        tintColor: getIconColor("Non réparable"),
                                     }, // Applique la couleur en fonction du statut
                                 ]}
                             />
@@ -1181,8 +1124,7 @@ export default function HomePage({ navigation, route }) {
                                 style={[
                                     styles.drawerItemIcon,
                                     {
-                                        tintColor:
-                                            getIconColor("Réinitialiser"),
+                                        tintColor: getIconColor("Réinitialiser"),
                                     }, // Applique la couleur en fonction du statut
                                 ]}
                             />
@@ -1258,7 +1200,24 @@ export default function HomePage({ navigation, route }) {
                                     </Text>
                                 </TouchableOpacity>
 								
-								<TouchableOpacity
+
+								</View>
+                            ) : (
+                                <View>
+                                    <Text
+                                        style={{
+                                            color: "white",
+                                            marginTop: 18,
+                                            marginRight: 40,
+                                            padding: 10,
+                                            borderRadius: 5,
+                                            borderWidth: 1,
+                                            borderColor: "#888787",
+                                        }}
+                                    >
+                                        Aucune image à supprimer.
+                                    </Text>
+									<TouchableOpacity
                                         onPress={() =>
                                             navigation.navigate(
                                                 "OngoingAmountsPage",
@@ -1273,25 +1232,8 @@ export default function HomePage({ navigation, route }) {
                                             En cours : {totalCost} €
                                         </Text>
                                     </TouchableOpacity>
-								</View>
-                            ) : (
-                                <View>
-                                    <Text
-                                        style={{
-                                            color: "white",
-                                            marginTop: 18,
-                                            marginRight: 40,
-                                            padding: 10,
-                                            backgroundColor: "green",
-                                            borderRadius: 5,
-                                            borderWidth: 1,
-                                            borderColor: "#888787",
-                                        }}
-                                    >
-                                        Aucune image à supprimer.
-                                    </Text>
-
                                 </View>
+								
                             )}
                             <Text style={styles.pageNumberText}>
                                 Page {currentPage} / {totalPages}
@@ -1494,8 +1436,7 @@ export default function HomePage({ navigation, route }) {
                                                                     style={{
                                                                         width: 20,
                                                                         height: 20,
-                                                                        tintColor:
-                                                                            getIconColor(
+                                                                        tintColor: getIconColor(
                                                                                 status
                                                                             ), // Ajoute la couleur définie
                                                                     }}
@@ -1578,8 +1519,7 @@ export default function HomePage({ navigation, route }) {
                                                                           "fr-FR",
                                                                           {
                                                                               style: "currency",
-                                                                              currency:
-                                                                                  "EUR",
+                                                                              currency: "EUR",
                                                                           }
                                                                       )
                                                                     : "0,00 €"}
@@ -1651,8 +1591,7 @@ export default function HomePage({ navigation, route }) {
                                                         >
                                                             <View
                                                                 style={{
-                                                                    flexDirection:
-                                                                        "row",
+                                                                    flexDirection: "row",
                                                                 }}
                                                             >
                                                                 {status ===
@@ -1677,8 +1616,7 @@ export default function HomePage({ navigation, route }) {
                                                                                 style={{
                                                                                     width: 28,
                                                                                     height: 28,
-                                                                                    tintColor:
-                                                                                        "#5906f3", // Couleur de l'icône (ici noir)
+                                                                                    tintColor: "#5906f3", // Couleur de l'icône (ici noir)
                                                                                 }}
                                                                             />
                                                                         </TouchableOpacity>
@@ -1704,8 +1642,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={{
                                                                                 width: 28,
                                                                                 height: 28,
-                                                                                tintColor:
-                                                                                    "#019b53",
+                                                                                tintColor: "#019b53",
                                                                             }}
                                                                         />
                                                                     ) : latestIntervention?.notifiedBy ===
@@ -1715,8 +1652,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={{
                                                                                 width: 28,
                                                                                 height: 28,
-                                                                                tintColor:
-                                                                                    "#3c92f5",
+                                                                                tintColor: "#3c92f5",
                                                                             }}
                                                                         />
                                                                     ) : (
@@ -1725,8 +1661,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={{
                                                                                 width: 28,
                                                                                 height: 28,
-                                                                                tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                                tintColor: "#000", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                     )}
@@ -1751,8 +1686,7 @@ export default function HomePage({ navigation, route }) {
                                                                         style={{
                                                                             width: 28,
                                                                             height: 28,
-                                                                            tintColor:
-                                                                                "#000", // Couleur de l'icône (ici noir)
+                                                                            tintColor: "#000", // Couleur de l'icône (ici noir)
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
@@ -1776,8 +1710,7 @@ export default function HomePage({ navigation, route }) {
                                                                         style={{
                                                                             width: 28,
                                                                             height: 28,
-                                                                            tintColor:
-                                                                                "#000",
+                                                                            tintColor: "#000",
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
@@ -1800,18 +1733,15 @@ export default function HomePage({ navigation, route }) {
                                                                             style={{
                                                                                 width: 28,
                                                                                 height: 28,
-                                                                                tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+																				tintColor: "#000", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                     </TouchableOpacity>
                                                                 )}
                                                                 <View
                                                                     style={{
-                                                                        flexDirection:
-                                                                            "row",
-                                                                        justifyContent:
-                                                                            "flex-end",
+                                                                        flexDirection:"row",
+                                                                        justifyContent:"flex-end",
                                                                     }}
                                                                 >
                                                                     <TouchableOpacity
@@ -1834,8 +1764,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={{
                                                                                 width: 28,
                                                                                 height: 28,
-                                                                                tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                                tintColor: "#000", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                         <Text
@@ -1867,8 +1796,7 @@ export default function HomePage({ navigation, route }) {
                                                                             width: 28,
                                                                             height: 28,
 
-                                                                            tintColor:
-                                                                                "red", // Couleur de l'icône (ici noir)
+                                                                            tintColor: "red", // Couleur de l'icône (ici noir)
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
@@ -1899,13 +1827,11 @@ export default function HomePage({ navigation, route }) {
                                                                                 }
                                                                                 style={{
                                                                                     borderWidth: 2,
-                                                                                    borderColor:
-                                                                                        "#000",
+                                                                                    borderColor: "#000",
                                                                                     width: 50,
                                                                                     height: 50,
-
-                                                                                    alignItems:
-                                                                                        "center",
+																					borderRadius: 5,
+                                                                                    alignItems:"center",
                                                                                 }}
                                                                             >
                                                                                 <TouchableOpacity
@@ -1933,8 +1859,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={[
                                                                                 styles.deviceIconContainer,
                                                                                 {
-                                                                                    flexDirection:
-                                                                                        "row",
+                                                                                    flexDirection: "row",
                                                                                 },
                                                                             ]}
                                                                         ></View>
@@ -2031,8 +1956,7 @@ export default function HomePage({ navigation, route }) {
                                                                             style={[
                                                                                 styles.deviceIconContainer,
                                                                                 {
-                                                                                    flexDirection:
-                                                                                        "row",
+                                                                                    flexDirection: "row",
                                                                                 },
                                                                             ]}
                                                                         ></View>
@@ -2463,8 +2387,8 @@ const styles = StyleSheet.create({
         alignItems: "center", // Pour centrer le texte à l'intérieur du bouton
     },
     repairedCountText: {
-        color: "#ffee04",
-        fontWeight: "bold",
+        color: "#f5f5f5",
+        fontWeight: "medium",
         textAlign: "center",
         fontSize: 16,
         marginLeft: 8,
@@ -2599,7 +2523,7 @@ const styles = StyleSheet.create({
     },
     photoButton: {
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 5,
         borderColor: "#000",
         borderWidth: 2,
         marginRight: 10,
@@ -2607,7 +2531,7 @@ const styles = StyleSheet.create({
     editButton: {
         //backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 5,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2615,7 +2539,7 @@ const styles = StyleSheet.create({
     printButton: {
         //backgroundColor: '#28a745',  // Vert pour l'icône d'impression
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 5,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2623,13 +2547,13 @@ const styles = StyleSheet.create({
     trashButton: {
         //backgroundColor: '#dc3545',  // Rouge pour l'icône de poubelle
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 5,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
     },
     transportButton: {
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 5,
         marginRight: 10,
         borderColor: "#000", // Couleur de la bordure (noire)
         borderWidth: 2, // Épaisseur de la bordure
@@ -2758,7 +2682,7 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centre verticalement
         padding: 10, // Padding pour l'icône
         borderWidth: 2, // Bordure de 2px
-        borderRadius: 2, // Bords arrondis
+        borderRadius: 5, // Bords arrondis
         borderColor: "#000", // Couleur de la bordure en noir
         marginRight: 8,
     },
@@ -2824,7 +2748,7 @@ const styles = StyleSheet.create({
     },
     notificationIconContainer: {
         padding: 10, // Padding pour l'icône
-        borderRadius: 2, // Bords arrondis
+        borderRadius: 5, // Bords arrondis
         borderWidth: 2, // Bordure de 2px
         borderColor: "#000", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes

@@ -108,52 +108,88 @@ const ImageCleanupPage = () => {
         );
     };
 
-    // Fonction pour supprimer les images sélectionnées
-    const deleteSelectedImages = async () => {
-        if (selectedImages.length === 0) {
-            Alert.alert("Aucune sélection", "Veuillez sélectionner au moins une image à supprimer.");
-            return;
-        }
+// Fonction pour supprimer les images sélectionnées
+const deleteSelectedImages = async () => {
+    if (selectedImages.length === 0) {
+        Alert.alert("Aucune sélection", "Veuillez sélectionner au moins une image à supprimer.");
+        return;
+    }
 
-        Alert.alert(
-            "Confirmation",
-            `Voulez-vous vraiment supprimer ${selectedImages.length} images ?`,
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    onPress: async () => {
-                        try {
-                            // Supprimer les images sélectionnées de la base de données
-                            const { error } = await supabase
+    Alert.alert(
+        "Confirmation",
+        `Voulez-vous vraiment supprimer ${selectedImages.length} images ?`,
+        [
+            { text: "Annuler", style: "cancel" },
+            {
+                text: "Supprimer",
+                onPress: async () => {
+                    try {
+                        const interventionImageIds = selectedImages.filter(id => !id.includes("_photo_"));
+                        const photoIds = selectedImages.filter(id => id.includes("_photo_"));
+
+                        console.log("🗑️ Images à supprimer (intervention_images) :", interventionImageIds);
+                        console.log("🗑️ Photos à supprimer (interventions) :", photoIds);
+
+                        // 1️⃣ Suppression des images de la table intervention_images
+                        if (interventionImageIds.length > 0) {
+                            const { error: deleteError } = await supabase
                                 .from("intervention_images")
                                 .delete()
-                                .in("id", selectedImages);
+                                .in("id", interventionImageIds);
 
-                            if (error) {
-                                console.error("Erreur lors de la suppression des images :", error);
+                            if (deleteError) {
+                                console.error("❌ Erreur lors de la suppression des images :", deleteError);
                                 Alert.alert("Erreur", "Impossible de supprimer certaines images.");
                                 return;
                             }
-
-                            // Mettre à jour l'affichage après suppression
-                            setInterventionImagesGrouped((prevData) =>
-                                prevData.map((group) => ({
-                                    ...group,
-                                    photos: group.photos.filter((photo) => !selectedImages.includes(photo.id)),
-                                }))
-                            );
-
-                            // Réinitialiser la sélection
-                            setSelectedImages([]);
-                        } catch (err) {
-                            console.error("Erreur inattendue lors de la suppression :", err);
+                            console.log("✅ Suppression des images réussie dans intervention_images :", interventionImageIds);
                         }
-                    },
+
+                        // 2️⃣ Suppression des images dans la colonne photos de la table interventions
+                        for (const photoId of photoIds) {
+                            const [interventionId, , index] = photoId.split("_");
+
+                            const { data, error: fetchError } = await supabase
+                                .from("interventions")
+                                .select("photos")
+                                .eq("id", interventionId)
+                                .single();
+
+                            if (fetchError) {
+                                console.error("❌ Erreur lors de la récupération des photos :", fetchError);
+                                continue;
+                            }
+
+                            
+
+                            const updatedPhotos = data.photos.filter((_, idx) => idx !== parseInt(index));
+
+                            const { error: updateError } = await supabase
+                                .from("interventions")
+                                .update({ photos: updatedPhotos })
+                                .eq("id", interventionId);
+
+                            if (updateError) {
+                                console.error("❌ Erreur lors de la mise à jour des photos :", updateError);
+                            } else {
+                                console.log(`✅ Photo supprimée de l'intervention ${interventionId}`);
+                                console.log("📦 Photos après suppression :", updatedPhotos);
+                            }
+                        }
+
+                        // 🔄 Rechargement des données après suppression
+                        await loadInterventionImagesAndPhotos();
+
+                        // Réinitialiser la sélection
+                        setSelectedImages([]);
+                    } catch (err) {
+                        console.error("❌ Erreur inattendue lors de la suppression :", err);
+                    }
                 },
-            ]
-        );
-    };
+            },
+        ]
+    );
+};
 
     useEffect(() => {
         loadInterventionImagesAndPhotos();

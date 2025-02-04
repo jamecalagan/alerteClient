@@ -459,12 +459,8 @@ export default function RecoveredClientsPage({ navigation, route }) {
         />
     </TouchableOpacity>
 </View>
-
-<View>
-<BottomNavigation  navigation={navigation} currentRoute={route.name} />
-</View>
             </View>
-
+			<BottomNavigation  navigation={navigation} currentRoute={route.name} />
             <Modal
                 visible={selectedImage !== null}
                 transparent={true}
@@ -628,7 +624,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginVertical: 10, // Ajuste l'espacement vertical
-		marginBottom: 90,
+		marginBottom: 60,
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons

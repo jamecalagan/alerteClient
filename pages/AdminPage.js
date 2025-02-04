@@ -12,6 +12,7 @@ import {
     Keyboard,
     TouchableWithoutFeedback,
 	Image,
+	ImageBackground,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -28,7 +29,7 @@ export default function AdminPage({ navigation, route }) {
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
-
+	const backgroundImage = require("../assets/listing2.jpg");
     const [clients, setClients] = useState({
         all: [],
     });
@@ -87,6 +88,10 @@ export default function AdminPage({ navigation, route }) {
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
+					<ImageBackground
+						source={backgroundImage}
+						style={styles.backgroundImage}
+					>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.container}>
                     <TouchableOpacity
@@ -104,11 +109,9 @@ export default function AdminPage({ navigation, route }) {
                         style={styles.navigateButton}
                         onPress={() => navigation.navigate("ArticlesPage")}
                     >
-                        <MaterialIcons
-                            name="list"
-                            size={24}
-                            color="#fff"
-                            style={styles.icon}
+                        <Image
+                            source={require("../assets/icons/list.png")}
+                            style={styles.iconSearch}
                         />
                         <Text style={styles.buttonTextGestion}>
                             Gérer Produits, Marques et Modèles
@@ -116,12 +119,10 @@ export default function AdminPage({ navigation, route }) {
                     </TouchableOpacity>
 					<TouchableOpacity 
     style={styles.navigateButton}
-    onPress={() => navigation.navigate("AddProductPage")}
->                        <MaterialIcons
-                            name="add"
-                            size={24}
-                            color="#fff"
-                            style={styles.icon}
+    onPress={() => navigation.navigate("AddProductPage")}>
+                        <Image
+                            source={require("../assets/icons/add_product.png")}
+                            style={styles.iconSearch}
                         />
     <Text style={styles.buttonText}>Ajouter un produit</Text>
 </TouchableOpacity>
@@ -187,7 +188,7 @@ export default function AdminPage({ navigation, route }) {
                         >
                             <Image
                                 source={require("../assets/icons/chevrong.png")}
-                                style={[styles.chevronIcon, { tintColor: currentPage === 1 ? "gray" : "black" }]}
+                                style={[styles.chevronIcon, { tintColor: currentPage === 1 ? "gray" : "white" }]}
                             />
                         </TouchableOpacity>
 
@@ -200,16 +201,19 @@ export default function AdminPage({ navigation, route }) {
                         >
                             <Image
                                 source={require("../assets/icons/chevrond.png")}
-                                style={[styles.chevronIcon, { tintColor: currentPage === totalPages ? "gray" : "black" }]}
+                                style={[styles.chevronIcon, { tintColor: currentPage === totalPages ? "gray" : "white" }]}
                             />
                         </TouchableOpacity>
                     </View>
 
-                    <View>
+
+                </View>
+				
+            </TouchableWithoutFeedback>
+			<View>
                         <BottomNavigation navigation={navigation} currentRoute={route.name} />
                     </View>
-                </View>
-            </TouchableWithoutFeedback>
+					</ImageBackground>
         </KeyboardAvoidingView>
     );
 }
@@ -218,7 +222,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#fff",
+    },
+	backgroundImage: {
+        flex: 1,
+        resizeMode: "cover",
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: "rgba(255, 255, 255, 0)",
+        padding: 20,
     },
     input: {
         borderWidth: 1,
@@ -236,11 +248,13 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: "bold",
+		color: "#fff",
         marginVertical: 10,
     },
 	title: {
         fontSize: 24,
         fontWeight: "bold",
+		color: "#fff",
         marginBottom: 20,
         textAlign: "center",
     },
@@ -318,7 +332,7 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         marginRight: 10,
-        tintColor: "blue",
+        tintColor: "white",
 	},
     pickerContainer: {
         backgroundColor: "#f1efef",
@@ -375,7 +389,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginVertical: 10, // Ajuste l'espacement vertical
-		marginBottom: 90,
+		marginBottom: 70,
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons
@@ -386,7 +400,7 @@ const styles = StyleSheet.create({
     },
     paginationText: {
         marginHorizontal: 10, // Espace entre le texte et les chevrons
-        color: "black",
+        color: "white",
         fontSize: 20, // Ajuste la taille du texte
     },
 

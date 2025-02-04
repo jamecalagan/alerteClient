@@ -1,36 +1,35 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { useRoute, useIsFocused } from "@react-navigation/native";
 
 export default function BottomMenu({ navigation, filterByStatus, resetFilter }) {
-    const getButtonColor = (status) => {
-        switch (status) {
-            case "En attente de pièces":
-                return "#8a68d4"; // Violet plus sombre pour plus de contraste
-            case "Devis accepté":
-                return "#ffc107"; // Doré plus lumineux
-            case "Réparation en cours":
-                return "#396ab1"; // Bleu plus foncé
-            case "Réparé":
-                return "#037903"; // Vert plus sombre
-            case "Devis en cours":
-                return "#d35400"; // Orange foncé
-            case "Non réparable":
-                return "#b80000"; // Rouge plus foncé
-            case "Réinitialiser":
-                return "#ff8c00"; // Orange vif
-            case "Restitués":
-                return "#198754"; // Vert bouteille
-            case "Admin":
-                return "#6c757d"; // Gris sombre
-            case "Ajouter":
-                return "#0d6efd"; // Bleu bouton classique
-            default:
-                return "#6c757d"; // Gris sombre
+    const route = useRoute();
+    const isFocused = useIsFocused();
+    const [activeButton, setActiveButton] = useState(null); // État pour le bouton actif
+
+    // Désactiver les autres boutons lorsque l'on revient sur Home
+    useEffect(() => {
+        if (isFocused && route.name === "Home") {
+            setActiveButton(null); // Désactive les autres boutons sauf Accueil
+        } else if (isFocused) {
+            setActiveButton(route.name); // Active le bouton correspondant à la page
         }
+    }, [isFocused, route.name]);
+
+    const handlePress = (status, action) => {
+        if (status !== "Home") {
+            setActiveButton(status); // Mettre à jour le bouton actif sauf pour Accueil
+        } else {
+            setActiveButton(null); // Désactiver les autres boutons en revenant à Home
+        }
+        action(); // Appeler l'action correspondante (filtrer ou naviguer)
     };
 
-    const getTextColor = (status) => {
-        return status === "Devis accepté" ? "black" : "white"; // Texte noir pour les boutons clairs
+    const getButtonColor = (status) => {
+        if (status === "Home") {
+            return "#5b6788"; // "Accueil" est toujours actif
+        }
+        return activeButton === status ? "#5b6788" : "#191f2f"; // Les autres boutons changent seulement sur leur page
     };
 
     return (
@@ -38,57 +37,51 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
             <View style={styles.filterRow}>
                 <TouchableOpacity
                     style={[styles.filterButton, { backgroundColor: getButtonColor("En attente de pièces") }]}
-                    onPress={() => filterByStatus("En attente de pièces")}
+                    onPress={() => handlePress("En attente de pièces", () => filterByStatus("En attente de pièces"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
-                        <Text style={[styles.filterText, { color: getTextColor("En attente de pièces") }]}>
-                            Commande
-                        </Text>
+                        <Text style={styles.filterText}>Commande</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.filterButton, { backgroundColor: getButtonColor("Devis en cours") }]}
-                    onPress={() => filterByStatus("Devis en cours")}
+                    onPress={() => handlePress("Devis en cours", () => filterByStatus("Devis en cours"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/devisEnCours.png")} style={styles.icon} />
-                        <Text style={[styles.filterText, { color: getTextColor("Devis en cours") }]}>Devis</Text>
+                        <Text style={styles.filterText}>Devis</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.filterButton, { backgroundColor: getButtonColor("Devis accepté") }]}
-                    onPress={() => filterByStatus("Devis accepté")}
+                    onPress={() => handlePress("Devis accepté", () => filterByStatus("Devis accepté"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/devisAccepte.png")} style={styles.icon} />
-                        <Text style={[styles.filterText, { color: getTextColor("Devis accepté") }]}>Devis OK</Text>
+                        <Text style={styles.filterText}>Devis OK</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.filterButton, { backgroundColor: getButtonColor("Réparation en cours") }]}
-                    onPress={() => filterByStatus("Réparation en cours")}
+                    onPress={() => handlePress("Réparation en cours", () => filterByStatus("Réparation en cours"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/tools1.png")} style={styles.icon} />
-                        <Text style={[styles.filterText, { color: getTextColor("Réparation en cours") }]}>
-                            En Réparation
-                        </Text>
+                        <Text style={styles.filterText}>En Réparation</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.filterButton, { backgroundColor: getButtonColor("Réinitialiser") }]}
-                    onPress={resetFilter}
+                    onPress={() => handlePress("Réinitialiser", resetFilter)}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/reload.png")} style={styles.icon} />
-                        <Text style={[styles.filterText, { color: getTextColor("Réinitialiser") }]}>
-                            Réinitialiser
-                        </Text>
+                        <Text style={styles.filterText}>Réinitialiser</Text>
                     </View>
                 </TouchableOpacity>
             </View>
@@ -97,52 +90,52 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
 
             <View style={styles.navigationRow}>
                 <TouchableOpacity
-                    style={[styles.menuButton, { backgroundColor: getButtonColor("Home") }]}
-                    onPress={() => navigation.navigate("Home")}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Home") }]}
+                    onPress={() => handlePress("Home", () => navigation.navigate("Home"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/home.png")} style={styles.icon} />
-                        <Text style={[styles.menuText, { color: getTextColor("Home") }]}>Accueil</Text>
+                        <Text style={styles.menuText}>Accueil</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.menuButton, { backgroundColor: getButtonColor("Ajouter") }]}
-                    onPress={() => navigation.navigate("AddClient")}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("AddClient") }]}
+                    onPress={() => handlePress("AddClient", () => navigation.navigate("AddClient"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/add.png")} style={styles.icon} />
-                        <Text style={[styles.menuText, { color: getTextColor("Ajouter") }]}>Ajouter</Text>
+                        <Text style={styles.menuText}>Ajouter</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.menuButton, { backgroundColor: getButtonColor("Réparé") }]}
-                    onPress={() => navigation.navigate("RepairedInterventions")}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("RepairedInterventions") }]}
+                    onPress={() => handlePress("RepairedInterventions", () => navigation.navigate("RepairedInterventions"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/finished.png")} style={styles.icon} />
-                        <Text style={[styles.menuText, { color: getTextColor("Réparé") }]}>Réparés</Text>
+                        <Text style={styles.menuText}>Réparés</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.menuButton, { backgroundColor: getButtonColor("Restitués") }]}
-                    onPress={() => navigation.navigate("RecoveredClients")}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("RecoveredClients") }]}
+                    onPress={() => handlePress("RecoveredClients", () => navigation.navigate("RecoveredClients"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/restitue.png")} style={styles.icon} />
-                        <Text style={[styles.menuText, { color: getTextColor("Restitués") }]}>Restitués</Text>
+                        <Text style={styles.menuText}>Restitués</Text>
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.menuButton, { backgroundColor: getButtonColor("Admin") }]}
-                    onPress={() => navigation.navigate("Admin")}
+                    style={[styles.filterButton, { backgroundColor: getButtonColor("Admin") }]}
+                    onPress={() => handlePress("Admin", () => navigation.navigate("Admin"))}
                 >
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/Config.png")} style={styles.icon} />
-                        <Text style={[styles.menuText, { color: getTextColor("Admin") }]}>Administration</Text>
+                        <Text style={styles.menuText}>Admin</Text>
                     </View>
                 </TouchableOpacity>
             </View>
@@ -155,9 +148,8 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 0,
         width: "100%",
-      
         paddingVertical: 10,
-        paddingBottom: 10,
+        paddingBottom: 2,
         borderRadius: 5,
     },
     navigationRow: {
@@ -170,22 +162,16 @@ const styles = StyleSheet.create({
         justifyContent: "space-around",
         marginTop: 10,
     },
-    menuButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 50,
-        flex: 1,
-        marginHorizontal: 5,
-        alignItems: "center",
-		elevation: 2,
-    },
     filterButton: {
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 2,
+        borderWidth: 1,
+        borderColor: "#5b6788",
         flex: 1,
         marginHorizontal: 5,
-		elevation: 2,
+        elevation: 2,
+        backgroundColor: "#191f2f",
     },
     buttonContent: {
         flexDirection: "row",
@@ -200,11 +186,13 @@ const styles = StyleSheet.create({
     },
     menuText: {
         fontSize: 14,
-        fontWeight: "bold",
+        fontWeight: "medium",
+        color: "white",
     },
     filterText: {
         fontSize: 14,
-        fontWeight: "bold",
+        fontWeight: "medium",
+        color: "white",
     },
     separator: {
         height: 1,

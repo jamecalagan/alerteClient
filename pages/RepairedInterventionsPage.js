@@ -22,7 +22,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import BottomNavigation  from "../components/BottomNavigation";
+import BottomNavigation from "../components/BottomNavigation";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
@@ -42,7 +42,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [expandedCards, setExpandedCards] = useState({});
-	const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
+    const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
     const [currentPage, setCurrentPage] = useState(1); // Page actuelle
     const itemsPerPage = 4; // Nombre d'éléments par page
     const sortedInterventions = repairedInterventions.sort((a, b) => {
@@ -50,74 +50,73 @@ export default function RepairedInterventionsPage({ navigation, route }) {
         if (b.id === pinnedInterventionId) return 1;
         return 0; // Conserve l'ordre des autres fiches
     });
-	const getPaginatedData = () => {
-		if (!repairedInterventions || repairedInterventions.length === 0) {
-			return []; // Retourne un tableau vide si aucune donnée
-		}
-		const startIndex = (currentPage - 1) * itemsPerPage;
-		const endIndex = startIndex + itemsPerPage;
-		return repairedInterventions.slice(startIndex, endIndex);
-	};
+    const getPaginatedData = () => {
+        if (!repairedInterventions || repairedInterventions.length === 0) {
+            return []; // Retourne un tableau vide si aucune donnée
+        }
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return repairedInterventions.slice(startIndex, endIndex);
+    };
 
-	const handlePageChange = (newPage) => {
-		if (newPage >= 1 && newPage <= totalPages) {
-			setCurrentPage(newPage); // Met à jour la page actuelle
-		}
-	};
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage); // Met à jour la page actuelle
+        }
+    };
 
     // Calculer le nombre total de pages
     const totalPages = Math.ceil(repairedInterventions.length / itemsPerPage);
-	const loadRepairedInterventions = async () => {
-		try {
-			const { data, error } = await supabase
-				.from("interventions")
-				.select(
-					`
+    const loadRepairedInterventions = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("interventions")
+                .select(
+                    `
 					*,
 					clients (phone, name, ficheNumber)
 					`
-				)
-				.in("status", ["Réparé", "Non réparable"]); // Inclure les deux statuts
-	
-			if (error) throw error;
-	
-			const { data: imagesData, error: imagesError } = await supabase
-				.from("intervention_images")
-				.select("*");
-	
-			if (imagesError) throw imagesError;
-	
-			const interventionsWithImages = data.map((intervention) => {
-				const images = imagesData.filter(
-					(image) => image.intervention_id === intervention.id
-				);
-				return { ...intervention, intervention_images: images };
-			});
-	
-			// Calcul du montant total des interventions "Réparé"
-			const total = interventionsWithImages.reduce(
-				(sum, intervention) => sum + (intervention.cost || 0),
-				0
-			);
-			setRepairedTotal(total); // Met à jour le montant total
-	
-			setRepairedInterventions(interventionsWithImages);
-	
-			const savedStatus = {};
-			interventionsWithImages.forEach((intervention) => {
-				savedStatus[intervention.id] =
-					intervention.detailIntervention &&
-					intervention.detailIntervention.trim() !== "";
-			});
-			setIsSaved(savedStatus);
-		} catch (error) {
-			console.error(
-				"Erreur lors du chargement des interventions réparées :",
-				error
-			);
-		}
-	};
-	
+                )
+                .in("status", ["Réparé", "Non réparable"]); // Inclure les deux statuts
+
+            if (error) throw error;
+
+            const { data: imagesData, error: imagesError } = await supabase
+                .from("intervention_images")
+                .select("*");
+
+            if (imagesError) throw imagesError;
+
+            const interventionsWithImages = data.map((intervention) => {
+                const images = imagesData.filter(
+                    (image) => image.intervention_id === intervention.id
+                );
+                return { ...intervention, intervention_images: images };
+            });
+
+            // Calcul du montant total des interventions "Réparé"
+            const total = interventionsWithImages.reduce(
+                (sum, intervention) => sum + (intervention.cost || 0),
+                0
+            );
+            setRepairedTotal(total); // Met à jour le montant total
+
+            setRepairedInterventions(interventionsWithImages);
+
+            const savedStatus = {};
+            interventionsWithImages.forEach((intervention) => {
+                savedStatus[intervention.id] =
+                    intervention.detailIntervention &&
+                    intervention.detailIntervention.trim() !== "";
+            });
+            setIsSaved(savedStatus);
+        } catch (error) {
+            console.error(
+                "Erreur lors du chargement des interventions réparées :",
+                error
+            );
+        }
+    };
 
     const deleteImage = async (imageId, interventionId) => {
         try {
@@ -339,9 +338,12 @@ export default function RepairedInterventionsPage({ navigation, route }) {
             >
                 <View style={styles.overlay}>
                     <Text style={styles.title}>Interventions terminées</Text>
-					<View style={styles.totalContainer}>
-            <Text style={styles.totalText}>Montant total des interventions Réparées : {repairedTotal.toFixed(2)} €</Text>
-        </View>
+                    <View style={styles.totalContainer}>
+                        <Text style={styles.totalText}>
+                            Montant total des interventions Réparées :{" "}
+                            {repairedTotal.toFixed(2)} €
+                        </Text>
+                    </View>
                     <FlatList
                         ref={flatListRef}
                         data={getPaginatedData()} // Interventions paginées
@@ -355,19 +357,17 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                 onPress={() => toggleDetails(item.id)} // Action au clic sur la fiche
                             >
                                 <View
-							style={[
-								styles.interventionCard,
-								item.status === "Non réparable"
-									? {
-										backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
-										borderWidth: 2, // Épaisseur de la bordure
-										borderColor: "red", // Couleur rouge pour la bordure
-									}
-									: {},
-							]}
-
+                                    style={[
+                                        styles.interventionCard,
+                                        item.status === "Non réparable"
+                                            ? {
+                                                  backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
+                                                  borderWidth: 2, // Épaisseur de la bordure
+                                                  borderColor: "red", // Couleur rouge pour la bordure
+                                              }
+                                            : {},
+                                    ]}
                                 >
-
                                     <TouchableOpacity
                                         style={styles.moveToTopButton}
                                         onPress={() => moveToTop(item.id)}
@@ -381,7 +381,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                             }}
                                         />
                                     </TouchableOpacity>
-									<View
+                                    <View
                                         style={
                                             styles.notificationAndToolsContainer
                                         }
@@ -610,14 +610,36 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                     placeholder="Entrez les détails ici..."
                                                     onFocus={() => {
                                                         setTimeout(() => {
-														const globalIndex = repairedInterventions.findIndex((i) => i.id === item.id);
-														const localIndex = globalIndex - (currentPage - 1) * itemsPerPage;
+                                                            const globalIndex =
+                                                                repairedInterventions.findIndex(
+                                                                    (i) =>
+                                                                        i.id ===
+                                                                        item.id
+                                                                );
+                                                            const localIndex =
+                                                                globalIndex -
+                                                                (currentPage -
+                                                                    1) *
+                                                                    itemsPerPage;
 
-														if (localIndex >= 0 && localIndex < itemsPerPage) {
-															flatListRef.current.scrollToIndex({ index: localIndex, animated: true });
-														} else {
-															console.warn("Index invalide sur cette page :", localIndex);
-														}
+                                                            if (
+                                                                localIndex >=
+                                                                    0 &&
+                                                                localIndex <
+                                                                    itemsPerPage
+                                                            ) {
+                                                                flatListRef.current.scrollToIndex(
+                                                                    {
+                                                                        index: localIndex,
+                                                                        animated: true,
+                                                                    }
+                                                                );
+                                                            } else {
+                                                                console.warn(
+                                                                    "Index invalide sur cette page :",
+                                                                    localIndex
+                                                                );
+                                                            }
                                                         }, 100); // Petit délai pour garantir le bon affichage
                                                     }}
                                                     value={
@@ -828,53 +850,62 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                             </Animatable.View>
                                         )}
                                     </View>
-									
                                 </View>
                             </TouchableOpacity>
                         )}
-
                     />
-											
-<View style={styles.paginationContainer}>
-    {/* Bouton pour aller à la page précédente */}
-    <TouchableOpacity
-        onPress={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        style={styles.chevronButton}
-    >
-        <Image
-            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
-            style={[
-                styles.chevronIcon,
-                { tintColor: currentPage === 1 ? "gray" : "white" },
-            ]}
-        />
-    </TouchableOpacity>
 
-    {/* Numéro de page au centre */}
-    <Text style={styles.paginationText}>
-        Page {currentPage} sur {totalPages}
-    </Text>
+                    <View style={styles.paginationContainer}>
+                        {/* Bouton pour aller à la page précédente */}
+                        <TouchableOpacity
+                            onPress={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            style={styles.chevronButton}
+                        >
+                            <Image
+                                source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+                                style={[
+                                    styles.chevronIcon,
+                                    {
+                                        tintColor:
+                                            currentPage === 1
+                                                ? "gray"
+                                                : "white",
+                                    },
+                                ]}
+                            />
+                        </TouchableOpacity>
 
-    {/* Bouton pour aller à la page suivante */}
-    <TouchableOpacity
-        onPress={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        style={styles.chevronButton}
-    >
-        <Image
-            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
-            style={[
-                styles.chevronIcon,
-                { tintColor: currentPage === totalPages ? "gray" : "white" },
-            ]}
-        />
-    </TouchableOpacity>
-</View>
+                        {/* Numéro de page au centre */}
+                        <Text style={styles.paginationText}>
+                            Page {currentPage} sur {totalPages}
+                        </Text>
 
-                       
+                        {/* Bouton pour aller à la page suivante */}
+                        <TouchableOpacity
+                            onPress={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            style={styles.chevronButton}
+                        >
+                            <Image
+                                source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
+                                style={[
+                                    styles.chevronIcon,
+                                    {
+                                        tintColor:
+                                            currentPage === totalPages
+                                                ? "gray"
+                                                : "white",
+                                    },
+                                ]}
+                            />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-				<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+                <BottomNavigation
+                    navigation={navigation}
+                    currentRoute={route.name}
+                />
                 <Modal
                     visible={isModalVisible}
                     transparent={true}
@@ -1033,7 +1064,7 @@ const styles = StyleSheet.create({
         borderRadius: 2,
     },
     notificationAndToolsContainer: {
-		zIndex: 1,
+        zIndex: 1,
         position: "absolute",
         top: 20,
         right: 100,
@@ -1270,51 +1301,50 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: "#555",
     },
-	totalContainer: {
-    backgroundColor: "#78f89e",
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
-},
-totalText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: "#333",
-},
-paginationContainer: {
-	flexDirection: "row",
-	justifyContent: "center",
-	alignItems: "center",
-	marginVertical: 60, // Ajuste l'espacement vertical
-},
-chevronButton: {
-	padding: 5, // Réduit l'espace cliquable autour des chevrons
-},
-chevronIcon: {
-	width: 22, // Réduit la largeur du chevron
-	height: 22, // Réduit la hauteur du chevron
-},
-paginationText: {
-	marginHorizontal: 10, // Espace entre le texte et les chevrons
-	color: "white",
-	fontSize: 20, // Ajuste la taille du texte
-},
-pageButton: {
-	padding: 10,
-	margin: 5,
-	borderRadius: 5,
-	backgroundColor: "#ddd",
-},
-activePageButton: {
-	backgroundColor: "#007BFF",
-},
-pageButtonText: {
-	fontWeight: "bold",
-	color: "#333",
-},
-activePageButtonText: {
-	color: "#fff",
-},
-
+    totalContainer: {
+        backgroundColor: "#78f89e",
+        padding: 10,
+        marginBottom: 10,
+        borderRadius: 5,
+    },
+    totalText: {
+        fontSize: 18,
+        fontWeight: "bold",
+        textAlign: "center",
+        color: "#333",
+    },
+    paginationContainer: {
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        marginVertical: 60, // Ajuste l'espacement vertical
+    },
+    chevronButton: {
+        padding: 5, // Réduit l'espace cliquable autour des chevrons
+    },
+    chevronIcon: {
+        width: 22, // Réduit la largeur du chevron
+        height: 22, // Réduit la hauteur du chevron
+    },
+    paginationText: {
+        marginHorizontal: 10, // Espace entre le texte et les chevrons
+        color: "white",
+        fontSize: 20, // Ajuste la taille du texte
+    },
+    pageButton: {
+        padding: 10,
+        margin: 5,
+        borderRadius: 5,
+        backgroundColor: "#ddd",
+    },
+    activePageButton: {
+        backgroundColor: "#007BFF",
+    },
+    pageButtonText: {
+        fontWeight: "bold",
+        color: "#333",
+    },
+    activePageButtonText: {
+        color: "#fff",
+    },
 });

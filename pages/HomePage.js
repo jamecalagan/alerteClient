@@ -13,6 +13,7 @@ import {
     Alert,
     Animated,
     TouchableWithoutFeedback,
+	StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect, CommonActions } from "@react-navigation/native";
@@ -20,7 +21,6 @@ import RoundedButton from "../components/RoundedButton";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 // Import de l'image depuis le dossier assets
-
 export default function HomePage({ navigation, route }) {
     const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null);
@@ -681,19 +681,19 @@ export default function HomePage({ navigation, route }) {
     const getStatusStyle = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return { borderLeftColor: "#b396f8", borderLeftWidth: 8 };
+                return { borderLeftColor: "#b396f8", borderLeftWidth: 3 };
             case "Devis accepté":
-                return { borderLeftColor: "#FFD700", borderLeftWidth: 8 };
+                return { borderLeftColor: "#FFD700", borderLeftWidth: 3 };
             case "Réparation en cours":
-                return { borderLeftColor: "#528fe0", borderLeftWidth: 8 };
+                return { borderLeftColor: "#528fe0", borderLeftWidth: 3 };
             case "Réparé":
-                return { borderLeftColor: "#98fb98", borderLeftWidth: 8 };
+                return { borderLeftColor: "#98fb98", borderLeftWidth: 3 };
             case "Devis en cours":
-                return { borderLeftColor: "#f37209", borderLeftWidth: 8 };
+                return { borderLeftColor: "#f37209", borderLeftWidth: 3 };
             case "Non réparable":
-                return { borderLeftColor: "#ff0000", borderLeftWidth: 8 };
+                return { borderLeftColor: "#ff0000", borderLeftWidth: 3 };
             default:
-                return { borderLeftColor: "#e0e0e0", borderLeftWidth: 8 };
+                return { borderLeftColor: "#e0e0e0", borderLeftWidth: 3 };
         }
     };
     const deviceIcons = {
@@ -728,7 +728,7 @@ export default function HomePage({ navigation, route }) {
             return (
                 <Image
                     source={deviceIcons.default}
-                    style={{ width: 40, height: 40 }}
+                    style={{ width: 40, height: 40, tintColor: "#888787" }}
                 />
             );
 
@@ -739,7 +739,7 @@ export default function HomePage({ navigation, route }) {
             return (
                 <Image
                     source={deviceIcons.MacBook}
-                    style={{ width: 40, height: 40 }}
+                    style={{ width: 40, height: 40, tintColor: "#888787"  }}
                 />
             );
         }
@@ -749,14 +749,14 @@ export default function HomePage({ navigation, route }) {
             return (
                 <Image
                     source={deviceIcons.iMac}
-                    style={{ width: 40, height: 40 }}
+                    style={{ width: 40, height: 40, tintColor: "#888787"  }}
                 />
             );
         }
 
         // Retourner l'icône correspondante ou l'icône par défaut
         const iconSource = deviceIcons[deviceType] || deviceIcons.default;
-        return <Image source={iconSource} style={{ width: 40, height: 40 }} />;
+        return <Image source={iconSource} style={{ width: 40, height: 40, tintColor: "#888787"  }} />;
     };
 
     const filterByStatus = (status) => {
@@ -1291,7 +1291,7 @@ export default function HomePage({ navigation, route }) {
                                                 style={{
                                                     width: 20,
                                                     height: 20,
-                                                    tintColor: "black",
+                                                    tintColor: "#7583a8",
                                                 }} // Styles de l'image
                                             />
                                             <Text
@@ -1322,7 +1322,7 @@ export default function HomePage({ navigation, route }) {
                                                 style={{
                                                     width: 20,
                                                     height: 20,
-                                                    tintColor: "black",
+                                                    tintColor: "#7583a8",
                                                 }} // Styles de l'image
                                             />
 
@@ -1623,7 +1623,7 @@ export default function HomePage({ navigation, route }) {
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#5906f3", // Couleur de l'icône (ici noir)
+                                                                                        "#a073f3", // Couleur de l'icône (ici noir)
                                                                                 }}
                                                                             />
                                                                         </TouchableOpacity>
@@ -1671,7 +1671,7 @@ export default function HomePage({ navigation, route }) {
                                                                                 width: 28,
                                                                                 height: 28,
                                                                                 tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                                    "#888787", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                     )}
@@ -1697,7 +1697,7 @@ export default function HomePage({ navigation, route }) {
                                                                             width: 28,
                                                                             height: 28,
                                                                             tintColor:
-                                                                                "#000", // Couleur de l'icône (ici noir)
+                                                                                "#888787", // Couleur de l'icône (ici noir)
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
@@ -1722,7 +1722,7 @@ export default function HomePage({ navigation, route }) {
                                                                             width: 28,
                                                                             height: 28,
                                                                             tintColor:
-                                                                                "#000",
+                                                                                "#888787",
                                                                         }}
                                                                     />
                                                                 </TouchableOpacity>
@@ -1746,7 +1746,7 @@ export default function HomePage({ navigation, route }) {
                                                                                 width: 28,
                                                                                 height: 28,
                                                                                 tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                                    "#888787", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                     </TouchableOpacity>
@@ -1780,7 +1780,7 @@ export default function HomePage({ navigation, route }) {
                                                                                 width: 28,
                                                                                 height: 28,
                                                                                 tintColor:
-                                                                                    "#000", // Couleur de l'icône (ici noir)
+                                                                                    "#888787", // Couleur de l'icône (ici noir)
                                                                             }}
                                                                         />
                                                                         <Text
@@ -1844,11 +1844,12 @@ export default function HomePage({ navigation, route }) {
                                                                                 }
                                                                                 style={{
                                                                                     borderWidth: 1,
-                                                                                    borderColor: "#000",
+                                                                                    borderColor: "#888787",
                                                                                     width: 50,
                                                                                     height: 50,
-                                                                                    borderRadius: 5,
+                                                                                    borderRadius: 2,
                                                                                     alignItems: "center",
+																					
                                                                                 }}
                                                                             >
                                                                                 <TouchableOpacity
@@ -2300,21 +2301,24 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 10,
-        backgroundColor: "#f0f0f0",
+        backgroundColor: "#191f2f",
+		borderWidth: 1,
         borderRadius: 5,
+		borderColor: "#888787",
         marginBottom: 10,
         marginRight: 10,
     },
     toggleText: {
         marginLeft: 10,
         fontSize: 16,
-        color: "#333",
-        fontWeight: "bold",
+        color: "#888787",
+        fontWeight: "medium",
     },
     iconStyle: {
         width: 24, // Taille de l'icône
         height: 24, // Taille de l'icône
         marginRight: 10, // Espace entre l'icône et le texte
+		tintColor: "#7583a8", // Supprimez si vos images ont déjà une couleur
     },
     menuButton: {
         padding: 15,
@@ -2324,7 +2328,7 @@ const styles = StyleSheet.create({
         top: 4, // Distance depuis le haut
         right: 56, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
-        borderRadius: 5, // Bords arrondis pour un style plus moderne
+        borderRadius: 2, // Bords arrondis pour un style plus moderne
     },
     menuIcon: {
         width: 40,
@@ -2386,7 +2390,8 @@ const styles = StyleSheet.create({
     },
     searchContainer: {
         position: "relative", // Pour permettre le positionnement absolu de l'icône
-        borderRadius: 5,
+		borderColor: "#888787",
+		backgroundColor: "#191f2f",
     },
     searchIcon: {
         marginTop: 10,
@@ -2448,18 +2453,22 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         borderWidth: 1,
-        borderColor: "#cccccc",
+        borderColor: "#888787",
         padding: 10,
         marginBottom: 20,
         borderRadius: 5,
-        backgroundColor: "#e0e0e0",
+        backgroundColor: "#191f2f",
         color: "#333333",
         fontSize: 16,
     },
     clientCard: {
         padding: 10,
         marginVertical: 5,
-        backgroundColor: "#ffffff",
+		borderWidth: 1,
+		borderTopColor: "#888787",
+		borderRightColor: "#888787",
+		borderBottomColor: "#888787",
+		backgroundColor: "#191f2f",
         borderRadius: 2,
     },
     clientInfo: {
@@ -2470,17 +2479,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "bold",
     },
-    clientText: {
-        fontSize: 16,
-    },
     clientTextSoldeRestant: {
-        fontSize: 18,
-        color: "#920404", // Rouge orangé pour attirer l'attention
-        fontWeight: "bold",
+        fontSize: 20,
+        color: "#acacac", // Rouge orangé pour attirer l'attention
+        fontWeight: "medium",
     },
     expandedContent: {
         paddingTop: 10,
-        backgroundColor: "#ffffff",
+        backgroundColor: "#191f2f",
         marginTop: 10,
         width: "100%",
     },
@@ -2494,8 +2500,8 @@ const styles = StyleSheet.create({
     },
     ficheNumber: {
         fontSize: 16,
-        fontWeight: "bold",
-        color: "#000",
+        fontWeight: "medium",
+        color: "#adabab",
         marginBottom: 5,
     },
     phoneContainer: {
@@ -2505,7 +2511,7 @@ const styles = StyleSheet.create({
     phoneNumber: {
         fontSize: 22,
         fontWeight: "bold",
-        color: "#000",
+		color: "#adabab",
     },
     newIconContainer: {
         flex: 1,
@@ -2514,7 +2520,7 @@ const styles = StyleSheet.create({
     },
     clientText: {
         fontSize: 16,
-        color: "#000",
+		color: "#adabab",
     },
     statusText: {
         fontSize: 20,
@@ -2522,11 +2528,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginBottom: 10,
         color: "#802d07",
-    },
-    commandeText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#ff4500", // Couleur pour rendre le texte de la commande plus visible
     },
     stateText: {
         fontSize: 18,
@@ -2542,7 +2543,7 @@ const styles = StyleSheet.create({
     photoButton: {
         padding: 10,
         borderRadius: 5,
-        borderColor: "#000",
+        borderColor: "#888787",
         borderWidth: 1,
         marginRight: 10,
     },
@@ -2551,7 +2552,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         marginRight: 10,
-        borderColor: "#000", // Couleur de la bordure (noire)
+        borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     printButton: {
@@ -2559,21 +2560,21 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         marginRight: 10,
-        borderColor: "#000", // Couleur de la bordure (noire)
+        borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     trashButton: {
         //backgroundColor: '#dc3545',  // Rouge pour l'icône de poubelle
         padding: 10,
         borderRadius: 5,
-        borderColor: "#000", // Couleur de la bordure (noire)
+        borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     transportButton: {
         padding: 10,
         borderRadius: 5,
         marginRight: 10,
-        borderColor: "#000", // Couleur de la bordure (noire)
+        borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     rightSection: {
@@ -2589,13 +2590,7 @@ const styles = StyleSheet.create({
     commandeText: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#8a20f3",
-    },
-    sortButtonContainer: {
-        flexDirection: "row",
-        justifyContent: "space-around",
-        marginBottom: 25,
-        marginTop: 10,
+        color: "#ffffff",
     },
     noClientsText: {
         textAlign: "center",
@@ -2701,7 +2696,7 @@ const styles = StyleSheet.create({
         padding: 10, // Padding pour l'icône
         borderWidth: 1, // Bordure de 2px
         borderRadius: 5, // Bords arrondis
-        borderColor: "#000", // Couleur de la bordure en noir
+        borderColor: "#888787", // Couleur de la bordure en noir
         marginRight: 8,
     },
     interventionContainerRight: {
@@ -2717,19 +2712,19 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Aligner l'icône et le texte en ligne
         alignItems: "center", // Centrer verticalement
         padding: 10, // Ajouter du padding à l'intérieur du rectangle
-        borderWidth: 2, // Épaisseur de la bordure
+        borderWidth: 1, // Épaisseur de la bordure
         borderRadius: 2, // Bordures arrondies pour correspondre au style des autres icônes
-        borderColor: "#000", // Couleur de la bordure (vous pouvez l'adapter à vos besoins)
-        backgroundColor: "#fff", // Couleur de fond (adaptez-la si nécessaire)
+        borderColor: "#888787", // Couleur de la bordure (vous pouvez l'adapter à vos besoins)
+        backgroundColor: "#888787", // Couleur de fond (adaptez-la si nécessaire)
         shadowColor: "#000", // Ombre (si cela correspond au style des autres icônes)
         shadowOpacity: 0.2, // Légère opacité pour l'ombre
         shadowOffset: { width: 2, height: 2 },
     },
     interventionsCount: {
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "medium",
         marginLeft: 5, // Espace entre l'icône et le texte
-        color: "#000", // Couleur du texte
+        color: "#888787", // Couleur du texte
     },
     interventionsEnCoursContainer: {
         flexDirection: "row",
@@ -2766,9 +2761,9 @@ const styles = StyleSheet.create({
     },
     notificationIconContainer: {
         padding: 10, // Padding pour l'icône
-        borderRadius: 5, // Bords arrondis
+        borderRadius: 2, // Bords arrondis
         borderWidth: 1, // Bordure de 2px
-        borderColor: "#000", // Couleur de la bordure en noir
+        borderColor: "#888787", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
         /*  backgroundColor: "#fff", // Fond blanc */
     },
@@ -2784,7 +2779,7 @@ const styles = StyleSheet.create({
         flex: 1,
         width: "38%",
         marginRight: 5,
-        marginLeft: 3,
+
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -2802,7 +2797,7 @@ const styles = StyleSheet.create({
     buttonTextTrier: {
         marginLeft: 8,
         fontSize: 16, // Taille du texte du nombre d'interventions
-        color: "#202020",
+        color: "#888787",
     },
     modalButtons: {
         flexDirection: "row",
@@ -2849,22 +2844,23 @@ const styles = StyleSheet.create({
     },
 
     statusText: {
-        color: "#202020", // Couleur du texte
+        color: "#888787", // Couleur du texte
         fontWeight: "bold",
         fontSize: 20,
     },
     iconCircle: {
         width: 32, // Diamètre du cercle
         height: 32, // Diamètre du cercle
+		borderWidth: 1, // Épaisseur de la bordure
         borderRadius: 2, // Moitié de la largeur/hauteur pour faire un cercle
-        backgroundColor: "#2e2d2d", // Couleur de fond gris
+        borderColor: "#888787", // Couleur de fond gris
         justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
         alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
         marginRight: 8, // Espace entre le cercle et le texte
     },
     separator: {
-        height: 2, // Épaisseur de la barre
-        backgroundColor: "#e0e0e0", // Couleur de la barre
+        height: 1, // Épaisseur de la barre
+        backgroundColor: "#888787", // Couleur de la barre
         marginVertical: 8, // Espacement vertical optionnel
     },
     totalText: {

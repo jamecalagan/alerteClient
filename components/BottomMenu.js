@@ -36,7 +36,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
         <View style={styles.bottomMenuContainer}>
             <View style={styles.filterRow}>
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("En attente de pièces") }]}
+                    style={[styles.filterButtonShipping, { backgroundColor: getButtonColor("En attente de pièces") }]}
                     onPress={() => handlePress("En attente de pièces", () => filterByStatus("En attente de pièces"))}
                 >
                     <View style={styles.buttonContent}>
@@ -46,7 +46,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("Devis en cours") }]}
+                    style={[styles.filterButtonDevis, { backgroundColor: getButtonColor("Devis en cours") }]}
                     onPress={() => handlePress("Devis en cours", () => filterByStatus("Devis en cours"))}
                 >
                     <View style={styles.buttonContent}>
@@ -56,7 +56,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("Devis accepté") }]}
+                    style={[styles.filterButtonDevisOk, { backgroundColor: getButtonColor("Devis accepté") }]}
                     onPress={() => handlePress("Devis accepté", () => filterByStatus("Devis accepté"))}
                 >
                     <View style={styles.buttonContent}>
@@ -66,7 +66,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("Réparation en cours") }]}
+                    style={[styles.filterButtonRepair, { backgroundColor: getButtonColor("Réparation en cours") }]}
                     onPress={() => handlePress("Réparation en cours", () => filterByStatus("Réparation en cours"))}
                 >
                     <View style={styles.buttonContent}>
@@ -76,7 +76,7 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("Réinitialiser") }]}
+                    style={[styles.filterButtonInit, { backgroundColor: getButtonColor("Réinitialiser") }]}
                     onPress={() => handlePress("Réinitialiser", resetFilter)}
                 >
                     <View style={styles.buttonContent}>
@@ -168,6 +168,76 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderWidth: 1,
         borderColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },
+	filterButtonShipping: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderLeftColor: "#b396f8",
+		borderBottomColor: "#5b6788",
+		borderRightColor: "#5b6788",
+		borderTopColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },
+	filterButtonDevis: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderLeftColor: "#f37209",
+		borderBottomColor: "#5b6788",
+		borderRightColor: "#5b6788",
+		borderTopColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },
+	filterButtonDevisOk: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderLeftColor: "#FFD700",
+		borderBottomColor: "#5b6788",
+		borderRightColor: "#5b6788",
+		borderTopColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },	
+	filterButtonRepair: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderLeftColor: "#0471ff",
+		borderBottomColor: "#5b6788",
+		borderRightColor: "#5b6788",
+		borderTopColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },
+	filterButtonInit: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderLeftColor: "#00ff22",
+		borderBottomColor: "#5b6788",
+		borderRightColor: "#5b6788",
+		borderTopColor: "#5b6788",
         flex: 1,
         marginHorizontal: 5,
         elevation: 2,

@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#ccc",
         borderRadius: 5,
-        backgroundColor: "#f9f9f9",
+        backgroundColor: "#191f2f",
         paddingHorizontal: 10,
         marginBottom: 15,
         height: 40,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         fontSize: 16,
-        color: "#333",
+        color: "#888787",
     },
     iconLeft: {
         marginLeft: 5,

@@ -328,10 +328,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     };
     const flatListRef = useRef(null);
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-        >
+
             <ImageBackground
                 source={backgroundImage}
                 style={styles.backgroundImage}
@@ -605,93 +602,68 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                     )}
                                                 </Text>
 
-                                                <TextInput
-                                                    style={styles.detailInput}
-                                                    placeholder="Entrez les détails ici..."
-                                                    onFocus={() => {
-                                                        setTimeout(() => {
-                                                            const globalIndex =
-                                                                repairedInterventions.findIndex(
-                                                                    (i) =>
-                                                                        i.id ===
-                                                                        item.id
-                                                                );
-                                                            const localIndex =
-                                                                globalIndex -
-                                                                (currentPage -
-                                                                    1) *
-                                                                    itemsPerPage;
+												<TextInput
+													style={styles.detailInput}
+													placeholderTextColor="#888787"
+													placeholder="Entrez les détails ici..."
+													onFocus={() => {
+														setTimeout(() => {
+															const globalIndex = repairedInterventions.findIndex(
+																(i) => i.id === item.id
+															);
+															const localIndex =
+																globalIndex - (currentPage - 1) * itemsPerPage;
 
-                                                            if (
-                                                                localIndex >=
-                                                                    0 &&
-                                                                localIndex <
-                                                                    itemsPerPage
-                                                            ) {
-                                                                flatListRef.current.scrollToIndex(
-                                                                    {
-                                                                        index: localIndex,
-                                                                        animated: true,
-                                                                    }
-                                                                );
-                                                            } else {
-                                                                console.warn(
-                                                                    "Index invalide sur cette page :",
-                                                                    localIndex
-                                                                );
-                                                            }
-                                                        }, 100); // Petit délai pour garantir le bon affichage
-                                                    }}
-                                                    value={
-                                                        editingDetail[
-                                                            item.id
-                                                        ] || ""
-                                                    }
-                                                    onChangeText={(text) =>
-                                                        setEditingDetail({
-                                                            ...editingDetail,
-                                                            [item.id]: text,
-                                                        })
-                                                    }
-                                                />
+															if (localIndex >= 0 && localIndex < itemsPerPage) {
+																flatListRef.current.scrollToIndex({
+																	index: localIndex,
+																	animated: true,
+																});
+															} else {
+																console.warn("Index invalide sur cette page :", localIndex);
+															}
+														}, 100); // Petit délai pour garantir le bon affichage
+													}}
+													value={editingDetail[item.id] || ""}
+													onChangeText={(text) =>
+														setEditingDetail({
+															...editingDetail,
+															[item.id]: text,
+														})
+													}
+												/>
 
-                                                <View
-                                                    style={
-                                                        styles.buttonContainer
-                                                    }
-                                                >
-                                                    <TouchableOpacity
-                                                        style={
-                                                            styles.saveButton
-                                                        }
-                                                        onPress={() =>
-                                                            saveDetailIntervention(
-                                                                item.id
-                                                            )
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
-                                                            style={[
-                                                                styles.buttonIcon, // Styles existants
-                                                                {
-                                                                    width: 20, // Largeur de l'image
-                                                                    height: 20, // Hauteur de l'image
-                                                                    tintColor:
-                                                                        "#202020", // Couleur de l'image (noir foncé ici)
-                                                                },
-                                                            ]}
-                                                        />
+												<View style={styles.buttonContainer}>
+													<TouchableOpacity
+														style={[
+															styles.saveButton,
+															{
+																borderWidth: 1, // Ajout d'une bordure
+																borderColor:
+																	editingDetail[item.id] &&
+																	editingDetail[item.id].trim() !== ""
+																		? "#28a745" // Vert si du texte est présent
+																		: "#888787", // Gris sinon
+																borderRadius: 5, // Coins arrondis pour un meilleur rendu
+																padding: 10, // Ajout d'un padding pour un meilleur affichage
+															},
+														]}
+														onPress={() => saveDetailIntervention(item.id)}
+													>
+														<Image
+															source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
+															style={[
+																styles.buttonIcon,
+																{
+																	width: 20,
+																	height: 20,
+																	tintColor: "#888787",
+																},
+															]}
+														/>
 
-                                                        <Text
-                                                            style={
-                                                                styles.buttonText
-                                                            }
-                                                        >
-                                                            Sauvegarder les
-                                                            détails
-                                                        </Text>
-                                                    </TouchableOpacity>
+														<Text style={styles.buttonText}>Sauvegarder les détails</Text>
+													</TouchableOpacity>
 
                                                     <TouchableOpacity
                                                         style={[
@@ -729,7 +701,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                                     width: 20, // Largeur de l'image
                                                                     height: 20, // Hauteur de l'image
                                                                     tintColor:
-                                                                        "#202020", // Couleur de l'image (noir foncé ici)
+                                                                        "#888787", // Couleur de l'image (noir foncé ici)
                                                                 },
                                                             ]}
                                                         />
@@ -767,7 +739,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                                     width: 20, // Largeur de l'image
                                                                     height: 20, // Hauteur de l'image
                                                                     tintColor:
-                                                                        "#202020", // Couleur de l'image (noir foncé ici)
+                                                                        "#888787", // Couleur de l'image (noir foncé ici)
                                                                 },
                                                             ]}
                                                         />
@@ -1036,7 +1008,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                     />
                 )}
             </ImageBackground>
-        </KeyboardAvoidingView>
+       
     );
 }
 
@@ -1047,21 +1019,23 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(255, 255, 255, 0)",
-        padding: 20,
+        backgroundColor: "rgba(0, 0, 0, 0.795)",
+        padding: 5,
     },
     title: {
         fontSize: 24,
         fontWeight: "bold",
         marginBottom: 20,
         textAlign: "center",
-        color: "#fff",
+        color: "#888787",
     },
     interventionCard: {
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "#ececec",
+        backgroundColor: "#191f2f",
         borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
     },
     notificationAndToolsContainer: {
         zIndex: 1,
@@ -1076,9 +1050,9 @@ const styles = StyleSheet.create({
     iconStyle: {
         padding: 10,
         borderWidth: 2,
-        borderRadius: 5,
-        borderColor: "#000",
-        backgroundColor: "#fff",
+        borderRadius: 2,
+        borderColor: "#888787",
+        backgroundColor: "#191f2f",
         marginHorizontal: 5,
     },
     infoContainer: {
@@ -1086,34 +1060,35 @@ const styles = StyleSheet.create({
     },
     interventionText: {
         fontSize: 18,
-        color: "#333",
+        color: "#888787",
         marginBottom: 5,
     },
     interventionTextBold: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#333",
+        color: "#888787",
         marginBottom: 5,
     },
     interventionTextNon: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#f50202",
+        color: "#888787",
         marginBottom: 5,
     },
     interventionTextReste: {
         fontSize: 20,
-        color: "#dd0606",
+        color: "#888787",
         marginBottom: 5, // Ajoute un espacement entre les lignes
     },
     detailInput: {
-        borderColor: "gray",
+        borderColor: "#888787",
         borderWidth: 1,
         padding: 10,
         borderRadius: 5,
-        backgroundColor: "#fff",
+        backgroundColor: "#191f2f",
         marginBottom: 10,
-        fontWeight: "bold",
+        color: "#b6b4b4",
+        fontSize: 16,
     },
     buttonContainer: {
         flexDirection: "row",
@@ -1121,10 +1096,12 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     saveButton: {
-        backgroundColor: "#acf5bb",
+        backgroundColor: "#191f2f",
         padding: 5,
         alignItems: "center",
-        borderRadius: 5,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
         flexDirection: "row",
         marginRight: 5,
         elevation: 5,
@@ -1134,8 +1111,10 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Aligne l'icône et le texte horizontalement
         alignItems: "center", // Centre l'icône et le texte verticalement
         padding: 10,
-        backgroundColor: "#f0f0f0", // Couleur d'arrière-plan de l'exemple
-        borderRadius: 5,
+        backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#00fd00",
         elevation: 5,
         width: "33%",
     },
@@ -1143,18 +1122,20 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Aligne l'icône et le texte horizontalement
         alignItems: "center", // Centre l'icône et le texte verticalement
         padding: 10,
-        backgroundColor: "#f0f0f0", // Couleur d'arrière-plan de l'exemple
-        borderRadius: 5,
+        backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
+		borderWidth: 1,
+		borderColor: "#888787",
+        borderRadius: 2,
         width: "33%",
         elevation: 5,
     },
     buttonText: {
-        color: "#202020",
+        color: "#888787",
         textAlign: "center",
-        fontWeight: "bold",
+        fontWeight: "medium",
     },
     buttonTextSms: {
-        color: "#fff",
+        color: "#191f2f",
         textAlign: "center",
         fontWeight: "bold",
     },
@@ -1203,7 +1184,10 @@ const styles = StyleSheet.create({
         marginHorizontal: 10,
     },
     disabledButton: {
-        backgroundColor: "#ccc",
+        backgroundColor: "#191f2f",
+		borderWidth: 1,
+		borderColor: "#f30404",
+		borderRadius: 2,
     },
     alertMessage: {
         fontSize: 16,
@@ -1221,9 +1205,9 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     interventionTextSolde: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: "bold",
-        color: "#056109",
+        color: "#888787",
         marginBottom: 5,
     },
     fullscreenImage: {
@@ -1299,19 +1283,21 @@ const styles = StyleSheet.create({
     },
     itemSubtitle: {
         fontSize: 14,
-        color: "#555",
+        color: "#555555",
     },
     totalContainer: {
-        backgroundColor: "#78f89e",
+        backgroundColor: "#191f2f",
         padding: 10,
         marginBottom: 10,
-        borderRadius: 5,
+		borderWidth: 1,
+		borderColor: "#888787",
+		borderRadius: 2,
     },
     totalText: {
         fontSize: 18,
-        fontWeight: "bold",
+        fontWeight: "medium",
         textAlign: "center",
-        color: "#333",
+        color: "#999898",
     },
     paginationContainer: {
         flexDirection: "row",

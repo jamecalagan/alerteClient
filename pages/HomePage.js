@@ -830,6 +830,7 @@ export default function HomePage({ navigation, route }) {
             source={backgroundImage}
             style={styles.backgroundImage}
         >
+		<View style={styles.overlay}>
             <TouchableWithoutFeedback onPress={closeMenu}>
                 <View style={styles.container}>
                     <TouchableOpacity
@@ -1246,7 +1247,7 @@ export default function HomePage({ navigation, route }) {
                             <TextInput
                                 style={styles.searchInput}
                                 placeholder="Rechercher par nom, téléphone, ou statut"
-                                placeholderTextColor="#999"
+                                placeholderTextColor="#888787"
                                 value={searchText}
                                 onChangeText={filterClients}
                             />
@@ -2288,6 +2289,7 @@ export default function HomePage({ navigation, route }) {
                         filterByStatus={filterByStatus}
                         resetFilter={resetFilter}
                     />
+					</View>
         </ImageBackground>
     );
 }
@@ -2391,7 +2393,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         position: "relative", // Pour permettre le positionnement absolu de l'icône
 		borderColor: "#888787",
-		backgroundColor: "#191f2f",
+
     },
     searchIcon: {
         marginTop: 10,
@@ -2419,17 +2421,15 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         marginVertical: 5,
     },
-    searchInput: {
-        paddingRight: 50, // Ajoute un espace à droite pour l'icône
-        height: "100%", // Prend toute la hauteur du conteneur
-        color: "#333333",
-        fontSize: 20,
-        paddingLeft: 10, // Un petit padding à gauche pour l'esthétique
-    },
 
     backgroundImage: {
         flex: 1,
         resizeMode: "cover", // L'image couvre toute la page
+    },
+	overlay: {
+        flex: 1,
+        backgroundColor: "rgba(7, 7, 7, 0.555)",
+
     },
 
     headerContainer: {
@@ -2456,9 +2456,9 @@ const styles = StyleSheet.create({
         borderColor: "#888787",
         padding: 10,
         marginBottom: 20,
-        borderRadius: 5,
+        borderRadius: 2,
         backgroundColor: "#191f2f",
-        color: "#333333",
+        color: "#b6b4b4",
         fontSize: 16,
     },
     clientCard: {

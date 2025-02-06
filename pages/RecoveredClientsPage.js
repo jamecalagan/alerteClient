@@ -15,11 +15,10 @@ import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
-import BottomNavigation  from "../components/BottomNavigation";
-
+import BottomNavigation from "../components/BottomNavigation";
 
 export default function RecoveredClientsPage({ navigation, route }) {
-	const backgroundImage = require("../assets/listing2.jpg");
+    const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null); // Référence pour la FlatList
     const [recoveredClients, setRecoveredClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
@@ -143,10 +142,10 @@ export default function RecoveredClientsPage({ navigation, route }) {
         switch (deviceType) {
             case "PC portable":
                 return require("../assets/icons/portable.png");
-			case "MacBook":
-				return require("../assets/icons/macbook_air.png");
-				case "iMac":
-					return require("../assets/icons/iMac.png");
+            case "MacBook":
+                return require("../assets/icons/macbook_air.png");
+            case "iMac":
+                return require("../assets/icons/iMac.png");
             case "PC Fixe":
                 return require("../assets/icons/ordinateur (1).png");
             case "PC tout en un":
@@ -159,8 +158,8 @@ export default function RecoveredClientsPage({ navigation, route }) {
                 return require("../assets/icons/console-de-jeu.png");
             case "Disque dur":
                 return require("../assets/icons/disk.png");
-				case "Disque dur externe":
-					return require("../assets/icons/disque-dur.png");
+            case "Disque dur externe":
+                return require("../assets/icons/disque-dur.png");
             case "Carte SD":
                 return require("../assets/icons/carte-memoire.png");
             case "Cle usb":
@@ -171,16 +170,16 @@ export default function RecoveredClientsPage({ navigation, route }) {
                 return require("../assets/icons/Projector.png");
             case "Clavier":
                 return require("../assets/icons/keyboard.png");
-				case "Ecran":
-					return require("../assets/icons/screen.png");
-				case "iPAD":
-					return require("../assets/icons/iPad.png");
-				case "Imprimante":
-					return require("../assets/icons/printer.png");
-				case "Joystick":
-					return require("../assets/icons/joystick.png");
-				case "Processeur":
-					return require("../assets/icons/cpu.png");
+            case "Ecran":
+                return require("../assets/icons/screen.png");
+            case "iPAD":
+                return require("../assets/icons/iPad.png");
+            case "Imprimante":
+                return require("../assets/icons/printer.png");
+            case "Joystick":
+                return require("../assets/icons/joystick.png");
+            case "Processeur":
+                return require("../assets/icons/cpu.png");
             default:
                 return require("../assets/icons/point-dinterrogation.png");
         }
@@ -213,11 +212,11 @@ export default function RecoveredClientsPage({ navigation, route }) {
             [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
         }));
     };
-	const handlePageChange = (newPage) => {
-		if (newPage >= 1 && newPage <= totalPages) {
-			setCurrentPage(newPage); // Met à jour la page actuelle
-		}
-	};
+    const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage); // Met à jour la page actuelle
+        }
+    };
     return (
         <ImageBackground
             source={backgroundImage}
@@ -251,216 +250,250 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     data={getPaginatedClients()}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={({ item, index }) => (
-						<Animatable.View
-            animation="zoomIn" // Type d'animation
-            duration={400} // Durée en millisecondes
-            delay={index * 150} // Délai basé sur l'index pour un effet "une après l'autre"
-            style={[
-                styles.card,
-                index % 2 === 0 ? styles.cardEven : styles.cardOdd,
-            ]}
-        >
-                        <View
+                        <Animatable.View
+                            animation="zoomIn" // Type d'animation
+                            duration={400} // Durée en millisecondes
+                            delay={index * 150} // Délai basé sur l'index pour un effet "une après l'autre"
                             style={[
                                 styles.card,
                                 index % 2 === 0
                                     ? styles.cardEven
-                                    : styles.cardOdd, // Couleur alternée
+                                    : styles.cardOdd,
                             ]}
                         >
-						                <View style={styles.iconContainer}>
-                    <Image
-                        source={getDeviceIcon(item.deviceType)}
-                        style={styles.deviceIcon}
-                    />
-                </View>
-                            {/* Informations principales */}
-                            <TouchableOpacity
-                                onPress={() =>
-                                    toggleCardExpansion(item.id, index)
-                                }
+                            <View
+                                style={[
+                                    styles.card,
+                                    index % 2 === 0
+                                        ? styles.cardEven
+                                        : styles.cardOdd, // Couleur alternée
+                                ]}
                             >
-                                <Text style={styles.clientInfo}>
-                                    Numéro de Client N°:{" "}
-                                    {item.clients.ficheNumber}
-                                </Text>
-                                <Text style={styles.clientInfo}>
-                                    Nom: {item.clients.name}
-                                </Text>
-                                <Text style={styles.clientInfo}>
-                                    Téléphone:{" "}
-                                    {item.clients.phone.replace(
-                                        /(\d{2})(?=\d)/g,
-                                        "$1 "
-                                    )}
-                                </Text>
-                            </TouchableOpacity>
+                                <View style={styles.iconContainer}>
+                                    <Image
+                                        source={getDeviceIcon(item.deviceType)}
+                                        style={styles.deviceIcon}
+                                    />
+                                </View>
+                                {/* Informations principales */}
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        toggleCardExpansion(item.id, index)
+                                    }
+                                >
+                                    <Text style={styles.clientInfo}>
+                                        Numéro de Client N°:{" "}
+                                        {item.clients.ficheNumber}
+                                    </Text>
+                                    <Text style={styles.clientInfo}>
+                                        Nom: {item.clients.name}
+                                    </Text>
+                                    <Text style={styles.clientInfo}>
+                                        Téléphone:{" "}
+                                        {item.clients.phone.replace(
+                                            /(\d{2})(?=\d)/g,
+                                            "$1 "
+                                        )}
+                                    </Text>
+                                </TouchableOpacity>
 
-                            {/* Affichage conditionnel des détails */}
-                            {expandedCards[item.id] && (
-                                <>
-                                    <Text style={styles.interventionInfo}>
-                                        Type d'appareil: {item.deviceType}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Marque: {item.brand}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Modèle: {item.model}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Référence: {item.reference}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Description du problème:{" "}
-                                        {item.description}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Coût: {item.cost} €
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Date de récupération:{" "}
-                                        {new Date(
-                                            item.updatedAt
-                                        ).toLocaleDateString("fr-FR")}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Détail de l'intervention:{" "}
-                                        {item.detailIntervention}
-                                    </Text>
-                                    {item.receiver_name && (
-                                        <Text style={styles.receiverText}>
-                                            Récupéré par : {item.receiver_name}
+                                {/* Affichage conditionnel des détails */}
+                                {expandedCards[item.id] && (
+                                    <>
+                                        <Text style={styles.interventionInfo}>
+                                            Type d'appareil: {item.deviceType}
                                         </Text>
-                                    )}
-                                    <Text style={styles.interventionInfo}>
-                                        Remarques: {item.remarks}
-                                    </Text>
-                                    <Text style={styles.interventionInfo}>
-                                        Statut du règlement:{" "}
-                                        {item.paymentStatus}
-                                    </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Marque: {item.brand}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Modèle: {item.model}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Référence: {item.reference}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Description du problème:{" "}
+                                            {item.description}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Coût: {item.cost} €
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Date de récupération:{" "}
+                                            {new Date(
+                                                item.updatedAt
+                                            ).toLocaleDateString("fr-FR")}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Détail de l'intervention:{" "}
+                                            {item.detailIntervention}
+                                        </Text>
+                                        {item.receiver_name && (
+                                            <Text style={styles.receiverText}>
+                                                Récupéré par :{" "}
+                                                {item.receiver_name}
+                                            </Text>
+                                        )}
+                                        <Text style={styles.interventionInfo}>
+                                            Remarques: {item.remarks}
+                                        </Text>
+                                        <Text style={styles.interventionInfo}>
+                                            Statut du règlement:{" "}
+                                            {item.paymentStatus}
+                                        </Text>
 
-                                    {/* Images */}
-                                    <View style={styles.imageContainer}>
-                                        {item.photos &&
-                                            item.photos.map(
-                                                (photo, photoIndex) => (
-                                                    <TouchableOpacity
-                                                        key={`photo-${photoIndex}`}
-                                                        onPress={() =>
-                                                            setSelectedImage(
-                                                                `data:image/jpeg;base64,${photo}`
-                                                            )
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={{
-                                                                uri: `data:image/jpeg;base64,${photo}`,
-                                                            }}
-                                                            style={[
-                                                                styles.imageThumbnail,
-                                                                item.label_photo ===
-                                                                photo
-                                                                    ? styles.labelImage
-                                                                    : null,
-                                                            ]}
-                                                        />
-                                                    </TouchableOpacity>
-                                                )
-                                            )}
+                                        {/* Images */}
+                                        <View style={styles.imageContainer}>
+                                            {item.photos &&
+                                                item.photos.map(
+                                                    (photo, photoIndex) => (
+                                                        <TouchableOpacity
+                                                            key={`photo-${photoIndex}`}
+                                                            onPress={() =>
+                                                                setSelectedImage(
+                                                                    `data:image/jpeg;base64,${photo}`
+                                                                )
+                                                            }
+                                                        >
+                                                            <Image
+                                                                source={{
+                                                                    uri: `data:image/jpeg;base64,${photo}`,
+                                                                }}
+                                                                style={[
+                                                                    styles.imageThumbnail,
+                                                                    item.label_photo ===
+                                                                    photo
+                                                                        ? styles.labelImage
+                                                                        : null,
+                                                                ]}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    )
+                                                )}
 
-                                        {item.intervention_images &&
-                                            item.intervention_images.map(
-                                                (image, imageIndex) => (
-                                                    <TouchableOpacity
-                                                        key={`intervention-image-${imageIndex}`}
-                                                        onPress={() =>
-                                                            setSelectedImage(
-                                                                `data:image/jpeg;base64,${image}`
-                                                            )
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={{
-                                                                uri: `data:image/jpeg;base64,${image}`,
-                                                            }}
-                                                            style={[
-                                                                styles.imageThumbnail,
-                                                                styles.newImageThumbnail,
-                                                            ]}
-                                                        />
-                                                    </TouchableOpacity>
-                                                )
-                                            )}
-											<TouchableOpacity
-                style={styles.toggleButton}
-                onPress={() => toggleSignatureVisibility(item.id)}
-              >
-                <Icon
-                  name={visibleSignatures[item.id] ? 'eye-slash' : 'eye'}
-                  size={20}
-                  color="#202020"
-                  style={styles.icon}
-                />
-                <Text style={styles.toggleButtonText}>
-                  {visibleSignatures[item.id] ? 'Masquer la signature' : 'Afficher la signature'}
-                </Text>
-              </TouchableOpacity>
+                                            {item.intervention_images &&
+                                                item.intervention_images.map(
+                                                    (image, imageIndex) => (
+                                                        <TouchableOpacity
+                                                            key={`intervention-image-${imageIndex}`}
+                                                            onPress={() =>
+                                                                setSelectedImage(
+                                                                    `data:image/jpeg;base64,${image}`
+                                                                )
+                                                            }
+                                                        >
+                                                            <Image
+                                                                source={{
+                                                                    uri: `data:image/jpeg;base64,${image}`,
+                                                                }}
+                                                                style={[
+                                                                    styles.imageThumbnail,
+                                                                    styles.newImageThumbnail,
+                                                                ]}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    )
+                                                )}
+                                            <TouchableOpacity
+                                                style={styles.toggleButton}
+                                                onPress={() =>
+                                                    toggleSignatureVisibility(
+                                                        item.id
+                                                    )
+                                                }
+                                            >
+                                                <Icon
+                                                    name={
+                                                        visibleSignatures[
+                                                            item.id
+                                                        ]
+                                                            ? "eye-slash"
+                                                            : "eye"
+                                                    }
+                                                    size={20}
+                                                    color="#202020"
+                                                    style={styles.icon}
+                                                />
+                                                <Text
+                                                    style={
+                                                        styles.toggleButtonText
+                                                    }
+                                                >
+                                                    {visibleSignatures[item.id]
+                                                        ? "Masquer la signature"
+                                                        : "Afficher la signature"}
+                                                </Text>
+                                            </TouchableOpacity>
 
-              {visibleSignatures[item.id] && item.signature ? (
-                <Image
-                  source={{ uri: item.signature }}
-                  style={styles.signatureImage}
-                />
-              ) : null}
-                                    </View>
-                                </>
-                            )}
-							
-                        </View>
-						</Animatable.View>
+                                            {visibleSignatures[item.id] &&
+                                            item.signature ? (
+                                                <Image
+                                                    source={{
+                                                        uri: item.signature,
+                                                    }}
+                                                    style={
+                                                        styles.signatureImage
+                                                    }
+                                                />
+                                            ) : null}
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+                        </Animatable.View>
                     )}
                 />
 
-<View style={styles.paginationContainer}>
-    {/* Bouton pour aller à la page précédente */}
-    <TouchableOpacity
-        onPress={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        style={styles.chevronButton}
-    >
-        <Image
-            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
-            style={[
-                styles.chevronIcon,
-                { tintColor: currentPage === 1 ? "gray" : "white" },
-            ]}
-        />
-    </TouchableOpacity>
+                <View style={styles.paginationContainer}>
+                    {/* Bouton pour aller à la page précédente */}
+                    <TouchableOpacity
+                        onPress={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        style={styles.chevronButton}
+                    >
+                        <Image
+                            source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+                            style={[
+                                styles.chevronIcon,
+                                {
+                                    tintColor:
+                                        currentPage === 1 ? "gray" : "white",
+                                },
+                            ]}
+                        />
+                    </TouchableOpacity>
 
-    {/* Numéro de page au centre */}
-    <Text style={styles.paginationText}>
-        Page {currentPage} sur {totalPages}
-    </Text>
+                    {/* Numéro de page au centre */}
+                    <Text style={styles.paginationText}>
+                        Page {currentPage} sur {totalPages}
+                    </Text>
 
-    {/* Bouton pour aller à la page suivante */}
-    <TouchableOpacity
-        onPress={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        style={styles.chevronButton}
-    >
-        <Image
-            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
-            style={[
-                styles.chevronIcon,
-                { tintColor: currentPage === totalPages ? "gray" : "white" },
-            ]}
-        />
-    </TouchableOpacity>
-</View>
+                    {/* Bouton pour aller à la page suivante */}
+                    <TouchableOpacity
+                        onPress={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        style={styles.chevronButton}
+                    >
+                        <Image
+                            source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
+                            style={[
+                                styles.chevronIcon,
+                                {
+                                    tintColor:
+                                        currentPage === totalPages
+                                            ? "gray"
+                                            : "white",
+                                },
+                            ]}
+                        />
+                    </TouchableOpacity>
+                </View>
             </View>
-			<BottomNavigation  navigation={navigation} currentRoute={route.name} />
+            <BottomNavigation
+                navigation={navigation}
+                currentRoute={route.name}
+            />
             <Modal
                 visible={selectedImage !== null}
                 transparent={true}
@@ -488,8 +521,8 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(39, 39, 39, 0.8)",
-        padding: 20,
+        backgroundColor: "rgba(255, 255, 255, 0)",
+        padding: 2,
     },
     title: {
         fontSize: 24,
@@ -519,8 +552,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     deviceIcon: {
-		position: "absolute",
-		top:15,
+        position: "absolute",
+        top: 15,
         width: 40,
         height: 40,
         resizeMode: "contain",
@@ -554,7 +587,7 @@ const styles = StyleSheet.create({
         color: "#555",
     },
     toggleButton: {
-		width: "100%",
+        width: "100%",
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
@@ -624,7 +657,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         marginVertical: 10, // Ajuste l'espacement vertical
-		marginBottom: 60,
+        marginBottom: 60,
     },
     chevronButton: {
         padding: 5, // Réduit l'espace cliquable autour des chevrons

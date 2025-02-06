@@ -27,70 +27,99 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
 
     const getButtonColor = (status) => {
         if (status === "Home") {
-            return "#5b6788"; // "Accueil" est toujours actif
+            return "#191f2f"; // "Accueil" est toujours actif
         }
-        return activeButton === status ? "#5b6788" : "#191f2f"; // Les autres boutons changent seulement sur leur page
+        return activeButton === status ? "#191f2f" : "#191f2f"; // Les autres boutons changent seulement sur leur page
     };
-
+	const getButtonBorder = (status) => {
+		return {
+			borderLeftWidth: 2, // Épaisseur de la bordure gauche
+			borderBottomColor: activeButton === status ? "#2e9af1" : "#7c7b7b", // Bordure blanche en bas si actif
+			borderBottomWidth: activeButton === status ? 3 : 1, // Épaisseur de la bordure inférieure
+			borderRadius: 2, // Arrondi pour un meilleur design
+		};
+	};
+	
     return (
         <View style={styles.bottomMenuContainer}>
             <View style={styles.filterRow}>
-                <TouchableOpacity
-                    style={[styles.filterButtonShipping, { backgroundColor: getButtonColor("En attente de pièces") }]}
-                    onPress={() => handlePress("En attente de pièces", () => filterByStatus("En attente de pièces"))}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
-                        <Text style={styles.filterText}>Commande</Text>
-                    </View>
-                </TouchableOpacity>
+    <TouchableOpacity
+        style={[
+            styles.filterButtonShipping, 
+            { backgroundColor: getButtonColor("En attente de pièces") }, 
+            getButtonBorder("En attente de pièces")
+        ]}
+        onPress={() => handlePress("En attente de pièces", () => filterByStatus("En attente de pièces"))}
+    >
+        <View style={styles.buttonContent}>
+            <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
+            <Text style={styles.filterText}>Commande</Text>
+        </View>
+    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.filterButtonDevis, { backgroundColor: getButtonColor("Devis en cours") }]}
-                    onPress={() => handlePress("Devis en cours", () => filterByStatus("Devis en cours"))}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image source={require("../assets/icons/devisEnCours.png")} style={styles.icon} />
-                        <Text style={styles.filterText}>Devis</Text>
-                    </View>
-                </TouchableOpacity>
+    <TouchableOpacity
+        style={[
+            styles.filterButtonDevis, 
+            { backgroundColor: getButtonColor("Devis en cours") }, 
+            getButtonBorder("Devis en cours")
+        ]}
+        onPress={() => handlePress("Devis en cours", () => filterByStatus("Devis en cours"))}
+    >
+        <View style={styles.buttonContent}>
+            <Image source={require("../assets/icons/devisEnCours.png")} style={styles.icon} />
+            <Text style={styles.filterText}>Devis</Text>
+        </View>
+    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.filterButtonDevisOk, { backgroundColor: getButtonColor("Devis accepté") }]}
-                    onPress={() => handlePress("Devis accepté", () => filterByStatus("Devis accepté"))}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image source={require("../assets/icons/devisAccepte.png")} style={styles.icon} />
-                        <Text style={styles.filterText}>Devis OK</Text>
-                    </View>
-                </TouchableOpacity>
+    <TouchableOpacity
+        style={[
+            styles.filterButtonDevisOk, 
+            { backgroundColor: getButtonColor("Devis accepté") }, 
+            getButtonBorder("Devis accepté")
+        ]}
+        onPress={() => handlePress("Devis accepté", () => filterByStatus("Devis accepté"))}
+    >
+        <View style={styles.buttonContent}>
+            <Image source={require("../assets/icons/devisAccepte.png")} style={styles.icon} />
+            <Text style={styles.filterText}>Devis OK</Text>
+        </View>
+    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.filterButtonRepair, { backgroundColor: getButtonColor("Réparation en cours") }]}
-                    onPress={() => handlePress("Réparation en cours", () => filterByStatus("Réparation en cours"))}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image source={require("../assets/icons/tools1.png")} style={styles.icon} />
-                        <Text style={styles.filterText}>En Réparation</Text>
-                    </View>
-                </TouchableOpacity>
+    <TouchableOpacity
+        style={[
+            styles.filterButtonRepair, 
+            { backgroundColor: getButtonColor("Réparation en cours") }, 
+            getButtonBorder("Réparation en cours")
+        ]}
+        onPress={() => handlePress("Réparation en cours", () => filterByStatus("Réparation en cours"))}
+    >
+        <View style={styles.buttonContent}>
+            <Image source={require("../assets/icons/tools1.png")} style={styles.icon} />
+            <Text style={styles.filterText}>En Réparation</Text>
+        </View>
+    </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.filterButtonInit, { backgroundColor: getButtonColor("Réinitialiser") }]}
-                    onPress={() => handlePress("Réinitialiser", resetFilter)}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image source={require("../assets/icons/reload.png")} style={styles.icon} />
-                        <Text style={styles.filterText}>Réinitialiser</Text>
-                    </View>
-                </TouchableOpacity>
-            </View>
+    <TouchableOpacity
+        style={[
+            styles.filterButtonInit, 
+            { backgroundColor: getButtonColor("Réinitialiser") }, 
+            getButtonBorder("Réinitialiser")
+        ]}
+        onPress={() => handlePress("Réinitialiser", resetFilter)}
+    >
+        <View style={styles.buttonContent}>
+            <Image source={require("../assets/icons/reload.png")} style={styles.icon} />
+            <Text style={styles.filterText}>Réinitialiser</Text>
+        </View>
+    </TouchableOpacity>
+</View>
+
 
             <View style={styles.separator} />
 
             <View style={styles.navigationRow}>
                 <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("Home") }]}
+                    style={[styles.filterButtonHome, { backgroundColor: getButtonColor("Home") }]}
                     onPress={() => handlePress("Home", () => navigation.navigate("Home"))}
                 >
                     <View style={styles.buttonContent}>
@@ -168,6 +197,17 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderWidth: 1,
         borderColor: "#5b6788",
+        flex: 1,
+        marginHorizontal: 5,
+        elevation: 2,
+        backgroundColor: "#191f2f",
+    },
+	filterButtonHome: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        borderWidth: 3,
+        borderColor: "#1da4f1",
         flex: 1,
         marginHorizontal: 5,
         elevation: 2,
@@ -252,17 +292,17 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         marginRight: 8,
-        tintColor: "white",
+        tintColor: "#919090",
     },
     menuText: {
         fontSize: 14,
         fontWeight: "medium",
-        color: "white",
+        color: "#e9e9e9",
     },
     filterText: {
         fontSize: 14,
         fontWeight: "medium",
-        color: "white",
+        color: "#e9e9e9",
     },
     separator: {
         height: 1,

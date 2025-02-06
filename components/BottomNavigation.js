@@ -60,7 +60,9 @@ const MenuButton = ({ label, icon, isActive, onPress }) => (
     <TouchableOpacity
         style={[
             styles.menuButton,
-            { backgroundColor: isActive ? "#5b6788" : "#191f2f" }
+            { backgroundColor: isActive ? "#191f2f" : "#191f2f",
+				borderWidth: 3, // Épaisseur de la bordure
+				borderColor: isActive ? "#1da4f1" : "#444c5c",}
         ]}
         onPress={onPress}
     >
@@ -101,10 +103,10 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         marginRight: 8,
-        tintColor: "white",
+        tintColor: "#919090",
     },
     menuText: {
-        color: "white",
+        color: "#fff",
         fontWeight: "medium",
     },
 });

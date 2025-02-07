@@ -19,6 +19,7 @@ const styles = StyleSheet.create({
 	borderColor: "#888787",
 	backgroundColor: "#191f2f",	
 	borderWidth: 1,
+	marginLeft: 10,
   },
   buttonText: {
     color: '#888787', // Couleur du texte blanc pour contraste

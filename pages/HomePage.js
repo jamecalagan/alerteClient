@@ -1246,7 +1246,7 @@ export default function HomePage({ navigation, route }) {
                                                 marginTop: 18,
                                                 marginRight: 40,
                                                 padding: 10,
-                                                borderRadius: 5,
+                                                borderRadius: 2,
                                                 borderWidth: 1,
                                                 borderColor: "#888787",
                                                 backgroundColor: "#191f2f",
@@ -2370,10 +2370,9 @@ const styles = StyleSheet.create({
         padding: 10,
         backgroundColor: "#191f2f",
         borderWidth: 1,
-        borderRadius: 5,
+        borderRadius: 2,
         borderColor: "#888787",
         marginBottom: 10,
-        marginRight: 10,
     },
     toggleText: {
         marginLeft: 10,
@@ -2468,7 +2467,7 @@ const styles = StyleSheet.create({
     repairedCountContainer: {
         padding: 10,
         backgroundColor: "#191f2f",
-        borderRadius: 5,
+        borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
         marginTop: 15,
@@ -2605,7 +2604,7 @@ const styles = StyleSheet.create({
     },
     photoButton: {
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         borderColor: "#888787",
         borderWidth: 1,
         marginRight: 10,
@@ -2613,7 +2612,7 @@ const styles = StyleSheet.create({
     editButton: {
         //backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
@@ -2621,7 +2620,7 @@ const styles = StyleSheet.create({
     printButton: {
         //backgroundColor: '#28a745',  // Vert pour l'icône d'impression
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
@@ -2629,13 +2628,13 @@ const styles = StyleSheet.create({
     trashButton: {
         //backgroundColor: '#dc3545',  // Rouge pour l'icône de poubelle
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     transportButton: {
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginRight: 10,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
@@ -2758,7 +2757,7 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centre verticalement
         padding: 10, // Padding pour l'icône
         borderWidth: 1, // Bordure de 2px
-        borderRadius: 5, // Bords arrondis
+        borderRadius: 2, // Bords arrondis
         borderColor: "#888787", // Couleur de la bordure en noir
         marginRight: 8,
     },
@@ -2840,8 +2839,7 @@ const styles = StyleSheet.create({
     },
     buttonWrapper: {
         flex: 1,
-        width: "38%",
-        marginRight: 5,
+		width: "38%",
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -2931,7 +2929,7 @@ const styles = StyleSheet.create({
         marginRight: 40,
         padding: 6,
         backgroundColor: "#191f2f",
-        borderRadius: 5,
+        borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
     },

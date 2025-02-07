@@ -282,7 +282,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                     }
                                 >
                                     <Text style={styles.clientInfo}>
-                                        Numéro de Client N°:{" "}
+                                        Fiche Client N°:{" "}
                                         {item.clients.ficheNumber}
                                     </Text>
                                     <Text style={styles.clientInfo}>

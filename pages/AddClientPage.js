@@ -7,6 +7,8 @@ import {
     Keyboard,
     Alert,
     Image,
+	TouchableOpacity,
+	Text,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import RoundedButton from "../components/RoundedButton";
@@ -164,7 +166,7 @@ export default function AddClientPage({ navigation, route }) {
         >
             <View style={styles.overlay}>
                 <View style={styles.container}>
-                    {/* Champ Nom du client */}
+                 
                     <View style={styles.inputContainer}>
                         <Image
                             source={require("../assets/icons/person.png")} // Chemin vers votre image
@@ -173,7 +175,7 @@ export default function AddClientPage({ navigation, route }) {
                                 {
                                     width: 20,
                                     height: 20,
-                                    tintColor: "#010253",
+                                    tintColor: "#888787",
                                     marginRight: 10,
                                 },
                             ]} // Personnalisation de l'image
@@ -184,11 +186,11 @@ export default function AddClientPage({ navigation, route }) {
                             value={name}
                             onChangeText={setName}
                             autoCapitalize="characters"
-                            placeholderTextColor="#aaa"
+                            placeholderTextColor="#888787"
                         />
                     </View>
 
-                    {/* Champ Numéro de téléphone */}
+                 
                     <View style={styles.inputContainer}>
                         <Image
                             source={require("../assets/icons/call.png")} // Chemin vers votre image
@@ -197,7 +199,7 @@ export default function AddClientPage({ navigation, route }) {
                                 {
                                     width: 20,
                                     height: 20,
-                                    tintColor: "#010253",
+                                    tintColor: "#888787",
                                     marginRight: 10,
                                 },
                             ]} // Personnalisation de l'image
@@ -208,11 +210,11 @@ export default function AddClientPage({ navigation, route }) {
                             value={phone}
                             onChangeText={setPhone}
                             keyboardType="phone-pad"
-                            placeholderTextColor="#aaa"
+                            placeholderTextColor="#888787"
                         />
                     </View>
 
-                    {/* Champ Adresse e-mail */}
+                 
                     <View style={styles.inputContainer}>
                         <Image
                             source={require("../assets/icons/mail.png")} // Chemin vers votre image
@@ -221,7 +223,7 @@ export default function AddClientPage({ navigation, route }) {
                                 {
                                     width: 20,
                                     height: 20,
-                                    tintColor: "#010253",
+                                    tintColor: "#888787",
                                     marginRight: 10,
                                 },
                             ]} // Personnalisation de l'image
@@ -232,19 +234,21 @@ export default function AddClientPage({ navigation, route }) {
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
-                            placeholderTextColor="#aaa"
+                            placeholderTextColor="#888787"
                         />
                     </View>
 					
-                    {/* Bouton Ajouter */}
-                    <RoundedButton
-                        title={
-                            loading ? "En cours..." : "Enregistrer le client"
-                        }
-                        onPress={handleAddClient}
-                        disabled={loading}
-                    />
-					
+                
+					<TouchableOpacity 
+    style={styles.button} 
+    onPress={handleAddClient} 
+    disabled={loading}
+>
+    <Text style={styles.buttonText}>
+        {loading ? "En cours..." : "Enregistrer le client"}
+    </Text>
+</TouchableOpacity>
+
                 </View>
 				
 
@@ -301,4 +305,18 @@ const styles = StyleSheet.create({
         marginLeft: 5,
         marginRight: 10, // Espacement entre le champ et l'icône
     },
+    button: {
+        backgroundColor: "#191f2f",
+        padding: 10,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    buttonText: {
+        color: "#888787",
+        fontSize: 16,
+        fontWeight: "medium",
+    }
 });

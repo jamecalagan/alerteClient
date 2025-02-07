@@ -166,7 +166,7 @@ export default function AdminPage({ navigation, route }) {
                                     ]}
                                 >
                                     <Text style={styles.clientText}>
-                                        N° client : {item?.ficheNumber || "Non disponible"}
+                                        Fiche client N°: {item?.ficheNumber || "Non disponible"}
                                     </Text>
                                     <Text style={styles.clientText}>
                                         Nom : {item?.name || "Non disponible"}

@@ -644,7 +644,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
 																	editingDetail[item.id].trim() !== ""
 																		? "#28a745" // Vert si du texte est présent
 																		: "#888787", // Gris sinon
-																borderRadius: 5, // Coins arrondis pour un meilleur rendu
+																borderRadius: 2, // Coins arrondis pour un meilleur rendu
 																padding: 10, // Ajout d'un padding pour un meilleur affichage
 															},
 														]}
@@ -1019,7 +1019,7 @@ const styles = StyleSheet.create({
     },
     overlay: {
         flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.795)",
+        backgroundColor: "rgba(0, 0, 0, 0.199)",
         padding: 5,
     },
     title: {
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
     },
     iconStyle: {
         padding: 10,
-        borderWidth: 2,
+        borderWidth: 1,
         borderRadius: 2,
         borderColor: "#888787",
         backgroundColor: "#191f2f",
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
         borderColor: "#888787",
         borderWidth: 1,
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         backgroundColor: "#191f2f",
         marginBottom: 10,
         color: "#b6b4b4",
@@ -1151,7 +1151,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         margin: 5,
-        borderRadius: 5,
+        borderRadius: 2,
     },
     modalOverlay: {
         flex: 1,
@@ -1180,7 +1180,7 @@ const styles = StyleSheet.create({
     button: {
         backgroundColor: "#007BFF",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginHorizontal: 10,
     },
     disabledButton: {
@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         backgroundColor: "red",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
         marginTop: 20,
     },
     deleteButtonText: {
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
         top: 5,
         right: 5,
         backgroundColor: "white",
-        borderRadius: 5,
+        borderRadius: 2,
         padding: 5,
         elevation: 5,
     },
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#ffffff", // Couleur du bouton
         paddingVertical: 8,
         paddingHorizontal: 40, // Réduire la largeur du bouton
-        borderRadius: 5,
+        borderRadius: 2,
         marginTop: 10,
 
         borderWidth: 3,
@@ -1274,7 +1274,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#f9f9f9",
         padding: 10,
         marginVertical: 5,
-        borderRadius: 8,
+        borderRadius: 2,
         elevation: 2, // Ajoute une ombre pour Android
     },
     itemTitle: {
@@ -1320,7 +1320,7 @@ const styles = StyleSheet.create({
     pageButton: {
         padding: 10,
         margin: 5,
-        borderRadius: 5,
+        borderRadius: 2,
         backgroundColor: "#ddd",
     },
     activePageButton: {

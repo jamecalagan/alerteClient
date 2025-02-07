@@ -374,7 +374,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                             style={{
                                                 width: 40, // Largeur de l'image
                                                 height: 40, // Hauteur de l'image
-                                                tintColor: "#757575", // Applique la couleur bleue
+                                                tintColor: "#191f2f", // Applique la couleur bleue
                                             }}
                                         />
                                     </TouchableOpacity>
@@ -1200,8 +1200,8 @@ const styles = StyleSheet.create({
         top: 20,
         right: 10,
         zIndex: 1,
-        backgroundColor: "white",
-        borderRadius: 5,
+        backgroundColor: "#888787",
+        borderRadius: 2,
         elevation: 5,
     },
     interventionTextSolde: {

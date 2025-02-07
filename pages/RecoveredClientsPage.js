@@ -230,7 +230,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                 <TextInput
                     style={styles.searchBar}
                     placeholder="Rechercher par nom ou téléphone"
-                    placeholderTextColor="#ccc"
+                    placeholderTextColor="#888787"
                     value={searchQuery}
                     onChangeText={handleSearch}
                 />
@@ -412,7 +412,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                             : "eye"
                                                     }
                                                     size={20}
-                                                    color="#202020"
+                                                    color="#888787"
                                                     style={styles.icon}
                                                 />
                                                 <Text
@@ -526,30 +526,29 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: "bold",
+        fontWeight: "medium",
         marginBottom: 20,
         textAlign: "center",
-        color: "#fff",
+        color: "#888787",
     },
     searchBar: {
-        backgroundColor: "#fff",
+        backgroundColor: "#191f2f",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
         marginBottom: 20,
         fontSize: 16,
-        color: "#000",
+        color: "#888787",
     },
     card: {
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        backgroundColor: "#191f2f",
         padding: 15,
         marginBottom: 10,
-        borderRadius: 10,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
         elevation: 2,
-    },
-    iconContainer: {
-        marginLeft: 10, // Ajoute un espace entre les infos et l'image
-        justifyContent: "center", // Centre verticalement l'image
-        alignItems: "center",
     },
     deviceIcon: {
         position: "absolute",
@@ -557,6 +556,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         resizeMode: "contain",
+		tintColor: "#888787",
     },
     row: {
         flexDirection: "row", // Disposition en ligne
@@ -572,19 +572,21 @@ const styles = StyleSheet.create({
         marginLeft: 10, // Espacement entre les informations et l'icône
     },
     cardEven: {
-        backgroundColor: "rgba(236, 235, 235, 1)", // Gris clair pour les fiches paires
+        backgroundColor: "#191f2f", // Gris clair pour les fiches paires
     },
     cardOdd: {
-        backgroundColor: "rgba(255, 255, 255, 1)", // Blanc pour les fiches impaires
+        backgroundColor: "#191f2f", // Blanc pour les fiches impaires
     },
     clientInfo: {
         fontSize: 16,
         marginBottom: 5,
+		color: "#888787",
     },
     interventionInfo: {
         fontSize: 14,
+		color: "#888787",
         marginBottom: 5,
-        color: "#555",
+        
     },
     toggleButton: {
         width: "100%",
@@ -593,14 +595,14 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginTop: 10,
         padding: 10,
-        backgroundColor: "#f7f7f7",
+        backgroundColor: "#191f2f",
         borderWidth: 1,
         borderColor: "#929090",
         borderRadius: 5,
         elevation: 5,
     },
     toggleButtonText: {
-        color: "#202020",
+        color: "#888787",
         fontWeight: "bold",
         marginLeft: 10,
     },
@@ -608,13 +610,14 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     signatureImage: {
+		backgroundColor: "#888787",
         width: "95%",
         height: 300,
         marginTop: 10,
         marginLeft: 20,
-        borderRadius: 5,
+        borderRadius: 2,
         borderWidth: 1,
-        borderColor: "#ddd",
+        borderColor: "#888787",
     },
     imageContainer: {
         flexDirection: "row",

@@ -133,6 +133,7 @@ export default function AdminPage({ navigation, route }) {
                         <TextInput
                             style={styles.searchInput}
                             placeholder="RECHERCHER PAR NOM OU TÉLÉPHONE"
+							placeholderTextColor="#888787" // Change la couleur du placeholder ici
                             value={searchText}
                             autoCapitalize="characters"
                             onChangeText={(text) =>
@@ -142,7 +143,7 @@ export default function AdminPage({ navigation, route }) {
                         <MaterialIcons
                             name="search"
                             size={24}
-                            color="#888"
+                            color="#888787"
                             style={styles.searchIcon}
                         />
                     </View>
@@ -161,7 +162,7 @@ export default function AdminPage({ navigation, route }) {
                                     }}
                                     style={[
                                         styles.clientItem,
-                                        { backgroundColor: index % 2 === 0 ? "#e7e6e6" : "#ffffff" },
+                                        { backgroundColor: index % 2 === 0 ? "#191f2f" : "#20283d" },
                                     ]}
                                 >
                                     <Text style={styles.clientText}>
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     },
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         padding: 10,
         marginVertical: 10,
         borderRadius: 5,
@@ -242,24 +243,24 @@ const styles = StyleSheet.create({
     picker: {
         marginVertical: 2,
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         borderRadius: 5,
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: "bold",
-		color: "#fff",
+		color: "#888787",
         marginVertical: 10,
     },
 	title: {
         fontSize: 24,
         fontWeight: "bold",
-		color: "#fff",
+		color: "#888787",
         marginBottom: 20,
         textAlign: "center",
     },
     addButton: {
-        backgroundColor: "#3c5068",
+        backgroundColor: "#191f2f",
         paddingVertical: 12,
         borderRadius: 5,
         alignItems: "center",
@@ -269,23 +270,25 @@ const styles = StyleSheet.create({
 	button: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#007bff",
+        backgroundColor: "#191f2f",
         padding: 15,
-        borderRadius: 10,
+        borderWidth: 1,
+        borderRadius: 5,
+        borderColor: "#888787",
         marginBottom: 20,
     },
     buttonText: {
-        color: "#fff",
+        color: "#888787",
         fontSize: 16,
         fontWeight: "bold",
     },
     toggleButton: {
         flexDirection: "row",
-        backgroundColor: "#445a75",
+        backgroundColor: "#191f2f",
         paddingVertical: 12,
         borderWidth: 1,
         borderRadius: 5,
-        borderColor: "#202020",
+        borderColor: "#888787",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 5,
@@ -293,11 +296,11 @@ const styles = StyleSheet.create({
     },
     toggleButtonCreer: {
         flexDirection: "row",
-        backgroundColor: "#3c5068",
+        backgroundColor: "#191f2f",
         paddingVertical: 12,
         borderWidth: 1,
         borderRadius: 5,
-        borderColor: "#000",
+        borderColor: "#888787",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 15,
@@ -305,8 +308,8 @@ const styles = StyleSheet.create({
     },
     clientItem: {
         padding: 15,
-        borderColor: "#8398f7",
-        backgroundColor: "#f9f9f9",
+        borderColor: "#888787",
+        backgroundColor: "#191f2f",
         marginVertical: 5,
         borderRadius: 5,
         borderWidth: 1,
@@ -314,16 +317,17 @@ const styles = StyleSheet.create({
     },
     clientText: {
         fontSize: 16,
+        color: "#888787",
     },
     navigateButton: {
         flexDirection: "row",
         alignItems: "center",
         borderWidth: 1,
-        backgroundColor: "#1f3750",
+        backgroundColor: "#191f2f",
         padding: 15,
         borderRadius: 5,
         marginBottom: 20,
-        borderColor: "#000",
+        borderColor: "#888787",
     },
     icon: {
         marginRight: 10,
@@ -332,10 +336,10 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         marginRight: 10,
-        tintColor: "white",
+        tintColor: "#888787",
 	},
     pickerContainer: {
-        backgroundColor: "#f1efef",
+        backgroundColor: "#191f2f",
         borderRadius: 5,
         padding: 5,
         marginVertical: 10,
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     buttonTextGestion: {
-        color: "#fff",
+        color: "#888787",
         fontSize: 16,
         fontWeight: "bold",
     },
@@ -358,17 +362,19 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         borderRadius: 5,
         paddingHorizontal: 10,
         marginBottom: 15,
-        backgroundColor: "#fff",
+        backgroundColor: "#191f2f",
+		fontSize: 16,
+        color: "#888787",
     },
     searchInput: {
         flex: 1, // Occupe tout l'espace restant
         height: 40,
         fontSize: 16,
-        color: "#333",
+        color: "#888787",
         paddingHorizontal: 10,
     },
     searchIcon: {
@@ -378,7 +384,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderWidth: 1,
         borderRadius: 5,
-        backgroundColor: "#f5974a",
+        backgroundColor: "#191f2f",
         marginBottom: 10,
         alignItems: "center",
         justifyContent: "center",

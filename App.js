@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Alert, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { supabase } from './supabaseClient';
 import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
+
 // Import des pages
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
@@ -78,12 +79,16 @@ function MainTabs({ navigation }) {
 <Tab.Navigator
   screenOptions={({ route }) => ({
     headerShown: false, // Masque les en-têtes pour tous les écrans
-    tabBarActiveTintColor: "blue", // Couleur des icônes actives
+    tabBarActiveTintColor: "white", // Couleur des icônes actives
     tabBarInactiveTintColor: "gray", // Couleur des icônes inactives
+    tabBarStyle: { 
+      backgroundColor: "#4CAF50", // Changer la couleur de la Bottom Bar
+      borderTopWidth: 0, // Supprime la ligne de séparation supérieure
+      height: 60, // Ajuste la hauteur
+      paddingBottom: 10, // Ajuste l'espacement des icônes
+    },
     tabBarIcon: ({ focused, color, size }) => {
       let iconSource;
-
-      // Définir les icônes pour chaque onglet
       switch (route.name) {
         case "Home":
           iconSource = require("./assets/icons/home.png");
@@ -95,8 +100,8 @@ function MainTabs({ navigation }) {
           iconSource = require("./assets/icons/tools1.png");
           break;
         case "RecoveredClients":
-			iconSource = require("./assets/icons/ok.png");
-			break;
+          iconSource = require("./assets/icons/ok.png");
+          break;
         case "Logout":
           iconSource = require("./assets/icons/disconnects.png");
           break;
@@ -104,20 +109,20 @@ function MainTabs({ navigation }) {
           iconSource = null;
       }
 
-      // Retourne l'icône avec les couleurs dynamiques
       return (
         <Image
           source={iconSource}
           style={{
             width: size,
             height: size,
-            tintColor: color, // Couleur dynamique basée sur "focused"
+            tintColor: color, // Couleur dynamique
           }}
         />
       );
     },
   })}
 >
+
   <Tab.Screen
     name="Home"
     component={HomePage}
@@ -259,7 +264,7 @@ export default function App() {
 
     return (
         <NavigationContainer>
-		 <StatusBar backgroundColor="#242b42" barStyle="light-content" />
+		 <StatusBar backgroundColor="#000" barStyle="light-content" />
             {user ? <MainStack /> : <AuthStack />}
         </NavigationContainer>
     );

@@ -829,7 +829,63 @@ export default function HomePage({ navigation, route }) {
             Alert.alert("Erreur", "Une erreur inattendue est survenue.");
         }
     };
-
+	const DateDisplay = () => {
+		const [currentDate, setCurrentDate] = useState("");
+	
+		useEffect(() => {
+			const now = new Date();
+			const formattedDate = now.toLocaleDateString("fr-FR", {
+				weekday: "long",
+				day: "numeric",
+				month: "long",
+				year: "numeric",
+			});
+	
+			setCurrentDate(formattedDate);
+		}, []);
+	
+		return (
+			<View style={styles.dateContainer}>
+				<Image
+					source={require("../assets/icons/calendar.png")}
+					style={styles.icon}
+				/>
+				<Text style={styles.dateText}>
+					{currentDate}
+				</Text>
+			</View>
+		);
+	};
+	const TimeDisplay = () => {
+		const [currentTime, setCurrentTime] = useState("");
+	
+		useEffect(() => {
+			// Met à jour l'heure chaque seconde
+			const interval = setInterval(() => {
+				const now = new Date();
+				const formattedTime = now.toLocaleTimeString("fr-FR", {
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				});
+				setCurrentTime(formattedTime);
+			}, 1000);
+	
+			return () => clearInterval(interval); // Nettoie l'intervalle à la destruction du composant
+		}, []);
+	
+		return (
+			<View style={styles.timeContainer}>
+				<Image
+					source={require("../assets/icons/clock.png")} // Icône d'horloge
+					style={styles.icon}
+				/>
+				<Text style={styles.timeText}>
+					{currentTime}
+				</Text>
+			</View>
+		);
+	};
     return (
         <ImageBackground
             source={backgroundImage}
@@ -1315,67 +1371,15 @@ export default function HomePage({ navigation, route }) {
                                             : "Afficher les fiches"}
                                     </Text>
                                 </TouchableOpacity>
-                                <View style={styles.buttonWrapper}>
-                                    <RoundedButton
-                                        title={
-                                            <View style={styles.buttonContent}>
-                                                <Image
-                                                    source={require("../assets/icons/calendar.png")} // Remplacez par le chemin de votre image
-                                                    style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        tintColor: "#7583a8",
-                                                    }} // Styles de l'image
-                                                />
-                                                <Text
-                                                    style={
-                                                        styles.buttonTextTrier
-                                                    }
-                                                >
-                                                    {" "}
-                                                    {sortBy === "createdAt"
-                                                        ? "date de modification"
-                                                        : "date de création"}
-                                                </Text>
-                                            </View>
-                                        }
-                                        onPress={() =>
-                                            setSortBy(
-                                                sortBy === "createdAt"
-                                                    ? "updatedAt"
-                                                    : "createdAt"
-                                            )
-                                        }
-                                    />
-                                </View>
-                                <View style={styles.buttonWrapper}>
-                                    <RoundedButton
-                                        title={
-                                            <View style={styles.buttonContent}>
-                                                <Image
-                                                    source={require("../assets/icons/filter.png")} // Remplacez par le chemin de votre image
-                                                    style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        tintColor: "#7583a8",
-                                                    }} // Styles de l'image
-                                                />
 
-                                                <Text
-                                                    style={
-                                                        styles.buttonTextTrier
-                                                    }
-                                                >
-                                                    Ordre{" "}
-                                                    {orderAsc
-                                                        ? "Ascendant"
-                                                        : "Descendant"}
-                                                </Text>
-                                            </View>
-                                        }
-                                        onPress={() => setOrderAsc(!orderAsc)}
-                                    />
-                                </View>
+								<View>
+								<DateDisplay />
+								</View>
+
+								<View>
+									<TimeDisplay />
+								</View>
+
                             </View>
                             {isLoading ? (
                                 <View style={styles.loaderContainer}>
@@ -1894,14 +1898,12 @@ export default function HomePage({ navigation, route }) {
                                                                                     }
                                                                                     style={{
                                                                                         borderWidth: 1,
-                                                                                        borderColor:
-                                                                                            "#888787",
+                                                                                        borderColor: "#888787",
                                                                                         paddingTop: 5,
                                                                                         width: 50,
                                                                                         height: 50,
                                                                                         borderRadius: 2,
-                                                                                        alignItems:
-                                                                                            "center",
+                                                                                        alignItems: "center",
                                                                                     }}
                                                                                 >
                                                                                     <TouchableOpacity
@@ -2359,6 +2361,13 @@ export default function HomePage({ navigation, route }) {
     );
 }
 const styles = StyleSheet.create({
+
+    overlay: {
+        flex: 1,
+        width: "100%",
+        justifyContent: "center",
+        backgroundColor: "rgba(39, 39, 39, 0.308)",
+    },
     container: {
         flex: 1,
     },
@@ -2767,7 +2776,6 @@ const styles = StyleSheet.create({
     additionalIconsContainer: {
         flexDirection: "row",
         justifyContent: "flex-end",
-        marginRight: 1,
         gap: 10,
     },
     interventionBox: {
@@ -2849,6 +2857,7 @@ const styles = StyleSheet.create({
     buttonContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
+		gap: 10,
     },
     buttonContent: {
         flexDirection: "row",
@@ -2935,5 +2944,43 @@ const styles = StyleSheet.create({
     },
     images_numberText: {
         marginLeft: 40,
+    },
+	dateContainer: {
+        flexDirection: "row", // Alignement horizontal
+        alignItems: "center",
+        borderWidth: 1, // Bordure visible
+        borderColor: "#888787", // Couleur du contour
+        borderRadius: 2, // Coins arrondis
+        paddingVertical: 11, // Espacement intérieur haut/bas
+        paddingHorizontal: 50, // Espacement intérieur gauche/droite
+        backgroundColor: "#191f2f", // Fond blanc pour le contraste
+        alignSelf: "center", // Centrage du bloc
+    },
+    icon: {
+        width: 20,
+        height: 20,
+        tintColor: "#888787", // Couleur de l'icône
+        marginRight: 8, // Espacement entre l'icône et le texte
+    },
+    dateText: {
+        fontSize: 16,
+        fontWeight: "medium",
+        color: "#888787", // Texte en vert
+    },
+	timeContainer: {
+        flexDirection: "row", // Alignement horizontal
+        alignItems: "center",
+        borderWidth: 1, // Bordure visible
+        borderColor: "#888787", // Couleur du contour
+        borderRadius: 2, // Coins arrondis
+        paddingVertical: 8, // Espacement intérieur haut/bas
+        paddingHorizontal: 80, // Espacement intérieur gauche/droite
+        backgroundColor: "#191f2f", // Fond blanc
+        alignSelf: "center", // Centrage horizontal
+    },
+	timeText: {
+        fontSize: 20,
+        fontWeight: "medium",
+        color: "#888787", // Couleur orange pour l'heure
     },
 });

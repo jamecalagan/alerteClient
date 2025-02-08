@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 2,
-        borderWidth: 1,
+        borderWidth: 3,
         borderColor: "#5b6788",
         flex: 1,
         marginHorizontal: 5,

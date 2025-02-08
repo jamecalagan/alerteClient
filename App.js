@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Alert, TouchableOpacity, Image } from 'react-native';
+import { Alert, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { supabase } from './supabaseClient';
 import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
 // Import des pages
@@ -259,6 +259,7 @@ export default function App() {
 
     return (
         <NavigationContainer>
+		 <StatusBar backgroundColor="#242b42" barStyle="light-content" />
             {user ? <MainStack /> : <AuthStack />}
         </NavigationContainer>
     );

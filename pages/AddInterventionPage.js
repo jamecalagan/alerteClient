@@ -365,6 +365,7 @@ const handleSaveIntervention = async () => {
                     <TextInput
                         style={styles.input}
                         placeholder="Entrez le type de produit"
+						placeholderTextColor="#191f2f"
                         value={customDeviceType}
                         onChangeText={setCustomDeviceType}
                     />
@@ -411,32 +412,23 @@ const handleSaveIntervention = async () => {
                 )}
 
 
-{/*         <Text style={styles.label}>Numéro de série</Text>
-        <TextInput
-          style={styles.input}
-          value={serial_number.toUpperCase()}
-          onChangeText={(text) => setSerial_number(text.toUpperCase())}
-          autoCapitalize="characters"
-          placeholder="Numéro de série"
-        /> */}
-
-
   <View style={styles.referenceContainer}>
     <TextInput
       style={styles.referenceInput}
       value={reference.toUpperCase()}
       onChangeText={(text) => setReference(text.toUpperCase())}
       autoCapitalize="characters"
+	  placeholderTextColor="#888787"
       placeholder="Référence du produit / Numéro de série / photo étiquette"
     />
-    {/* Afficher la coche verte si la photo est prise */}
+   
     {isPhotoTaken && (
       <MaterialIcons name="check-circle" size={24} color="green" style={styles.checkIcon} />
     )}
   </View>
 
   <TouchableOpacity style={styles.button} onPress={pickLabelImage}>
-  <Icon name="camera" size={20} color="#222177" style={styles.buttonIcon} />
+  <Icon name="camera" size={20} color="#888787" style={styles.buttonIcon} />
     <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
   </TouchableOpacity>
 
@@ -463,6 +455,7 @@ const handleSaveIntervention = async () => {
     value={cost ? cost.toString() : ''}
     onChangeText={setCost}
     keyboardType="numeric"
+	placeholderTextColor="#191f2f"
     editable={status !== 'Devis en cours'} // Désactiver si "Devis en cours" est sélectionné
     placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
 />
@@ -569,6 +562,7 @@ const handleSaveIntervention = async () => {
     style={styles.input}
     value={remarks}
     onChangeText={setRemarks}
+	placeholderTextColor="#191f2f"
     placeholder="Ajoutez des remarques ici..."
     multiline
 />
@@ -619,7 +613,7 @@ const handleSaveIntervention = async () => {
         style={[styles.iconButton, styles.button]}
         onPress={pickAdditionalImage}
     >
-        <Icon name="camera" size={20} color="#222177" style={styles.buttonIcon} />
+        <Icon name="camera" size={20} color="#888787" style={styles.buttonIcon} />
         <Text style={styles.buttonText}>
             Prendre une autre photo
         </Text>
@@ -628,7 +622,7 @@ const handleSaveIntervention = async () => {
         style={[styles.iconButton, styles.saveButton]}
         onPress={handleSaveIntervention}
     >
-        <Icon name="save" size={20} color="#084710" style={styles.buttonIcon} />
+        <Icon name="save" size={20} color="#888787" style={styles.buttonIcon} />
         <Text style={styles.buttonText}>
             Sauvegarder l'intervention
         </Text>
@@ -673,193 +667,218 @@ const handleSaveIntervention = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f2f2f2',
-    paddingHorizontal: 20,
-  },
-  clientName: {
+    container: {
+        flex: 1,
+        backgroundColor: "#191f2f",
+        paddingHorizontal: 20,
+    },
+	clientName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
     textAlign: 'center',
     marginVertical: 10,
-    color: '#222',
+    color: '#888787',
 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 20,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-    width: '90%',
-    alignSelf: 'center',
-  },
-  rowContainer: {
-	flexDirection: "row",
-	justifyContent: "space-between", // Pour espacer les éléments
-	width: "95%", // Assurez-vous que cela ne dépasse pas de l'écran
-	alignSelf: "center",
-},
-// Chaque champ prendra 50% de la largeur
-halfWidthContainer: {
-	flex: 1, // Chaque élément prend 50% de l'espace disponible
-},
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#555',
-    width: '90%',
-    alignSelf: 'center',
-  },
-  saveButton: {
-	backgroundColor: "#acf5bb",
-	paddingVertical: 10,
-	paddingHorizontal: 20,
-	borderWidth: 1,
-	borderRadius: 5,
-	alignItems: "center",
-	justifyContent: "center",
-	flex: 1,
-	alignSelf: "center",
-	marginTop: 20,
-	marginBottom: 20,
-},
-  saveButtonText: {
-    color: '#202020',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  button: {
-	backgroundColor: "#dddddd",
-	paddingVertical: 10,
-	paddingHorizontal: 20,
-	borderWidth: 1,
-	borderRadius: 5,
-	alignItems: "center",
-	justifyContent: "center",
-	flex: 1,
-	alignSelf: "center",
-	marginTop: 20,
-	marginBottom: 20,
-},
-  buttonText: {
-    color: '#202020',
-    fontWeight: 'bold',
-  },
-  referenceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '90%',
-    alignSelf: 'center',
-  },
-  referenceInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-    width: '84%',
-  },
-  checkIcon: {
-    marginLeft: 10,
-  },
-  modalBackground: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  fullImage: {
-    width: '90%',
-    height: '90%',
-    resizeMode: 'contain',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  photo: {
-    width: 100,
-    height: 100,
-    margin: 5,
-  },
-  labelPhoto: {
-    borderWidth: 3,
-    borderColor: 'green',
-  },
-  alertBox: {
-    width: 300,
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  alertTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  alertMessage: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  fullwidthContainer: {
-    flex: 1,
-    width: '48%', 
-  },
-  rowFlexContainer:{
-    flexDirection:"row",
-    width:"100%",
-  },
-  buttonContainer: {
-	flexDirection: "row", // Positionne les boutons côte à côte
-	justifyContent: "space-between", // Espace entre les boutons
-	width: "100%",
-	paddingHorizontal: 40,
-	gap: 10,
-},
-iconButton: {
-	flexDirection: 'row', // Positionne l'icône et le texte côte à côte
-	alignItems: 'center',
-	marginRight: 8,
-	backgroundColor: '#acf5bb',
-	borderWidth: 1,
-	paddingVertical: 10,
-	paddingHorizontal: 20,
-	borderRadius: 5,
-	justifyContent: 'center',
-	flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
-	marginHorizontal: 5, // Un petit espace entre les deux boutons
-  },
-  buttonIcon: {
-    marginRight: 8, // Espace entre l'icône et le texte
-},
-modalButton:{
-	backgroundColor: "#dddddd",
-	paddingVertical: 10,
-	paddingHorizontal: 20,
-	borderWidth: 1,
-	borderRadius: 5,
-	alignItems: "center",
-	justifyContent: "center",
-	
-	alignSelf: "center",
-	marginTop: 20,
-	marginBottom: 20,
-},
-modalButtonText: {
-color: '#202020',
-fontSize: 16,
-fontWeight: 'bold',
-},
+
+    input: {
+        borderWidth: 1,
+        borderColor: "#53669b",
+        padding: 10,
+        marginBottom: 20,
+        borderRadius: 2,
+        backgroundColor: "#808080",
+        width: "90%",
+        alignSelf: "center",
+		fontSize: 16,
+        fontWeight: "medium",
+		color: "#191f2f",
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: "bold",
+        marginBottom: 5,
+        color: "#888787",
+        width: "90%",
+        alignSelf: "center",
+    },
+    rowContainer: {
+        flexDirection: "row",
+        justifyContent: "space-between", // Pour espacer les éléments
+        width: "95%", // Assurez-vous que cela ne dépasse pas de l'écran
+        alignSelf: "center",
+    },
+    // Chaque champ prendra 50% de la largeur
+    halfWidthContainer: {
+        flex: 1, // Chaque élément prend 50% de l'espace disponible
+    },
+    referenceContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "90%",
+        alignSelf: "center",
+    },
+    referenceInput: {
+        borderWidth: 1,
+        borderColor: "#888787",
+        padding: 10,
+        borderRadius: 2,
+        backgroundColor: "#191f2f",
+        width: "84%",
+		fontSize: 16,
+        fontWeight: "medium",
+        marginBottom: 5,
+        color: "#888787",
+    },
+    checkIcon: {
+        marginLeft: 10,
+    },
+    thumbnail: {
+        width: 100,
+        height: 100,
+        margin: 5,
+        borderRadius: 10,
+    },
+    labelPhoto: {
+        borderWidth: 3,
+        borderColor: "green",
+    },
+    button: {
+        backgroundColor: "#0c0f18",
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderWidth: 1,
+        borderRadius: 2,
+		borderColor: "#444444",
+        alignItems: "center",
+        justifyContent: "center",
+        flex: 1,
+        alignSelf: "center",
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    buttonText: {
+        color: "#888787",
+        fontWeight: "medium",
+    },
+    saveButton: {
+        backgroundColor: "#0c0f18",
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderWidth: 1,
+        borderRadius: 2,
+		borderColor: "#444444",
+        alignItems: "center",
+        justifyContent: "center",
+        flex: 1,
+        alignSelf: "center",
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    saveButtonText: {
+        color: "#888787",
+        fontSize: 16,
+        fontWeight: "mediums",
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+    },
+    alertBox: {
+        width: 300,
+        padding: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        borderRadius: 20,
+        alignItems: "center",
+    },
+    alertTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 10,
+        color: "#333",
+    },
+    alertMessage: {
+        fontSize: 16,
+        color: "#666",
+        textAlign: "center",
+        marginBottom: 20,
+    },
+    modalBackground: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.8)", // Fond transparent
+    },
+    fullImage: {
+        width: "90%",
+        height: "90%",
+        resizeMode: "contain", // Adapter l'image à la taille de l'écran
+    },
+    fullwidthContainer: {
+        flex: 1,
+        width: "48%",
+    },
+    rowFlexContainer: {
+        flexDirection: "row",
+        width: "100%",
+    },
+    buttonContainer: {
+        flexDirection: "row", // Positionne les boutons côte à côte
+        justifyContent: "space-between", // Espace entre les boutons
+        width: "100%",
+        paddingHorizontal: 40,
+        gap: 10,
+    },
+    buttonIcon: {
+        marginRight: 10, // Espace entre l'icône et le texte
+    },
+    iconButton: {
+        flexDirection: "row", // Positionne l'icône et le texte côte à côte
+        alignItems: "center",
+        backgroundColor: "#888787",
+        borderWidth: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 2,
+        justifyContent: "center",
+        flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
+        marginHorizontal: 5, // Un petit espace entre les deux boutons
+    },
+    addButtonText: {
+        color: "#888787",
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+    modalButton: {
+        backgroundColor: "#dddddd",
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderWidth: 1,
+        borderRadius: 5,
+        alignItems: "center",
+        justifyContent: "center",
+
+        alignSelf: "center",
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    modalButtonText: {
+        color: "#202020",
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+    autreInput: {
+        borderWidth: 1,
+        borderColor: "#888787",
+        padding: 10,
+        marginBottom: 20,
+        borderRadius: 2,
+        backgroundColor: "#191f2f",
+        width: "90%",
+        alignSelf: "center",
+    },
 checkboxContainer: {
 	flexDirection: 'row',
     marginVertical: 10,
@@ -875,8 +894,8 @@ checkbox: {
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#444',
-    borderRadius: 4,
+    borderColor: '#888787',
+    borderRadius: 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -893,14 +912,24 @@ checkboxCheckedOrange: {
 checkboxIndicator: {
     width: 12,
     height: 12,
-    backgroundColor: 'white', // Couleur de l'indicateur
+    backgroundColor: '191f2f', // Couleur de l'indicateur
 },
 checkboxLabel: {
+    color: "#888787",
     fontSize: 16,
+    fontWeight: "medium",
 },
 checkboxCheckedBlue: {
 	borderColor: 'blue',
 	backgroundColor: 'blue',
 },
-  
+interventionText:{
+	fontSize: 16,
+    color: '#ff4500', // Rouge orangé pour attirer l'attention
+    fontWeight: 'medium',
+	marginBottom: 15,
+	width: "90%",
+	alignSelf: "center",
+}
+
 });

@@ -73,28 +73,30 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#fff",
+        backgroundColor: "#191f2f",
     },
     title: {
         fontSize: 20,
-        fontWeight: "bold",
+        fontWeight: "medium",
+		color: "#888787",
         marginBottom: 10,
     },
     item: {
         padding: 15,
-        backgroundColor: "#f9f9f9",
+        backgroundColor: "#0c0f18",
         borderRadius: 8,
         marginBottom: 10,
         borderWidth: 1,
-        borderColor: "#ddd",
+        borderColor: "#888787",
     },
     itemText: {
         fontSize: 16,
-        fontWeight: "bold",
+		color: "#888787",
+        fontWeight: "medium",
     },
     itemDate: {
         fontSize: 14,
-        color: "#555",
+        color: "#888787",
     },
 });
 

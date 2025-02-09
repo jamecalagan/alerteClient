@@ -13,7 +13,7 @@ import {
     Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
-
+import BottomNavigation from "../components/BottomNavigation";
 export default function ClientInterventionsPage({ route, navigation }) {
     const { clientId } = route.params;
     const [interventions, setInterventions] = useState([]);
@@ -320,6 +320,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
                         )}
                     />
                 )}
+					  <BottomNavigation  navigation={navigation} currentRoute={route.name} />
             </View>
             {selectedImage && (
                 <Modal

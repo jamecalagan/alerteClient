@@ -1164,8 +1164,7 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor:
-                                                getIconColor("Devis en cours"),
+                                            tintColor: getIconColor("Devis en cours"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1185,8 +1184,7 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor:
-                                                getIconColor("Non réparable"),
+                                            tintColor: getIconColor("Non réparable"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1207,8 +1205,7 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor:
-                                                getIconColor("Réinitialiser"),
+                                            tintColor:getIconColor("Réinitialiser"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -2343,8 +2340,7 @@ export default function HomePage({ navigation, route }) {
                             style={{
                                 width: 25,
                                 height: 25,
-                                tintColor:
-                                    currentPage === totalPages
+                                tintColor: currentPage === totalPages
                                         ? "gray"
                                         : "white", // Grise si dernière page
                             }}

@@ -411,19 +411,6 @@ export default function EditInterventionPage({ route, navigation }) {
                     </View>
                 </View>
 
-{/*                 <View style={styles.fullfWidthContainer}>
-                    <Text style={styles.label}>Numéro de série</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={serial_number.toUpperCase()} // Afficher en majuscules
-                        onChangeText={(text) =>
-                            setSerial_number(text.toUpperCase())
-                        } // Forcer la saisie en majuscules
-                        autoCapitalize="characters" // Forcer la saisie en majuscules
-                        placeholder="Numéro de série"
-                    />
-                </View> */}
-
                 <View style={styles.referenceContainer}>
                     <TextInput
                         style={styles.referenceInput}
@@ -449,7 +436,7 @@ export default function EditInterventionPage({ route, navigation }) {
                 >
 						<Image
     source={require('../assets/icons/photo1.png')} // Chemin vers votre image
-    style={[styles.checkIcon, { width: 24, height: 24, tintColor: 'black' }]} // Personnalisation de l'image
+    style={[styles.checkIcon, { width: 24, height: 24, tintColor: '#888787' }]} // Personnalisation de l'image
 />
                     <Text style={styles.buttonText}>
                         Prendre une photo de l'étiquette
@@ -687,7 +674,7 @@ export default function EditInterventionPage({ route, navigation }) {
                     >
                         						<Image
     source={require('../assets/icons/photo1.png')} // Chemin vers votre image
-    style={[styles.checkIcon, { width: 22, height: 22, tintColor: "#010253", marginRight: 10, }]} // Personnalisation de l'image
+    style={[styles.checkIcon, { width: 22, height: 22, tintColor: "#888787", marginRight: 10, }]} // Personnalisation de l'image
 />
                         <Text style={styles.buttonText}>
                             Prendre une autre photo
@@ -699,7 +686,7 @@ export default function EditInterventionPage({ route, navigation }) {
                     >
                         						<Image
     source={require('../assets/icons/save.png')} // Chemin vers votre image
-    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#00160c", marginRight: 10, }]} // Personnalisation de l'image
+    style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#888787", marginRight: 10, }]} // Personnalisation de l'image
 />
                         <Text style={styles.buttonText}>
                             Sauvegarder l'intervention
@@ -734,24 +721,24 @@ export default function EditInterventionPage({ route, navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#191f2f",
         paddingHorizontal: 20,
     },
 	clientName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
     textAlign: 'center',
     marginVertical: 10,
-    color: '#222',
+    color: '#888787',
 },
 
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#53669b",
         padding: 10,
         marginBottom: 20,
         borderRadius: 5,
-        backgroundColor: "#fff",
+        backgroundColor: "#808080",
         width: "90%",
         alignSelf: "center",
     },
@@ -759,7 +746,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
         marginBottom: 5,
-        color: "#555",
+        color: "#888787",
         width: "90%",
         alignSelf: "center",
     },
@@ -782,11 +769,15 @@ const styles = StyleSheet.create({
     },
     referenceInput: {
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         padding: 10,
-        borderRadius: 5,
-        backgroundColor: "#fff",
+        borderRadius: 2,
+        backgroundColor: "#191f2f",
         width: "84%",
+		fontSize: 16,
+        fontWeight: "medium",
+        marginBottom: 5,
+        color: "#888787",
     },
     checkIcon: {
         marginLeft: 10,
@@ -802,11 +793,12 @@ const styles = StyleSheet.create({
         borderColor: "green",
     },
     button: {
-        backgroundColor: "#dddddd",
+        backgroundColor: "#0c0f18",
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderWidth: 1,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderColor: "#444444",
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
@@ -815,15 +807,16 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     buttonText: {
-        color: "#202020",
-        fontWeight: "bold",
+        color: "#888787",
+        fontWeight: "medium",
     },
     saveButton: {
-        backgroundColor: "#acf5bb",
+        backgroundColor: "#0c0f18",
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderWidth: 1,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderColor: "#444444",
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
@@ -832,9 +825,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     saveButtonText: {
-        color: "#202020",
+        color: "#888787",
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "mediums",
     },
     modalOverlay: {
         flex: 1,
@@ -893,17 +886,17 @@ const styles = StyleSheet.create({
     iconButton: {
         flexDirection: "row", // Positionne l'icône et le texte côte à côte
         alignItems: "center",
-        backgroundColor: "#acf5bb",
+        backgroundColor: "#888787",
         borderWidth: 1,
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderRadius: 5,
+        borderRadius: 2,
         justifyContent: "center",
         flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
         marginHorizontal: 5, // Un petit espace entre les deux boutons
     },
     addButtonText: {
-        color: "#fff",
+        color: "#888787",
         fontSize: 16,
         fontWeight: "bold",
     },
@@ -927,11 +920,11 @@ const styles = StyleSheet.create({
     },
     autreInput: {
         borderWidth: 1,
-        borderColor: "#202020",
+        borderColor: "#888787",
         padding: 10,
         marginBottom: 20,
-        borderRadius: 5,
-        backgroundColor: "#b2f8ba",
+        borderRadius: 2,
+        backgroundColor: "#191f2f",
         width: "90%",
         alignSelf: "center",
     },
@@ -950,8 +943,8 @@ checkbox: {
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: '#444',
-    borderRadius: 4,
+    borderColor: '#888787',
+    borderRadius: 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -968,10 +961,12 @@ checkboxCheckedOrange: {
 checkboxIndicator: {
     width: 12,
     height: 12,
-    backgroundColor: 'white', // Couleur de l'indicateur
+    backgroundColor: '191f2f', // Couleur de l'indicateur
 },
 checkboxLabel: {
+    color: "#888787",
     fontSize: 16,
+    fontWeight: "medium",
 },
 checkboxCheckedBlue: {
 	borderColor: 'blue',
@@ -980,7 +975,7 @@ checkboxCheckedBlue: {
 interventionText:{
 	fontSize: 16,
     color: '#ff4500', // Rouge orangé pour attirer l'attention
-    fontWeight: 'bold',
+    fontWeight: 'medium',
 	marginBottom: 15,
 	width: "90%",
 	alignSelf: "center",

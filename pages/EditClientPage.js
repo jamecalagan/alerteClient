@@ -235,6 +235,7 @@ export default function EditClientPage({ route, navigation }) {
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
+		placeholderTextColor="#888787"
         placeholder="Adresse e-mail (optionnel)"
       />
 
@@ -340,7 +341,7 @@ export default function EditClientPage({ route, navigation }) {
         style={{
             width: 24,       // Largeur de l'image
             height: 24,      // Hauteur de l'image
-            tintColor: "#000", // Couleur de l'image (noir ici)
+            tintColor: "#ff0000", // Couleur de l'image (noir ici)
         }}
     />
 </TouchableOpacity>
@@ -351,7 +352,7 @@ export default function EditClientPage({ route, navigation }) {
         style={{
             width: 28, // Largeur de l'image
             height: 28, // Hauteur de l'image
-            tintColor: "#000", // Couleur de l'image
+            tintColor: "#888787", // Couleur de l'image
         }}
     />
 </TouchableOpacity>
@@ -375,19 +376,19 @@ export default function EditClientPage({ route, navigation }) {
         style={{
             width: 20, // Largeur de l'image
             height: 20, // Hauteur de l'image
-            tintColor: "#000", // Couleur de l'image
+            tintColor: "#888787", // Couleur de l'image
 			marginRight: 10 ,
         }}
     />
           <Text style={styles.buttonText}>Ajouter une intervention</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={handleSaveClient}>
+        <TouchableOpacity style={[styles.iconButton, styles.addButton]} onPress={handleSaveClient}>
 		<Image
         source={require("../assets/icons/save.png")} // Chemin vers votre image
         style={{
             width: 20, // Largeur de l'image
             height: 20, // Hauteur de l'image
-            tintColor: "#000", // Couleur de l'image
+            tintColor: "#888787", // Couleur de l'image
 			marginRight: 10 ,
         }}
     />
@@ -418,83 +419,89 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#191f2f',
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
     marginBottom: 20,
     textAlign: 'center',
-    color: '#333333',
+    color: '#888787',
     marginTop: 5, 
   },
   input: {
     borderWidth: 1,
-    borderColor: '#cccccc',
+    borderColor: '#888787',
     padding: 10,
     marginBottom: 20,
-    borderRadius: 5,
-    backgroundColor: '#fff',
+    borderRadius: 2,
+    backgroundColor: '#191f2f',
+	fontSize: 16,
+    color: '#888787',
   },
   interventionCard: {
     padding: 15,
     marginBottom: 10,
-    borderRadius: 10,
-    backgroundColor: '#fff', // Fond blanc
-    borderWidth: 2, // Épaisseur de la bordure
+    borderRadius: 4,
+    backgroundColor: '#191f2f', // Fond blanc
+    borderWidth: 1, // Épaisseur de la bordure
   },
   interventionInfo: {
     flex: 1,
   },
   interventionText: {
     fontSize: 16,
-    color: '#333333',
+    color: '#888787',
     marginBottom: 5, // Ajoute un espacement entre les lignes
   },
   interventionTextReste: {
     fontSize: 16,
-    color: '#dd0606',
+    color: '#888787',
     marginBottom: 5, // Ajoute un espacement entre les lignes
   },
   addButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#191f2f',
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 30,
+    borderRadius: 2,
+	borderWidth: 1,
+	borderColor: '#888787',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
   addButtonText: {
-    color: '#fff',
+    color: '#888787',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
   },
   saveButton: {
-    backgroundColor: '#4f4f4f',
+    backgroundColor: '#0c0f18',
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 30,
+    borderRadius: 2,
+	borderWidth: 1,
+	borderColor: '#888787',
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#fff',
+    color: '#888787',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
   },
   trashButton: {
     //backgroundColor: '#dc3545',
     width: 40,
     height: 40,
-    borderRadius: 5,
+    borderRadius: 2,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
     top: 10,
     right: 10,
-    borderColor: '#000',  // Couleur de la bordure (noire)
-    borderWidth: 2,       // Épaisseur de la bordure
+    borderColor: '#888787',  // Couleur de la bordure (noire)
+    borderWidth: 1,       // Épaisseur de la bordure
   },
   printButton: {    
 	width: 70,
@@ -504,7 +511,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20, // En bas de la page
     right: 20,  // À droite de la page
-    backgroundColor: '#fefffe',
+    backgroundColor: '#191f2f',
     padding: 15,
     borderRadius: 5, // Rond pour l'icône
     alignItems: 'center',
@@ -518,41 +525,42 @@ const styles = StyleSheet.create({
   iconButton: {
     flexDirection: 'row', // Positionne l'icône et le texte côte à côte
     alignItems: 'center',
-    backgroundColor: '#acf5bb',
+    backgroundColor: '#191f2f',
 	borderWidth: 1,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 5,
+    borderRadius: 2,
+	borderColor: '#888787',
     justifyContent: 'center',
     flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
     marginHorizontal: 5, // Un petit espace entre les deux boutons
   },
   addButton: {
-    backgroundColor: '#dddddd', // Vert pour le bouton "Ajouter"
+    backgroundColor: '#0c0f18', // Vert pour le bouton "Ajouter"
   },
   buttonIcon: {
     marginRight: 10, // Espace entre l'icône et le texte
   },
   buttonText: {
-    color: '#202020',
+    color: '#888787',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
   },
   commandeRecuButton: {
-  backgroundColor: '#8ed9f7',  // Vert pour indiquer que la commande est reçue
+  backgroundColor: '#191f2f',  // Vert pour indiquer que la commande est reçue
   padding: 10,
   borderRadius: 5,
   marginTop: 10,
 },
 commandeRecuButtonText: {
-  color: '#202020',
-  fontWeight: 'bold',
+  color: '#888787',
+  fontWeight: 'medium',
   textAlign: 'center',
 },
 editButton: {
-  backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
+  backgroundColor: '#191f2f',  // Bleu pour l'icône d'édition
   padding: 10,
-  borderRadius: 5,
+  borderRadius: 2,
   marginRight: 10,
 },
 acceptText: {

@@ -51,6 +51,7 @@ export default function BrandsPage({ route, navigation }) {
 
     return (
         <View style={styles.container}>
+		<Text style={styles.title}>Liste des marques</Text>
             <FlatList
                 data={sortedBrands}
                 keyExtractor={(item) => item.id.toString()}
@@ -82,14 +83,21 @@ const styles = StyleSheet.create({
     container: { 
         flex: 1, 
         padding: 10, 
-        backgroundColor: '#f9f9f9' 
+        backgroundColor: '#191f2f' 
     },
     listContainer: {
         justifyContent: 'space-between',
     },
+	title: {
+        fontSize: 24,
+        color: "#888787",
+        fontWeight: "bold",
+        marginBottom: 10,
+        textAlign: "center",
+    },
     itemContainer: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#8e95a89c',
         margin: 5,
         padding: 15,
         borderRadius: 8,
@@ -106,14 +114,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#04305e', // Couleur de fond du bouton
-        borderRadius: 8,
+        backgroundColor: '#0c0f18', // Couleur de fond du bouton
+        borderRadius: 4,
         width: '100%', // Prendre toute la largeur du conteneur
     },
     itemText: {
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#fff', // Texte en blanc pour plus de contraste
+        fontWeight: 'medium',
+        color: '#888787', // Texte en blanc pour plus de contraste
         textAlign: 'center',
     },
     deleteButton: {

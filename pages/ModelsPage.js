@@ -47,6 +47,7 @@ export default function ModelsPage({ route }) {
 
     return (
         <View style={styles.container}>
+		<Text style={styles.title}>Liste des models</Text>
             <FlatList
                 data={sortedModels}
                 keyExtractor={(item) => item.id.toString()}
@@ -78,17 +79,24 @@ const styles = StyleSheet.create({
     container: { 
         flex: 1, 
         padding: 10, 
-        backgroundColor: '#f9f9f9' 
+        backgroundColor: '#191f2f' 
     },
     listContainer: {
         justifyContent: 'space-between',
     },
+	title: {
+        fontSize: 24,
+        color: "#888787",
+        fontWeight: "bold",
+        marginBottom: 10,
+        textAlign: "center",
+    },
     itemContainer: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#8e95a89c',
         margin: 5,
         padding: 15,
-        borderRadius: 8,
+        borderRadius: 4,
         alignItems: 'center',
         justifyContent: 'space-between',
         elevation: 2, // Ombre pour Android
@@ -102,14 +110,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#28a745', // Couleur de fond du bouton (vert)
-        borderRadius: 8,
+        backgroundColor: '#0c0f18', // Couleur de fond du bouton (vert)
+        borderRadius: 4,
         width: '100%', // Prendre toute la largeur du conteneur
     },
     itemText: {
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#fff', // Texte en blanc pour plus de contraste
+        fontWeight: 'medium',
+        color: '#888787', // Texte en blanc pour plus de contraste
         textAlign: 'center',
     },
     deleteButton: {

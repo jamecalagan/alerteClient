@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet, navigation } from 'react-native';
 import { supabase } from '../supabaseClient';
 import AlertBox from '../components/AlertBox';
-
+import BottomNavigation from "../components/BottomNavigation";
 export default function ImageGallery({ route }) {
   const { clientId } = route.params;
   const [interventions, setInterventions] = useState([]); // Stocker les interventions avec leurs photos
@@ -93,7 +93,7 @@ export default function ImageGallery({ route }) {
     <View style={styles.container}>
       <Text style={styles.title}>Galerie d'images</Text>
 
-      {/* Affichage des images triées par intervention */}
+   
       {interventions.length > 0 ? (
         <ScrollView>
           {interventions.map((intervention, index) => {
@@ -108,7 +108,7 @@ export default function ImageGallery({ route }) {
 
             return (
               <View key={index} style={styles.interventionSection}>
-                {/* Affichage du numéro d'intervention basé sur l'index */}
+               
                 <Text style={styles.interventionTitle}>Intervention N° {index + 1}</Text>
                 <View style={styles.imageRow}>
                   {photos && photos.length > 0 ? (
@@ -123,7 +123,7 @@ export default function ImageGallery({ route }) {
                             ]}
                           />
                         </TouchableOpacity>
-                        {/* Bouton de suppression */}
+                       
                         <TouchableOpacity
                           style={styles.deleteButton}
                           onPress={() => handleDeleteRequest(photo, index, photoIndex)}
@@ -144,7 +144,7 @@ export default function ImageGallery({ route }) {
         <Text style={styles.noImagesText}>Aucune image disponible.</Text>
       )}
 
-      {/* Modal pour afficher l'image en plein écran */}
+
       {selectedImage && (
         <Modal
           visible={true}
@@ -160,7 +160,7 @@ export default function ImageGallery({ route }) {
         </Modal>
       )}
 
-      {/* AlertBox pour la suppression */}
+   
       <AlertBox
         visible={alertVisible}
         title="Confirmer la suppression"
@@ -170,19 +170,24 @@ export default function ImageGallery({ route }) {
         onConfirm={handleConfirmDelete}
         onClose={() => setAlertVisible(false)}
       />
+	  <BottomNavigation  navigation={navigation} currentRoute={route.name} />
     </View>
+	
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+
+	width: "100%",
+	justifyContent: "center",
+    backgroundColor: '#191f2f',
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
+	color: "#888787",
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -191,7 +196,8 @@ const styles = StyleSheet.create({
   },
   interventionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'medium',
+	color: "#888787",
     marginBottom: 10,
   },
   imageRow: {

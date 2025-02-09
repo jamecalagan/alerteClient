@@ -126,7 +126,7 @@ const AddProductPage = () => {
         <View style={styles.container}>
             <Text style={styles.header}>Gestion des Produits</Text>
 
-{/* Sélection d'un produit */}
+
 {showProducts && (
     <>
         <Text style={styles.sectionTitle}>1. Sélectionner ou Ajouter un Produit</Text>
@@ -147,6 +147,7 @@ const AddProductPage = () => {
             value={newProduct}
             onChangeText={setNewProduct}
             placeholder="Ajouter un produit"
+			placeholderTextColor="#888787"
             style={styles.input}
         />
         <TouchableOpacity style={styles.addButton} onPress={addProduct}>
@@ -156,7 +157,7 @@ const AddProductPage = () => {
 )}
 
 
-            {/* Sélection d'une marque */}
+      
             {showBrands && (
                 <>
                     <Text style={styles.sectionTitle}>2. Sélectionner ou Ajouter une Marque</Text>
@@ -177,6 +178,7 @@ const AddProductPage = () => {
                         value={newBrand}
                         onChangeText={setNewBrand}
                         placeholder="Ajouter une marque"
+						placeholderTextColor="#888787"
                         style={styles.input}
                     />
                     <TouchableOpacity style={styles.addButton} onPress={addBrand}>
@@ -185,7 +187,7 @@ const AddProductPage = () => {
                 </>
             )}
 
-            {/* Sélection d'un modèle */}
+      
             {showModels && (
                 <>
                     <Text style={styles.sectionTitle}>3. Sélectionner ou Ajouter un Modèle</Text>
@@ -206,6 +208,7 @@ const AddProductPage = () => {
                         value={newModel}
                         onChangeText={setNewModel}
                         placeholder="Ajouter un modèle"
+						placeholderTextColor="#888787"
                         style={styles.input}
                     />
                     <TouchableOpacity style={styles.addButton} onPress={addModel}>
@@ -227,15 +230,15 @@ const AddProductPage = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-    header: { fontSize: 20, fontWeight: "bold", textAlign: "center", marginBottom: 15 },
-    sectionTitle: { fontSize: 16, fontWeight: "bold", marginTop: 15, marginBottom: 10 },
-    input: { borderWidth: 1, padding: 10, borderRadius: 5, marginBottom: 10 },
-    addButton: { backgroundColor: "#007bff", padding: 10, borderRadius: 5, alignItems: "center", marginBottom: 10 },
-    buttonText: { color: "#fff", fontWeight: "bold" },
-    box: { flex: 1, padding: 15, margin: 5, borderWidth: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+    container: { flex: 1, padding: 20, backgroundColor: "#191f2f" },
+    header: { fontSize: 20, fontWeight: "medium", color: "#888787", textAlign: "center", marginBottom: 15 },
+    sectionTitle: { fontSize: 16, fontWeight: "medium",color: "#888787", marginTop: 15, marginBottom: 10 },
+    input: { borderWidth: 1, padding: 10, borderRadius: 2, borderColor:"#888787", marginBottom: 10 },
+    addButton: { backgroundColor: "#0c0f18", padding: 10, borderRadius: 5, alignItems: "center", marginBottom: 10 },
+    buttonText: { color: "#888787", fontWeight: "bold" },
+    box: { flex: 1, padding: 15, margin: 5, borderWidth: 1, borderRadius: 2, borderColor:"#888787", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f18" },
     selectedBox: { backgroundColor: "#28a745", borderColor: "#28a745" },
-    boxText: { fontWeight: "bold" },
+    boxText: { fontWeight: "medium", color: "#888787", },
 });
 
 export default AddProductPage;

@@ -188,6 +188,9 @@ export default function ClientInterventionsPage({ route, navigation }) {
                                         <Text style={styles.updatedAt}>
                                             Description : {item.description}
                                         </Text>
+										<Text style={styles.updatedAt}>
+                                            Mot de passe: {item.password}
+                                        </Text>
                                         <Text style={styles.updatedAt}>
                                             Statut : {item.status}
                                         </Text>

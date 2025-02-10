@@ -243,6 +243,7 @@ const SearchClientsPage = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Rechercher par nom, téléphone ou numéro de fiche..."
+				placeholderTextColor="#888787"
                 value={searchTerm}
                 onChangeText={(text) => {
                     setSelectedStatus(null);
@@ -356,32 +357,32 @@ const SearchClientsPage = () => {
                                     Statut :{" "}
                                     {intervention.status || "Non renseigné"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Commande :{" "}
                                     {intervention.commande || "Non renseigné"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Description :{" "}
                                     {intervention.description || "N/A"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Appareil :{" "}
                                     {intervention.deviceType || "N/A"} -{" "}
                                     {intervention.brand || "N/A"}{" "}
                                     {intervention.model || "N/A"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Coût :{" "}
                                     {intervention.cost
                                         ? `${intervention.cost.toFixed(2)} €`
                                         : "Non spécifié"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Paiement :{" "}
                                     {intervention.paymentStatus ||
                                         "Non précisé"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Solde restant dû :{" "}
                                     {intervention.solderestant
                                         ? `${intervention.solderestant.toFixed(
@@ -389,7 +390,7 @@ const SearchClientsPage = () => {
                                           )} €`
                                         : "0,00 €"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Créée le :{" "}
                                     {intervention.createdAt
                                         ? new Date(
@@ -397,7 +398,7 @@ const SearchClientsPage = () => {
                                           ).toLocaleDateString("fr-FR")
                                         : "Date inconnue"}
                                 </Text>
-                                <Text>
+                                <Text style={styles.interventionText}>
                                     Dernière mise à jour :{" "}
                                     {intervention.updatedAt
                                         ? new Date(
@@ -458,25 +459,35 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#f5f5f5",
+        backgroundColor: "#191f2f",
     },
     title: {
         fontSize: 20,
-        fontWeight: "bold",
+        fontWeight: "medium",
+		color: "#888787",
         marginBottom: 10,
     },
+	clientText: {
+		fontSize: 16,
+		color: "#888787",
+	},
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        backgroundColor: "#fff",
+        borderColor: "#888787",
+        backgroundColor: "#0c0f18",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderColor: "#888787",
         marginBottom: 10,
+		fontSize: 16,
+		color: "#888787",
     },
     resetButton: {
         backgroundColor: "#dc3545",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
         alignItems: "center",
         marginBottom: 20,
     },
@@ -485,21 +496,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     dropdownButton: {
-        backgroundColor: "#fff",
+        backgroundColor: "#0c0f18",
         padding: 10,
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         borderRadius: 5,
         marginBottom: 10,
     },
     dropdownButtonText: {
         fontSize: 16,
-        color: "#333",
+        color: "#888787",
     },
     dropdown: {
         backgroundColor: "#fff",
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#888787",
         borderRadius: 5,
         maxHeight: 250,
         marginTop: 10,
@@ -508,7 +519,8 @@ const styles = StyleSheet.create({
         width: "48%", // Deux colonnes
         padding: 10,
         backgroundColor: "#f0f0f0",
-        borderRadius: 5,
+        borderRadius: 2,
+		borderColor: "#888787",
         marginBottom: 8,
         alignItems: "center",
     },
@@ -538,9 +550,11 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     clientCard: {
-        backgroundColor: "#fff",
+        backgroundColor: "#191f2f",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
         marginBottom: 10,
         elevation: 2,
     },
@@ -557,21 +571,25 @@ const styles = StyleSheet.create({
         height: 80,
         borderRadius: 5,
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: "#06f369",
     },
     interventionCard: {
-        backgroundColor: "#f0f0f0",
+        backgroundColor: "#29324d",
         padding: 10,
         marginTop: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderWidth: 1,
+		borderColor: "#888787",
     },
     interventionTitle: {
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "medium",
+		color: "#888787",
         marginBottom: 5,
     },
     interventionText: {
         fontSize: 14,
+		color: "#888787",
     },
     paginationContainer: {
         flexDirection: "row",
@@ -580,25 +598,28 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     pageButton: {
-        backgroundColor: "#007bff",
+        backgroundColor: "#0c0f18",
         padding: 10,
-        borderRadius: 5,
+        borderRadius: 2,
+		borderColor: "#888787",
+		borderWidth: 1,
     },
     disabledButton: {
-        backgroundColor: "#ccc",
+        backgroundColor: "#0c0f18",
     },
     pageButtonText: {
-        color: "#fff",
+        color: "#888787",
         fontSize: 14,
     },
     pageText: {
         fontSize: 16,
-        fontWeight: "bold",
+        fontWeight: "medium",
+		color: "#888787",
     },
     item: {
         padding: 15,
         borderBottomWidth: 1,
-        borderBottomColor: "#ddd",
+        borderBottomColor: "#888787",
     },
     name: {
         fontSize: 16,

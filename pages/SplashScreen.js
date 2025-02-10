@@ -1,38 +1,35 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
-import LoginPage from '../LoginPage'; // Importer ta page Login existante
+import LoginPage from '../LoginPage'; // Importation de la page de connexion
 
 export default function SplashScreenWithLogin() {
-  const slideAnim = useRef(new Animated.Value(0)).current; // Animation pour le déplacement horizontal
+  const [showSplash, setShowSplash] = useState(true); // État pour afficher/masquer la SplashScreen
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Animation de fondu
 
   useEffect(() => {
-    // Lancer l'animation après un délai
     const timeout = setTimeout(() => {
-      Animated.timing(slideAnim, {
-        toValue: -1000, // Déplacement de la SplashScreen vers la gauche
-        duration: 500, // Durée de l'animation en ms
-        useNativeDriver: true, // Utilisation du moteur natif pour l'animation
-      }).start();
-    }, 3000); // Attendre 5 secondes avant de démarrer l'animation
+      // Animation pour faire disparaître la splash screen
+      Animated.timing(fadeAnim, {
+        toValue: 0, // Opacité 0 = invisible
+        duration: 500, // Durée de l'animation
+        useNativeDriver: true, 
+      }).start(() => setShowSplash(false)); // Masquer la SplashScreen après l'animation
+    }, 3000); // Attente de 3 secondes
 
-    return () => clearTimeout(timeout); // Nettoyage du timeout
-  }, [slideAnim]);
+    return () => clearTimeout(timeout); // Nettoyage du timeout au démontage
+  }, []);
 
   return (
     <View style={styles.container}>
-    
-      <LoginPage />
-
-    
-      <Animated.View
-        style={[
-          styles.splashScreen,
-          { transform: [{ translateX: slideAnim }] }, // Appliquer l'animation de glissement
-        ]}
-      >
-        <Image source={require('../assets/logo_phone.png')} style={styles.image} />
-        <Text style={styles.splashText}>Alerte Client</Text>
-      </Animated.View>
+      {/* Affichage conditionnel : SplashScreen ou LoginPage */}
+      {showSplash ? (
+        <Animated.View style={[styles.splashScreen, { opacity: fadeAnim }]}>
+          <Image source={require('../assets/logo_phone.png')} style={styles.image} />
+          <Text style={styles.splashText}>Alerte Client</Text>
+        </Animated.View>
+      ) : (
+        <LoginPage /> // Affiche la page de connexion après la SplashScreen
+      )}
     </View>
   );
 }
@@ -43,7 +40,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   splashScreen: {
-    ...StyleSheet.absoluteFillObject, // La SplashScreen couvre tout l'écran
+    ...StyleSheet.absoluteFillObject, // Couvre tout l'écran
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#007BFF',
@@ -57,6 +54,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-	itemAlign: 'center',
+    textAlign: 'center',
   },
 });

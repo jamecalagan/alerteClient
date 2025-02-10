@@ -1119,8 +1119,7 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor:
-                                                getIconColor("Devis accepté"),
+                                            tintColor: getIconColor("Devis accepté"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />

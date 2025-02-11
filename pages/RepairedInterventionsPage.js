@@ -38,6 +38,8 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     const [notifyModalVisible, setNotifyModalVisible] = useState(false);
     const [selectedInterventionId, setSelectedInterventionId] = useState(null);
     const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
+	const [noPhotoRequired, setNoPhotoRequired] = useState({});
+
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -278,19 +280,22 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     const closeAlert = () => {
         setAlertVisible(false);
     };
-    const handleRestitution = (intervention) => {
-        if (
-            !intervention.intervention_images ||
-            intervention.intervention_images.length === 0
-        ) {
-            setPhotoAlertVisible(true); // Affiche l'alerte si aucune photo n'est trouvée
-        } else {
-            navigation.navigate("SignaturePage", {
-                interventionId: intervention.id,
-                clientId: intervention.client_id,
-            });
-        }
-    };
+	const handleRestitution = (intervention) => {
+		if (
+			!intervention.intervention_images ||
+			intervention.intervention_images.length === 0
+		) {
+			if (!noPhotoRequired[intervention.id]) {
+				setPhotoAlertVisible(true); // Affiche l'alerte si aucune photo n'est trouvée
+				return;
+			}
+		}
+		navigation.navigate("SignaturePage", {
+			interventionId: intervention.id,
+			clientId: intervention.client_id,
+		});
+	};
+	
     const moveToTop = (interventionId) => {
         setPinnedInterventionId(interventionId); // Met à jour l'ID de la fiche épinglée
 
@@ -405,7 +410,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                     width: 40, // Largeur de l'image
                                                     height: 40, // Hauteur de l'image
                                                     tintColor: item?.notifiedBy
-                                                        ? "green"
+                                                        ? "#00ff37"
                                                         : "gray", // Applique la couleur dynamique
                                                 }}
                                             />
@@ -429,7 +434,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                         item
                                                             ?.intervention_images
                                                             ?.length > 0
-                                                            ? "blue"
+                                                            ? "#5d9cfa"
                                                             : "black", // Bleu si photo présente, sinon noir
                                                 }}
                                             />
@@ -925,30 +930,42 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                     </View>
                 </Modal>
 
-                <Modal
-                    transparent={true}
-                    visible={photoAlertVisible}
-                    animationType="fade"
-                    onRequestClose={() => setPhotoAlertVisible(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.alertBox}>
-                            <Text style={styles.alertTitle}>
-                                Aucune photo prise
-                            </Text>
-                            <Text style={styles.alertMessage}>
-                                Veuillez prendre une photo avant de procéder à
-                                la restitution.
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => setPhotoAlertVisible(false)}
-                            >
-                                <Text style={styles.buttonTextSms}>OK</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
+				<Modal
+    transparent={true}
+    visible={photoAlertVisible}
+    animationType="fade"
+    onRequestClose={() => setPhotoAlertVisible(false)}
+>
+    <View style={styles.modalOverlay}>
+        <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Aucune photo prise</Text>
+            <Text style={styles.alertMessage}>
+                Veuillez prendre une photo avant de procéder à la restitution.
+            </Text>
+            <TouchableOpacity
+                style={styles.button}
+                onPress={() => setPhotoAlertVisible(false)}
+            >
+                <Text style={styles.buttonTextSms}>OK</Text>
+            </TouchableOpacity>
+
+            {/* Ajout du bouton "Pas de photo nécessaire" */}
+            <TouchableOpacity
+                style={[styles.button, { backgroundColor: "gray", marginTop: 10 }]}
+                onPress={() => {
+                    setNoPhotoRequired((prev) => ({
+                        ...prev,
+                        [selectedInterventionId]: true,
+                    }));
+                    setPhotoAlertVisible(false);
+                }}
+            >
+                <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
+            </TouchableOpacity>
+        </View>
+    </View>
+</Modal>
+
                 <Modal
                     transparent={true}
                     visible={notifyModalVisible}
@@ -1186,7 +1203,7 @@ const styles = StyleSheet.create({
     disabledButton: {
         backgroundColor: "#191f2f",
 		borderWidth: 1,
-		borderColor: "#f30404",
+		borderColor: "#ff1f1f",
 		borderRadius: 2,
     },
     alertMessage: {

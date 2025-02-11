@@ -1700,7 +1700,7 @@ export default function HomePage({ navigation, route }) {
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#019b53",
+                                                                                        "#00fd00",
                                                                                 }}
                                                                             />
                                                                         ) : latestIntervention?.notifiedBy ===
@@ -2931,7 +2931,7 @@ const styles = StyleSheet.create({
         color: "white",
         marginTop: 11,
         marginRight: 40,
-        padding: 6,
+        padding: 8,
         backgroundColor: "#191f2f",
         borderRadius: 2,
         borderWidth: 1,

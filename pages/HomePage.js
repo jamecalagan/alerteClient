@@ -2734,6 +2734,7 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
+		marginLeft: 8,
     },
     transportButton: {
         padding: 10,

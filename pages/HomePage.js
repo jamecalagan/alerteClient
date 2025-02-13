@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback  } from "react";
 import {
     View,
     Text,
@@ -43,6 +43,12 @@ export default function HomePage({ navigation, route }) {
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
     const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
         useState(0);
+    const hasPendingOrder =
+        Array.isArray(orders) &&
+        orders.some(
+            (order) => order.client_id === String(item.id) && !order.paid
+        );
+
     const [expandedClientId, setExpandedClientId] = useState(null);
     const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
     const [selectedDevice, setSelectedDevice] = useState(null);
@@ -124,7 +130,9 @@ export default function HomePage({ navigation, route }) {
             setIsLoading(false);
         }
     };
-
+    useEffect(() => {
+        loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
+    }, [orders]);
     useEffect(() => {
         checkImagesToDelete();
     }, []);
@@ -314,13 +322,14 @@ export default function HomePage({ navigation, route }) {
         navigation.navigate("ImageGallery", { clientId });
     };
 
-    const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from("clients")
-                .select(
-                    `
+	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+		setIsLoading(true);
+		try {
+			// 🔹 Récupérer les clients avec leurs interventions
+			const { data: clientsData, error: clientsError } = await supabase
+				.from("clients")
+				.select(
+					`
 					*,
 					updatedAt,
 					interventions(
@@ -339,83 +348,105 @@ export default function HomePage({ navigation, route }) {
 						accept_screen_risk
 					)
 					`
-                )
-                .order("createdAt", { ascending: false });
-
+				)
+				.order("createdAt", { ascending: false });
+	
+			if (clientsError) throw clientsError;
+	
+			// 🔹 Récupérer les commandes pour connaître les clients qui ont une commande
+			const { data: ordersData, error: ordersError } = await supabase
+				.from("orders")
+				.select("client_id");
+	
+			if (ordersError) throw ordersError;
+	
+			console.log("📦 Commandes récupérées :", ordersData);
+	
+			if (clientsData) {
+				const updatedData = clientsData.map((client) => {
+					// 🔹 Filtrer les interventions qui ne sont pas "Réparé", "Récupéré", "Non réparable"
+					const ongoingInterventions =
+						client.interventions?.filter(
+							(intervention) =>
+								intervention.status !== "Réparé" &&
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
+						) || [];
+	
+					const totalAmountOngoing = ongoingInterventions.reduce(
+						(total, intervention) =>
+							total + (intervention.solderestant || 0),
+						0
+					);
+	
+					return {
+						...client,
+						totalInterventions: client.interventions.length,
+						clientUpdatedAt: client.updatedAt,
+						interventions: client.interventions.map((intervention) => ({
+							...intervention,
+							interventionUpdatedAt: intervention.updatedAt,
+						})),
+						totalAmountOngoing,
+					};
+				});
+	
+				// 🔹 Vérifier quels clients ont une commande
+				const clientsWithOrders = ordersData.map((order) => order.client_id);
+	
+				// 🔹 Inclure les clients ayant une intervention en cours OU une commande
+				const clientsToShow = updatedData
+					.filter((client) =>
+						client.interventions.some(
+							(intervention) =>
+								intervention.status !== "Réparé" &&
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
+						) || clientsWithOrders.includes(client.id) // ✅ Inclure les clients avec une commande
+					)
+					.map((client) => {
+						// ✅ Garder toutes les infos de la fiche intactes
+						client.interventions = client.interventions
+							.filter(
+								(intervention) =>
+									intervention.status !== "Réparé" &&
+									intervention.status !== "Récupéré" &&
+									intervention.status !== "Non réparable"
+							)
+							.sort(
+								(a, b) =>
+									new Date(b.createdAt) - new Date(a.createdAt)
+							);
+						client.latestIntervention = client.interventions[0];
+						return client;
+					});
+	
+				const sortedClients = clientsToShow.sort((a, b) => {
+					const dateA = new Date(a[sortBy]);
+					const dateB = new Date(b[sortBy]);
+					return orderAsc ? dateA - dateB : dateB - dateA;
+				});
+	
+				console.log("👥 Clients affichés après filtrage :", sortedClients);
+				setClients(sortedClients);
+				setFilteredClients(sortedClients);
+			}
+		} catch (error) {
+			console.error("❌ Erreur lors du chargement des clients:", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+	
+    const loadOrders = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("orders")
+                .select("id, client_id, paid");
             if (error) throw error;
-
-            if (data) {
-                const updatedData = data.map((client) => {
-                    // Inclure les interventions "Réparé"
-                    const ongoingInterventions =
-                        client.interventions?.filter(
-                            (intervention) =>
-                                intervention.status !== "Réparé" &&
-                                intervention.status !== "Récupéré" &&
-                                intervention.status !== "Non réparable"
-                        ) || [];
-
-                    const totalAmountOngoing = ongoingInterventions.reduce(
-                        (total, intervention) =>
-                            total + (intervention.solderestant || 0),
-                        0
-                    );
-
-                    return {
-                        ...client,
-                        totalInterventions: client.interventions.length,
-                        clientUpdatedAt: client.updatedAt,
-                        interventions: client.interventions.map(
-                            (intervention) => ({
-                                ...intervention,
-                                interventionUpdatedAt: intervention.updatedAt,
-                            })
-                        ),
-                        totalAmountOngoing,
-                    };
-                });
-
-                const clientsWithOngoingInterventions = updatedData
-                    .filter((client) =>
-                        client.interventions.some(
-                            (intervention) =>
-                                intervention.status !== "Réparé" &&
-                                intervention.status !== "Récupéré" &&
-                                intervention.status !== "Non réparable"
-                        )
-                    )
-                    .map((client) => {
-                        client.interventions = client.interventions
-                            .filter(
-                                (intervention) =>
-                                    intervention.status !== "Réparé" &&
-                                    intervention.status !== "Récupéré" &&
-                                    intervention.status !== "Non réparable"
-                            )
-                            .sort(
-                                (a, b) =>
-                                    new Date(b.createdAt) -
-                                    new Date(a.createdAt)
-                            );
-                        client.latestIntervention = client.interventions[0];
-                        return client;
-                    });
-
-                const sortedClients = clientsWithOngoingInterventions.sort(
-                    (a, b) => {
-                        const dateA = new Date(a[sortBy]);
-                        const dateB = new Date(b[sortBy]);
-                        return orderAsc ? dateA - dateB : dateB - dateA;
-                    }
-                );
-
-                setClients(sortedClients);
-                setFilteredClients(sortedClients);
-            }
+            setOrders(data);
         } catch (error) {
-            console.error("Erreur lors du chargement des clients:", error);
-        } finally {
-            setIsLoading(false);
+            console.error("Erreur lors du chargement des commandes:", error);
         }
     };
 
@@ -514,7 +545,7 @@ export default function HomePage({ navigation, route }) {
             setSortBy("createdAt");
             setOrderAsc(false);
             loadClients(); // Charge la liste des clients triée
-
+			loadOrders(); // ✅ Ajout du rechargement des commandes
             // Charger les statistiques des réparés non restitués
             loadRepairedNotReturnedCount();
             loadNotRepairedNotReturnedCount();
@@ -571,10 +602,14 @@ export default function HomePage({ navigation, route }) {
             return "Date invalide";
         }
     };
-
+	useEffect(() => {
+		console.log("🔄 Mise à jour de l'affichage des commandes !");
+		setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
+	}, [orders]);
     const filterClients = async (text) => {
         setSearchText(text);
-
+		await loadOrders();
+		console.log("🔄 Commandes rechargées après recherche !");
         if (text.trim() === "") {
             setFilteredClients(clients); // Réinitialise la liste si aucun texte n'est entré
         } else {
@@ -628,6 +663,8 @@ export default function HomePage({ navigation, route }) {
                 });
 
                 setFilteredClients(filteredData); // Met à jour la liste des clients filtrés
+				console.log("👥 Clients affichés après recherche :", filteredData);
+
             } catch (error) {
                 console.error(
                     "Erreur lors de la recherche des clients:",
@@ -829,63 +866,95 @@ export default function HomePage({ navigation, route }) {
             Alert.alert("Erreur", "Une erreur inattendue est survenue.");
         }
     };
-	const DateDisplay = () => {
-		const [currentDate, setCurrentDate] = useState("");
+    const DateDisplay = () => {
+        const [currentDate, setCurrentDate] = useState("");
+
+        useEffect(() => {
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            });
+
+            setCurrentDate(formattedDate);
+        }, []);
+
+        return (
+            <View style={styles.dateContainer}>
+                <Image
+                    source={require("../assets/icons/calendar.png")}
+                    style={styles.icon}
+                />
+                <Text style={styles.dateText}>{currentDate}</Text>
+            </View>
+        );
+    };
+    const TimeDisplay = () => {
+        const [currentTime, setCurrentTime] = useState("");
+
+        useEffect(() => {
+            // Met à jour l'heure chaque seconde
+            const interval = setInterval(() => {
+                const now = new Date();
+                const formattedTime = now.toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                });
+                setCurrentTime(formattedTime);
+            }, 1000);
+
+            return () => clearInterval(interval); // Nettoie l'intervalle à la destruction du composant
+        }, []);
+
+        return (
+            <View style={styles.timeContainer}>
+                <Image
+                    source={require("../assets/icons/clock.png")} // Icône d'horloge
+                    style={styles.icon}
+                />
+                <Text style={styles.timeText}>{currentTime}</Text>
+            </View>
+        );
+    };
+    const [orders, setOrders] = useState([]);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("orders")
+                    .select("id, client_id, paid");
+
+                if (error) throw error;
+
+                console.log("📦 Commandes récupérées :", data);
+                setOrders(data);
+            } catch (error) {
+                console.error(
+                    "❌ Erreur lors du chargement des commandes :",
+                    error
+                );
+            }
+        };
+
+        fetchOrders();
+    }, []);
+	const getOrderColor = (clientId) => {
+		const clientOrders = orders.filter(order => order.client_id === clientId);
 	
-		useEffect(() => {
-			const now = new Date();
-			const formattedDate = now.toLocaleDateString("fr-FR", {
-				weekday: "long",
-				day: "numeric",
-				month: "long",
-				year: "numeric",
-			});
+		if (clientOrders.length === 0) {
+			return "#888787"; // Pas de commande
+		}
 	
-			setCurrentDate(formattedDate);
-		}, []);
+		const allPaid = clientOrders.every(order => order.paid); // ✅ Vérifie si toutes les commandes sont payées
 	
-		return (
-			<View style={styles.dateContainer}>
-				<Image
-					source={require("../assets/icons/calendar.png")}
-					style={styles.icon}
-				/>
-				<Text style={styles.dateText}>
-					{currentDate}
-				</Text>
-			</View>
-		);
+		return allPaid ? "#00ff00" : "#ffa32c"; // 🟢 Vert si toutes les commandes sont payées, sinon 🟠 Orange
 	};
-	const TimeDisplay = () => {
-		const [currentTime, setCurrentTime] = useState("");
 	
-		useEffect(() => {
-			// Met à jour l'heure chaque seconde
-			const interval = setInterval(() => {
-				const now = new Date();
-				const formattedTime = now.toLocaleTimeString("fr-FR", {
-					hour: "2-digit",
-					minute: "2-digit",
-					second: "2-digit",
-				});
-				setCurrentTime(formattedTime);
-			}, 1000);
-	
-			return () => clearInterval(interval); // Nettoie l'intervalle à la destruction du composant
-		}, []);
-	
-		return (
-			<View style={styles.timeContainer}>
-				<Image
-					source={require("../assets/icons/clock.png")} // Icône d'horloge
-					style={styles.icon}
-				/>
-				<Text style={styles.timeText}>
-					{currentTime}
-				</Text>
-			</View>
-		);
-	};
+
     return (
         <ImageBackground
             source={backgroundImage}
@@ -1119,7 +1188,8 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor: getIconColor("Devis accepté"),
+                                            tintColor:
+                                                getIconColor("Devis accepté"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1163,7 +1233,8 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor: getIconColor("Devis en cours"),
+                                            tintColor:
+                                                getIconColor("Devis en cours"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1183,7 +1254,8 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor: getIconColor("Non réparable"),
+                                            tintColor:
+                                                getIconColor("Non réparable"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1204,7 +1276,8 @@ export default function HomePage({ navigation, route }) {
                                     style={[
                                         styles.drawerItemIcon,
                                         {
-                                            tintColor:getIconColor("Réinitialiser"),
+                                            tintColor:
+                                                getIconColor("Réinitialiser"),
                                         }, // Applique la couleur en fonction du statut
                                     ]}
                                 />
@@ -1368,14 +1441,13 @@ export default function HomePage({ navigation, route }) {
                                     </Text>
                                 </TouchableOpacity>
 
-								<View>
-								<DateDisplay />
-								</View>
+                                <View>
+                                    <DateDisplay />
+                                </View>
 
-								<View>
-									<TimeDisplay />
-								</View>
-
+                                <View>
+                                    <TimeDisplay />
+                                </View>
                             </View>
                             {isLoading ? (
                                 <View style={styles.loaderContainer}>
@@ -1845,6 +1917,33 @@ export default function HomePage({ navigation, route }) {
                                                                             </Text>
                                                                         </TouchableOpacity>
                                                                     </View>
+																	<TouchableOpacity
+																			style={{
+																				
+																				padding: 10,
+																				alignItems: "center",
+																				borderRadius: 2,
+																				borderWidth: getOrderColor(item.id) !== "#888787" ? 2 : 1, // ✅ Bordure de 2px si l'icône est verte ou orange
+																				borderColor: getOrderColor(item.id) !== "#888787" ? getOrderColor(item.id) : "#888787", // ✅ La couleur de la bordure suit l'icône
+																			}}
+																				onPress={() =>
+																					navigation.navigate("OrdersPage", {
+																						clientId: item.id,
+																						clientName: item.name,
+																						clientPhone: item.phone,
+																						clientNumber: item.ficheNumber,
+																					})
+																				}
+																			>
+																				<Image
+																					source={require("../assets/icons/order.png")}
+																					style={{
+																						width: 28,
+																						height: 28,
+																						tintColor: "#888787",
+																					}}
+																				/>
+																			</TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
@@ -1888,34 +1987,34 @@ export default function HomePage({ navigation, route }) {
                                                                                 intervention,
                                                                                 index
                                                                             ) => (
-                                                                                <View
-                                                                                    key={
-                                                                                        index
-                                                                                    }
-                                                                                    style={{
-                                                                                        borderWidth: 1,
-                                                                                        borderColor: "#888787",
-                                                                                        paddingTop: 5,
-                                                                                        width: 50,
-                                                                                        height: 50,
-                                                                                        borderRadius: 2,
-                                                                                        alignItems: "center",
-                                                                                    }}
-                                                                                >
-                                                                                    <TouchableOpacity
-                                                                                        onPress={() =>
-                                                                                            fetchDetails(
-                                                                                                intervention.deviceType, // Type d'appareil
-                                                                                                intervention.brand, // Nom de la marque
-                                                                                                intervention.model // Nom du modèle
-                                                                                            )
-                                                                                        }
-                                                                                    >
-                                                                                        {getDeviceIcon(
-                                                                                            intervention.deviceType
-                                                                                        )}
-                                                                                    </TouchableOpacity>
-                                                                                </View>
+																				<View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+
+																			
+																			<View
+																				style={{
+																					borderWidth: 1,
+																					borderColor: "#888787",
+																					paddingTop: 5,
+																					width: 50,
+																					height: 50,
+																					borderRadius: 2,
+																					alignItems: "center",
+																				}}
+																			>
+																				<TouchableOpacity
+																					onPress={() =>
+																						fetchDetails(
+																							intervention.deviceType, 
+																							intervention.brand, 
+																							intervention.model
+																						)
+																					}
+																				>
+																					{getDeviceIcon(intervention.deviceType)}
+																				</TouchableOpacity>
+																			</View>
+																		</View>
+
                                                                             )
                                                                         )}
                                                                     {item.interventions &&
@@ -2339,7 +2438,8 @@ export default function HomePage({ navigation, route }) {
                             style={{
                                 width: 25,
                                 height: 25,
-                                tintColor: currentPage === totalPages
+                                tintColor:
+                                    currentPage === totalPages
                                         ? "gray"
                                         : "white", // Grise si dernière page
                             }}
@@ -2356,7 +2456,6 @@ export default function HomePage({ navigation, route }) {
     );
 }
 const styles = StyleSheet.create({
-
     overlay: {
         flex: 1,
         width: "100%",
@@ -2842,7 +2941,7 @@ const styles = StyleSheet.create({
     },
     buttonWrapper: {
         flex: 1,
-		width: "38%",
+        width: "38%",
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -2852,7 +2951,7 @@ const styles = StyleSheet.create({
     buttonContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
-		gap: 10,
+        gap: 10,
     },
     buttonContent: {
         flexDirection: "row",
@@ -2940,7 +3039,7 @@ const styles = StyleSheet.create({
     images_numberText: {
         marginLeft: 40,
     },
-	dateContainer: {
+    dateContainer: {
         flexDirection: "row", // Alignement horizontal
         alignItems: "center",
         borderWidth: 1, // Bordure visible
@@ -2962,7 +3061,7 @@ const styles = StyleSheet.create({
         fontWeight: "medium",
         color: "#888787", // Texte en vert
     },
-	timeContainer: {
+    timeContainer: {
         flexDirection: "row", // Alignement horizontal
         alignItems: "center",
         borderWidth: 1, // Bordure visible
@@ -2973,9 +3072,39 @@ const styles = StyleSheet.create({
         backgroundColor: "#191f2f", // Fond blanc
         alignSelf: "center", // Centrage horizontal
     },
-	timeText: {
+    timeText: {
         fontSize: 20,
         fontWeight: "medium",
         color: "#888787", // Couleur orange pour l'heure
+    },
+    orderButton: {
+        borderWidth: 1,
+        borderColor: "#888787",
+        width: 50,
+        height: 50,
+        borderRadius: 2,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "white",
+        marginLeft: 5,
+    },
+    orderIcon: {
+        width: 30,
+        height: 30,
+        tintColor: "orange",
+    },
+    orderButton: {
+        borderWidth: 1,
+        borderColor: "#888787",
+        width: 50,
+        height: 50,
+        borderRadius: 2,
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: 5,
+    },
+    orderIcon: {
+        width: 30,
+        height: 30,
     },
 });

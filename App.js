@@ -8,7 +8,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Alert, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { supabase } from './supabaseClient';
 import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
-
+import OrdersPage from './pages/OrdersPage';
 // Import des pages
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
@@ -219,6 +219,7 @@ function MainStack() {
 			<Stack.Screen name="PrintPage" component={PrintPage} />
 			<Stack.Screen name="SelectInterventionPage" component={SelectInterventionPage} options={{ title: "Choisir une intervention" }}/>
 			<Stack.Screen name="AddProductPage" component={AddProductPage} />
+			<Stack.Screen name="OrdersPage" component={OrdersPage} options={{ title: "Commandes" }} />
 
 			<Stack.Screen 
         name="ListingProduits" 

@@ -1951,7 +1951,8 @@ export default function HomePage({ navigation, route }) {
 																				alignItems: "center",
 																				borderRadius: 2,
 																				borderWidth: getOrderColor(item.id) !== "#888787" ? 2 : 1, // ✅ Bordure de 2px si l'icône est verte ou orange
-																				borderColor: getOrderColor(item.id) !== "#888787" ? getOrderColor(item.id) : "#888787", // ✅ La couleur de la bordure suit l'icône
+																				borderColor: getOrderColor(item.id) !== "#888787" ? getOrderColor(item.id) : "#888787",
+																				marginRight: 7, // ✅ La couleur de la bordure suit l'icône
 																			}}
 																				onPress={() =>
 																					navigation.navigate("OrdersPage", {

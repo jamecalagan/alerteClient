@@ -39,107 +39,93 @@ export default function AddClientPage({ navigation, route }) {
         return true;
     };
 
-    const handleAddClient = async () => {
-        if (!validateFields()) return;
-
-        try {
-            // Vérification si un client existe déjà
-            const { data: existingClients, error: checkError } = await supabase
-                .from("clients")
-                .select("*")
-                .or(`name.eq.${name},phone.eq.${phone}`);
-
-            if (checkError) {
-                console.error(
-                    "Erreur lors de la vérification des clients :",
-                    checkError.message
-                );
-                Alert.alert(
-                    "Erreur",
-                    "Erreur lors de la vérification des clients existants."
-                );
-                return;
-            }
-
-            if (existingClients && existingClients.length > 0) {
-                // Si le client existe déjà, afficher un message et rester sur la page
-                Alert.alert(
-                    "Client existant",
-                    `Un client avec ce nom ou numéro de téléphone existe déjà.`
-                );
-                return;
-            }
-
-            // Récupérer le numéro de fiche le plus élevé
-            const { data: maxFicheData, error: maxFicheError } = await supabase
-                .from("clients")
-                .select("ficheNumber")
-                .order("ficheNumber", { ascending: false })
-                .limit(1)
-                .single();
-
-            if (maxFicheError) {
-                console.error(
-                    "Erreur lors de la récupération du numéro de fiche :",
-                    maxFicheError.message
-                );
-                Alert.alert(
-                    "Erreur",
-                    "Erreur lors de la récupération du numéro de fiche."
-                );
-                return;
-            }
-
-            const newFicheNumber = maxFicheData
-                ? maxFicheData.ficheNumber + 1
-                : 6001;
-
-            // Insérer un nouveau client
-            const { data: insertedData, error: insertError } = await supabase
-                .from("clients")
-                .insert([
-                    {
-                        name,
-                        phone,
-                        email: email || null,
-                        ficheNumber: newFicheNumber,
-                        createdAt: new Date().toISOString(),
-                    },
-                ])
-                .select()
-                .single();
-
-            if (insertError) {
-                console.error(
-                    "Erreur lors de l'insertion du client :",
-                    insertError.message
-                );
-                Alert.alert(
-                    "Erreur",
-                    "Erreur lors de l'insertion du nouveau client."
-                );
-                return;
-            }
-
-            if (!insertedData) {
-                console.error("Erreur : Aucune donnée insérée.");
-                Alert.alert("Erreur", "Aucune donnée reçue après l'insertion.");
-                return;
-            }
-
-            // Réinitialiser les champs et naviguer
-            setName("");
-            setPhone("");
-            setEmail("");
-            Keyboard.dismiss();
-            navigation.navigate("AddIntervention", {
-                clientId: insertedData.id,
-            });
-        } catch (error) {
-            console.error("Erreur inattendue :", error.message);
-            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-        }
-    };
+	const handleAddClient = async () => {
+		if (!validateFields()) return;
+	
+		try {
+			// 🔹 Vérifier si un client avec le même NOM et le même TÉLÉPHONE existe
+			const { data: existingClients, error: checkError } = await supabase
+				.from("clients")
+				.select("id, name, phone") // 🔥 Sélectionner uniquement ce dont on a besoin
+				.eq("name", name)
+				.eq("phone", phone);
+	
+			console.log("👀 Clients existants trouvés :", existingClients);
+	
+			if (checkError) {
+				console.error("❌ Erreur lors de la vérification des clients :", checkError.message);
+				Alert.alert("Erreur", "Erreur lors de la vérification des clients existants.");
+				return;
+			}
+	
+			if (existingClients.length > 0) {
+				// ✅ Uniquement si le NOM et le TÉLÉPHONE existent ensemble
+				Alert.alert(
+					"Client existant",
+					`Un client avec ce nom et ce numéro de téléphone existe déjà.`
+				);
+				return;
+			}
+	
+			// 🔹 Récupérer le dernier numéro de fiche
+			const { data: maxFicheData, error: maxFicheError } = await supabase
+				.from("clients")
+				.select("ficheNumber")
+				.order("ficheNumber", { ascending: false })
+				.limit(1)
+				.single();
+	
+			if (maxFicheError) {
+				console.error("❌ Erreur lors de la récupération du numéro de fiche :", maxFicheError.message);
+				Alert.alert("Erreur", "Erreur lors de la récupération du numéro de fiche.");
+				return;
+			}
+	
+			const newFicheNumber = maxFicheData ? maxFicheData.ficheNumber + 1 : 6001;
+	
+			// 🔹 Insérer un nouveau client
+			const { data: insertedData, error: insertError } = await supabase
+				.from("clients")
+				.insert([
+					{
+						name,
+						phone,
+						email: email || null,
+						ficheNumber: newFicheNumber,
+						createdAt: new Date().toISOString(),
+					},
+				])
+				.select()
+				.single();
+	
+			if (insertError) {
+				console.error("❌ Erreur lors de l'insertion du client :", insertError.message);
+				Alert.alert("Erreur", "Erreur lors de l'insertion du nouveau client.");
+				return;
+			}
+	
+			if (!insertedData) {
+				console.error("❌ Erreur : Aucune donnée insérée.");
+				Alert.alert("Erreur", "Aucune donnée reçue après l'insertion.");
+				return;
+			}
+	
+			// 🔹 Réinitialiser les champs et naviguer vers AddIntervention
+			setName("");
+			setPhone("");
+			setEmail("");
+			Keyboard.dismiss();
+			navigation.navigate("AddIntervention", {
+				clientId: insertedData.id,
+			});
+	
+		} catch (error) {
+			console.error("❌ Erreur inattendue :", error.message);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+		}
+	};
+	
+	
 
     const handleCloseAlert = () => {
         // Fermer l'alerte et ensuite naviguer vers la page Home

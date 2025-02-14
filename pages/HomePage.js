@@ -353,14 +353,25 @@ export default function HomePage({ navigation, route }) {
 	
 			if (clientsError) throw clientsError;
 	
-			// 🔹 Récupérer les commandes pour connaître les clients qui ont une commande
+			// 🔹 Récupérer les commandes avec leur montant total
 			const { data: ordersData, error: ordersError } = await supabase
 				.from("orders")
-				.select("client_id");
+				.select("client_id, price, deposit");
 	
 			if (ordersError) throw ordersError;
 	
 			console.log("📦 Commandes récupérées :", ordersData);
+	
+			// 🔹 Regrouper les commandes par client et calculer le total
+			const ordersByClient = {};
+
+			ordersData.forEach((order) => {
+				if (!ordersByClient[order.client_id]) {
+					ordersByClient[order.client_id] = { total: 0, deposit: 0 };
+				}
+				ordersByClient[order.client_id].total += order.price || 0; // ✅ Total des commandes
+				ordersByClient[order.client_id].deposit += order.deposit || 0; // ✅ Total des acomptes
+			});
 	
 			if (clientsData) {
 				const updatedData = clientsData.map((client) => {
@@ -379,6 +390,10 @@ export default function HomePage({ navigation, route }) {
 						0
 					);
 	
+					// 🔹 Ajouter le montant total des commandes
+					const totalOrderAmount = ordersByClient[client.id]?.total || 0;
+					const totalOrderDeposit = ordersByClient[client.id]?.deposit || 0;
+					const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
 					return {
 						...client,
 						totalInterventions: client.interventions.length,
@@ -388,6 +403,9 @@ export default function HomePage({ navigation, route }) {
 							interventionUpdatedAt: intervention.updatedAt,
 						})),
 						totalAmountOngoing,
+						totalOrderAmount, // ✅ Ajout du prix total des commandes
+						totalOrderDeposit, // ✅ Total des acomptes
+						totalOrderRemaining,
 					};
 				});
 	
@@ -405,7 +423,6 @@ export default function HomePage({ navigation, route }) {
 						) || clientsWithOrders.includes(client.id) // ✅ Inclure les clients avec une commande
 					)
 					.map((client) => {
-						// ✅ Garder toutes les infos de la fiche intactes
 						client.interventions = client.interventions
 							.filter(
 								(intervention) =>
@@ -437,6 +454,7 @@ export default function HomePage({ navigation, route }) {
 			setIsLoading(false);
 		}
 	};
+	
 	
     const loadOrders = async () => {
         try {
@@ -1645,6 +1663,15 @@ export default function HomePage({ navigation, route }) {
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
+																<Text style={styles.amountText}>
+																	{item.totalOrderAmount > 0 ? (
+																		`🛒 Commandes : ${item.totalOrderAmount} €\n💵 Acompte : ${item.totalOrderDeposit} €\n💳 Reste dû : ${item.totalOrderRemaining} €`
+																	) : (
+																		"Aucune commande"
+																	)}
+																</Text>
+
+
                                                                 <View>
                                                                     <HorizontalSeparator />
                                                                 </View>
@@ -2734,7 +2761,6 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderColor: "#888787", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
-		marginLeft: 8,
     },
     transportButton: {
         padding: 10,
@@ -3108,4 +3134,10 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
     },
+	amountText: { 
+			fontSize: 16,
+			fontWeight: "medium",
+			color: "#888787", // Couleur orange pour l'heure
+		},
+
 });

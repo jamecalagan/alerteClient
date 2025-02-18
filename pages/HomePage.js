@@ -1374,6 +1374,7 @@ export default function HomePage({ navigation, route }) {
                                                 borderRadius: 2,
                                                 borderWidth: 1,
                                                 borderColor: "#888787",
+												backgroundColor: "#191f2f",
                                             }}
                                         >
                                             <Text style={{ color: "white" }}>

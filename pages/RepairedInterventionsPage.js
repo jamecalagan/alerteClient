@@ -949,19 +949,32 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                 <Text style={styles.buttonTextSms}>OK</Text>
             </TouchableOpacity>
 
-            {/* Ajout du bouton "Pas de photo nécessaire" */}
-            <TouchableOpacity
-                style={[styles.button, { backgroundColor: "gray", marginTop: 10 }]}
-                onPress={() => {
-                    setNoPhotoRequired((prev) => ({
-                        ...prev,
-                        [selectedInterventionId]: true,
-                    }));
-                    setPhotoAlertVisible(false);
-                }}
-            >
-                <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
-            </TouchableOpacity>
+      
+			<TouchableOpacity
+    style={[styles.button, { backgroundColor: "gray", marginTop: 10 }]}
+    onPress={() => {
+        setNoPhotoRequired((prev) => ({
+            ...prev,
+            [selectedInterventionId]: true, // Marque l'intervention comme "Pas de photo nécessaire"
+        }));
+        setPhotoAlertVisible(false); // Ferme la modale
+        
+        // Redirection immédiate vers SignaturePage
+        const intervention = repairedInterventions.find(
+            (item) => item.id === selectedInterventionId
+        );
+
+        if (intervention) {
+            navigation.navigate("SignaturePage", {
+                interventionId: intervention.id,
+                clientId: intervention.client_id,
+            });
+        }
+    }}
+>
+    <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
+</TouchableOpacity>
+
         </View>
     </View>
 </Modal>

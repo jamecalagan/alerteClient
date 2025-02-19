@@ -362,7 +362,7 @@ export default function EditClientPage({ route, navigation }) {
           )}
         />
       ) : (
-        <Text>Aucune intervention trouvée.</Text>
+        <Text style={styles.buttonText}>Aucune intervention trouvée.</Text>
       )}
 
       <View style={styles.buttonContainer}>

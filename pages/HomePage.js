@@ -2519,12 +2519,13 @@ const styles = StyleSheet.create({
         tintColor: "#7583a8", // Supprimez si vos images ont déjà une couleur
     },
     menuButton: {
-        padding: 15,
+		backgroundColor: "#191f2f",
+       
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
-        top: 4, // Distance depuis le haut
-        right: 56, // Distance depuis la droite (remplacez `left`)
+        top: 18, // Distance depuis le haut
+        right: 72, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
         borderRadius: 2, // Bords arrondis pour un style plus moderne
     },

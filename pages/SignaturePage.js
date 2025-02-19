@@ -335,4 +335,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  boldText: {
+	fontSize: 16,
+	color: '#fff',
+	fontWeight: 'bold',
+  },
 });

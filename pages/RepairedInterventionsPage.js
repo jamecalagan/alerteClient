@@ -282,19 +282,21 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     };
 	const handleRestitution = (intervention) => {
 		if (
-			!intervention.intervention_images ||
-			intervention.intervention_images.length === 0
+			(!intervention.intervention_images ||
+			intervention.intervention_images.length === 0) &&
+			!noPhotoRequired[intervention.id] // Vérifie si l'option est activée
 		) {
-			if (!noPhotoRequired[intervention.id]) {
-				setPhotoAlertVisible(true); // Affiche l'alerte si aucune photo n'est trouvée
-				return;
-			}
+			setSelectedInterventionId(intervention.id);
+			setPhotoAlertVisible(true); // Ouvre la modale car la photo est requise
+		} else {
+			// Redirection immédiate vers SignaturePage
+			navigation.navigate("SignaturePage", {
+				interventionId: intervention.id,
+				clientId: intervention.client_id,
+			});
 		}
-		navigation.navigate("SignaturePage", {
-			interventionId: intervention.id,
-			clientId: intervention.client_id,
-		});
 	};
+	
 	
     const moveToTop = (interventionId) => {
         setPinnedInterventionId(interventionId); // Met à jour l'ID de la fiche épinglée
@@ -953,27 +955,35 @@ export default function RepairedInterventionsPage({ navigation, route }) {
 			<TouchableOpacity
     style={[styles.button, { backgroundColor: "gray", marginTop: 10 }]}
     onPress={() => {
-        setNoPhotoRequired((prev) => ({
-            ...prev,
-            [selectedInterventionId]: true, // Marque l'intervention comme "Pas de photo nécessaire"
-        }));
-        setPhotoAlertVisible(false); // Ferme la modale
-        
-        // Redirection immédiate vers SignaturePage
-        const intervention = repairedInterventions.find(
-            (item) => item.id === selectedInterventionId
-        );
+        // Vérifie si une intervention est sélectionnée
+        if (selectedInterventionId) {
+            setNoPhotoRequired((prev) => ({
+                ...prev,
+                [selectedInterventionId]: true, // Marque cette intervention comme "Pas de photo nécessaire"
+            }));
 
-        if (intervention) {
-            navigation.navigate("SignaturePage", {
-                interventionId: intervention.id,
-                clientId: intervention.client_id,
-            });
+            setPhotoAlertVisible(false); // Ferme la modale
+
+            // Trouver l'intervention correspondante
+            const intervention = repairedInterventions.find(
+                (item) => item.id === selectedInterventionId
+            );
+
+            if (intervention) {
+                // Attendre un instant pour que la modale se ferme avant de naviguer
+                setTimeout(() => {
+                    navigation.navigate("SignaturePage", {
+                        interventionId: intervention.id,
+                        clientId: intervention.client_id,
+                    });
+                }, 300); // Petit délai pour éviter les bugs d'affichage
+            }
         }
     }}
 >
     <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
 </TouchableOpacity>
+
 
         </View>
     </View>

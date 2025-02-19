@@ -45,6 +45,29 @@ export default function SignatureClient() {
 
   return (
     <View style={styles.container}>
+	<Text style={styles.fixedText}>
+	  Je certifie avoir pris connaissance des conditions suivantes :
+	  
+	  {"\n\n"}<Text style={styles.boldText}>1. Garantie de 3 mois :</Text>
+	  {"\n"}  - Le matériel récupéré bénéficie d'une garantie de <Text style={styles.boldText}>trois mois</Text> à compter de la date de restitution.
+	  {"\n"}  - Cette garantie couvre exclusivement la même panne que celle initialement réparée. Toute autre panne ou problème distinct constaté après la restitution ne sera pas pris en charge dans le cadre de cette garantie.
+	
+	  {"\n\n"}<Text style={styles.boldText}>2. Réclamations sur la réparation :</Text>
+	  {"\n"}  - Le client dispose d'un délai de <Text style={styles.boldText}>10 jours</Text> à compter de la date de récupération pour signaler toute réclamation concernant la réparation effectuée.
+	  {"\n"}  - Passé ce délai, aucune réclamation ne pourra être acceptée, et toute intervention ultérieure sera facturée.
+	
+	  {"\n\n"}<Text style={styles.boldText}>3. Exclusions de garantie :</Text>
+	  {"\n"}  - Les dommages causés par une mauvaise utilisation, des chocs, une exposition à des liquides ou toute intervention non autorisée annulent automatiquement la garantie.
+	
+	  {"\n\n"}En récupérant le matériel, le client reconnaît que celui-ci a été testé et vérifié en présence du technicien ou du personnel d'AVENIR INFORMATIQUE.
+	
+	  {"\n\n"}<Text style={styles.boldText}>Responsabilité en cas de perte de données :</Text>
+	  {"\n"}Le client est seul responsable de ses données personnelles et de leur sauvegarde régulière. En cas de perte de données lors d'une prestation ou manipulation, qu'elle soit d'origine logicielle ou matérielle, AVENIR INFORMATIQUE ne pourra être tenue responsable et aucune indemnisation ne pourra être réclamée.
+	
+	  {"\n\n"}En signant ce document, le client accepte les conditions de garantie et de réclamation mentionnées ci-dessus.
+	
+	  {"\n\n"}Fait à : Drancy, le : {new Date().toLocaleDateString()}
+	</Text>
       <SignatureScreen
         ref={ref}
         onOK={handleSignature}
@@ -56,7 +79,7 @@ export default function SignatureClient() {
           .m-signature-pad--footer {display: none; margin: 0px;}
           body,html {
             width: 100%; 
-            height: 50%;  /* Réduit la hauteur pour le mode portrait */
+            height: 80%;  /* Réduit la hauteur pour le mode portrait */
             margin: 0; 
             padding: 0;
           }
@@ -130,5 +153,10 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#202020',
     fontWeight: 'bold',
+  },
+  fixedText: {
+    fontSize: 16,
+    lineHeight: 18,
+    color: '#000',
   },
 });

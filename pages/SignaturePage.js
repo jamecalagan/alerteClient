@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
 	fontSize: 16,
-	color: '#fff',
+	color: '#000000',
 	fontWeight: 'bold',
   },
 });

@@ -356,7 +356,7 @@ export default function HomePage({ navigation, route }) {
 			// 🔹 Récupérer les commandes avec leur montant total
 			const { data: ordersData, error: ordersError } = await supabase
 				.from("orders")
-				.select("client_id, price, deposit");
+				.select("client_id, price, deposit, paid"); // ✅ Ajout de "paid"
 	
 			if (ordersError) throw ordersError;
 	
@@ -367,10 +367,14 @@ export default function HomePage({ navigation, route }) {
 
 			ordersData.forEach((order) => {
 				if (!ordersByClient[order.client_id]) {
-					ordersByClient[order.client_id] = { total: 0, deposit: 0 };
+					ordersByClient[order.client_id] = { total: 0, deposit: 0, remaining: 0 };
 				}
 				ordersByClient[order.client_id].total += order.price || 0; // ✅ Total des commandes
 				ordersByClient[order.client_id].deposit += order.deposit || 0; // ✅ Total des acomptes
+				    // ✅ Ne prend que les commandes non payées pour calculer le "reste dû"
+					if (!order.paid) {
+						ordersByClient[order.client_id].remaining += (order.price - order.deposit);
+					}
 			});
 	
 			if (clientsData) {
@@ -393,7 +397,8 @@ export default function HomePage({ navigation, route }) {
 					// 🔹 Ajouter le montant total des commandes
 					const totalOrderAmount = ordersByClient[client.id]?.total || 0;
 					const totalOrderDeposit = ordersByClient[client.id]?.deposit || 0;
-					const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
+					const totalOrderRemaining = ordersByClient[client.id]?.remaining || 0; // ✅ Correctif
+					
 					return {
 						...client,
 						totalInterventions: client.interventions.length,
@@ -403,9 +408,9 @@ export default function HomePage({ navigation, route }) {
 							interventionUpdatedAt: intervention.updatedAt,
 						})),
 						totalAmountOngoing,
-						totalOrderAmount, // ✅ Ajout du prix total des commandes
-						totalOrderDeposit, // ✅ Total des acomptes
-						totalOrderRemaining,
+						totalOrderAmount, // ✅ Montant total des commandes
+						totalOrderDeposit, // ✅ Montant total des acomptes
+						totalOrderRemaining, // ✅ Correctif : le montant restant dû est mis à jour correctement
 					};
 				});
 	

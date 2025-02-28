@@ -365,8 +365,8 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                         styles.interventionCard,
                                         item.status === "Non réparable"
                                             ? {
-                                                  backgroundColor: "#dbd9d9", // Couleur de fond pour "Non réparable"
-                                                  borderWidth: 2, // Épaisseur de la bordure
+                                                  backgroundColor: "#191f2f", // Couleur de fond pour "Non réparable"
+                                                  borderWidth: 1, // Épaisseur de la bordure
                                                   borderColor: "red", // Couleur rouge pour la bordure
                                               }
                                             : {},

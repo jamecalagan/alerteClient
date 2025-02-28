@@ -27,22 +27,30 @@ export default function OrdersPage({ route, navigation }) {
         loadOrders();
     }, [clientId]);
 
-    const loadOrders = async () => {
-        try {
-            console.log(`📢 Chargement des commandes pour le client : ${clientId}`);
-            const { data, error } = await supabase
-                .from("orders")
-                .select("*")
-                .eq("client_id", clientId);
-
-            if (error) throw error;
-            setOrders(data || []);
-            console.log("✅ Commandes récupérées :", data);
-        } catch (error) {
-            console.error("❌ Erreur lors du chargement des commandes:", error);
-			console.log("📦 Commandes après chargement :", orders);
-        }
-    };
+	const loadOrders = async () => {
+		try {
+			console.log(`📢 Chargement des commandes pour le client : ${clientId}`);
+			const { data, error } = await supabase
+				.from("orders")
+				.select("*")
+				.eq("client_id", clientId);
+	
+			if (error) throw error;
+	
+			// 🔹 Calcul du montant restant dû (seules les commandes non payées sont comptées)
+			const remainingBalance = data
+				.filter(order => !order.paid) // ✅ Ne prend que les commandes non payées
+				.reduce((sum, order) => sum + (order.price - order.deposit), 0);
+	
+			console.log("✅ Commandes récupérées :", data);
+			console.log(`💳 Nouveau total restant dû : ${remainingBalance} €`);
+	
+			setOrders(data || []);
+		} catch (error) {
+			console.error("❌ Erreur lors du chargement des commandes:", error);
+		}
+	};
+	
 
     const handleCreateOrder = async () => {
         try {
@@ -100,24 +108,24 @@ export default function OrdersPage({ route, navigation }) {
 		try {
 			const { error } = await supabase
 				.from("orders")
-				.update({ paid: true })
+				.update({ paid: true }) // ✅ Passe la commande à "payée"
 				.eq("id", orderId);
 			
 			if (error) throw error;
 	
 			console.log(`💰 Commande ${orderId} marquée comme payée`);
-			
-			await loadOrders(); // 🔄 Rafraîchir immédiatement la liste après la mise à jour
+	
+			await loadOrders(); // 🔄 Mettre à jour immédiatement la liste et le montant restant dû
 		} catch (error) {
 			console.error("❌ Erreur lors de la mise à jour du paiement :", error);
 		}
 	};
 	
+	
 
     return (
         <View style={styles.container}>
-
-            <Text style={styles.header}>Commandes pour {clientName}</Text>
+  			<Text style={styles.header}>Commandes pour {clientName}</Text>
 			<Text style={styles.header}>Numéro de fiche: {clientNumber}</Text>
             <View style={styles.formContainer}>
                 <TextInput
@@ -159,9 +167,9 @@ export default function OrdersPage({ route, navigation }) {
                 />
                 <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
                     <Text style={styles.button}>➕ Ajouter une commande</Text>
-                </TouchableOpacity>
-				<TouchableOpacity style={styles.addButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.button}>⬅ Retour</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.addButton} onPress={() => navigation.goBack()}>
+					<Text style={styles.button}>⬅ Retour</Text>
             </TouchableOpacity>
             </View>
 
@@ -176,15 +184,18 @@ export default function OrdersPage({ route, navigation }) {
                         <Text  style={styles.buttonOrderText}>Prix: {item.price} €</Text>
                         <Text  style={styles.buttonOrderText}>Acompte: {item.deposit} €</Text>
 						<Text  style={styles.buttonOrderText}>Date de création: {new Date(item.createdat).toLocaleDateString()}</Text>
+						<Text style={styles.header}>💳 Reste dû : {orders
+						.filter(order => !order.paid)
+						.reduce((sum, order) => sum + (order.price - order.deposit), 0)} €</Text>
                         <Text  style={styles.buttonOrderText}>{item.paid ? "✅ Payé" : "❌ Non payé"}</Text>
 						<View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-    <TouchableOpacity style={[styles.payButton, { flex: 1, marginRight: 5 }]} onPress={() => handleMarkAsPaid(item.id)}>
-        <Text style={styles.paid}>💰 Marquer comme payé</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={[styles.deleteButton, { flex: 1, marginLeft: 5 }]} onPress={() => handleDeleteOrder(item.id)}>
-        <Text style={styles.buttonDel}>🗑 Supprimer</Text>
-    </TouchableOpacity>
-</View>
+						<TouchableOpacity style={[styles.payButton, { flex: 1, marginRight: 5 }]} onPress={() => handleMarkAsPaid(item.id)}>
+							<Text style={styles.paid}>💰 Marquer comme payé</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={[styles.deleteButton, { flex: 1, marginLeft: 5 }]} onPress={() => handleDeleteOrder(item.id)}>
+							<Text style={styles.buttonDel}>🗑 Supprimer</Text>
+						</TouchableOpacity>
+					</View>
 
                     </View>
                 )}

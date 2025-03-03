@@ -274,6 +274,8 @@ export default function EditClientPage({ route, navigation }) {
 			  <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>
 			)}
               <Text style={styles.interventionText}>Statut: {item.status}</Text>
+			  <Text style={styles.interventionText}>Montant du devis: {item.devis_cost} €</Text>
+
 			  <Text style={styles.interventionText}>Remarques: {item.remarks}</Text>
 			     
 				{item.accept_screen_risk && (
@@ -547,7 +549,7 @@ const styles = StyleSheet.create({
     fontWeight: 'medium',
   },
   commandeRecuButton: {
-  backgroundColor: '#191f2f',  // Vert pour indiquer que la commande est reçue
+  backgroundColor: '#39466b',  // Vert pour indiquer que la commande est reçue
   padding: 10,
   borderRadius: 5,
   marginTop: 10,

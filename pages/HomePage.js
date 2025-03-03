@@ -345,7 +345,8 @@ export default function HomePage({ navigation, route }) {
 						commande,
 						photos,
 						notifiedBy,
-						accept_screen_risk
+						accept_screen_risk,
+						devis_cost
 					)
 					`
 				)
@@ -379,6 +380,7 @@ export default function HomePage({ navigation, route }) {
 	
 			if (clientsData) {
 				const updatedData = clientsData.map((client) => {
+					const interventions = Array.isArray(client.interventions) ? client.interventions : [];
 					// 🔹 Filtrer les interventions qui ne sont pas "Réparé", "Récupéré", "Non réparable"
 					const ongoingInterventions =
 						client.interventions?.filter(
@@ -388,12 +390,19 @@ export default function HomePage({ navigation, route }) {
 								intervention.status !== "Non réparable"
 						) || [];
 	
-					const totalAmountOngoing = ongoingInterventions.reduce(
+						const totalAmountOngoing = ongoingInterventions.reduce(
+							(total, intervention) => 
+								total + (parseFloat(intervention.cost) || parseFloat(intervention.solderestant) || 0),
+							0
+						);
+						
+					const totalDevisAmount = interventions.reduce(
 						(total, intervention) =>
-							total + (intervention.solderestant || 0),
+							intervention.status === "Devis en cours" && intervention.devis_cost
+								? total + parseFloat(intervention.devis_cost)
+								: total,
 						0
 					);
-	
 					// 🔹 Ajouter le montant total des commandes
 					const totalOrderAmount = ordersByClient[client.id]?.total || 0;
 					const totalOrderDeposit = ordersByClient[client.id]?.deposit || 0;
@@ -402,6 +411,7 @@ export default function HomePage({ navigation, route }) {
 					return {
 						...client,
 						totalInterventions: client.interventions.length,
+						devis_cost: totalDevisAmount, // ✅ Ajout du total des devis
 						clientUpdatedAt: client.updatedAt,
 						interventions: client.interventions.map((intervention) => ({
 							...intervention,
@@ -713,7 +723,7 @@ export default function HomePage({ navigation, route }) {
             case "Non réparable":
                 return require("../assets/icons/no.png"); // Image pour "Non réparable"
             default:
-                return require("../assets/icons/point-dinterrogation.png"); // Image par défaut
+                return require("../assets/icons/order.png"); // Image par défaut
         }
     };
     const HorizontalSeparator = () => {
@@ -734,7 +744,7 @@ export default function HomePage({ navigation, route }) {
             case "Non réparable":
                 return "#ff0000"; // Orange
             default:
-                return "#555"; // Gris par défaut
+                return "#04fd57"; // Gris par défaut
         }
     };
 
@@ -1669,6 +1679,16 @@ export default function HomePage({ navigation, route }) {
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
+																{/* ✅ Ajout du montant du devis si le statut est "Devis en cours" */}
+																	{item.devis_cost > 0 && (
+																		<Text style={styles.clientText}>
+																			Montant du devis :{" "}
+																			{item.devis_cost.toLocaleString("fr-FR", {
+																				style: "currency",
+																				currency: "EUR",
+																			})}
+																		</Text>
+																	)}
 																<Text style={styles.amountText}>
 																	{item.totalOrderAmount > 0 ? (
 																		`🛒 Commandes : ${item.totalOrderAmount} €\n💵 Acompte : ${item.totalOrderDeposit} €\n💳 Reste dû : ${item.totalOrderRemaining} €`
@@ -2107,28 +2127,27 @@ export default function HomePage({ navigation, route }) {
                                                                         €
                                                                     </Text>
 
-                                                                    {latestIntervention?.solderestant !==
-                                                                        undefined &&
-                                                                        latestIntervention?.solderestant >
-                                                                            0 && (
-                                                                            <Text
-                                                                                style={
-                                                                                    styles.clientTextSoldeRestant
-                                                                                }
-                                                                            >
-                                                                                Solde
-                                                                                restant
-                                                                                dû
-                                                                                :{" "}
-                                                                                {latestIntervention.solderestant.toLocaleString(
-                                                                                    "fr-FR",
-                                                                                    {
-                                                                                        minimumFractionDigits: 2,
-                                                                                    }
-                                                                                )}{" "}
-                                                                                €
-                                                                            </Text>
-                                                                        )}
+																	{latestIntervention?.solderestant !== undefined &&
+    latestIntervention?.solderestant > 0 ? (
+        <Text style={styles.clientTextSoldeRestant}>
+            Solde restant dû :{" "}
+            {latestIntervention.solderestant.toLocaleString("fr-FR", {
+                minimumFractionDigits: 2,
+            })}{" "}
+            €
+        </Text>
+    ) : latestIntervention?.cost > 0 ? (
+        <Text style={styles.clientTextSoldeRestant}>
+		Solde restant dû :{" "}
+            {latestIntervention.cost.toLocaleString("fr-FR", {
+                minimumFractionDigits: 2,
+            })}{" "}
+            €
+        </Text>
+    ) : null}
+
+
+
                                                                     <Text
                                                                         style={
                                                                             styles.clientText

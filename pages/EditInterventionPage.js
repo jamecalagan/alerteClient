@@ -28,6 +28,8 @@ export default function EditInterventionPage({ route, navigation }) {
     const [cost, setCost] = useState("");
 	const [paymentStatus, setPaymentStatus] = useState("non_regle");
     const [status, setStatus] = useState("default");
+	const [devisCost, setDevisCost] = useState(""); // Ajout du champ devis
+
     const [deviceType, setDeviceType] = useState("default");
     const [customDeviceType, setCustomDeviceType] = useState("");
     const [password, setPassword] = useState("");
@@ -77,7 +79,7 @@ export default function EditInterventionPage({ route, navigation }) {
     const loadIntervention = async () => {
         const { data, error } = await supabase
             .from("interventions")
-            .select("article_id, marque_id, modele_id, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk ")
+            .select("article_id, marque_id, modele_id, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost ")
             .eq("id", interventionId)
             .single();
 
@@ -90,6 +92,7 @@ export default function EditInterventionPage({ route, navigation }) {
             setReference(data.reference);
             setDescription(data.description);
             setCost(data.cost);
+			setDevisCost(data.devis_cost ? data.devis_cost.toString() : "");
 			setSolderestant(data.solderestant || 0);
 			setPartialPayment(data.partialPayment); // Charge l'acompte
             setStatus(data.status);
@@ -253,6 +256,9 @@ export default function EditInterventionPage({ route, navigation }) {
     };
 
     const handleSaveIntervention = async () => {
+		const formattedDevisCost = status === 'Devis en cours' && devisCost
+    ? parseFloat(devisCost)
+    : null;
 		// Vérifie le coût seulement si le statut n'est pas "Devis en cours"
 		if (status !== 'Devis en cours' && !cost) {
 			Alert.alert('Erreur', 'Veuillez indiquer le coût de la réparation.');
@@ -265,16 +271,18 @@ export default function EditInterventionPage({ route, navigation }) {
 		}
 		    // Calcul du solde restant
 			const solderestant = paymentStatus === 'reglement_partiel' 
-			? parseFloat(cost) - parseFloat(partialPayment || 0)
+			? parseFloat(costValue) - parseFloat(partialPayment || 0)
 			: paymentStatus === 'solde' 
 				? 0 
-				: parseFloat(cost);
+				: parseFloat(costValue);
 		const selectedArticle = articles.find((article) => article.id === deviceType);
 		const selectedBrand = brands.find((b) => b.id === brand);
 		const selectedModel = models.find((m) => m.id === model);
 	
 		// Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
-		const costValue = cost ? parseFloat(cost) : null;
+		const costValue = status === "Devis accepté" && devisCost
+    ? parseFloat(devisCost)
+    : cost ? parseFloat(cost) : null;
 	
 		const updatedIntervention = {
 			deviceType: selectedArticle ? selectedArticle.nom : deviceType,
@@ -300,7 +308,10 @@ export default function EditInterventionPage({ route, navigation }) {
 			label_photo: labelPhoto,
 			updatedAt: new Date().toISOString(), // Ajout de la date et heure actuelles
 		};
-	
+	// 🔹 Ajoute `devis_cost` uniquement si "Devis en cours"
+if (status === 'Devis en cours') {
+    updatedIntervention.devis_cost = formattedDevisCost;
+}
 		try {
 			const { error } = await supabase
 				.from("interventions")
@@ -331,7 +342,13 @@ export default function EditInterventionPage({ route, navigation }) {
     const handleImagePress = (imageUri) => {
         setSelectedImage(imageUri); // Sélectionner l'image pour l'afficher en plein écran
     };
-
+	useEffect(() => {
+		if (status === "Devis accepté" && devisCost && !cost) {
+			console.log("🔄 Transfert du montant du devis vers coût de réparation");
+			setCost(devisCost); // ✅ Transfert du montant
+		}
+	}, [status, devisCost]); 
+	
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -579,6 +596,18 @@ export default function EditInterventionPage({ route, navigation }) {
                                 value="Non réparable"
                             />
                         </Picker>
+						<Text style={styles.label}>Montant du devis</Text>
+						{status === "Devis en cours" && (
+    <TextInput
+        style={styles.input}
+        placeholder="Montant du devis (€)"
+        placeholderTextColor="#000000"
+        keyboardType="numeric"
+        value={devisCost}
+        onChangeText={(text) => setDevisCost(text) }
+    />
+)}
+
                     </View>
                     {status === "En attente de pièces" && (
                         <View style={styles.halfWidthContainer}>

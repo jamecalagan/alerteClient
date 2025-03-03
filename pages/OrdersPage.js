@@ -168,9 +168,7 @@ export default function OrdersPage({ route, navigation }) {
                 <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
                     <Text style={styles.button}>➕ Ajouter une commande</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.addButton} onPress={() => navigation.goBack()}>
-					<Text style={styles.button}>⬅ Retour</Text>
-            </TouchableOpacity>
+
             </View>
 
             <FlatList
@@ -188,14 +186,20 @@ export default function OrdersPage({ route, navigation }) {
 						.filter(order => !order.paid)
 						.reduce((sum, order) => sum + (order.price - order.deposit), 0)} €</Text>
                         <Text  style={styles.buttonOrderText}>{item.paid ? "✅ Payé" : "❌ Non payé"}</Text>
-						<View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-						<TouchableOpacity style={[styles.payButton, { flex: 1, marginRight: 5 }]} onPress={() => handleMarkAsPaid(item.id)}>
-							<Text style={styles.paid}>💰 Marquer comme payé</Text>
-						</TouchableOpacity>
-						<TouchableOpacity style={[styles.deleteButton, { flex: 1, marginLeft: 5 }]} onPress={() => handleDeleteOrder(item.id)}>
-							<Text style={styles.buttonDel}>🗑 Supprimer</Text>
-						</TouchableOpacity>
-					</View>
+						<View style={{ flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", marginTop: 10 }}>
+    <TouchableOpacity style={[styles.payButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => handleMarkAsPaid(item.id)}>
+        <Text style={styles.paid}>💰 Payé</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={[styles.deleteButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => handleDeleteOrder(item.id)}>
+        <Text style={styles.buttonDel}>🗑 Supprimer</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={[styles.addButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => navigation.goBack()}>
+        <Text style={styles.button}>⬅ Retour</Text>
+    </TouchableOpacity>
+</View>
+
 
                     </View>
                 )}

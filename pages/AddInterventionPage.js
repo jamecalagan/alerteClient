@@ -15,6 +15,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [serial_number, setSerial_number] = useState('');
   const [description, setDescription] = useState('');
   const [cost, setCost] = useState('');
+  const [devisCost, setDevisCost] = useState(""); // Ajout du champ devisCost
   const [paymentStatus, setPaymentStatus] = useState("non_regle");
   const [status, setStatus] = useState('default');
   const [deviceType, setDeviceType] = useState('default');
@@ -265,7 +266,7 @@ const handleSaveIntervention = async () => {
         return;
     }
 
-    // Vérifie le coût sauf si le statut est "Devis en cours"
+    // Vérification du coût sauf si le statut est "Devis en cours"
     if (status !== 'Devis en cours' && !cost) {
         Alert.alert('Erreur', 'Veuillez indiquer le coût de la réparation.');
         return;
@@ -277,20 +278,29 @@ const handleSaveIntervention = async () => {
         setAlertVisible(true);
         return;
     }
+
     // Validation pour l'acompte
     if (paymentStatus === 'reglement_partiel' && (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))) {
         Alert.alert('Erreur', "Veuillez indiquer un acompte valide qui ne dépasse pas le montant total.");
         return;
     }
-	    // Calcul du solde restant
-		const solderestant = paymentStatus === 'reglement_partiel' 
+
+    // 🔹 Gestion du montant du devis
+    const formattedDevisCost = status === 'Devis en cours' && devisCost
+        ? parseFloat(devisCost)
+        : null; // Mettre null si vide
+
+    // 🔹 Calcul du solde restant
+    const solderestant = paymentStatus === 'reglement_partiel'
         ? parseFloat(cost) - parseFloat(partialPayment || 0)
-        : paymentStatus === 'solde' 
-            ? 0 
+        : paymentStatus === 'solde'
+            ? 0
             : parseFloat(cost);
-    // Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
+
+    // 🔹 Convertir `cost` en null si vide pour éviter les erreurs SQL
     const costValue = cost ? parseFloat(cost) : null;
 
+    // 🔹 Création des entrées manquantes (Articles, Marques, Modèles)
     const articleId = await addArticleIfNeeded();
     const brandId = await addBrandIfNeeded(articleId);
     const modelId = await addModelIfNeeded(brandId, articleId);
@@ -301,8 +311,8 @@ const handleSaveIntervention = async () => {
         model: customModel || models.find((m) => m.id === model)?.nom,
         serial_number,
         description,
-        cost: costValue, // Utiliser `costValue` ici
-		solderestant, // Ajout du solde restant
+        cost: costValue,
+        solderestant,
         status,
         deviceType: customDeviceType || deviceType,
         password,
@@ -314,11 +324,17 @@ const handleSaveIntervention = async () => {
         article_id: articleId,
         marque_id: brandId,
         modele_id: modelId,
-        remarks, // Ajoute les remarques ici
+        remarks,
         paymentStatus,
-		partialPayment: partialPayment ? parseFloat(partialPayment) : null, // Ajout de l'acompte
-		accept_screen_risk: acceptScreenRisk,
+        partialPayment: partialPayment ? parseFloat(partialPayment) : null,
+        accept_screen_risk: acceptScreenRisk,
+        createdAt: new Date().toISOString(),
     };
+
+    // 🔹 Ajouter le `devis_cost` uniquement si "Devis en cours"
+    if (status === 'Devis en cours') {
+        interventionData.devis_cost = formattedDevisCost;
+    }
 
     try {
         const { error } = await supabase.from('interventions').insert(interventionData);
@@ -331,6 +347,7 @@ const handleSaveIntervention = async () => {
         console.error("Erreur lors de l'ajout de l'intervention :", error);
     }
 };
+
 
   
 
@@ -371,7 +388,7 @@ const handleSaveIntervention = async () => {
                     />
                 )}
 
-        {/* Sélection de la Marque */}
+       
 		<Text style={styles.label}>Marque</Text>
                 <Picker selectedValue={brand} style={styles.input} onValueChange={handleBrandChange}>
                     <Picker.Item label="Sélectionnez une marque..." value="" />
@@ -391,7 +408,6 @@ const handleSaveIntervention = async () => {
                     />
                 )}
 
-        {/* Sélection du Modèle */}
 		<Text style={styles.label}>Modèle</Text>
                 <Picker selectedValue={model} style={styles.input} onValueChange={(itemValue) => setModel(itemValue)}>
                     <Picker.Item label="Sélectionnez un modèle..." value="" />
@@ -432,7 +448,7 @@ const handleSaveIntervention = async () => {
     <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
   </TouchableOpacity>
 
-  {/* Autres champs de description, mot de passe, etc. */}
+ 
   <Text style={styles.label}>Description de la panne</Text>
   <TextInput
     style={styles.input}
@@ -544,6 +560,16 @@ const handleSaveIntervention = async () => {
     <Picker.Item label="Non réparable" value="Non réparable" />
 </Picker>
 
+{status === "Devis en cours" && (
+    <TextInput
+        style={styles.input}
+        placeholder="Montant du devis (€)"
+        placeholderTextColor="#202020"
+        keyboardType="numeric"
+        value={devisCost}
+        onChangeText={(text) => setDevisCost(text)}
+    />
+)};
     </View>
     {status === 'En attente de pièces' && (
       <View style={styles.halfWidthContainer}>
@@ -576,7 +602,7 @@ const handleSaveIntervention = async () => {
     <Picker.Item label="Non" value="Non" />
     <Picker.Item label="Oui" value="Oui" />
   </Picker>
-{/* Affichage des images capturées */}
+
 {photos.length > 0 && (
   <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
     {photos.map((photo, index) => (
@@ -632,7 +658,6 @@ const handleSaveIntervention = async () => {
 </ScrollView>
 
 
-      {/* Modal pour afficher l'image en taille réelle */}
       {selectedImage && (
         <Modal visible={true} transparent={true} onRequestClose={() => setSelectedImage(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>

@@ -18,6 +18,7 @@ import EditClientPage from './pages/EditClientPage';
 import EditInterventionPage from './pages/EditInterventionPage';
 import AddInterventionPage from './pages/AddInterventionPage';
 import RepairedInterventionsPage from './pages/RepairedInterventionsPage';
+import RepairedInterventionsListPage from './pages/RepairedInterventionsListPage';
 import SignaturePage from './pages/SignaturePage';
 import LoginPage from './LoginPage';
 import SignUpPage from './SignUpPage';
@@ -220,6 +221,7 @@ function MainStack() {
 			<Stack.Screen name="SelectInterventionPage" component={SelectInterventionPage} options={{ title: "Choisir une intervention" }}/>
 			<Stack.Screen name="AddProductPage" component={AddProductPage} />
 			<Stack.Screen name="OrdersPage" component={OrdersPage} options={{ title: "Commandes" }} />
+			<Stack.Screen name="RepairedInterventionsListPage" component={RepairedInterventionsListPage} />
 
 			<Stack.Screen 
         name="ListingProduits" 

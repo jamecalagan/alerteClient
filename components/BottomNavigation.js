@@ -33,12 +33,13 @@ export default function BottomMenu() {
                     isActive={activeButton === "AddClient"}
                     onPress={() => handlePress("AddClient", "AddClient")}
                 />
-                <MenuButton
-                    label="Réparés"
-                    icon={require("../assets/icons/finished.png")}
-                    isActive={activeButton === "RepairedInterventions"}
-                    onPress={() => handlePress("RepairedInterventions", "RepairedInterventions")}
-                />
+<MenuButton
+    label="Réparés"
+    icon={require("../assets/icons/finished.png")}
+    isActive={activeButton === "RepairedInterventionsListPage"}
+    onPress={() => handlePress("RepairedInterventionsListPage", "RepairedInterventionsListPage")}
+/>
+
                 <MenuButton
                     label="Restitués"
                     icon={require("../assets/icons/restitue.png")}

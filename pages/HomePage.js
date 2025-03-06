@@ -48,6 +48,7 @@ export default function HomePage({ navigation, route }) {
         orders.some(
             (order) => order.client_id === String(item.id) && !order.paid
         );
+		const [selectedClient, setSelectedClient] = useState(null);
 
     const [expandedClientId, setExpandedClientId] = useState(null);
     const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
@@ -254,31 +255,61 @@ export default function HomePage({ navigation, route }) {
     };
 
     const eligibleInterventions = []; // File d'attente des fiches à traiter
-    const updateClientNotification = async (selectedInterventionId, method) => {
-        try {
-            const { error } = await supabase
-                .from("interventions")
-                .update({ notifiedBy: method })
-                .eq("id", selectedInterventionId);
-
-            if (error) {
-                console.error(
-                    "Erreur lors de la mise à jour de la notification :",
-                    error
-                );
-                return;
-            }
-
-            await loadClients(); // Recharger la liste des clients pour afficher l'icône mise à jour
-
-            setNotifyModalVisible(false); // Ferme la modal après la mise à jour
-        } catch (error) {
-            console.error(
-                "Erreur lors de la mise à jour de la notification :",
-                error
-            );
-        }
-    };
+	const updateClientNotification = async (client, method) => {
+		try {
+			if (!client || !client.id) {
+				console.warn("⚠ Aucun client valide sélectionné pour la mise à jour.", client);
+				return;
+			}
+	
+			let error;
+			let hasUpdated = false; // Vérifier si une mise à jour a été effectuée
+	
+			console.log("🔍 Client trouvé :", client);
+	
+			// Vérifier si le client a une intervention en cours
+			if (client.interventions && client.interventions.length > 0) {
+				const latestIntervention = client.interventions[0]; // Prendre la plus récente
+				console.log("📌 Mise à jour de l'intervention :", latestIntervention.id);
+	
+				({ error } = await supabase
+					.from("interventions")
+					.update({ notifiedBy: method })
+					.eq("id", latestIntervention.id));
+	
+				hasUpdated = true;
+			} 
+			// Sinon, si le client a une commande
+			else if (client.orders && client.orders.length > 0) {
+				const latestOrder = client.orders[0]; // Prendre la plus récente
+				console.log("📌 Mise à jour de la commande :", latestOrder.id);
+	
+				({ error } = await supabase
+					.from("orders")
+					.update({ notified: method }) // ✅ Ajoute la mise à jour
+					.eq("id", latestOrder.id));
+	
+				hasUpdated = true;
+			}
+	
+			if (error) {
+				console.error("❌ Erreur lors de la mise à jour de la notification :", error);
+				return;
+			}
+	
+			if (hasUpdated) {
+				await loadClients(); // 🔄 Rafraîchir la liste des clients après mise à jour
+				setNotifyModalVisible(false); // ✅ Ferme la modale après mise à jour
+				console.log(`✅ Notification mise à jour pour ${client.name} : ${method}`);
+			} else {
+				console.warn("⚠ Aucune mise à jour effectuée (ni intervention ni commande trouvée).");
+			}
+		} catch (error) {
+			console.error("❌ Erreur lors de la mise à jour de la notification :", error);
+		}
+	};
+	
+	
 
     const loadRepairedNotReturnedCount = async () => {
         try {
@@ -347,10 +378,15 @@ export default function HomePage({ navigation, route }) {
 						notifiedBy,
 						accept_screen_risk,
 						devis_cost
-					)
-					`
-				)
-				.order("createdAt", { ascending: false });
+        ),
+        orders(
+            id,
+            product,
+            paid,
+            notified
+        )
+    `)
+    .order("createdAt", { ascending: false });
 	
 			if (clientsError) throw clientsError;
 	
@@ -588,6 +624,7 @@ export default function HomePage({ navigation, route }) {
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
         setModalVisible(true);
+
     };
     const handleDeleteClient = async () => {
         try {
@@ -1454,7 +1491,6 @@ export default function HomePage({ navigation, route }) {
                                     ]} // Ajoutez la propriété tintColor pour la couleur
                                 />
                             </View>
-
                             <View style={styles.buttonContainer}>
                                 <TouchableOpacity
                                     style={styles.toggleButton}
@@ -1504,9 +1540,7 @@ export default function HomePage({ navigation, route }) {
                                             scrollEnabled={true}
                                             windowSize={5}
                                             data={paginatedClients}
-                                            keyExtractor={(item) =>
-                                                item.id.toString()
-                                            }
+											keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
                                             getItemLayout={(data, index) => ({
                                                 length: 180, // Hauteur de chaque fiche
                                                 offset: 180 * index,
@@ -1803,54 +1837,44 @@ export default function HomePage({ navigation, route }) {
                                                                                 />
                                                                             </TouchableOpacity>
                                                                         )}
-                                                                    <TouchableOpacity
-                                                                        style={[
-                                                                            styles.iconButton,
-                                                                            styles.notificationIconContainer,
-                                                                        ]}
-                                                                        onPress={() => {
-                                                                            setSelectedInterventionId(
-                                                                                latestIntervention.id
-                                                                            );
-                                                                            setNotifyModalVisible(
-                                                                                true
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        {latestIntervention?.notifiedBy ===
-                                                                        "SMS" ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/sms.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#00fd00",
-                                                                                }}
-                                                                            />
-                                                                        ) : latestIntervention?.notifiedBy ===
-                                                                          "Téléphone" ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/call.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#3c92f5",
-                                                                                }}
-                                                                            />
-                                                                        ) : (
-                                                                            <Image
-                                                                                source={require("../assets/icons/notifications_off.png")} // Chemin vers votre icône poubelle
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#888787", // Couleur de l'icône (ici noir)
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                    </TouchableOpacity>
+																		<TouchableOpacity
+    style={[styles.iconButton, styles.notificationIconContainer]}
+    onPress={() => {
+        setSelectedClient(item); // ✅ Stocke le client sélectionné
+        setSelectedInterventionId(item.latestIntervention?.id || null);
+        setNotifyModalVisible(true);
+    }}
+>
+    {latestIntervention?.notifiedBy === "SMS" || item?.orders?.some(order => order.notified === "SMS") ? (
+        <Image
+            source={require("../assets/icons/sms.png")}
+            style={{
+                width: 28,
+                height: 28,
+                tintColor: "#00fd00", // ✅ Vert pour SMS
+            }}
+        />
+    ) : latestIntervention?.notifiedBy === "Téléphone" || item?.orders?.some(order => order.notified === "Téléphone") ? (
+        <Image
+            source={require("../assets/icons/call.png")}
+            style={{
+                width: 28,
+                height: 28,
+                tintColor: "#3c92f5", // ✅ Bleu pour Téléphone
+            }}
+        />
+    ) : (
+        <Image
+            source={require("../assets/icons/notifications_off.png")}
+            style={{
+                width: 28,
+                height: 28,
+                tintColor: "#888787", // ✅ Gris si aucune notification
+            }}
+        />
+    )}
+</TouchableOpacity>
+
 
                                                                     <TouchableOpacity
                                                                         style={[
@@ -2214,32 +2238,27 @@ export default function HomePage({ navigation, route }) {
                                             Notifier le client
                                         </Text>
                                         <View style={styles.modalButtonRow}>
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() =>
-                                                    updateClientNotification(
-                                                        selectedInterventionId,
-                                                        "SMS"
-                                                    )
-                                                }
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    SMS
-                                                </Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() =>
-                                                    updateClientNotification(
-                                                        selectedInterventionId,
-                                                        "Téléphone"
-                                                    )
-                                                }
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    Téléphone
-                                                </Text>
-                                            </TouchableOpacity>
+										<TouchableOpacity
+    style={styles.button}
+    onPress={() => {
+        console.log("📢 Notification via SMS pour le client :", selectedClient);
+        updateClientNotification(selectedClient, "SMS");
+    }}
+>
+    <Text style={styles.buttonText}>SMS</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+    style={styles.button}
+    onPress={() => {
+        console.log("📢 Notification via Téléphone pour le client :", selectedClient);
+        updateClientNotification(selectedClient, "Téléphone");
+    }}
+>
+    <Text style={styles.buttonText}>Téléphone</Text>
+</TouchableOpacity>
+
+
                                             <TouchableOpacity
                                                 style={styles.button}
                                                 onPress={() =>

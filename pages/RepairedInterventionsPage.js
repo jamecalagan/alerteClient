@@ -19,7 +19,7 @@ import { supabase } from "../supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
+import { useRoute } from "@react-navigation/native"; // Importer useRoute
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import BottomNavigation from "../components/BottomNavigation";
@@ -28,7 +28,11 @@ import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
 ScrollView.defaultProps = { showsVerticalScrollIndicator: false };
 FlatList.defaultProps = { showsVerticalScrollIndicator: false };
-export default function RepairedInterventionsPage({ navigation, route }) {
+export default function RepairedInterventionsPage({ navigation }) {
+    const route = useRoute(); // Utilise useRoute() sans le passer en paramètre
+    
+
+  
     const repairedInterventionsRef = useRef(null); // Créez une référence
     const [repairedInterventions, setRepairedInterventions] = useState([]);
     const [editingDetail, setEditingDetail] = useState({});
@@ -36,14 +40,16 @@ export default function RepairedInterventionsPage({ navigation, route }) {
     const [alertMessage, setAlertMessage] = useState("");
     const [isSaved, setIsSaved] = useState({});
     const [notifyModalVisible, setNotifyModalVisible] = useState(false);
-    const [selectedInterventionId, setSelectedInterventionId] = useState(null);
+	
+
     const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
 	const [noPhotoRequired, setNoPhotoRequired] = useState({});
 
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [expandedCards, setExpandedCards] = useState({});
+    const [selectedInterventionId, setSelectedInterventionId] = useState(route.params?.selectedInterventionId || null);
+
     const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
     const [currentPage, setCurrentPage] = useState(1); // Page actuelle
     const itemsPerPage = 4; // Nombre d'éléments par page
@@ -52,23 +58,16 @@ export default function RepairedInterventionsPage({ navigation, route }) {
         if (b.id === pinnedInterventionId) return 1;
         return 0; // Conserve l'ordre des autres fiches
     });
-    const getPaginatedData = () => {
-        if (!repairedInterventions || repairedInterventions.length === 0) {
-            return []; // Retourne un tableau vide si aucune donnée
-        }
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        return repairedInterventions.slice(startIndex, endIndex);
-    };
 
+/* 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage); // Met à jour la page actuelle
         }
-    };
+    }; */
 
     // Calculer le nombre total de pages
-    const totalPages = Math.ceil(repairedInterventions.length / itemsPerPage);
+    /* const totalPages = Math.ceil(repairedInterventions.length / itemsPerPage); */
     const loadRepairedInterventions = async () => {
         try {
             const { data, error } = await supabase
@@ -141,31 +140,45 @@ export default function RepairedInterventionsPage({ navigation, route }) {
         }
     };
 
-    const saveDetailIntervention = async (id) => {
-        const detail = editingDetail[id];
-        if (!detail || detail.trim() === "") {
-            setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
-            setAlertVisible(true);
-            return;
-        }
-        try {
-            const { error } = await supabase
-                .from("interventions")
-                .update({ detailIntervention: detail })
-                .eq("id", id);
-
-            if (error) throw error;
-
-            setAlertMessage("Détails sauvegardés avec succès.");
-            setAlertVisible(true);
-            setIsSaved((prevState) => ({ ...prevState, [id]: true }));
-
-            // Recharger les interventions et maintenir la fiche épinglée
-            await loadRepairedInterventions();
-        } catch (error) {
-            console.error("Erreur lors de la sauvegarde des détails :", error);
-        }
-    };
+	const saveDetailIntervention = async (id) => {
+		const detail = editingDetail[id];
+		if (!detail || detail.trim() === "") {
+			setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
+			setAlertVisible(true);
+			return;
+		}
+		try {
+			const { error } = await supabase
+				.from("interventions")
+				.update({ detailIntervention: detail }) // ✅ Sauvegarde en base
+				.eq("id", id);
+	
+			if (error) throw error;
+	
+			// ✅ Recharge uniquement la fiche concernée au lieu de tout recharger
+			const { data: updatedIntervention, error: fetchError } = await supabase
+				.from("interventions")
+				.select("id, detailIntervention")
+				.eq("id", id)
+				.single();
+	
+			if (fetchError) throw fetchError;
+	
+			// ✅ Mettre à jour l'état localement pour afficher le bon détail
+			setEditingDetail((prevState) => ({
+				...prevState,
+				[id]: updatedIntervention.detailIntervention, // Assure-toi que la valeur sauvegardée s'affiche
+			}));
+	
+			setAlertMessage("Détails sauvegardés avec succès.");
+			setAlertVisible(true);
+			setIsSaved((prevState) => ({ ...prevState, [id]: true }));
+	
+		} catch (error) {
+			console.error("Erreur lors de la sauvegarde des détails :", error);
+		}
+	};
+	
 
     const updateClientNotification = async (selectedInterventionId, method) => {
         try {
@@ -298,17 +311,6 @@ export default function RepairedInterventionsPage({ navigation, route }) {
 	};
 	
 	
-    const moveToTop = (interventionId) => {
-        setPinnedInterventionId(interventionId); // Met à jour l'ID de la fiche épinglée
-
-        // Utilisez scrollToIndex pour repositionner l'affichage sur la première fiche
-        setTimeout(() => {
-            repairedInterventionsRef.current?.scrollToIndex({
-                index: 0, // Index de la première fiche
-                animated: true, // Ajoute une animation pour le défilement
-            });
-        }, 0); // Timeout court pour s'assurer que l'état est mis à jour avant l'appel
-    };
     const openImageModal = (imageUri, imageId, interventionId) => {
         setSelectedImage({ uri: imageUri, id: imageId, interventionId });
         setIsModalVisible(true);
@@ -318,6 +320,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
         setSelectedImage(null);
         setIsModalVisible(false);
     };
+	
     setTimeout(() => {
         if (repairedInterventions.length > 0) {
             repairedInterventionsRef.current?.scrollToIndex({
@@ -326,14 +329,24 @@ export default function RepairedInterventionsPage({ navigation, route }) {
             });
         }
     }, 0);
-    // Basculer l'état d'affichage des détails
-    const toggleDetails = (id) => {
-        setExpandedCards((prev) => ({
-            ...prev,
-            [id]: !prev[id], // Change l'état d'expansion de la fiche sélectionnée
-        }));
-    };
+
     const flatListRef = useRef(null);
+	const updatePayment = async (id, newPartialPayment) => {
+		const { data, error } = await supabase
+			.from("interventions")
+			.update({
+				partialPayment: newPartialPayment,
+				solderestant: item.cost - newPartialPayment // Calcul du montant restant
+			})
+			.eq("id", id);
+	
+		if (error) {
+			console.error("Erreur lors de la mise à jour du paiement :", error);
+		} else {
+			console.log("Mise à jour réussie :", data);
+		}
+	};
+
     return (
 
             <ImageBackground
@@ -350,7 +363,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                     </View>
                     <FlatList
                         ref={flatListRef}
-                        data={getPaginatedData()} // Interventions paginées
+                        data={repairedInterventions.filter(item => item.id === selectedInterventionId)}
                         keyExtractor={(item) => item.id.toString()}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
@@ -358,7 +371,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                         renderItem={({ item }) => (
                             <TouchableOpacity
                                 style={styles.interventionCard} // Style pour la carte
-                                onPress={() => toggleDetails(item.id)} // Action au clic sur la fiche
+                               
                             >
                                 <View
                                     style={[
@@ -372,19 +385,7 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                             : {},
                                     ]}
                                 >
-                                    <TouchableOpacity
-                                        style={styles.moveToTopButton}
-                                        onPress={() => moveToTop(item.id)}
-                                    >
-                                        <Image
-                                            source={require("../assets/icons/chevron.png")} // Chemin vers votre image de flèche
-                                            style={{
-                                                width: 40, // Largeur de l'image
-                                                height: 40, // Hauteur de l'image
-                                                tintColor: "#191f2f", // Applique la couleur bleue
-                                            }}
-                                        />
-                                    </TouchableOpacity>
+
                                     <View
                                         style={
                                             styles.notificationAndToolsContainer
@@ -472,33 +473,6 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                         <Text style={styles.interventionText}>
                                             Marque: {item.brand}
                                         </Text>
-                                        {/* <TouchableOpacity
-                                        style={styles.toggleButton}
-                                        onPress={() => toggleDetails(item.id)}
-                                    >
-                                        <Text style={styles.toggleButtonText}>
-                                            {expandedCards[item.id]
-                                                ? "Masquer les détails"
-                                                : "Afficher les détails"}
-                                        </Text>
-                                        <Ionicons
-                                            name={
-                                                expandedCards[item.id]
-                                                    ? "chevron-up"
-                                                    : "chevron-down"
-                                            }
-                                            size={20}
-                                            color="#817f7f"
-                                        />
-                                    </TouchableOpacity> */}
-
-                                        {/* Détails masqués ou affichés avec animation */}
-                                        {expandedCards[item.id] && (
-                                            <Animatable.View
-                                                animation="slideInDown" // Animation pour afficher les détails
-                                                duration={500} // Durée de l'animation
-                                                style={styles.cardDetails}
-                                            >
                                                 <Text
                                                     style={
                                                         styles.interventionText
@@ -574,14 +548,13 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                             €
                                                         </Text>
                                                     )}
-                                                <Text
-                                                    style={
-                                                        styles.interventionTextReste
-                                                    }
-                                                >
-                                                    Montant restant dû:{" "}
-                                                    {item.solderestant}€
-                                                </Text>
+													<Text style={styles.interventionTextReste}>
+    Montant restant dû:{" "}
+    {item.solderestant !== null
+        ? `${item.solderestant}€`
+        : item.cost - (item.partialPayment || 0) + "€"}
+</Text>
+
                                                 <Text
                                                     style={
                                                         styles.interventionText
@@ -610,35 +583,20 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                 </Text>
 
 												<TextInput
-													style={styles.detailInput}
-													placeholderTextColor="#888787"
-													placeholder="Entrez les détails ici..."
-													onFocus={() => {
-														setTimeout(() => {
-															const globalIndex = repairedInterventions.findIndex(
-																(i) => i.id === item.id
-															);
-															const localIndex =
-																globalIndex - (currentPage - 1) * itemsPerPage;
+    style={styles.detailInput}
+    placeholderTextColor="#888787"
+    placeholder="Entrez les détails ici..."
+    value={editingDetail[item.id] ?? item.detailIntervention ?? ""} // ✅ Met à jour immédiatement
+    onChangeText={(text) =>
+        setEditingDetail({
+            ...editingDetail,
+            [item.id]: text,
+        })
+    }
+/>
 
-															if (localIndex >= 0 && localIndex < itemsPerPage) {
-																flatListRef.current.scrollToIndex({
-																	index: localIndex,
-																	animated: true,
-																});
-															} else {
-																console.warn("Index invalide sur cette page :", localIndex);
-															}
-														}, 100); // Petit délai pour garantir le bon affichage
-													}}
-													value={editingDetail[item.id] || ""}
-													onChangeText={(text) =>
-														setEditingDetail({
-															...editingDetail,
-															[item.id]: text,
-														})
-													}
-												/>
+
+
 
 												<View style={styles.buttonContainer}>
 													<TouchableOpacity
@@ -826,60 +784,25 @@ export default function RepairedInterventionsPage({ navigation, route }) {
                                                             )}
                                                         </View>
                                                     )}
-                                            </Animatable.View>
-                                        )}
+                                         
+                                      
                                     </View>
+									
                                 </View>
+								<TouchableOpacity
+    style={styles.modernBackButton}
+    onPress={() => navigation.navigate("RepairedInterventionsListPage")}
+>
+    <Image
+        source={require("../assets/icons/chevrong.png")} // Remplace par une icône de flèche plus moderne
+        style={styles.backIcon}
+    />
+    <Text style={styles.backButtonText}>Retour</Text>
+</TouchableOpacity>
+
                             </TouchableOpacity>
                         )}
                     />
-
-                    <View style={styles.paginationContainer}>
-                        {/* Bouton pour aller à la page précédente */}
-                        <TouchableOpacity
-                            onPress={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            style={styles.chevronButton}
-                        >
-                            <Image
-                                source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
-                                style={[
-                                    styles.chevronIcon,
-                                    {
-                                        tintColor:
-                                            currentPage === 1
-                                                ? "gray"
-                                                : "white",
-                                    },
-                                ]}
-                            />
-                        </TouchableOpacity>
-
-                        {/* Numéro de page au centre */}
-                        <Text style={styles.paginationText}>
-                            Page {currentPage} sur {totalPages}
-                        </Text>
-
-                        {/* Bouton pour aller à la page suivante */}
-                        <TouchableOpacity
-                            onPress={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            style={styles.chevronButton}
-                        >
-                            <Image
-                                source={require("../assets/icons/chevrond.png")} // Icône pour chevron droit
-                                style={[
-                                    styles.chevronIcon,
-                                    {
-                                        tintColor:
-                                            currentPage === totalPages
-                                                ? "gray"
-                                                : "white",
-                                    },
-                                ]}
-                            />
-                        </TouchableOpacity>
-                    </View>
                 </View>
                 <BottomNavigation
                     navigation={navigation}
@@ -1372,5 +1295,28 @@ const styles = StyleSheet.create({
     },
     activePageButtonText: {
         color: "#fff",
+    },
+modernBackButton: {
+        flexDirection: "row",
+        alignItems: "center",
+		backgroundColor: "#2b3550",
+        justifyContent: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 2, // Coins arrondis
+		borderWidth: 1,
+		borderColor: "#888787",
+        marginVertical: 10,
+    },
+    backIcon: {
+        width: 18,
+        height: 18,
+        tintColor: "white", // Couleur blanche pour l'icône
+        marginRight: 8,
+    },
+    backButtonText: {
+        color: "white",
+        fontSize: 18,
+        fontWeight: "medium",
     },
 });

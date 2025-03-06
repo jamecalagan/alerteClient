@@ -138,10 +138,11 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
                     </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.filterButton, { backgroundColor: getButtonColor("RepairedInterventions") }]}
-                    onPress={() => handlePress("RepairedInterventions", () => navigation.navigate("RepairedInterventions"))}
-                >
+				<TouchableOpacity
+    style={[styles.filterButton, { backgroundColor: getButtonColor("RepairedInterventionsListPage") }]}
+    onPress={() => handlePress("RepairedInterventionsListPage", () => navigation.navigate("RepairedInterventionsListPage"))}
+>
+
                     <View style={styles.buttonContent}>
                         <Image source={require("../assets/icons/finished.png")} style={styles.icon} />
                         <Text style={styles.menuText}>Réparés</Text>

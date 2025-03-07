@@ -30,9 +30,7 @@ ScrollView.defaultProps = { showsVerticalScrollIndicator: false };
 FlatList.defaultProps = { showsVerticalScrollIndicator: false };
 export default function RepairedInterventionsPage({ navigation }) {
     const route = useRoute(); // Utilise useRoute() sans le passer en paramètre
-    
 
-  
     const repairedInterventionsRef = useRef(null); // Créez une référence
     const [repairedInterventions, setRepairedInterventions] = useState([]);
     const [editingDetail, setEditingDetail] = useState({});
@@ -40,15 +38,16 @@ export default function RepairedInterventionsPage({ navigation }) {
     const [alertMessage, setAlertMessage] = useState("");
     const [isSaved, setIsSaved] = useState({});
     const [notifyModalVisible, setNotifyModalVisible] = useState(false);
-	
 
     const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
-	const [noPhotoRequired, setNoPhotoRequired] = useState({});
+    const [noPhotoRequired, setNoPhotoRequired] = useState({});
 
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [selectedInterventionId, setSelectedInterventionId] = useState(route.params?.selectedInterventionId || null);
+    const [selectedInterventionId, setSelectedInterventionId] = useState(
+        route.params?.selectedInterventionId || null
+    );
 
     const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
     const [currentPage, setCurrentPage] = useState(1); // Page actuelle
@@ -59,7 +58,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         return 0; // Conserve l'ordre des autres fiches
     });
 
-/* 
+    /* 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage); // Met à jour la page actuelle
@@ -140,45 +139,44 @@ export default function RepairedInterventionsPage({ navigation }) {
         }
     };
 
-	const saveDetailIntervention = async (id) => {
-		const detail = editingDetail[id];
-		if (!detail || detail.trim() === "") {
-			setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
-			setAlertVisible(true);
-			return;
-		}
-		try {
-			const { error } = await supabase
-				.from("interventions")
-				.update({ detailIntervention: detail }) // ✅ Sauvegarde en base
-				.eq("id", id);
-	
-			if (error) throw error;
-	
-			// ✅ Recharge uniquement la fiche concernée au lieu de tout recharger
-			const { data: updatedIntervention, error: fetchError } = await supabase
-				.from("interventions")
-				.select("id, detailIntervention")
-				.eq("id", id)
-				.single();
-	
-			if (fetchError) throw fetchError;
-	
-			// ✅ Mettre à jour l'état localement pour afficher le bon détail
-			setEditingDetail((prevState) => ({
-				...prevState,
-				[id]: updatedIntervention.detailIntervention, // Assure-toi que la valeur sauvegardée s'affiche
-			}));
-	
-			setAlertMessage("Détails sauvegardés avec succès.");
-			setAlertVisible(true);
-			setIsSaved((prevState) => ({ ...prevState, [id]: true }));
-	
-		} catch (error) {
-			console.error("Erreur lors de la sauvegarde des détails :", error);
-		}
-	};
-	
+    const saveDetailIntervention = async (id) => {
+        const detail = editingDetail[id];
+        if (!detail || detail.trim() === "") {
+            setAlertMessage('Le champ "Détails de l\'intervention" est vide.');
+            setAlertVisible(true);
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from("interventions")
+                .update({ detailIntervention: detail }) // ✅ Sauvegarde en base
+                .eq("id", id);
+
+            if (error) throw error;
+
+            // ✅ Recharge uniquement la fiche concernée au lieu de tout recharger
+            const { data: updatedIntervention, error: fetchError } =
+                await supabase
+                    .from("interventions")
+                    .select("id, detailIntervention")
+                    .eq("id", id)
+                    .single();
+
+            if (fetchError) throw fetchError;
+
+            // ✅ Mettre à jour l'état localement pour afficher le bon détail
+            setEditingDetail((prevState) => ({
+                ...prevState,
+                [id]: updatedIntervention.detailIntervention, // Assure-toi que la valeur sauvegardée s'affiche
+            }));
+
+            setAlertMessage("Détails sauvegardés avec succès.");
+            setAlertVisible(true);
+            setIsSaved((prevState) => ({ ...prevState, [id]: true }));
+        } catch (error) {
+            console.error("Erreur lors de la sauvegarde des détails :", error);
+        }
+    };
 
     const updateClientNotification = async (selectedInterventionId, method) => {
         try {
@@ -293,24 +291,23 @@ export default function RepairedInterventionsPage({ navigation }) {
     const closeAlert = () => {
         setAlertVisible(false);
     };
-	const handleRestitution = (intervention) => {
-		if (
-			(!intervention.intervention_images ||
-			intervention.intervention_images.length === 0) &&
-			!noPhotoRequired[intervention.id] // Vérifie si l'option est activée
-		) {
-			setSelectedInterventionId(intervention.id);
-			setPhotoAlertVisible(true); // Ouvre la modale car la photo est requise
-		} else {
-			// Redirection immédiate vers SignaturePage
-			navigation.navigate("SignaturePage", {
-				interventionId: intervention.id,
-				clientId: intervention.client_id,
-			});
-		}
-	};
-	
-	
+    const handleRestitution = (intervention) => {
+        if (
+            (!intervention.intervention_images ||
+                intervention.intervention_images.length === 0) &&
+            !noPhotoRequired[intervention.id] // Vérifie si l'option est activée
+        ) {
+            setSelectedInterventionId(intervention.id);
+            setPhotoAlertVisible(true); // Ouvre la modale car la photo est requise
+        } else {
+            // Redirection immédiate vers SignaturePage
+            navigation.navigate("SignaturePage", {
+                interventionId: intervention.id,
+                clientId: intervention.client_id,
+            });
+        }
+    };
+
     const openImageModal = (imageUri, imageId, interventionId) => {
         setSelectedImage({ uri: imageUri, id: imageId, interventionId });
         setIsModalVisible(true);
@@ -320,7 +317,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         setSelectedImage(null);
         setIsModalVisible(false);
     };
-	
+
     setTimeout(() => {
         if (repairedInterventions.length > 0) {
             repairedInterventionsRef.current?.scrollToIndex({
@@ -331,647 +328,576 @@ export default function RepairedInterventionsPage({ navigation }) {
     }, 0);
 
     const flatListRef = useRef(null);
-	const updatePayment = async (id, newPartialPayment) => {
-		const { data, error } = await supabase
-			.from("interventions")
-			.update({
-				partialPayment: newPartialPayment,
-				solderestant: item.cost - newPartialPayment // Calcul du montant restant
-			})
-			.eq("id", id);
-	
-		if (error) {
-			console.error("Erreur lors de la mise à jour du paiement :", error);
-		} else {
-			console.log("Mise à jour réussie :", data);
-		}
-	};
+    const updatePayment = async (id, newPartialPayment) => {
+        const { data, error } = await supabase
+            .from("interventions")
+            .update({
+                partialPayment: newPartialPayment,
+                solderestant: item.cost - newPartialPayment, // Calcul du montant restant
+            })
+            .eq("id", id);
+
+        if (error) {
+            console.error("Erreur lors de la mise à jour du paiement :", error);
+        } else {
+            console.log("Mise à jour réussie :", data);
+        }
+    };
 
     return (
-
-            <ImageBackground
-                source={backgroundImage}
-                style={styles.backgroundImage}
-            >
-                <View style={styles.overlay}>
-                    <Text style={styles.title}>Interventions terminées</Text>
-                    <View style={styles.totalContainer}>
-                        <Text style={styles.totalText}>
-                            Montant total des interventions Réparées :{" "}
-                            {repairedTotal.toFixed(2)} €
-                        </Text>
-                    </View>
-                    <FlatList
-                        ref={flatListRef}
-                        data={repairedInterventions.filter(item => item.id === selectedInterventionId)}
-                        keyExtractor={(item) => item.id.toString()}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
-                        contentContainerStyle={{ paddingBottom: 100 }} // Espace sous la liste
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={styles.interventionCard} // Style pour la carte
-                               
+        <ImageBackground
+            source={backgroundImage}
+            style={styles.backgroundImage}
+        >
+            <View style={styles.overlay}>
+                <Text style={styles.title}>Interventions terminées</Text>
+                <View style={styles.totalContainer}>
+                    <Text style={styles.totalText}>
+                        Montant total des interventions Réparées :{" "}
+                        {repairedTotal.toFixed(2)} €
+                    </Text>
+                </View>
+                <FlatList
+                    ref={flatListRef}
+                    data={repairedInterventions.filter(
+                        (item) => item.id === selectedInterventionId
+                    )}
+                    keyExtractor={(item) => item.id.toString()}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
+                    contentContainerStyle={{ paddingBottom: 100 }} // Espace sous la liste
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.interventionCard} // Style pour la carte
+                        >
+                            <View
+                                style={[
+                                    styles.interventionCard,
+                                    item.status === "Non réparable"
+                                        ? {
+                                              backgroundColor: "#191f2f", // Couleur de fond pour "Non réparable"
+                                              borderWidth: 1, // Épaisseur de la bordure
+                                              borderColor: "red", // Couleur rouge pour la bordure
+                                          }
+                                        : {},
+                                ]}
                             >
                                 <View
-                                    style={[
-                                        styles.interventionCard,
-                                        item.status === "Non réparable"
-                                            ? {
-                                                  backgroundColor: "#191f2f", // Couleur de fond pour "Non réparable"
-                                                  borderWidth: 1, // Épaisseur de la bordure
-                                                  borderColor: "red", // Couleur rouge pour la bordure
-                                              }
-                                            : {},
-                                    ]}
+                                    style={styles.notificationAndToolsContainer}
                                 >
-
-                                    <View
-                                        style={
-                                            styles.notificationAndToolsContainer
-                                        }
+                                    <TouchableOpacity
+                                        style={styles.iconStyle}
+                                        onPress={() => {
+                                            setSelectedInterventionId(item.id);
+                                            setNotifyModalVisible(true);
+                                        }}
                                     >
-                                        <TouchableOpacity
-                                            style={styles.iconStyle}
-                                            onPress={() => {
-                                                setSelectedInterventionId(
-                                                    item.id
-                                                );
-                                                setNotifyModalVisible(true);
+                                        <Image
+                                            source={
+                                                item?.notifiedBy === "SMS"
+                                                    ? require("../assets/icons/sms.png")
+                                                    : item?.notifiedBy ===
+                                                      "Téléphone"
+                                                    ? require("../assets/icons/call.png")
+                                                    : require("../assets/icons/notifications_off.png")
+                                            }
+                                            style={{
+                                                width: 40, // Largeur de l'image
+                                                height: 40, // Hauteur de l'image
+                                                tintColor: item?.notifiedBy
+                                                    ? "#00ff37"
+                                                    : "gray", // Applique la couleur dynamique
                                             }}
-                                        >
-                                            <Image
-                                                source={
-                                                    item?.notifiedBy === "SMS"
-                                                        ? require("../assets/icons/sms.png")
-                                                        : item?.notifiedBy ===
-                                                          "Téléphone"
-                                                        ? require("../assets/icons/call.png")
-                                                        : require("../assets/icons/notifications_off.png")
-                                                }
-                                                style={{
-                                                    width: 40, // Largeur de l'image
-                                                    height: 40, // Hauteur de l'image
-                                                    tintColor: item?.notifiedBy
-                                                        ? "#00ff37"
-                                                        : "gray", // Applique la couleur dynamique
-                                                }}
-                                            />
-                                        </TouchableOpacity>
+                                        />
+                                    </TouchableOpacity>
 
-                                        <TouchableOpacity
-                                            style={styles.iconStyle}
-                                            onPress={() => takePhoto(item.id)}
-                                        >
-                                            <Image
-                                                source={
+                                    <TouchableOpacity
+                                        style={styles.iconStyle}
+                                        onPress={() => takePhoto(item.id)}
+                                    >
+                                        <Image
+                                            source={
+                                                item?.intervention_images
+                                                    ?.length > 0
+                                                    ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
+                                                    : require("../assets/icons/photo.png") // Icône par défaut
+                                            }
+                                            style={{
+                                                width: 40, // Largeur de l'image
+                                                height: 40, // Hauteur de l'image
+                                                tintColor:
                                                     item?.intervention_images
                                                         ?.length > 0
-                                                        ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
-                                                        : require("../assets/icons/photo.png") // Icône par défaut
-                                                }
-                                                style={{
-                                                    width: 40, // Largeur de l'image
-                                                    height: 40, // Hauteur de l'image
-                                                    tintColor:
-                                                        item
-                                                            ?.intervention_images
-                                                            ?.length > 0
-                                                            ? "#5d9cfa"
-                                                            : "black", // Bleu si photo présente, sinon noir
-                                                }}
+                                                        ? "#5d9cfa"
+                                                        : "black", // Bleu si photo présente, sinon noir
+                                            }}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.infoContainer}>
+                                    <Text style={styles.interventionTextBold}>
+                                        Fiche N° : {item.clients.ficheNumber}
+                                    </Text>
+                                    <Text style={styles.interventionTextBold}>
+                                        Client : {item.clients.name}
+                                    </Text>
+                                    <Text style={styles.interventionTextBold}>
+                                        Tel :{" "}
+                                        {item.clients.phone
+                                            ? item.clients.phone.replace(
+                                                  /(\d{2})(?=\d)/g,
+                                                  "$1 "
+                                              )
+                                            : "Téléphone non disponible"}
+                                    </Text>
+
+                                    <Text style={styles.interventionText}>
+                                        Type d'appareil: {item.deviceType}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Marque: {item.brand}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Modèle: {item.model}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Numéro de série: {item.serial_number}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Référence: {item.reference}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Description du problème:{" "}
+                                        {item.description}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Chargeur:{" "}
+                                        {item.chargeur ? "Oui" : "Non"}
+                                    </Text>
+                                    <Text style={styles.interventionTextBold}>
+                                        Coût: {item.cost} €
+                                    </Text>
+
+                                    <Text
+                                        style={[
+                                            styles.interventionText,
+                                            item.paymentStatus === "solde"
+                                                ? styles.interventionTextSolde
+                                                : styles.interventionTextNon,
+                                        ]}
+                                    >
+                                        Etat du règlement: {item.paymentStatus}
+                                    </Text>
+                                    {item.paymentStatus ===
+                                        "reglement_partiel" &&
+                                        item.partialPayment && (
+                                            <Text
+                                                style={styles.interventionText}
+                                            >
+                                                Acompte de:{" "}
+                                                {item.partialPayment} €
+                                            </Text>
+                                        )}
+                                    <Text style={styles.interventionTextReste}>
+                                        Montant restant dû:{" "}
+                                        {item.solderestant !== null
+                                            ? `${item.solderestant}€`
+                                            : item.cost -
+                                              (item.partialPayment || 0) +
+                                              "€"}
+                                    </Text>
+
+                                    <Text style={styles.interventionText}>
+                                        Statut: {item.status}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Commande: {item.commande}
+                                    </Text>
+                                    <Text style={styles.interventionText}>
+                                        Date:{" "}
+                                        {new Date(
+                                            item.createdAt
+                                        ).toLocaleDateString("fr-FR")}
+                                    </Text>
+
+                                    <TextInput
+                                        style={styles.detailInput}
+                                        placeholderTextColor="#888787"
+                                        placeholder="Entrez les détails ici..."
+                                        value={
+                                            editingDetail[item.id] ??
+                                            item.detailIntervention ??
+                                            ""
+                                        } // ✅ Met à jour immédiatement
+                                        onChangeText={(text) =>
+                                            setEditingDetail({
+                                                ...editingDetail,
+                                                [item.id]: text,
+                                            })
+                                        }
+                                    />
+
+                                    <View style={styles.buttonContainer}>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.saveButton,
+                                                {
+                                                    borderWidth: 1, // Ajout d'une bordure
+                                                    borderColor:
+                                                        editingDetail[
+                                                            item.id
+                                                        ] &&
+                                                        editingDetail[
+                                                            item.id
+                                                        ].trim() !== ""
+                                                            ? "#28a745" // Vert si du texte est présent
+                                                            : "#888787", // Gris sinon
+                                                    borderRadius: 2, // Coins arrondis pour un meilleur rendu
+                                                    padding: 10, // Ajout d'un padding pour un meilleur affichage
+                                                },
+                                            ]}
+                                            onPress={() =>
+                                                saveDetailIntervention(item.id)
+                                            }
+                                        >
+                                            <Image
+                                                source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
+                                                style={[
+                                                    styles.buttonIcon,
+                                                    {
+                                                        width: 20,
+                                                        height: 20,
+                                                        tintColor: "#888787",
+                                                    },
+                                                ]}
                                             />
+
+                                            <Text style={styles.buttonText}>
+                                                Sauvegarder les détails
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.restitutionButton,
+                                                !isSaved[item.id] ||
+                                                (!editingDetail[item.id] &&
+                                                    !item.detailIntervention) ||
+                                                item.paymentStatus ===
+                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
+                                                    ? styles.disabledButton
+                                                    : null,
+                                            ]}
+                                            onPress={() =>
+                                                handleRestitution(item)
+                                            }
+                                            disabled={
+                                                !isSaved[item.id] ||
+                                                (!editingDetail[item.id] &&
+                                                    !item.detailIntervention) ||
+                                                item.paymentStatus ===
+                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
+                                            }
+                                        >
+                                            <Image
+                                                source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
+                                                style={[
+                                                    styles.buttonIcon, // Styles existants
+                                                    {
+                                                        width: 20, // Largeur de l'image
+                                                        height: 20, // Hauteur de l'image
+                                                        tintColor: "#888787", // Couleur de l'image (noir foncé ici)
+                                                    },
+                                                ]}
+                                            />
+
+                                            <Text style={styles.buttonText}>
+                                                Restitution
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={styles.editButton}
+                                            onPress={() =>
+                                                navigation.navigate(
+                                                    "EditIntervention",
+                                                    {
+                                                        interventionId: item.id,
+                                                        clientId:
+                                                            item.client_id,
+                                                    }
+                                                )
+                                            }
+                                        >
+                                            <Image
+                                                source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
+                                                style={[
+                                                    styles.buttonIcon, // Styles existants
+                                                    {
+                                                        width: 20, // Largeur de l'image
+                                                        height: 20, // Hauteur de l'image
+                                                        tintColor: "#888787", // Couleur de l'image (noir foncé ici)
+                                                    },
+                                                ]}
+                                            />
+
+                                            <Text style={styles.buttonText}>
+                                                Éditer la fiche
+                                            </Text>
                                         </TouchableOpacity>
                                     </View>
-                                    <View style={styles.infoContainer}>
-                                        <Text
-                                            style={styles.interventionTextBold}
-                                        >
-                                            Fiche N° :{" "}
-                                            {item.clients.ficheNumber}
-                                        </Text>
-                                        <Text
-                                            style={styles.interventionTextBold}
-                                        >
-                                            Client : {item.clients.name}
-                                        </Text>
-                                        <Text
-                                            style={styles.interventionTextBold}
-                                        >
-                                            Tel :{" "}
-                                            {item.clients.phone
-                                                ? item.clients.phone.replace(
-                                                      /(\d{2})(?=\d)/g,
-                                                      "$1 "
-                                                  )
-                                                : "Téléphone non disponible"}
-                                        </Text>
 
-                                        <Text style={styles.interventionText}>
-                                            Type d'appareil: {item.deviceType}
-                                        </Text>
-                                        <Text style={styles.interventionText}>
-                                            Marque: {item.brand}
-                                        </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Modèle: {item.model}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Numéro de série:{" "}
-                                                    {item.serial_number}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Référence: {item.reference}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Description du problème:{" "}
-                                                    {item.description}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Chargeur:{" "}
-                                                    {item.chargeur
-                                                        ? "Oui"
-                                                        : "Non"}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionTextBold
-                                                    }
-                                                >
-                                                    Coût: {item.cost} €
-                                                </Text>
-
-                                                <Text
-                                                    style={[
-                                                        styles.interventionText,
-                                                        item.paymentStatus ===
-                                                        "solde"
-                                                            ? styles.interventionTextSolde
-                                                            : styles.interventionTextNon,
-                                                    ]}
-                                                >
-                                                    Etat du règlement:{" "}
-                                                    {item.paymentStatus}
-                                                </Text>
-                                                {item.paymentStatus ===
-                                                    "reglement_partiel" &&
-                                                    item.partialPayment && (
-                                                        <Text
-                                                            style={
-                                                                styles.interventionText
-                                                            }
-                                                        >
-                                                            Acompte de:{" "}
-                                                            {
-                                                                item.partialPayment
-                                                            }{" "}
-                                                            €
-                                                        </Text>
-                                                    )}
-													<Text style={styles.interventionTextReste}>
-    Montant restant dû:{" "}
-    {item.solderestant !== null
-        ? `${item.solderestant}€`
-        : item.cost - (item.partialPayment || 0) + "€"}
-</Text>
-
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Statut: {item.status}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Commande: {item.commande}
-                                                </Text>
-                                                <Text
-                                                    style={
-                                                        styles.interventionText
-                                                    }
-                                                >
-                                                    Date:{" "}
-                                                    {new Date(
-                                                        item.createdAt
-                                                    ).toLocaleDateString(
-                                                        "fr-FR"
-                                                    )}
-                                                </Text>
-
-												<TextInput
-    style={styles.detailInput}
-    placeholderTextColor="#888787"
-    placeholder="Entrez les détails ici..."
-    value={editingDetail[item.id] ?? item.detailIntervention ?? ""} // ✅ Met à jour immédiatement
-    onChangeText={(text) =>
-        setEditingDetail({
-            ...editingDetail,
-            [item.id]: text,
-        })
-    }
-/>
-
-
-
-
-												<View style={styles.buttonContainer}>
-													<TouchableOpacity
-														style={[
-															styles.saveButton,
-															{
-																borderWidth: 1, // Ajout d'une bordure
-																borderColor:
-																	editingDetail[item.id] &&
-																	editingDetail[item.id].trim() !== ""
-																		? "#28a745" // Vert si du texte est présent
-																		: "#888787", // Gris sinon
-																borderRadius: 2, // Coins arrondis pour un meilleur rendu
-																padding: 10, // Ajout d'un padding pour un meilleur affichage
-															},
-														]}
-														onPress={() => saveDetailIntervention(item.id)}
-													>
-														<Image
-															source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
-															style={[
-																styles.buttonIcon,
-																{
-																	width: 20,
-																	height: 20,
-																	tintColor: "#888787",
-																},
-															]}
-														/>
-
-														<Text style={styles.buttonText}>Sauvegarder les détails</Text>
-													</TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        style={[
-                                                            styles.restitutionButton,
-                                                            !isSaved[item.id] ||
-                                                            (!editingDetail[
-                                                                item.id
-                                                            ] &&
-                                                                !item.detailIntervention) ||
-                                                            item.paymentStatus ===
-                                                                "non_regle" // Désactiver si le paiement n'est pas réglé
-                                                                ? styles.disabledButton
-                                                                : null,
-                                                        ]}
-                                                        onPress={() =>
-                                                            handleRestitution(
-                                                                item
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            !isSaved[item.id] ||
-                                                            (!editingDetail[
-                                                                item.id
-                                                            ] &&
-                                                                !item.detailIntervention) ||
-                                                            item.paymentStatus ===
-                                                                "non_regle" // Désactiver si le paiement n'est pas réglé
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
-                                                            style={[
-                                                                styles.buttonIcon, // Styles existants
-                                                                {
-                                                                    width: 20, // Largeur de l'image
-                                                                    height: 20, // Hauteur de l'image
-                                                                    tintColor:
-                                                                        "#888787", // Couleur de l'image (noir foncé ici)
-                                                                },
-                                                            ]}
-                                                        />
-
-                                                        <Text
-                                                            style={
-                                                                styles.buttonText
-                                                            }
-                                                        >
-                                                            Restitution
-                                                        </Text>
-                                                    </TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        style={
-                                                            styles.editButton
-                                                        }
-                                                        onPress={() =>
-                                                            navigation.navigate(
-                                                                "EditIntervention",
-                                                                {
-                                                                    interventionId:
-                                                                        item.id,
-                                                                    clientId:
-                                                                        item.client_id,
-                                                                }
-                                                            )
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
-                                                            style={[
-                                                                styles.buttonIcon, // Styles existants
-                                                                {
-                                                                    width: 20, // Largeur de l'image
-                                                                    height: 20, // Hauteur de l'image
-                                                                    tintColor:
-                                                                        "#888787", // Couleur de l'image (noir foncé ici)
-                                                                },
-                                                            ]}
-                                                        />
-
-                                                        <Text
-                                                            style={
-                                                                styles.buttonText
-                                                            }
-                                                        >
-                                                            Éditer la fiche
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                </View>
-
-                                                {item.intervention_images &&
-                                                    item.intervention_images
-                                                        .length > 0 && (
+                                    {item.intervention_images &&
+                                        item.intervention_images.length > 0 && (
+                                            <View style={styles.imageContainer}>
+                                                {item.intervention_images.map(
+                                                    (image, index) => (
                                                         <View
+                                                            key={index}
                                                             style={
-                                                                styles.imageContainer
+                                                                styles.imageWrapper
                                                             }
                                                         >
-                                                            {item.intervention_images.map(
-                                                                (
-                                                                    image,
-                                                                    index
-                                                                ) => (
-                                                                    <View
-                                                                        key={
-                                                                            index
-                                                                        }
-                                                                        style={
-                                                                            styles.imageWrapper
-                                                                        }
-                                                                    >
-                                                                        <TouchableOpacity
-                                                                            onPress={() =>
-                                                                                openImageModal(
-                                                                                    `data:image/jpeg;base64,${image.image_data}`,
-                                                                                    image.id,
-                                                                                    item.id
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <Image
-                                                                                source={{
-                                                                                    uri: `data:image/jpeg;base64,${image.image_data}`,
-                                                                                }}
-                                                                                style={
-                                                                                    styles.imageThumbnail
-                                                                                }
-                                                                            />
-                                                                        </TouchableOpacity>
-                                                                        <TouchableOpacity
-                                                                            style={
-                                                                                styles.deleteIcon
-                                                                            }
-                                                                            onPress={() =>
-                                                                                deleteImage(
-                                                                                    image.id,
-                                                                                    item.id
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <Image
-                                                                                source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
-                                                                                style={{
-                                                                                    width: 20, // Largeur de l'image
-                                                                                    height: 20, // Hauteur de l'image
-                                                                                    tintColor:
-                                                                                        "red", // Applique la couleur rouge
-                                                                                }}
-                                                                            />
-                                                                        </TouchableOpacity>
-                                                                    </View>
-                                                                )
-                                                            )}
+                                                            <TouchableOpacity
+                                                                onPress={() =>
+                                                                    openImageModal(
+                                                                        `data:image/jpeg;base64,${image.image_data}`,
+                                                                        image.id,
+                                                                        item.id
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Image
+                                                                    source={{
+                                                                        uri: `data:image/jpeg;base64,${image.image_data}`,
+                                                                    }}
+                                                                    style={
+                                                                        styles.imageThumbnail
+                                                                    }
+                                                                />
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity
+                                                                style={
+                                                                    styles.deleteIcon
+                                                                }
+                                                                onPress={() =>
+                                                                    deleteImage(
+                                                                        image.id,
+                                                                        item.id
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Image
+                                                                    source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
+                                                                    style={{
+                                                                        width: 20, // Largeur de l'image
+                                                                        height: 20, // Hauteur de l'image
+                                                                        tintColor:
+                                                                            "red", // Applique la couleur rouge
+                                                                    }}
+                                                                />
+                                                            </TouchableOpacity>
                                                         </View>
-                                                    )}
-                                         
-                                      
-                                    </View>
-									
+                                                    )
+                                                )}
+                                            </View>
+                                        )}
                                 </View>
-								<TouchableOpacity
-    style={styles.modernBackButton}
-    onPress={() => navigation.navigate("RepairedInterventionsListPage")}
->
-    <Image
-        source={require("../assets/icons/chevrong.png")} // Remplace par une icône de flèche plus moderne
-        style={styles.backIcon}
-    />
-    <Text style={styles.backButtonText}>Retour</Text>
-</TouchableOpacity>
-
-                            </TouchableOpacity>
-                        )}
-                    />
-                </View>
-                <BottomNavigation
-                    navigation={navigation}
-                    currentRoute={route.name}
-                />
-                <Modal
-                    visible={isModalVisible}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={closeImageModal}
-                >
-                    <View style={styles.modalOverlay}>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={closeImageModal}
-                        >
-                            <Ionicons
-                                name="close-circle"
-                                size={40}
-                                color="white"
-                            />
-                        </TouchableOpacity>
-                        {selectedImage && (
-                            <>
-                                <Image
-                                    source={{ uri: selectedImage.uri }}
-                                    style={styles.fullscreenImage}
-                                />
-                                <TouchableOpacity
-                                    style={styles.deleteButton}
-                                    onPress={() => {
-                                        deleteImage(
-                                            selectedImage.id,
-                                            selectedImage.interventionId
-                                        );
-                                        closeImageModal();
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="trash"
-                                        size={30}
-                                        color="white"
-                                    />
-                                    <Text style={styles.deleteButtonText}>
-                                        Supprimer
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </View>
-                </Modal>
-
-				<Modal
-    transparent={true}
-    visible={photoAlertVisible}
-    animationType="fade"
-    onRequestClose={() => setPhotoAlertVisible(false)}
->
-    <View style={styles.modalOverlay}>
-        <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>Aucune photo prise</Text>
-            <Text style={styles.alertMessage}>
-                Veuillez prendre une photo avant de procéder à la restitution.
-            </Text>
-            <TouchableOpacity
-                style={styles.button}
-                onPress={() => setPhotoAlertVisible(false)}
-            >
-                <Text style={styles.buttonTextSms}>OK</Text>
-            </TouchableOpacity>
-
-      
-			<TouchableOpacity
-    style={[styles.button, { backgroundColor: "gray", marginTop: 10 }]}
-    onPress={() => {
-        // Vérifie si une intervention est sélectionnée
-        if (selectedInterventionId) {
-            setNoPhotoRequired((prev) => ({
-                ...prev,
-                [selectedInterventionId]: true, // Marque cette intervention comme "Pas de photo nécessaire"
-            }));
-
-            setPhotoAlertVisible(false); // Ferme la modale
-
-            // Trouver l'intervention correspondante
-            const intervention = repairedInterventions.find(
-                (item) => item.id === selectedInterventionId
-            );
-
-            if (intervention) {
-                // Attendre un instant pour que la modale se ferme avant de naviguer
-                setTimeout(() => {
-                    navigation.navigate("SignaturePage", {
-                        interventionId: intervention.id,
-                        clientId: intervention.client_id,
-                    });
-                }, 300); // Petit délai pour éviter les bugs d'affichage
-            }
-        }
-    }}
->
-    <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
-</TouchableOpacity>
-
-
-        </View>
-    </View>
-</Modal>
-
-                <Modal
-                    transparent={true}
-                    visible={notifyModalVisible}
-                    animationType="fade"
-                    onRequestClose={() => setNotifyModalVisible(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.alertBox}>
-                            <Text style={styles.alertTitle}>
-                                Notifier le client
-                            </Text>
-                            <View style={styles.modalButtonRow}>
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={() =>
-                                        updateClientNotification(
-                                            selectedInterventionId,
-                                            "SMS"
-                                        )
-                                    }
-                                >
-                                    <Text style={styles.buttonTextSms}>
-                                        SMS
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={() =>
-                                        updateClientNotification(
-                                            selectedInterventionId,
-                                            "Téléphone"
-                                        )
-                                    }
-                                >
-                                    <Text style={styles.buttonTextSms}>
-                                        Téléphone
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={() => setNotifyModalVisible(false)}
-                                >
-                                    <Text style={styles.buttonTextSms}>
-                                        Annuler
-                                    </Text>
-                                </TouchableOpacity>
                             </View>
+                            <TouchableOpacity
+                                style={styles.modernBackButton}
+                                onPress={() =>
+                                    navigation.navigate(
+                                        "RepairedInterventionsListPage"
+                                    )
+                                }
+                            >
+                                <Image
+                                    source={require("../assets/icons/chevrong.png")} // Remplace par une icône de flèche plus moderne
+                                    style={styles.backIcon}
+                                />
+                                <Text style={styles.backButtonText}>
+                                    Retour
+                                </Text>
+                            </TouchableOpacity>
+                        </TouchableOpacity>
+                    )}
+                />
+            </View>
+            <BottomNavigation
+                navigation={navigation}
+                currentRoute={route.name}
+            />
+            <Modal
+                visible={isModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={closeImageModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={closeImageModal}
+                    >
+                        <Ionicons name="close-circle" size={40} color="white" />
+                    </TouchableOpacity>
+                    {selectedImage && (
+                        <>
+                            <Image
+                                source={{ uri: selectedImage.uri }}
+                                style={styles.fullscreenImage}
+                            />
+                            <TouchableOpacity
+                                style={styles.deleteButton}
+                                onPress={() => {
+                                    deleteImage(
+                                        selectedImage.id,
+                                        selectedImage.interventionId
+                                    );
+                                    closeImageModal();
+                                }}
+                            >
+                                <Ionicons
+                                    name="trash"
+                                    size={30}
+                                    color="white"
+                                />
+                                <Text style={styles.deleteButtonText}>
+                                    Supprimer
+                                </Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            </Modal>
+
+            <Modal
+                transparent={true}
+                visible={photoAlertVisible}
+                animationType="fade"
+                onRequestClose={() => setPhotoAlertVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.alertBox}>
+                        <Text style={styles.alertTitle}>
+                            Aucune photo prise
+                        </Text>
+                        <Text style={styles.alertMessage}>
+                            Veuillez prendre une photo avant de procéder à la
+                            restitution.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.button}
+                            onPress={() => setPhotoAlertVisible(false)}
+                        >
+                            <Text style={styles.buttonTextSms}>OK</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.button,
+                                { backgroundColor: "gray", marginTop: 10 },
+                            ]}
+                            onPress={() => {
+                                // Vérifie si une intervention est sélectionnée
+                                if (selectedInterventionId) {
+                                    setNoPhotoRequired((prev) => ({
+                                        ...prev,
+                                        [selectedInterventionId]: true, // Marque cette intervention comme "Pas de photo nécessaire"
+                                    }));
+
+                                    setPhotoAlertVisible(false); // Ferme la modale
+
+                                    // Trouver l'intervention correspondante
+                                    const intervention =
+                                        repairedInterventions.find(
+                                            (item) =>
+                                                item.id ===
+                                                selectedInterventionId
+                                        );
+
+                                    if (intervention) {
+                                        // Attendre un instant pour que la modale se ferme avant de naviguer
+                                        setTimeout(() => {
+                                            navigation.navigate(
+                                                "SignaturePage",
+                                                {
+                                                    interventionId:
+                                                        intervention.id,
+                                                    clientId:
+                                                        intervention.client_id,
+                                                }
+                                            );
+                                        }, 300); // Petit délai pour éviter les bugs d'affichage
+                                    }
+                                }
+                            }}
+                        >
+                            <Text style={styles.buttonTextSms}>
+                                Pas de photo nécessaire
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                transparent={true}
+                visible={notifyModalVisible}
+                animationType="fade"
+                onRequestClose={() => setNotifyModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.alertBox}>
+                        <Text style={styles.alertTitle}>
+                            Notifier le client
+                        </Text>
+                        <View style={styles.modalButtonRow}>
+                            <TouchableOpacity
+                                style={styles.button}
+                                onPress={() =>
+                                    updateClientNotification(
+                                        selectedInterventionId,
+                                        "SMS"
+                                    )
+                                }
+                            >
+                                <Text style={styles.buttonTextSms}>SMS</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.button}
+                                onPress={() =>
+                                    updateClientNotification(
+                                        selectedInterventionId,
+                                        "Téléphone"
+                                    )
+                                }
+                            >
+                                <Text style={styles.buttonTextSms}>
+                                    Téléphone
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.button}
+                                onPress={() => setNotifyModalVisible(false)}
+                            >
+                                <Text style={styles.buttonTextSms}>
+                                    Annuler
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-                </Modal>
+                </View>
+            </Modal>
 
-                {alertVisible && (
-                    <CustomAlert
-                        title="Alerte"
-                        message={alertMessage}
-                        onClose={closeAlert}
-                    />
-                )}
-            </ImageBackground>
-       
+            {alertVisible && (
+                <CustomAlert
+                    title="Alerte"
+                    message={alertMessage}
+                    onClose={closeAlert}
+                />
+            )}
+        </ImageBackground>
     );
 }
 
@@ -997,8 +923,8 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         backgroundColor: "#191f2f",
         borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
     },
     notificationAndToolsContainer: {
         zIndex: 1,
@@ -1063,8 +989,8 @@ const styles = StyleSheet.create({
         padding: 5,
         alignItems: "center",
         borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
         flexDirection: "row",
         marginRight: 5,
         elevation: 5,
@@ -1076,8 +1002,8 @@ const styles = StyleSheet.create({
         padding: 10,
         backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
         borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#00fd00",
+        borderWidth: 1,
+        borderColor: "#00fd00",
         elevation: 5,
         width: "33%",
     },
@@ -1086,8 +1012,8 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centre l'icône et le texte verticalement
         padding: 10,
         backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
         borderRadius: 2,
         width: "33%",
         elevation: 5,
@@ -1148,9 +1074,9 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         backgroundColor: "#191f2f",
-		borderWidth: 1,
-		borderColor: "#ff1f1f",
-		borderRadius: 2,
+        borderWidth: 1,
+        borderColor: "#ff1f1f",
+        borderRadius: 2,
     },
     alertMessage: {
         fontSize: 16,
@@ -1252,9 +1178,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#191f2f",
         padding: 10,
         marginBottom: 10,
-		borderWidth: 1,
-		borderColor: "#888787",
-		borderRadius: 2,
+        borderWidth: 1,
+        borderColor: "#888787",
+        borderRadius: 2,
     },
     totalText: {
         fontSize: 18,
@@ -1296,16 +1222,16 @@ const styles = StyleSheet.create({
     activePageButtonText: {
         color: "#fff",
     },
-modernBackButton: {
+    modernBackButton: {
         flexDirection: "row",
         alignItems: "center",
-		backgroundColor: "#2b3550",
+        backgroundColor: "#2b3550",
         justifyContent: "center",
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 2, // Coins arrondis
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
         marginVertical: 10,
     },
     backIcon: {

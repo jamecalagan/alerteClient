@@ -285,20 +285,42 @@ const handleSaveIntervention = async () => {
         return;
     }
 
-    // 🔹 Gestion du montant du devis
-    const formattedDevisCost = status === 'Devis en cours' && devisCost
-        ? parseFloat(devisCost)
-        : null; // Mettre null si vide
+// 🔹 Gestion du montant du devis
+const formattedDevisCost = status === 'Devis en cours' && devisCost
+    ? parseFloat(devisCost)
+    : null; // Mettre null si vide
 
-    // 🔹 Calcul du solde restant
-    const solderestant = paymentStatus === 'reglement_partiel'
-        ? parseFloat(cost) - parseFloat(partialPayment || 0)
-        : paymentStatus === 'solde'
-            ? 0
-            : parseFloat(cost);
+// 🔹 Vérification et conversion des valeurs
+const costValue = cost ? parseFloat(cost) : 0; // Assure que cost est un nombre
+const partialPaymentValue = partialPayment ? parseFloat(partialPayment) : 0; // Assure que partialPayment est un nombre
 
-    // 🔹 Convertir `cost` en null si vide pour éviter les erreurs SQL
-    const costValue = cost ? parseFloat(cost) : null;
+// 🔹 Calcul du solde restant dû (assurer qu'il ne soit jamais NULL)
+let solderestant = costValue - partialPaymentValue;
+
+// 🔹 Assurer que solderestant ne soit jamais NULL
+if (isNaN(solderestant) || solderestant < 0) {
+    solderestant = 0; // Si la valeur est invalide ou négative, mettre 0
+}
+
+// 🔹 Vérification avant insertion
+console.log("Coût total :", costValue, "Acompte :", partialPaymentValue, "Solde restant :", solderestant);
+
+const { error } = await supabase
+    .from("interventions")
+    .insert([
+        {
+            cost: costValue,
+            partialPayment: partialPaymentValue,
+            solderestant: solderestant, // S'assurer qu'on envoie bien cette valeur
+            paymentStatus: paymentStatus,
+        }
+    ]);
+
+if (error) {
+    console.error("Erreur lors de l'insertion de l'intervention :", error);
+}
+
+
 
     // 🔹 Création des entrées manquantes (Articles, Marques, Modèles)
     const articleId = await addArticleIfNeeded();

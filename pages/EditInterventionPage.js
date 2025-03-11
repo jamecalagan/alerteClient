@@ -279,10 +279,18 @@ export default function EditInterventionPage({ route, navigation }) {
 		const selectedBrand = brands.find((b) => b.id === brand);
 		const selectedModel = models.find((m) => m.id === model);
 	
-		// Convertir `cost` en null si vide pour éviter l'erreur dans la base de données
-		const costValue = status === "Devis accepté" && devisCost
-    ? parseFloat(devisCost)
-    : cost ? parseFloat(cost) : null;
+		const costValue = parseFloat(cost) || 0;
+		const partialPaymentValue = parseFloat(partialPayment) || 0;
+		
+		// 🔹 Calcul du solde restant dû
+		const solderestantValue = paymentStatus === "reglement_partiel"
+			? Math.max(costValue - partialPaymentValue, 0)  // Évite les valeurs négatives
+			: paymentStatus === "solde"
+			? 0
+			: costValue;  // Si non réglé, le coût total est dû
+		
+		console.log("🔄 Mise à jour - Coût:", costValue, "Acompte:", partialPaymentValue, "Solde restant:", solderestantValue);
+		
 	
 		const updatedIntervention = {
 			deviceType: selectedArticle ? selectedArticle.nom : deviceType,
@@ -294,8 +302,8 @@ export default function EditInterventionPage({ route, navigation }) {
 			reference,
 			description,
 			cost: costValue, // Utiliser `costValue` ici
-			solderestant, // Mise à jour du solde restant
-			partialPayment: partialPayment ? parseFloat(partialPayment) : null, // Ajoute l'acompte
+			solderestant: solderestantValue || 0, // Assure que ce n'est jamais NULL
+			partialPayment: partialPaymentValue || null,
 			status,
 			password,
 			serial_number,

@@ -16,7 +16,7 @@ const SelectInterventionPage = () => {
             try {
                 const { data, error } = await supabase
                     .from("interventions")
-                    .select("id, deviceType, brand, model, createdAt")
+                    .select("id, deviceType, brand, model, createdAt, solderestant")
                     .eq("client_id", clientId);
 
                 if (error) throw error;

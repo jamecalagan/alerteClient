@@ -914,28 +914,39 @@ export default function HomePage({ navigation, route }) {
             toggleMenu(); // Ferme le menu si ouvert
         }
     };
-    const handleLogout = async () => {
-        try {
-            const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
-            if (error) {
-                console.error("Erreur lors de la déconnexion :", error);
-                Alert.alert(
-                    "Erreur",
-                    "Impossible de se déconnecter. Veuillez réessayer."
-                );
-            } else {
-                navigation.dispatch(
-                    CommonActions.reset({
-                        index: 0,
-                        routes: [{ name: "Login" }], // Assurez-vous que "Login" est bien défini dans AuthStack
-                    })
-                );
-            }
-        } catch (err) {
-            console.error("Erreur inattendue lors de la déconnexion :", err);
-            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-        }
-    };
+	
+
+	const handleLogout = async () => {
+		try {
+			console.log("Déconnexion en cours...");
+	
+			const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
+	
+			if (error) {
+				console.error("Erreur lors de la déconnexion :", error);
+				Alert.alert(
+					"Erreur",
+					"Impossible de se déconnecter. Veuillez réessayer."
+				);
+				return;
+			}
+	
+			console.log("Déconnexion réussie ! Redirection vers Login...");
+	
+			// Réinitialiser la navigation
+			navigation.dispatch(
+				CommonActions.reset({
+					index: 0,
+					routes: [{ name: "Login" }],
+				})
+			);
+	
+		} catch (err) {
+			console.error("Erreur inattendue lors de la déconnexion :", err);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+		}
+	};
+	
     const DateDisplay = () => {
         const [currentDate, setCurrentDate] = useState("");
 
@@ -1540,21 +1551,14 @@ export default function HomePage({ navigation, route }) {
                                             scrollEnabled={true}
                                             windowSize={5}
                                             data={paginatedClients}
-											keyExtractor={(item, index) => item.id ? item.id.toString() : index.toString()}
+											keyExtractor={(item) => item.id.toString()}
                                             getItemLayout={(data, index) => ({
                                                 length: 180, // Hauteur de chaque fiche
                                                 offset: 180 * index,
                                                 index,
                                             })}
                                             renderItem={({ item, index }) => {
-                                                <TouchableOpacity
-                                                    onPress={() =>
-                                                        toggleClientExpansion(
-                                                            item.id,
-                                                            index
-                                                        )
-                                                    }
-                                                ></TouchableOpacity>;
+
                                                 const isEven = index % 2 === 0;
                                                 const backgroundColor = isEven
                                                     ? "#f9f9f9"
@@ -1838,42 +1842,42 @@ export default function HomePage({ navigation, route }) {
                                                                             </TouchableOpacity>
                                                                         )}
 																		<TouchableOpacity
-    style={[styles.iconButton, styles.notificationIconContainer]}
-    onPress={() => {
-        setSelectedClient(item); // ✅ Stocke le client sélectionné
-        setSelectedInterventionId(item.latestIntervention?.id || null);
-        setNotifyModalVisible(true);
-    }}
->
-    {latestIntervention?.notifiedBy === "SMS" || item?.orders?.some(order => order.notified === "SMS") ? (
-        <Image
-            source={require("../assets/icons/sms.png")}
-            style={{
-                width: 28,
-                height: 28,
-                tintColor: "#00fd00", // ✅ Vert pour SMS
-            }}
-        />
-    ) : latestIntervention?.notifiedBy === "Téléphone" || item?.orders?.some(order => order.notified === "Téléphone") ? (
-        <Image
-            source={require("../assets/icons/call.png")}
-            style={{
-                width: 28,
-                height: 28,
-                tintColor: "#3c92f5", // ✅ Bleu pour Téléphone
-            }}
-        />
-    ) : (
-        <Image
-            source={require("../assets/icons/notifications_off.png")}
-            style={{
-                width: 28,
-                height: 28,
-                tintColor: "#888787", // ✅ Gris si aucune notification
-            }}
-        />
-    )}
-</TouchableOpacity>
+																			style={[styles.iconButton, styles.notificationIconContainer]}
+																			onPress={() => {
+																				setSelectedClient(item); // ✅ Stocke le client sélectionné
+																				setSelectedInterventionId(item.latestIntervention?.id || null);
+																				setNotifyModalVisible(true);
+																			}}
+																		>
+																			{latestIntervention?.notifiedBy === "SMS" || item?.orders?.some(order => order.notified === "SMS") ? (
+																				<Image
+																					source={require("../assets/icons/sms.png")}
+																					style={{
+																						width: 28,
+																						height: 28,
+																						tintColor: "#00fd00", // ✅ Vert pour SMS
+																					}}
+																				/>
+																			) : latestIntervention?.notifiedBy === "Téléphone" || item?.orders?.some(order => order.notified === "Téléphone") ? (
+																				<Image
+																					source={require("../assets/icons/call.png")}
+																					style={{
+																						width: 28,
+																						height: 28,
+																						tintColor: "#3c92f5", // ✅ Bleu pour Téléphone
+																					}}
+																				/>
+																			) : (
+																				<Image
+																					source={require("../assets/icons/notifications_off.png")}
+																					style={{
+																						width: 28,
+																						height: 28,
+																						tintColor: "#888787", // ✅ Gris si aucune notification
+																					}}
+																				/>
+																			)}
+																		</TouchableOpacity>
 
 
                                                                     <TouchableOpacity
@@ -2152,23 +2156,23 @@ export default function HomePage({ navigation, route }) {
                                                                     </Text>
 
 																	{latestIntervention?.solderestant !== undefined &&
-    latestIntervention?.solderestant > 0 ? (
-        <Text style={styles.clientTextSoldeRestant}>
-            Solde restant dû :{" "}
-            {latestIntervention.solderestant.toLocaleString("fr-FR", {
-                minimumFractionDigits: 2,
-            })}{" "}
-            €
-        </Text>
-    ) : latestIntervention?.cost > 0 ? (
-        <Text style={styles.clientTextSoldeRestant}>
-		Solde restant dû :{" "}
-            {latestIntervention.cost.toLocaleString("fr-FR", {
-                minimumFractionDigits: 2,
-            })}{" "}
-            €
-        </Text>
-    ) : null}
+																		latestIntervention?.solderestant > 0 ? (
+																			<Text style={styles.clientTextSoldeRestant}>
+																				Solde restant dû :{" "}
+																				{latestIntervention.solderestant.toLocaleString("fr-FR", {
+																					minimumFractionDigits: 2,
+																				})}{" "}
+																				€
+																			</Text>
+																		) : latestIntervention?.cost > 0 ? (
+																			<Text style={styles.clientTextSoldeRestant}>
+																			Solde restant dû :{" "}
+																				{latestIntervention.cost.toLocaleString("fr-FR", {
+																					minimumFractionDigits: 2,
+																				})}{" "}
+																				€
+																			</Text>
+																		) : null}
 
 
 
@@ -2702,7 +2706,7 @@ const styles = StyleSheet.create({
     clientCard: {
         padding: 10,
         marginVertical: 5,
-        borderWidth: 1,
+        borderWidth: 3,
         borderTopColor: "#888787",
         borderRightColor: "#888787",
         borderBottomColor: "#888787",

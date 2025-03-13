@@ -41,21 +41,30 @@ const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Onglets principaux
-function MainTabs({ navigation }) {
-    const handleLogout = async () => {
+function MainTabs({ navigation, setUser }) {
+	const handleLogout = async () => {
 		try {
-		  const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur de Supabase
-		  if (error) {
-			console.error('Erreur lors de la déconnexion :', error);
-			Alert.alert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
-		  } else {
-			navigation.replace('Login'); // Redirige vers l'écran de connexion
-		  }
+			console.log("Déconnexion en cours...");
+	
+			const { error } = await supabase.auth.signOut();
+			if (error) {
+				console.error("Erreur lors de la déconnexion :", error);
+				Alert.alert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
+				return;
+			}
+	
+			console.log("Déconnexion réussie ! Bascule vers AuthStack...");
+	
+			// ✅ Supprime toute tentative de `navigation.reset()` et utilise `setUser(null)`
+			setUser(null);
+	
 		} catch (err) {
-		  console.error('Erreur inattendue lors de la déconnexion :', err);
-		  Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+			console.error("Erreur inattendue lors de la déconnexion :", err);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
 		}
-	  };
+	};
+	
+	
 	  
 	  const confirmLogout = () => {
 		Alert.alert(
@@ -183,7 +192,7 @@ function MainTabs({ navigation }) {
       tabBarButton: (props) => (
         <TouchableOpacity
           {...props}
-          onPress={() => confirmLogout()} // Affiche l'alerte de confirmation
+          onPress={confirmLogout} // ✅ Correct
         />
       ),
     }}
@@ -268,7 +277,7 @@ export default function App() {
     return (
         <NavigationContainer>
 		 <StatusBar backgroundColor="#000" barStyle="light-content" />
-            {user ? <MainStack /> : <AuthStack />}
+		 {user ? <MainStack setUser={setUser} /> : <AuthStack />}
         </NavigationContainer>
     );
 }

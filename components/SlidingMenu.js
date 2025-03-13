@@ -42,10 +42,8 @@ export default function SlidingMenu({
    >
 	   <Text style={styles.drawerTitle}>Menu</Text>
    
-	   {/* Liens de navigation */}
 	   <Text style={styles.sectionTitle}>Navigation</Text>
-   
-	   {/* Accueil */}
+
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {
@@ -65,7 +63,7 @@ export default function SlidingMenu({
 		   <Text style={styles.drawerItemText}>ACCUEIL</Text>
 	   </TouchableOpacity>
    
-	   {/* Ajouter Client */}
+	
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {
@@ -85,7 +83,7 @@ export default function SlidingMenu({
 		   <Text style={styles.drawerItemText}>AJOUTER CLIENT</Text>
 	   </TouchableOpacity>
    
-	   {/* Réparé */}
+	
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {
@@ -104,7 +102,7 @@ export default function SlidingMenu({
 		   />
 		   <Text style={styles.drawerItemText}>RÉPARÉS</Text>
 	   </TouchableOpacity>
-	   {/* Réparé */}
+	
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {
@@ -123,7 +121,7 @@ export default function SlidingMenu({
 		   />
 		   <Text style={styles.drawerItemText}>RESTITUÉS</Text>
 	   </TouchableOpacity>
-	   {/* Administration */}
+	
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {
@@ -143,7 +141,7 @@ export default function SlidingMenu({
 		   <Text style={styles.drawerItemText}>ADMINISTRATION</Text>
 	   </TouchableOpacity>
    
-	   {/* Déconnexion */}
+	
 	   <TouchableOpacity
 		   style={styles.drawerItem}
 		   onPress={() => {

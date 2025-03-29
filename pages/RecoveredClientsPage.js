@@ -179,7 +179,9 @@ export default function RecoveredClientsPage({ navigation, route }) {
             case "Joystick":
                 return require("../assets/icons/joystick.png");
             case "Processeur":
-                return require("../assets/icons/cpu.png");
+                return require("../assets/icons/Vga_card.png");
+			case "Carte graphique":
+					return require("../assets/icons/cpu.png");
             default:
                 return require("../assets/icons/point-dinterrogation.png");
         }

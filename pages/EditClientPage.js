@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text, Image } from 'react-native';
+import React, { useState, useEffect, useRef, } from 'react';
+import { View, TextInput, StyleSheet, TouchableOpacity, FlatList, Text, Image, Animated, Easing  } from 'react-native';
 import { supabase } from '../supabaseClient'; // Import du client Supabase
 
 import AlertBox from '../components/AlertBox'; // Import du composant AlertBox
@@ -12,9 +12,45 @@ export default function EditClientPage({ route, navigation }) {
   const [name, setName] = useState(client.name || '');
   const [phone, setPhone] = useState(client.phone || '');
   const [email, setEmail] = useState(client.email || ''); // Ajoute l'état pour l'email
+  const [etiquetteImprimee, setEtiquetteImprimee] = useState(false);
 
   const [interventions, setInterventions] = useState(client.interventions || []);
-
+  const BlinkingIcon = ({ source }) => {
+	const opacity = useRef(new Animated.Value(1)).current;
+  
+	useEffect(() => {
+	  const loop = Animated.loop(
+		Animated.sequence([
+		  Animated.timing(opacity, {
+			toValue: 0,
+			duration: 500,
+			useNativeDriver: true,
+			easing: Easing.linear,
+		  }),
+		  Animated.timing(opacity, {
+			toValue: 1,
+			duration: 500,
+			useNativeDriver: true,
+			easing: Easing.linear,
+		  }),
+		])
+	  );
+	  loop.start();
+	  return () => loop.stop();
+	}, []);
+  
+	return (
+	  <Animated.Image
+		source={source}
+		style={{
+		  width: 28,
+		  height: 28,
+		  tintColor: "#f54242",
+		  opacity,
+		}}
+	  />
+	);
+  };
   // États pour gérer l'affichage de l'alerte
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
@@ -35,29 +71,57 @@ export default function EditClientPage({ route, navigation }) {
   }, [navigation]);
 
   const loadClientData = async () => {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*, interventions(*)')  
-      .eq('id', client.id);
-    if (error) {
-      showAlert('Erreur', 'Erreur lors du chargement du client');
-      return;
-    }
-
-    if (data && data.length > 0) {
-      const updatedClient = data[0];
-
-     
-      const filteredInterventions = updatedClient.interventions.filter(
-        (intervention) => intervention.status !== 'Récupéré'
-      );
-
-      setName(updatedClient.name);
-      setPhone(updatedClient.phone);
-      setInterventions(filteredInterventions || []); 
+	const { data, error } = await supabase
+	  .from("clients")
+	  .select(`
+		*,
+		interventions(
+		  id,
+		  status,
+		  deviceType,
+		  brand,
+		  model,
+		  cost,
+		  solderestant,
+		  createdAt,
+		  updatedAt,
+		  commande,
+		  photos,
+		  notifiedBy,
+		  accept_screen_risk,
+		  devis_cost,
+		  imprimee,
+		  print_etiquette
+		)
+	  `)
+	  .eq("id", client.id);
+  
+	  if (error) {
+		
+		showAlert('Erreur', 'Erreur lors du chargement du client');
+		return;
+	  }
 	  
-    }
+  
+	if (data && data.length > 0) {
+	  const updatedClient = data[0];
+  
+	  const filteredInterventions = updatedClient.interventions.filter(
+		(intervention) => intervention.status !== "Récupéré"
+	  );
+  
+	  setName(updatedClient.name);
+	  setPhone(updatedClient.phone);
+	  setInterventions(filteredInterventions || []);
+  
+	  // ✅ Met à jour l’état local pour gérer le clignotement
+	  const anyNotPrinted = (filteredInterventions || []).some(
+		(i) => !i.print_etiquette
+	  );
+	  setEtiquetteImprimee(!anyNotPrinted); // false = clignote
+	}
   };
+  
 
   const handleSaveClient = async () => {
     if (!name || !phone) {
@@ -206,11 +270,22 @@ export default function EditClientPage({ route, navigation }) {
 		  </html>
 		`;
   
-		// Imprime chaque fiche individuellement
 		await Print.printAsync({ html: htmlContent });
+
+		// ✅ Marque cette intervention comme imprimée (étiquette)
+		if (!intervention.print_etiquette) {
+		  await supabase
+			.from("interventions")
+			.update({ print_etiquette: true })
+			.eq("id", intervention.id);
+		}
 	  }
+  
+	  // Recharge les données pour mettre à jour les états
+	  await loadClientData();
+  
 	} catch (error) {
-	  console.error('Erreur lors de l\'impression :', error);
+	  console.error("Erreur lors de l'impression :", error);
 	}
   };
   
@@ -348,16 +423,26 @@ export default function EditClientPage({ route, navigation }) {
     />
 </TouchableOpacity>
 
-			  <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
+<TouchableOpacity
+  style={styles.printButton}
+  onPress={handlePrint}
+>
+  {!etiquetteImprimee ? (
+    <BlinkingIcon source={require("../assets/icons/print.png")} />
+  ) : (
     <Image
-        source={require("../assets/icons/print.png")} // Chemin vers votre image
-        style={{
-            width: 28, // Largeur de l'image
-            height: 28, // Hauteur de l'image
-            tintColor: "#888787", // Couleur de l'image
-        }}
+      source={require("../assets/icons/print.png")}
+      style={{
+        width: 28,
+        height: 28,
+        tintColor: "#888787",
+      }}
     />
+  )}
 </TouchableOpacity>
+
+
+
 
             </TouchableOpacity>
 			

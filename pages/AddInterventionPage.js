@@ -392,14 +392,44 @@ if (error) {
             </Text>
         )}
       <ScrollView>
-	  <Text style={styles.label}>Type de produit</Text>
-                <Picker selectedValue={deviceType} style={styles.input} onValueChange={handleDeviceTypeChange}>
-                    <Picker.Item label="Sélectionnez un type de produit..." value="default" />
-                    {products.map((product) => (
-                        <Picker.Item key={product.id} label={product.nom} value={product.nom} />
-                    ))}
-                    <Picker.Item label="Autre" value="Autre" />
-                </Picker>
+{/* TYPE DE PRODUIT */}
+<Text style={styles.label}>Type de produit</Text>
+<View style={styles.buttonGroup}>
+  {products
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+    .map((product) => (
+      <TouchableOpacity
+        key={product.id}
+        style={[
+          styles.selectionButton,
+          deviceType === product.nom && styles.selectedButton
+        ]}
+        onPress={() => handleDeviceTypeChange(product.nom)}
+      >
+        <Text style={styles.selectionText}>{product.nom}</Text>
+      </TouchableOpacity>
+    ))}
+  <TouchableOpacity
+    style={[
+      styles.selectionButton,
+      deviceType === 'Autre' && styles.selectedButton
+    ]}
+    onPress={() => handleDeviceTypeChange('Autre')}
+  >
+    <Text style={styles.selectionText}>Autre</Text>
+  </TouchableOpacity>
+</View>
+{deviceType === 'Autre' && (
+  <TextInput
+    style={styles.input}
+    placeholder="Entrez le type de produit"
+    placeholderTextColor="#191f2f"
+    value={customDeviceType}
+    onChangeText={setCustomDeviceType}
+  />
+)}
+
+
                 {deviceType === 'Autre' && (
                     <TextInput
                         style={styles.input}
@@ -411,43 +441,79 @@ if (error) {
                 )}
 
        
-		<Text style={styles.label}>Marque</Text>
-                <Picker selectedValue={brand} style={styles.input} onValueChange={handleBrandChange}>
-                    <Picker.Item label="Sélectionnez une marque..." value="" />
-					{brands
-        .sort((a, b) => a.nom.localeCompare(b.nom)) // Tri alphabétique
-        .map((brandOption) => (
-                        <Picker.Item key={brandOption.id} label={brandOption.nom} value={brandOption.id} />
-                    ))}
-                    <Picker.Item label="Autre" value="Autre" />
-                </Picker>
-                {brand === 'Autre' && (
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Entrez la marque"
-                        value={customBrand}
-                        onChangeText={setCustomBrand}
-                    />
-                )}
+{/* MARQUE */}
+<Text style={styles.label}>Marque</Text>
+<View style={styles.buttonGroup}>
+  {brands
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+    .map((brandOption) => (
+      <TouchableOpacity
+        key={brandOption.id}
+        style={[
+          styles.selectionButton,
+          brand === brandOption.id && styles.selectedButton
+        ]}
+        onPress={() => handleBrandChange(brandOption.id)}
+      >
+        <Text style={styles.selectionText}>{brandOption.nom}</Text>
+      </TouchableOpacity>
+    ))}
+  <TouchableOpacity
+    style={[
+      styles.selectionButton,
+      brand === 'Autre' && styles.selectedButton
+    ]}
+    onPress={() => handleBrandChange('Autre')}
+  >
+    <Text style={styles.selectionText}>Autre</Text>
+  </TouchableOpacity>
+</View>
+{brand === 'Autre' && (
+  <TextInput
+    style={styles.input}
+    placeholder="Entrez la marque"
+    value={customBrand}
+    onChangeText={setCustomBrand}
+  />
+)}
 
-		<Text style={styles.label}>Modèle</Text>
-                <Picker selectedValue={model} style={styles.input} onValueChange={(itemValue) => setModel(itemValue)}>
-                    <Picker.Item label="Sélectionnez un modèle..." value="" />
-					{models
-        .sort((a, b) => a.nom.localeCompare(b.nom)) // Tri alphabétique
-        .map((modelOption) => (
-                        <Picker.Item key={modelOption.id} label={modelOption.nom} value={modelOption.id} />
-                    ))}
-                    <Picker.Item label="Autre" value="Autre" />
-                </Picker>
-                {model === 'Autre' && (
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Entrez le modèle"
-                        value={customModel}
-                        onChangeText={setCustomModel}
-                    />
-                )}
+
+{/* MODÈLE */}
+<Text style={styles.label}>Modèle</Text>
+<View style={styles.buttonGroup}>
+  {models
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+    .map((modelOption) => (
+      <TouchableOpacity
+        key={modelOption.id}
+        style={[
+          styles.selectionButton,
+          model === modelOption.id && styles.selectedButton
+        ]}
+        onPress={() => setModel(modelOption.id)}
+      >
+        <Text style={styles.selectionText}>{modelOption.nom}</Text>
+      </TouchableOpacity>
+    ))}
+  <TouchableOpacity
+    style={[
+      styles.selectionButton,
+      model === 'Autre' && styles.selectedButton
+    ]}
+    onPress={() => setModel('Autre')}
+  >
+    <Text style={styles.selectionText}>Autre</Text>
+  </TouchableOpacity>
+</View>
+{model === 'Autre' && (
+  <TextInput
+    style={styles.input}
+    placeholder="Entrez le modèle"
+    value={customModel}
+    onChangeText={setCustomModel}
+  />
+)}
+
 
 
   <View style={styles.referenceContainer}>
@@ -977,6 +1043,36 @@ interventionText:{
 	marginBottom: 15,
 	width: "90%",
 	alignSelf: "center",
-}
+},
+buttonGroup: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  marginBottom: 20,
+  gap: 10,
+},
+
+selectionButton: {
+  borderWidth: 1,
+  borderColor: '#888787',
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  borderRadius: 4,
+  backgroundColor: '#191f2f',
+  margin: 5,
+},
+
+selectedButton: {
+  borderRadius: 4,
+  borderWidth: 2,
+  borderColor: '#30af0a',
+},
+
+selectionText: {
+  color: '#ffffff',
+  fontWeight: 'bold',
+  fontSize: 14,
+},
+
 
 });

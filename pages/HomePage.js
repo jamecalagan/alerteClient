@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback  } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
     View,
     Text,
@@ -14,6 +14,7 @@ import {
     Animated,
     TouchableWithoutFeedback,
     StatusBar,
+    Easing,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect, CommonActions } from "@react-navigation/native";
@@ -48,7 +49,79 @@ export default function HomePage({ navigation, route }) {
         orders.some(
             (order) => order.client_id === String(item.id) && !order.paid
         );
-		const [selectedClient, setSelectedClient] = useState(null);
+    const [selectedClient, setSelectedClient] = useState(null);
+    const BlinkingIcon = ({ source }) => {
+        const opacity = useRef(new Animated.Value(1)).current;
+
+        useEffect(() => {
+            const loop = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(opacity, {
+                        toValue: 0,
+                        duration: 500,
+                        useNativeDriver: true,
+                        easing: Easing.linear,
+                    }),
+                    Animated.timing(opacity, {
+                        toValue: 1,
+                        duration: 500,
+                        useNativeDriver: true,
+                        easing: Easing.linear,
+                    }),
+                ])
+            );
+            loop.start();
+            return () => loop.stop();
+        }, []);
+
+        return (
+            <Animated.Image
+                source={source}
+                style={{
+                    width: 28,
+                    height: 28,
+                    tintColor: "#f54242", // 🔴 rouge pour attirer l’attention
+                    opacity: opacity,
+                }}
+            />
+        );
+    };
+    const BlinkingIconBlue = ({ source }) => {
+        const opacity = useRef(new Animated.Value(1)).current;
+
+        useEffect(() => {
+            const loop = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(opacity, {
+                        toValue: 0,
+                        duration: 500,
+                        useNativeDriver: true,
+                        easing: Easing.linear,
+                    }),
+                    Animated.timing(opacity, {
+                        toValue: 1,
+                        duration: 500,
+                        useNativeDriver: true,
+                        easing: Easing.linear,
+                    }),
+                ])
+            );
+            loop.start();
+            return () => loop.stop();
+        }, []);
+
+        return (
+            <Animated.Image
+                source={source}
+                style={{
+                    width: 28,
+                    height: 28,
+                    tintColor: "#00BFFF", // 🔵 BLEU électrique
+                    opacity,
+                }}
+            />
+        );
+    };
 
     const [expandedClientId, setExpandedClientId] = useState(null);
     const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
@@ -255,61 +328,75 @@ export default function HomePage({ navigation, route }) {
     };
 
     const eligibleInterventions = []; // File d'attente des fiches à traiter
-	const updateClientNotification = async (client, method) => {
-		try {
-			if (!client || !client.id) {
-				console.warn("⚠ Aucun client valide sélectionné pour la mise à jour.", client);
-				return;
-			}
-	
-			let error;
-			let hasUpdated = false; // Vérifier si une mise à jour a été effectuée
-	
-			console.log("🔍 Client trouvé :", client);
-	
-			// Vérifier si le client a une intervention en cours
-			if (client.interventions && client.interventions.length > 0) {
-				const latestIntervention = client.interventions[0]; // Prendre la plus récente
-				console.log("📌 Mise à jour de l'intervention :", latestIntervention.id);
-	
-				({ error } = await supabase
-					.from("interventions")
-					.update({ notifiedBy: method })
-					.eq("id", latestIntervention.id));
-	
-				hasUpdated = true;
-			} 
-			// Sinon, si le client a une commande
-			else if (client.orders && client.orders.length > 0) {
-				const latestOrder = client.orders[0]; // Prendre la plus récente
-				console.log("📌 Mise à jour de la commande :", latestOrder.id);
-	
-				({ error } = await supabase
-					.from("orders")
-					.update({ notified: method }) // ✅ Ajoute la mise à jour
-					.eq("id", latestOrder.id));
-	
-				hasUpdated = true;
-			}
-	
-			if (error) {
-				console.error("❌ Erreur lors de la mise à jour de la notification :", error);
-				return;
-			}
-	
-			if (hasUpdated) {
-				await loadClients(); // 🔄 Rafraîchir la liste des clients après mise à jour
-				setNotifyModalVisible(false); // ✅ Ferme la modale après mise à jour
-				console.log(`✅ Notification mise à jour pour ${client.name} : ${method}`);
-			} else {
-				console.warn("⚠ Aucune mise à jour effectuée (ni intervention ni commande trouvée).");
-			}
-		} catch (error) {
-			console.error("❌ Erreur lors de la mise à jour de la notification :", error);
-		}
-	};
-	
-	
+    const updateClientNotification = async (client, method) => {
+        try {
+            if (!client || !client.id) {
+                console.warn(
+                    "⚠ Aucun client valide sélectionné pour la mise à jour.",
+                    client
+                );
+                return;
+            }
+
+            let error;
+            let hasUpdated = false; // Vérifier si une mise à jour a été effectuée
+
+            console.log("🔍 Client trouvé :", client);
+
+            // Vérifier si le client a une intervention en cours
+            if (client.interventions && client.interventions.length > 0) {
+                const latestIntervention = client.interventions[0]; // Prendre la plus récente
+                console.log(
+                    "📌 Mise à jour de l'intervention :",
+                    latestIntervention.id
+                );
+
+                ({ error } = await supabase
+                    .from("interventions")
+                    .update({ notifiedBy: method })
+                    .eq("id", latestIntervention.id));
+
+                hasUpdated = true;
+            }
+            // Sinon, si le client a une commande
+            else if (client.orders && client.orders.length > 0) {
+                const latestOrder = client.orders[0]; // Prendre la plus récente
+                console.log("📌 Mise à jour de la commande :", latestOrder.id);
+
+                ({ error } = await supabase
+                    .from("orders")
+                    .update({ notified: method }) // ✅ Ajoute la mise à jour
+                    .eq("id", latestOrder.id));
+
+                hasUpdated = true;
+            }
+
+            if (error) {
+                console.error(
+                    "❌ Erreur lors de la mise à jour de la notification :",
+                    error
+                );
+                return;
+            }
+
+            if (hasUpdated) {
+                await loadClients(); // 🔄 Rafraîchir la liste des clients après mise à jour
+                setNotifyModalVisible(false); // ✅ Ferme la modale après mise à jour
+                console.log(
+                    `✅ Notification mise à jour pour ${client.name} : ${method}`
+                );
+            } else {
+                console.warn(
+                    "⚠ Aucune mise à jour effectuée (ni intervention ni commande trouvée)."
+                );
+            }
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de la mise à jour de la notification :",
+                error
+            );
+        }
+    };
 
     const loadRepairedNotReturnedCount = async () => {
         try {
@@ -353,14 +440,14 @@ export default function HomePage({ navigation, route }) {
         navigation.navigate("ImageGallery", { clientId });
     };
 
-	const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
-		setIsLoading(true);
-		try {
-			// 🔹 Récupérer les clients avec leurs interventions
-			const { data: clientsData, error: clientsError } = await supabase
-				.from("clients")
-				.select(
-					`
+    const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+        setIsLoading(true);
+        try {
+            // 🔹 Récupérer les clients avec leurs interventions
+            const { data: clientsData, error: clientsError } = await supabase
+                .from("clients")
+                .select(
+                    `
 					*,
 					updatedAt,
 					interventions(
@@ -377,7 +464,9 @@ export default function HomePage({ navigation, route }) {
 						photos,
 						notifiedBy,
 						accept_screen_risk,
-						devis_cost
+						devis_cost,
+						imprimee,
+						print_etiquette
         ),
         orders(
             id,
@@ -385,128 +474,151 @@ export default function HomePage({ navigation, route }) {
             paid,
             notified
         )
-    `)
-    .order("createdAt", { ascending: false });
-	
-			if (clientsError) throw clientsError;
-	
-			// 🔹 Récupérer les commandes avec leur montant total
-			const { data: ordersData, error: ordersError } = await supabase
-				.from("orders")
-				.select("client_id, price, deposit, paid"); // ✅ Ajout de "paid"
-	
-			if (ordersError) throw ordersError;
-	
-			console.log("📦 Commandes récupérées :", ordersData);
-	
-			// 🔹 Regrouper les commandes par client et calculer le total
-			const ordersByClient = {};
+    `
+                )
+                .order("createdAt", { ascending: false });
 
-			ordersData.forEach((order) => {
-				if (!ordersByClient[order.client_id]) {
-					ordersByClient[order.client_id] = { total: 0, deposit: 0, remaining: 0 };
-				}
-				ordersByClient[order.client_id].total += order.price || 0; // ✅ Total des commandes
-				ordersByClient[order.client_id].deposit += order.deposit || 0; // ✅ Total des acomptes
-				    // ✅ Ne prend que les commandes non payées pour calculer le "reste dû"
-					if (!order.paid) {
-						ordersByClient[order.client_id].remaining += (order.price - order.deposit);
-					}
-			});
-	
-			if (clientsData) {
-				const updatedData = clientsData.map((client) => {
-					const interventions = Array.isArray(client.interventions) ? client.interventions : [];
-					// 🔹 Filtrer les interventions qui ne sont pas "Réparé", "Récupéré", "Non réparable"
-					const ongoingInterventions =
-						client.interventions?.filter(
-							(intervention) =>
-								intervention.status !== "Réparé" &&
-								intervention.status !== "Récupéré" &&
-								intervention.status !== "Non réparable"
-						) || [];
-	
-						const totalAmountOngoing = ongoingInterventions.reduce(
-							(total, intervention) => 
-								total + (parseFloat(intervention.cost) || parseFloat(intervention.solderestant) || 0),
-							0
-						);
-						
-					const totalDevisAmount = interventions.reduce(
-						(total, intervention) =>
-							intervention.status === "Devis en cours" && intervention.devis_cost
-								? total + parseFloat(intervention.devis_cost)
-								: total,
-						0
-					);
-					// 🔹 Ajouter le montant total des commandes
-					const totalOrderAmount = ordersByClient[client.id]?.total || 0;
-					const totalOrderDeposit = ordersByClient[client.id]?.deposit || 0;
-					const totalOrderRemaining = ordersByClient[client.id]?.remaining || 0; // ✅ Correctif
-					
-					return {
-						...client,
-						totalInterventions: client.interventions.length,
-						devis_cost: totalDevisAmount, // ✅ Ajout du total des devis
-						clientUpdatedAt: client.updatedAt,
-						interventions: client.interventions.map((intervention) => ({
-							...intervention,
-							interventionUpdatedAt: intervention.updatedAt,
-						})),
-						totalAmountOngoing,
-						totalOrderAmount, // ✅ Montant total des commandes
-						totalOrderDeposit, // ✅ Montant total des acomptes
-						totalOrderRemaining, // ✅ Correctif : le montant restant dû est mis à jour correctement
-					};
-				});
-	
-				// 🔹 Vérifier quels clients ont une commande
-				const clientsWithOrders = ordersData.map((order) => order.client_id);
-	
-				// 🔹 Inclure les clients ayant une intervention en cours OU une commande
-				const clientsToShow = updatedData
-					.filter((client) =>
-						client.interventions.some(
-							(intervention) =>
-								intervention.status !== "Réparé" &&
-								intervention.status !== "Récupéré" &&
-								intervention.status !== "Non réparable"
-						) || clientsWithOrders.includes(client.id) // ✅ Inclure les clients avec une commande
-					)
-					.map((client) => {
-						client.interventions = client.interventions
-							.filter(
-								(intervention) =>
-									intervention.status !== "Réparé" &&
-									intervention.status !== "Récupéré" &&
-									intervention.status !== "Non réparable"
-							)
-							.sort(
-								(a, b) =>
-									new Date(b.createdAt) - new Date(a.createdAt)
-							);
-						client.latestIntervention = client.interventions[0];
-						return client;
-					});
-	
-				const sortedClients = clientsToShow.sort((a, b) => {
-					const dateA = new Date(a[sortBy]);
-					const dateB = new Date(b[sortBy]);
-					return orderAsc ? dateA - dateB : dateB - dateA;
-				});
-	
-				console.log("👥 Clients affichés après filtrage :", sortedClients);
-				setClients(sortedClients);
-				setFilteredClients(sortedClients);
-			}
-		} catch (error) {
-			console.error("❌ Erreur lors du chargement des clients:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-	
-	
+            if (clientsError) throw clientsError;
+
+            // 🔹 Récupérer les commandes avec leur montant total
+            const { data: ordersData, error: ordersError } = await supabase
+                .from("orders")
+                .select("client_id, price, deposit, paid"); // ✅ Ajout de "paid"
+
+            if (ordersError) throw ordersError;
+
+            console.log("📦 Commandes récupérées :", ordersData);
+
+            // 🔹 Regrouper les commandes par client et calculer le total
+            const ordersByClient = {};
+
+            ordersData.forEach((order) => {
+                if (!ordersByClient[order.client_id]) {
+                    ordersByClient[order.client_id] = {
+                        total: 0,
+                        deposit: 0,
+                        remaining: 0,
+                    };
+                }
+                ordersByClient[order.client_id].total += order.price || 0; // ✅ Total des commandes
+                ordersByClient[order.client_id].deposit += order.deposit || 0; // ✅ Total des acomptes
+                // ✅ Ne prend que les commandes non payées pour calculer le "reste dû"
+                if (!order.paid) {
+                    ordersByClient[order.client_id].remaining +=
+                        order.price - order.deposit;
+                }
+            });
+
+            if (clientsData) {
+                const updatedData = clientsData.map((client) => {
+                    const interventions = Array.isArray(client.interventions)
+                        ? client.interventions
+                        : [];
+                    // 🔹 Filtrer les interventions qui ne sont pas "Réparé", "Récupéré", "Non réparable"
+                    const ongoingInterventions =
+                        client.interventions?.filter(
+                            (intervention) =>
+                                intervention.status !== "Réparé" &&
+                                intervention.status !== "Récupéré" &&
+                                intervention.status !== "Non réparable"
+                        ) || [];
+
+                    const totalAmountOngoing = ongoingInterventions.reduce(
+                        (total, intervention) =>
+                            total +
+                            (parseFloat(intervention.cost) ||
+                                parseFloat(intervention.solderestant) ||
+                                0),
+                        0
+                    );
+
+                    const totalDevisAmount = interventions.reduce(
+                        (total, intervention) =>
+                            intervention.status === "Devis en cours" &&
+                            intervention.devis_cost
+                                ? total + parseFloat(intervention.devis_cost)
+                                : total,
+                        0
+                    );
+                    // 🔹 Ajouter le montant total des commandes
+                    const totalOrderAmount =
+                        ordersByClient[client.id]?.total || 0;
+                    const totalOrderDeposit =
+                        ordersByClient[client.id]?.deposit || 0;
+                    const totalOrderRemaining =
+                        ordersByClient[client.id]?.remaining || 0; // ✅ Correctif
+
+                    return {
+                        ...client,
+                        totalInterventions: client.interventions.length,
+                        devis_cost: totalDevisAmount, // ✅ Ajout du total des devis
+                        clientUpdatedAt: client.updatedAt,
+                        interventions: client.interventions.map(
+                            (intervention) => ({
+                                ...intervention,
+                                interventionUpdatedAt: intervention.updatedAt,
+                            })
+                        ),
+                        totalAmountOngoing,
+                        totalOrderAmount, // ✅ Montant total des commandes
+                        totalOrderDeposit, // ✅ Montant total des acomptes
+                        totalOrderRemaining, // ✅ Correctif : le montant restant dû est mis à jour correctement
+                    };
+                });
+
+                // 🔹 Vérifier quels clients ont une commande
+                const clientsWithOrders = ordersData.map(
+                    (order) => order.client_id
+                );
+
+                // 🔹 Inclure les clients ayant une intervention en cours OU une commande
+                const clientsToShow = updatedData
+                    .filter(
+                        (client) =>
+                            client.interventions.some(
+                                (intervention) =>
+                                    intervention.status !== "Réparé" &&
+                                    intervention.status !== "Récupéré" &&
+                                    intervention.status !== "Non réparable"
+                            ) || clientsWithOrders.includes(client.id) // ✅ Inclure les clients avec une commande
+                    )
+                    .map((client) => {
+                        client.interventions = client.interventions
+                            .filter(
+                                (intervention) =>
+                                    intervention.status !== "Réparé" &&
+                                    intervention.status !== "Récupéré" &&
+                                    intervention.status !== "Non réparable"
+                            )
+                            .sort(
+                                (a, b) =>
+                                    new Date(b.createdAt) -
+                                    new Date(a.createdAt)
+                            );
+                        client.latestIntervention = client.interventions[0];
+                        return client;
+                    });
+
+                const sortedClients = clientsToShow.sort((a, b) => {
+                    const dateA = new Date(a[sortBy]);
+                    const dateB = new Date(b[sortBy]);
+                    return orderAsc ? dateA - dateB : dateB - dateA;
+                });
+
+                console.log(
+                    "👥 Clients affichés après filtrage :",
+                    sortedClients
+                );
+                setClients(sortedClients);
+                setFilteredClients(sortedClients);
+            }
+        } catch (error) {
+            console.error("❌ Erreur lors du chargement des clients:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const loadOrders = async () => {
         try {
             const { data, error } = await supabase
@@ -614,7 +726,7 @@ export default function HomePage({ navigation, route }) {
             setSortBy("createdAt");
             setOrderAsc(false);
             loadClients(); // Charge la liste des clients triée
-			loadOrders(); // ✅ Ajout du rechargement des commandes
+            loadOrders(); // ✅ Ajout du rechargement des commandes
             // Charger les statistiques des réparés non restitués
             loadRepairedNotReturnedCount();
             loadNotRepairedNotReturnedCount();
@@ -624,7 +736,6 @@ export default function HomePage({ navigation, route }) {
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
         setModalVisible(true);
-
     };
     const handleDeleteClient = async () => {
         try {
@@ -672,14 +783,14 @@ export default function HomePage({ navigation, route }) {
             return "Date invalide";
         }
     };
-	useEffect(() => {
-		console.log("🔄 Mise à jour de l'affichage des commandes !");
-		setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
-	}, [orders]);
+    useEffect(() => {
+        console.log("🔄 Mise à jour de l'affichage des commandes !");
+        setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
+    }, [orders]);
     const filterClients = async (text) => {
         setSearchText(text);
-		await loadOrders();
-		console.log("🔄 Commandes rechargées après recherche !");
+        await loadOrders();
+        console.log("🔄 Commandes rechargées après recherche !");
         if (text.trim() === "") {
             setFilteredClients(clients); // Réinitialise la liste si aucun texte n'est entré
         } else {
@@ -733,8 +844,10 @@ export default function HomePage({ navigation, route }) {
                 });
 
                 setFilteredClients(filteredData); // Met à jour la liste des clients filtrés
-				console.log("👥 Clients affichés après recherche :", filteredData);
-
+                console.log(
+                    "👥 Clients affichés après recherche :",
+                    filteredData
+                );
             } catch (error) {
                 console.error(
                     "Erreur lors de la recherche des clients:",
@@ -826,6 +939,7 @@ export default function HomePage({ navigation, route }) {
         Processeur: require("../assets/icons/cpu.png"),
         Batterie: require("../assets/icons/battery.png"),
         Commande: require("../assets/icons/shipping_box.png"),
+		"Carte graphique": require("../assets/icons/Vga_card.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -914,39 +1028,37 @@ export default function HomePage({ navigation, route }) {
             toggleMenu(); // Ferme le menu si ouvert
         }
     };
-	
 
-	const handleLogout = async () => {
-		try {
-			console.log("Déconnexion en cours...");
-	
-			const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
-	
-			if (error) {
-				console.error("Erreur lors de la déconnexion :", error);
-				Alert.alert(
-					"Erreur",
-					"Impossible de se déconnecter. Veuillez réessayer."
-				);
-				return;
-			}
-	
-			console.log("Déconnexion réussie ! Redirection vers Login...");
-	
-			// Réinitialiser la navigation
-			navigation.dispatch(
-				CommonActions.reset({
-					index: 0,
-					routes: [{ name: "Login" }],
-				})
-			);
-	
-		} catch (err) {
-			console.error("Erreur inattendue lors de la déconnexion :", err);
-			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-		}
-	};
-	
+    const handleLogout = async () => {
+        try {
+            console.log("Déconnexion en cours...");
+
+            const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
+
+            if (error) {
+                console.error("Erreur lors de la déconnexion :", error);
+                Alert.alert(
+                    "Erreur",
+                    "Impossible de se déconnecter. Veuillez réessayer."
+                );
+                return;
+            }
+
+            console.log("Déconnexion réussie ! Redirection vers Login...");
+
+            // Réinitialiser la navigation
+            navigation.dispatch(
+                CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: "Login" }],
+                })
+            );
+        } catch (err) {
+            console.error("Erreur inattendue lors de la déconnexion :", err);
+            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+        }
+    };
+
     const DateDisplay = () => {
         const [currentDate, setCurrentDate] = useState("");
 
@@ -1023,18 +1135,19 @@ export default function HomePage({ navigation, route }) {
 
         fetchOrders();
     }, []);
-	const getOrderColor = (clientId) => {
-		const clientOrders = orders.filter(order => order.client_id === clientId);
-	
-		if (clientOrders.length === 0) {
-			return "#888787"; // Pas de commande
-		}
-	
-		const allPaid = clientOrders.every(order => order.paid); // ✅ Vérifie si toutes les commandes sont payées
-	
-		return allPaid ? "#00ff00" : "#ffa32c"; // 🟢 Vert si toutes les commandes sont payées, sinon 🟠 Orange
-	};
-	
+    const getOrderColor = (clientId) => {
+        const clientOrders = orders.filter(
+            (order) => order.client_id === clientId
+        );
+
+        if (clientOrders.length === 0) {
+            return "#888787"; // Pas de commande
+        }
+
+        const allPaid = clientOrders.every((order) => order.paid); // ✅ Vérifie si toutes les commandes sont payées
+
+        return allPaid ? "#00ff00" : "#ffa32c"; // 🟢 Vert si toutes les commandes sont payées, sinon 🟠 Orange
+    };
 
     return (
         <ImageBackground
@@ -1437,7 +1550,7 @@ export default function HomePage({ navigation, route }) {
                                                 borderRadius: 2,
                                                 borderWidth: 1,
                                                 borderColor: "#888787",
-												backgroundColor: "#191f2f",
+                                                backgroundColor: "#191f2f",
                                             }}
                                         >
                                             <Text style={{ color: "white" }}>
@@ -1551,14 +1664,15 @@ export default function HomePage({ navigation, route }) {
                                             scrollEnabled={true}
                                             windowSize={5}
                                             data={paginatedClients}
-											keyExtractor={(item) => item.id.toString()}
+                                            keyExtractor={(item) =>
+                                                item.id.toString()
+                                            }
                                             getItemLayout={(data, index) => ({
                                                 length: 180, // Hauteur de chaque fiche
                                                 offset: 180 * index,
                                                 index,
                                             })}
                                             renderItem={({ item, index }) => {
-
                                                 const isEven = index % 2 === 0;
                                                 const backgroundColor = isEven
                                                     ? "#f9f9f9"
@@ -1600,6 +1714,7 @@ export default function HomePage({ navigation, route }) {
                                                         animation="fadeInUp" // Animation au choix
                                                         duration={600}
                                                         delay={index * 100} // Délai basé sur l'index pour un effet progressif
+                                                        key={item.id}
                                                     >
                                                         <View
                                                             style={[
@@ -1717,24 +1832,37 @@ export default function HomePage({ navigation, route }) {
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
-																{/* ✅ Ajout du montant du devis si le statut est "Devis en cours" */}
-																	{item.devis_cost > 0 && (
-																		<Text style={styles.clientText}>
-																			Montant du devis :{" "}
-																			{item.devis_cost.toLocaleString("fr-FR", {
-																				style: "currency",
-																				currency: "EUR",
-																			})}
-																		</Text>
-																	)}
-																<Text style={styles.amountText}>
-																	{item.totalOrderAmount > 0 ? (
-																		`🛒 Commandes : ${item.totalOrderAmount} €\n💵 Acompte : ${item.totalOrderDeposit} €\n💳 Reste dû : ${item.totalOrderRemaining} €`
-																	) : (
-																		"Aucune commande"
-																	)}
-																</Text>
-
+                                                                {/* ✅ Ajout du montant du devis si le statut est "Devis en cours" */}
+                                                                {item.devis_cost >
+                                                                    0 && (
+                                                                    <Text
+                                                                        style={
+                                                                            styles.clientText
+                                                                        }
+                                                                    >
+                                                                        Montant
+                                                                        du devis
+                                                                        :{" "}
+                                                                        {item.devis_cost.toLocaleString(
+                                                                            "fr-FR",
+                                                                            {
+                                                                                style: "currency",
+                                                                                currency:
+                                                                                    "EUR",
+                                                                            }
+                                                                        )}
+                                                                    </Text>
+                                                                )}
+                                                                <Text
+                                                                    style={
+                                                                        styles.amountText
+                                                                    }
+                                                                >
+                                                                    {item.totalOrderAmount >
+                                                                    0
+                                                                        ? `🛒 Commandes : ${item.totalOrderAmount} €\n💵 Acompte : ${item.totalOrderDeposit} €\n💳 Reste dû : ${item.totalOrderRemaining} €`
+                                                                        : "Aucune commande"}
+                                                                </Text>
 
                                                                 <View>
                                                                     <HorizontalSeparator />
@@ -1841,44 +1969,74 @@ export default function HomePage({ navigation, route }) {
                                                                                 />
                                                                             </TouchableOpacity>
                                                                         )}
-																		<TouchableOpacity
-																			style={[styles.iconButton, styles.notificationIconContainer]}
-																			onPress={() => {
-																				setSelectedClient(item); // ✅ Stocke le client sélectionné
-																				setSelectedInterventionId(item.latestIntervention?.id || null);
-																				setNotifyModalVisible(true);
-																			}}
-																		>
-																			{latestIntervention?.notifiedBy === "SMS" || item?.orders?.some(order => order.notified === "SMS") ? (
-																				<Image
-																					source={require("../assets/icons/sms.png")}
-																					style={{
-																						width: 28,
-																						height: 28,
-																						tintColor: "#00fd00", // ✅ Vert pour SMS
-																					}}
-																				/>
-																			) : latestIntervention?.notifiedBy === "Téléphone" || item?.orders?.some(order => order.notified === "Téléphone") ? (
-																				<Image
-																					source={require("../assets/icons/call.png")}
-																					style={{
-																						width: 28,
-																						height: 28,
-																						tintColor: "#3c92f5", // ✅ Bleu pour Téléphone
-																					}}
-																				/>
-																			) : (
-																				<Image
-																					source={require("../assets/icons/notifications_off.png")}
-																					style={{
-																						width: 28,
-																						height: 28,
-																						tintColor: "#888787", // ✅ Gris si aucune notification
-																					}}
-																				/>
-																			)}
-																		</TouchableOpacity>
-
+                                                                    <TouchableOpacity
+                                                                        style={[
+                                                                            styles.iconButton,
+                                                                            styles.notificationIconContainer,
+                                                                        ]}
+                                                                        onPress={() => {
+                                                                            setSelectedClient(
+                                                                                item
+                                                                            ); // ✅ Stocke le client sélectionné
+                                                                            setSelectedInterventionId(
+                                                                                item
+                                                                                    .latestIntervention
+                                                                                    ?.id ||
+                                                                                    null
+                                                                            );
+                                                                            setNotifyModalVisible(
+                                                                                true
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        {latestIntervention?.notifiedBy ===
+                                                                            "SMS" ||
+                                                                        item?.orders?.some(
+                                                                            (
+                                                                                order
+                                                                            ) =>
+                                                                                order.notified ===
+                                                                                "SMS"
+                                                                        ) ? (
+                                                                            <Image
+                                                                                source={require("../assets/icons/sms.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#00fd00", // ✅ Vert pour SMS
+                                                                                }}
+                                                                            />
+                                                                        ) : latestIntervention?.notifiedBy ===
+                                                                              "Téléphone" ||
+                                                                          item?.orders?.some(
+                                                                              (
+                                                                                  order
+                                                                              ) =>
+                                                                                  order.notified ===
+                                                                                  "Téléphone"
+                                                                          ) ? (
+                                                                            <Image
+                                                                                source={require("../assets/icons/call.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#3c92f5", // ✅ Bleu pour Téléphone
+                                                                                }}
+                                                                            />
+                                                                        ) : (
+                                                                            <Image
+                                                                                source={require("../assets/icons/notifications_off.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#888787", // ✅ Gris si aucune notification
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                    </TouchableOpacity>
 
                                                                     <TouchableOpacity
                                                                         style={[
@@ -1894,40 +2052,81 @@ export default function HomePage({ navigation, route }) {
                                                                             )
                                                                         }
                                                                     >
-                                                                        <Image
-                                                                            source={require("../assets/icons/edit.png")} // Chemin vers votre icône poubelle
-                                                                            style={{
-                                                                                width: 28,
-                                                                                height: 28,
-                                                                                tintColor:
-                                                                                    "#888787", // Couleur de l'icône (ici noir)
-                                                                            }}
-                                                                        />
+                                                                        {item
+                                                                            .latestIntervention
+                                                                            ?.print_etiquette ===
+                                                                        false ? (
+                                                                            <BlinkingIconBlue
+                                                                                source={require("../assets/icons/edit.png")}
+                                                                            />
+                                                                        ) : (
+                                                                            <Image
+                                                                                source={require("../assets/icons/edit.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#888787",
+                                                                                }}
+                                                                            />
+                                                                        )}
                                                                     </TouchableOpacity>
+
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
                                                                             styles.printButton,
                                                                         ]}
-                                                                        onPress={() =>
+                                                                        onPress={async () => {
+                                                                            const interventionId =
+                                                                                item
+                                                                                    .latestIntervention
+                                                                                    ?.id;
+                                                                            if (
+                                                                                interventionId
+                                                                            ) {
+                                                                                await supabase
+                                                                                    .from(
+                                                                                        "interventions"
+                                                                                    )
+                                                                                    .update(
+                                                                                        {
+                                                                                            imprimee: true,
+                                                                                        }
+                                                                                    )
+                                                                                    .eq(
+                                                                                        "id",
+                                                                                        interventionId
+                                                                                    );
+                                                                            }
+
                                                                             navigation.navigate(
                                                                                 "SelectInterventionPage",
                                                                                 {
                                                                                     clientId:
                                                                                         item.id,
                                                                                 }
-                                                                            )
-                                                                        }
+                                                                            );
+                                                                        }}
                                                                     >
-                                                                        <Image
-                                                                            source={require("../assets/icons/print.png")}
-                                                                            style={{
-                                                                                width: 28,
-                                                                                height: 28,
-                                                                                tintColor:
-                                                                                    "#888787",
-                                                                            }}
-                                                                        />
+                                                                        {item
+                                                                            .latestIntervention
+                                                                            ?.imprimee ===
+                                                                        false ? (
+                                                                            <BlinkingIcon
+                                                                                source={require("../assets/icons/print.png")}
+                                                                            />
+                                                                        ) : (
+                                                                            <Image
+                                                                                source={require("../assets/icons/print.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#888787",
+                                                                                }}
+                                                                            />
+                                                                        )}
                                                                     </TouchableOpacity>
 
                                                                     {totalImages >
@@ -1998,34 +2197,56 @@ export default function HomePage({ navigation, route }) {
                                                                             </Text>
                                                                         </TouchableOpacity>
                                                                     </View>
-																	<TouchableOpacity
-																			style={{
-																				
-																				padding: 10,
-																				alignItems: "center",
-																				borderRadius: 2,
-																				borderWidth: getOrderColor(item.id) !== "#888787" ? 2 : 1, // ✅ Bordure de 2px si l'icône est verte ou orange
-																				borderColor: getOrderColor(item.id) !== "#888787" ? getOrderColor(item.id) : "#888787",
-																				marginRight: 7, // ✅ La couleur de la bordure suit l'icône
-																			}}
-																				onPress={() =>
-																					navigation.navigate("OrdersPage", {
-																						clientId: item.id,
-																						clientName: item.name,
-																						clientPhone: item.phone,
-																						clientNumber: item.ficheNumber,
-																					})
-																				}
-																			>
-																				<Image
-																					source={require("../assets/icons/order.png")}
-																					style={{
-																						width: 28,
-																						height: 28,
-																						tintColor: "#888787",
-																					}}
-																				/>
-																			</TouchableOpacity>
+                                                                    <TouchableOpacity
+                                                                        style={{
+                                                                            padding: 10,
+                                                                            alignItems:
+                                                                                "center",
+                                                                            borderRadius: 2,
+                                                                            borderWidth:
+                                                                                getOrderColor(
+                                                                                    item.id
+                                                                                ) !==
+                                                                                "#888787"
+                                                                                    ? 2
+                                                                                    : 1, // ✅ Bordure de 2px si l'icône est verte ou orange
+                                                                            borderColor:
+                                                                                getOrderColor(
+                                                                                    item.id
+                                                                                ) !==
+                                                                                "#888787"
+                                                                                    ? getOrderColor(
+                                                                                          item.id
+                                                                                      )
+                                                                                    : "#888787",
+                                                                            marginRight: 7, // ✅ La couleur de la bordure suit l'icône
+                                                                        }}
+                                                                        onPress={() =>
+                                                                            navigation.navigate(
+                                                                                "OrdersPage",
+                                                                                {
+                                                                                    clientId:
+                                                                                        item.id,
+                                                                                    clientName:
+                                                                                        item.name,
+                                                                                    clientPhone:
+                                                                                        item.phone,
+                                                                                    clientNumber:
+                                                                                        item.ficheNumber,
+                                                                                }
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Image
+                                                                            source={require("../assets/icons/order.png")}
+                                                                            style={{
+                                                                                width: 28,
+                                                                                height: 28,
+                                                                                tintColor:
+                                                                                    "#888787",
+                                                                            }}
+                                                                        />
+                                                                    </TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
@@ -2069,34 +2290,43 @@ export default function HomePage({ navigation, route }) {
                                                                                 intervention,
                                                                                 index
                                                                             ) => (
-																				<View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-
-																			
-																			<View
-																				style={{
-																					borderWidth: 1,
-																					borderColor: "#888787",
-																					paddingTop: 5,
-																					width: 50,
-																					height: 50,
-																					borderRadius: 2,
-																					alignItems: "center",
-																				}}
-																			>
-																				<TouchableOpacity
-																					onPress={() =>
-																						fetchDetails(
-																							intervention.deviceType, 
-																							intervention.brand, 
-																							intervention.model
-																						)
-																					}
-																				>
-																					{getDeviceIcon(intervention.deviceType)}
-																				</TouchableOpacity>
-																			</View>
-																		</View>
-
+                                                                                <View
+                                                                                    style={{
+                                                                                        flexDirection:
+                                                                                            "row",
+                                                                                        alignItems:
+                                                                                            "center",
+                                                                                        gap: 10,
+                                                                                    }}
+                                                                                >
+                                                                                    <View
+                                                                                        style={{
+                                                                                            borderWidth: 1,
+                                                                                            borderColor:
+                                                                                                "#888787",
+                                                                                            paddingTop: 5,
+                                                                                            width: 50,
+                                                                                            height: 50,
+                                                                                            borderRadius: 2,
+                                                                                            alignItems:
+                                                                                                "center",
+                                                                                        }}
+                                                                                    >
+                                                                                        <TouchableOpacity
+                                                                                            onPress={() =>
+                                                                                                fetchDetails(
+                                                                                                    intervention.deviceType,
+                                                                                                    intervention.brand,
+                                                                                                    intervention.model
+                                                                                                )
+                                                                                            }
+                                                                                        >
+                                                                                            {getDeviceIcon(
+                                                                                                intervention.deviceType
+                                                                                            )}
+                                                                                        </TouchableOpacity>
+                                                                                    </View>
+                                                                                </View>
                                                                             )
                                                                         )}
                                                                     {item.interventions &&
@@ -2155,26 +2385,45 @@ export default function HomePage({ navigation, route }) {
                                                                         €
                                                                     </Text>
 
-																	{latestIntervention?.solderestant !== undefined &&
-																		latestIntervention?.solderestant > 0 ? (
-																			<Text style={styles.clientTextSoldeRestant}>
-																				Solde restant dû :{" "}
-																				{latestIntervention.solderestant.toLocaleString("fr-FR", {
-																					minimumFractionDigits: 2,
-																				})}{" "}
-																				€
-																			</Text>
-																		) : latestIntervention?.cost > 0 ? (
-																			<Text style={styles.clientTextSoldeRestant}>
-																			Solde restant dû :{" "}
-																				{latestIntervention.cost.toLocaleString("fr-FR", {
-																					minimumFractionDigits: 2,
-																				})}{" "}
-																				€
-																			</Text>
-																		) : null}
-
-
+                                                                    {latestIntervention?.solderestant !==
+                                                                        undefined &&
+                                                                    latestIntervention?.solderestant >
+                                                                        0 ? (
+                                                                        <Text
+                                                                            style={
+                                                                                styles.clientTextSoldeRestant
+                                                                            }
+                                                                        >
+                                                                            Solde
+                                                                            restant
+                                                                            dû :{" "}
+                                                                            {latestIntervention.solderestant.toLocaleString(
+                                                                                "fr-FR",
+                                                                                {
+                                                                                    minimumFractionDigits: 2,
+                                                                                }
+                                                                            )}{" "}
+                                                                            €
+                                                                        </Text>
+                                                                    ) : latestIntervention?.cost >
+                                                                      0 ? (
+                                                                        <Text
+                                                                            style={
+                                                                                styles.clientTextSoldeRestant
+                                                                            }
+                                                                        >
+                                                                            Solde
+                                                                            restant
+                                                                            dû :{" "}
+                                                                            {latestIntervention.cost.toLocaleString(
+                                                                                "fr-FR",
+                                                                                {
+                                                                                    minimumFractionDigits: 2,
+                                                                                }
+                                                                            )}{" "}
+                                                                            €
+                                                                        </Text>
+                                                                    ) : null}
 
                                                                     <Text
                                                                         style={
@@ -2242,26 +2491,41 @@ export default function HomePage({ navigation, route }) {
                                             Notifier le client
                                         </Text>
                                         <View style={styles.modalButtonRow}>
-										<TouchableOpacity
-    style={styles.button}
-    onPress={() => {
-        console.log("📢 Notification via SMS pour le client :", selectedClient);
-        updateClientNotification(selectedClient, "SMS");
-    }}
->
-    <Text style={styles.buttonText}>SMS</Text>
-</TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.button}
+                                                onPress={() => {
+                                                    console.log(
+                                                        "📢 Notification via SMS pour le client :",
+                                                        selectedClient
+                                                    );
+                                                    updateClientNotification(
+                                                        selectedClient,
+                                                        "SMS"
+                                                    );
+                                                }}
+                                            >
+                                                <Text style={styles.buttonText}>
+                                                    SMS
+                                                </Text>
+                                            </TouchableOpacity>
 
-<TouchableOpacity
-    style={styles.button}
-    onPress={() => {
-        console.log("📢 Notification via Téléphone pour le client :", selectedClient);
-        updateClientNotification(selectedClient, "Téléphone");
-    }}
->
-    <Text style={styles.buttonText}>Téléphone</Text>
-</TouchableOpacity>
-
+                                            <TouchableOpacity
+                                                style={styles.button}
+                                                onPress={() => {
+                                                    console.log(
+                                                        "📢 Notification via Téléphone pour le client :",
+                                                        selectedClient
+                                                    );
+                                                    updateClientNotification(
+                                                        selectedClient,
+                                                        "Téléphone"
+                                                    );
+                                                }}
+                                            >
+                                                <Text style={styles.buttonText}>
+                                                    Téléphone
+                                                </Text>
+                                            </TouchableOpacity>
 
                                             <TouchableOpacity
                                                 style={styles.button}
@@ -2566,8 +2830,8 @@ const styles = StyleSheet.create({
         tintColor: "#7583a8", // Supprimez si vos images ont déjà une couleur
     },
     menuButton: {
-		backgroundColor: "#191f2f",
-       
+        backgroundColor: "#191f2f",
+
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
@@ -3184,10 +3448,9 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
     },
-	amountText: { 
-			fontSize: 16,
-			fontWeight: "medium",
-			color: "#888787", // Couleur orange pour l'heure
-		},
-
+    amountText: {
+        fontSize: 16,
+        fontWeight: "medium",
+        color: "#888787", // Couleur orange pour l'heure
+    },
 });

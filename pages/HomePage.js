@@ -2066,7 +2066,7 @@ export default function HomePage({ navigation, route }) {
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#888787",
+                                                                                        "#00fd00",
                                                                                 }}
                                                                             />
                                                                         )}
@@ -2123,7 +2123,7 @@ export default function HomePage({ navigation, route }) {
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#888787",
+                                                                                        "#00fd00",
                                                                                 }}
                                                                             />
                                                                         )}

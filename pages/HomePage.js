@@ -22,7 +22,8 @@ import RoundedButton from "../components/RoundedButton";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 // Import de l'image depuis le dossier assets
-export default function HomePage({ navigation, route }) {
+export default function HomePage({ navigation, route, setUser }) {
+
     const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null);
     const [clients, setClients] = useState([]);
@@ -939,7 +940,7 @@ export default function HomePage({ navigation, route }) {
         Processeur: require("../assets/icons/cpu.png"),
         Batterie: require("../assets/icons/battery.png"),
         Commande: require("../assets/icons/shipping_box.png"),
-		"Carte graphique": require("../assets/icons/Vga_card.png"),
+        "Carte graphique": require("../assets/icons/Vga_card.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -1029,35 +1030,30 @@ export default function HomePage({ navigation, route }) {
         }
     };
 
-    const handleLogout = async () => {
-        try {
-            console.log("Déconnexion en cours...");
+	const handleLogout = async () => {
+		try {
+			console.log("Déconnexion en cours...");
+	
+			const { error } = await supabase.auth.signOut();
+	
+			if (error) {
+				console.error("Erreur lors de la déconnexion :", error);
+				Alert.alert(
+					"Erreur",
+					"Impossible de se déconnecter. Veuillez réessayer."
+				);
+				return;
+			}
+	
+			console.log("Déconnexion réussie ! Redirection vers Login...");
+	
 
-            const { error } = await supabase.auth.signOut(); // Déconnecte l'utilisateur
-
-            if (error) {
-                console.error("Erreur lors de la déconnexion :", error);
-                Alert.alert(
-                    "Erreur",
-                    "Impossible de se déconnecter. Veuillez réessayer."
-                );
-                return;
-            }
-
-            console.log("Déconnexion réussie ! Redirection vers Login...");
-
-            // Réinitialiser la navigation
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: "Login" }],
-                })
-            );
-        } catch (err) {
-            console.error("Erreur inattendue lors de la déconnexion :", err);
-            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-        }
-    };
+		} catch (err) {
+			console.error("Erreur inattendue lors de la déconnexion :", err);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+		}
+	};
+	
 
     const DateDisplay = () => {
         const [currentDate, setCurrentDate] = useState("");
@@ -1304,47 +1300,37 @@ export default function HomePage({ navigation, route }) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={styles.drawerItem}
-                                onPress={() => {
-                                    Alert.alert(
-                                        "Confirmation",
-                                        "Êtes-vous sûr de vouloir vous déconnecter ?",
-                                        [
-                                            {
-                                                text: "Annuler",
-                                                style: "cancel",
-                                            },
-                                            {
-                                                text: "Déconnexion",
-                                                onPress: async () => {
-                                                    try {
-                                                        await handleLogout(); // Déconnexion
-                                                        toggleMenu(); // Ferme le menu uniquement après déconnexion réussie
-                                                    } catch (error) {
-                                                        console.error(
-                                                            "Erreur de déconnexion :",
-                                                            error
-                                                        );
-                                                    }
-                                                },
-                                                style: "destructive",
-                                            },
-                                        ],
-                                        { cancelable: true }
-                                    );
-                                }}
-                            >
-                                <Image
-                                    source={require("../assets/icons/disconnects.png")}
-                                    style={[
-                                        styles.drawerItemIcon,
-                                        { tintColor: "red" },
-                                    ]}
-                                />
-                                <Text style={styles.drawerItemText}>
-                                    DÉCONNEXION
-                                </Text>
-                            </TouchableOpacity>
+  style={styles.drawerItem}
+  onPress={() => {
+    Alert.alert(
+      "Confirmation",
+      "Êtes-vous sûr de vouloir vous déconnecter ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Déconnexion",
+          onPress: async () => {
+            try {
+              await handleLogout(); // met setUser(null)
+              toggleMenu(); // ferme le menu après
+            } catch (error) {
+              console.error("Erreur de déconnexion :", error);
+            }
+          },
+          style: "destructive",
+        },
+      ],
+      { cancelable: true }
+    );
+  }}
+>
+  <Image
+    source={require("../assets/icons/disconnects.png")}
+    style={[styles.drawerItemIcon, { tintColor: "red" }]}
+  />
+  <Text style={styles.drawerItemText}>DÉCONNEXION</Text>
+</TouchableOpacity>
+
 
                             <Text style={styles.sectionTitle}>Filtres</Text>
                             <TouchableOpacity
@@ -1714,7 +1700,7 @@ export default function HomePage({ navigation, route }) {
                                                         animation="fadeInUp" // Animation au choix
                                                         duration={600}
                                                         delay={index * 100} // Délai basé sur l'index pour un effet progressif
-                                                        key={item.id}
+                                                        
                                                     >
                                                         <View
                                                             style={[
@@ -1832,7 +1818,7 @@ export default function HomePage({ navigation, route }) {
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
-                                                                {/* ✅ Ajout du montant du devis si le statut est "Devis en cours" */}
+                                                                
                                                                 {item.devis_cost >
                                                                     0 && (
                                                                     <Text
@@ -2177,12 +2163,12 @@ export default function HomePage({ navigation, route }) {
                                                                             }
                                                                         >
                                                                             <Image
-                                                                                source={require("../assets/icons/tools.png")} // Chemin vers votre icône poubelle
+                                                                                source={require("../assets/icons/tools.png")}
                                                                                 style={{
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#888787", // Couleur de l'icône (ici noir)
+                                                                                        "#888787",
                                                                                 }}
                                                                             />
                                                                             <Text
@@ -2190,7 +2176,6 @@ export default function HomePage({ navigation, route }) {
                                                                                     styles.interventionsCount
                                                                                 }
                                                                             >
-                                                                                {" "}
                                                                                 {
                                                                                     item.totalInterventions
                                                                                 }
@@ -2747,7 +2732,7 @@ export default function HomePage({ navigation, route }) {
                                 </Modal>
                             )}
                         </View>
-                        ;
+                        
                     </View>
                 </TouchableWithoutFeedback>
                 <View style={styles.paginationContainer}>

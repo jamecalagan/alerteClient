@@ -580,7 +580,7 @@ if (error) {
         </TouchableOpacity>
     </View>
 
-    {/* Groupe pour les autres cases */}
+  
     <View style={styles.checkboxContainer}>
         <TouchableOpacity onPress={() => setPaymentStatus('non_regle')} style={styles.checkboxRow}>
             <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
@@ -657,7 +657,7 @@ if (error) {
         value={devisCost}
         onChangeText={(text) => setDevisCost(text)}
     />
-)};
+)}
     </View>
     {status === 'En attente de pièces' && (
       <View style={styles.halfWidthContainer}>
@@ -1075,4 +1075,4 @@ selectionText: {
 },
 
 
-});
+})

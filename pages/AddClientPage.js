@@ -125,6 +125,74 @@ export default function AddClientPage({ navigation, route }) {
 		}
 	};
 	
+	const handleAddCommandeClient = async () => {
+		if (!validateFields()) return;
+	
+		try {
+			const { data: existingClients, error: checkError } = await supabase
+				.from("clients")
+				.select("id, name, phone")
+				.eq("name", name)
+				.eq("phone", phone);
+	
+			if (checkError) {
+				Alert.alert("Erreur", "Erreur lors de la vérification.");
+				return;
+			}
+	
+			if (existingClients.length > 0) {
+				Alert.alert("Client existant", "Ce client existe déjà.");
+				return;
+			}
+	
+			const { data: maxFicheData, error: maxFicheError } = await supabase
+				.from("clients")
+				.select("ficheNumber")
+				.order("ficheNumber", { ascending: false })
+				.limit(1)
+				.single();
+	
+			if (maxFicheError) {
+				Alert.alert("Erreur", "Erreur lors de la numérotation.");
+				return;
+			}
+	
+			const newFicheNumber = maxFicheData ? maxFicheData.ficheNumber + 1 : 6001;
+	
+			const { data: insertedData, error: insertError } = await supabase
+				.from("clients")
+				.insert([
+					{
+						name,
+						phone,
+						email: email || null,
+						ficheNumber: newFicheNumber,
+						createdAt: new Date().toISOString(),
+					},
+				])
+				.select()
+				.single();
+	
+			if (insertError || !insertedData) {
+				Alert.alert("Erreur", "Erreur lors de l'insertion.");
+				return;
+			}
+	
+			setName("");
+			setPhone("");
+			setEmail("");
+			Keyboard.dismiss();
+	
+			// Redirection vers la page de commande au lieu d'intervention
+			navigation.navigate("OrdersPage", {
+				clientId: insertedData.id,
+			});
+	
+		} catch (error) {
+			console.error("Erreur inattendue :", error.message);
+			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+		}
+	};
 	
 
     const handleCloseAlert = () => {
@@ -232,6 +300,15 @@ export default function AddClientPage({ navigation, route }) {
 >
     <Text style={styles.buttonText}>
         {loading ? "En cours..." : "Enregistrer le client"}
+    </Text>
+</TouchableOpacity>
+<TouchableOpacity 
+    style={[styles.button, { marginTop: 10 }]} 
+    onPress={handleAddCommandeClient} 
+    disabled={loading}
+>
+    <Text style={styles.buttonText}>
+        {loading ? "En cours..." : "Créer une commande"}
     </Text>
 </TouchableOpacity>
 

@@ -168,6 +168,36 @@ export default function OrdersPage({ route, navigation }) {
                 <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
                     <Text style={styles.button}>➕ Ajouter une commande</Text>
 					</TouchableOpacity>
+					
+					<TouchableOpacity
+  onPress={() => {
+    if (orders.length === 0) {
+      Alert.alert("Erreur", "Aucune commande à imprimer.");
+      return;
+    }
+
+    const lastOrder = orders[orders.length - 1];
+
+    const order = {
+      client: {
+        id: clientId,
+        name: clientName,
+        ficheNumber: clientNumber,
+      },
+      deviceType: lastOrder.product,
+      brand: lastOrder.brand,
+      model: lastOrder.model,
+      cost: lastOrder.price,
+      acompte: lastOrder.deposit,
+    };
+
+    navigation.navigate("CommandePreviewPage", { order });
+  }}
+  style={styles.button}
+>
+  <Text style={styles.buttonText}>🖨️ Imprimer la commande</Text>
+</TouchableOpacity>
+
 
             </View>
 

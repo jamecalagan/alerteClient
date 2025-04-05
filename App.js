@@ -35,7 +35,7 @@ import SearchClientsPage from "./pages/SearchClientsPage";
 import OngoingAmountsPage from "./pages/OngoingAmountsPage";
 import SelectInterventionPage from './pages/SelectInterventionPage';
 import AddProductPage from "./pages/AddProductPage";
-
+import CommandePreviewPage from "./pages/CommandePreviewPage";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -203,7 +203,7 @@ function MainTabs({ navigation, setUser }) {
 }
 
 // Stack principal
-function MainStack() {
+function MainStack({ setUser }) {
     return (
         <Stack.Navigator
             screenOptions={{
@@ -231,11 +231,8 @@ function MainStack() {
 			<Stack.Screen name="AddProductPage" component={AddProductPage} />
 			<Stack.Screen name="OrdersPage" component={OrdersPage} options={{ title: "Commandes" }} />
 			<Stack.Screen name="RepairedInterventionsListPage" component={RepairedInterventionsListPage} />
-
-			<Stack.Screen 
-        name="ListingProduits" 
-         component={ListingProduits} 
-        options={{ title: 'Gestion des Produits' }} 
+			<Stack.Screen name="CommandePreviewPage" component={CommandePreviewPage} />
+			<Stack.Screen name="ListingProduits"  component={ListingProduits} options={{ title: 'Gestion des Produits' }} 
         />
 		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
         <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />

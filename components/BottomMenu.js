@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
 import { useRoute, useIsFocused } from "@react-navigation/native";
 
-export default function BottomMenu({ navigation, filterByStatus, resetFilter }) {
+export default function BottomMenu({ navigation, filterByStatus, resetFilter, onFilterCommande }) {
     const route = useRoute();
     const isFocused = useIsFocused();
     const [activeButton, setActiveButton] = useState(null); // État pour le bouton actif
@@ -43,19 +43,20 @@ export default function BottomMenu({ navigation, filterByStatus, resetFilter }) 
     return (
         <View style={styles.bottomMenuContainer}>
             <View style={styles.filterRow}>
-    <TouchableOpacity
-        style={[
-            styles.filterButtonShipping, 
-            { backgroundColor: getButtonColor("En attente de pièces") }, 
-            getButtonBorder("En attente de pièces")
-        ]}
-        onPress={() => handlePress("En attente de pièces", () => filterByStatus("En attente de pièces"))}
-    >
-        <View style={styles.buttonContent}>
-            <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
-            <Text style={styles.filterText}>Commande</Text>
-        </View>
-    </TouchableOpacity>
+			<TouchableOpacity
+  style={[
+    styles.filterButtonShipping,
+    { backgroundColor: getButtonColor("Commande") },
+    getButtonBorder("Commande"),
+  ]}
+  onPress={() => handlePress("Commande", onFilterCommande)}
+>
+  <View style={styles.buttonContent}>
+    <Image source={require("../assets/icons/shipping.png")} style={styles.icon} />
+    <Text style={styles.filterText}>Commande</Text>
+  </View>
+</TouchableOpacity>
+
 
     <TouchableOpacity
         style={[

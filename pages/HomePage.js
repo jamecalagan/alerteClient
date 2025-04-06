@@ -23,7 +23,6 @@ import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 // Import de l'image depuis le dossier assets
 export default function HomePage({ navigation, route, setUser }) {
-
     const backgroundImage = require("../assets/listing2.jpg");
     const flatListRef = useRef(null);
     const [clients, setClients] = useState([]);
@@ -151,7 +150,7 @@ export default function HomePage({ navigation, route, setUser }) {
             const { data: interventions, error: interventionError } =
                 await supabase
                     .from("interventions")
-                    .select("id, photos")
+                    .select("id, photos, label_photo")
                     .eq("status", "Récupéré")
                     .lte('"updatedAt"', dateLimite)
                     .not("photos", "eq", "[]");
@@ -1030,30 +1029,27 @@ export default function HomePage({ navigation, route, setUser }) {
         }
     };
 
-	const handleLogout = async () => {
-		try {
-			console.log("Déconnexion en cours...");
-	
-			const { error } = await supabase.auth.signOut();
-	
-			if (error) {
-				console.error("Erreur lors de la déconnexion :", error);
-				Alert.alert(
-					"Erreur",
-					"Impossible de se déconnecter. Veuillez réessayer."
-				);
-				return;
-			}
-	
-			console.log("Déconnexion réussie ! Redirection vers Login...");
-	
+    const handleLogout = async () => {
+        try {
+            console.log("Déconnexion en cours...");
 
-		} catch (err) {
-			console.error("Erreur inattendue lors de la déconnexion :", err);
-			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-		}
-	};
-	
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+                console.error("Erreur lors de la déconnexion :", error);
+                Alert.alert(
+                    "Erreur",
+                    "Impossible de se déconnecter. Veuillez réessayer."
+                );
+                return;
+            }
+
+            console.log("Déconnexion réussie ! Redirection vers Login...");
+        } catch (err) {
+            console.error("Erreur inattendue lors de la déconnexion :", err);
+            Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+        }
+    };
 
     const DateDisplay = () => {
         const [currentDate, setCurrentDate] = useState("");
@@ -1144,7 +1140,81 @@ export default function HomePage({ navigation, route, setUser }) {
 
         return allPaid ? "#00ff00" : "#ffa32c"; // 🟢 Vert si toutes les commandes sont payées, sinon 🟠 Orange
     };
+    const filterClientsWithCommandeEnCours = async () => {
+        try {
+            // 🧾 1. Récupère les commandes simples non réglées
+            const { data: unpaidOrders, error: orderError } = await supabase
+                .from("orders")
+                .select("client_id, paid")
+                .eq("paid", false); // <- uniquement celles NON payées
 
+            // 🧾 2. Récupère les interventions avec commande non vide ET non terminées
+            const { data: interventions, error: interventionError } =
+                await supabase
+                    .from("interventions")
+                    .select("client_id, commande, status")
+                    .not("commande", "is", null)
+                    .neq("commande", "")
+                    .not("status", "in", '("Réparé","Récupéré")');
+
+            if (orderError || interventionError) {
+                console.error(
+                    "❌ Erreur Supabase :",
+                    orderError || interventionError
+                );
+                return;
+            }
+
+            // 🔍 Log pour vérifier
+            console.log("📦 Orders non réglées :", unpaidOrders);
+            console.log(
+                "🔧 Interventions actives avec commande :",
+                interventions
+            );
+
+            // 🔁 Filtrage des ID valides
+            const clientIdsFromOrders =
+                unpaidOrders
+                    ?.map((o) => o.client_id)
+                    .filter((id) => !!id && id !== "null") || [];
+
+            const clientIdsFromInterventions =
+                interventions
+                    ?.map((i) => i.client_id)
+                    .filter((id) => !!id && id !== "null") || [];
+
+            const allClientIds = [
+                ...new Set([
+                    ...clientIdsFromOrders,
+                    ...clientIdsFromInterventions,
+                ]),
+            ];
+
+            if (allClientIds.length === 0) {
+                console.warn("Aucun client avec commande en cours.");
+                setFilteredClients([]);
+                return;
+            }
+
+            const { data: clients, error: clientError } = await supabase
+                .from("clients")
+                .select("*")
+                .in("id", allClientIds)
+                .order("createdAt", { ascending: false }); // ← tri du plus récent au plus ancien
+
+            if (clientError) {
+                console.error(
+                    "❌ Erreur chargement clients :",
+                    clientError.message
+                );
+                return;
+            }
+
+            setFilteredClients(clients);
+        } catch (err) {
+            console.error("❌ Erreur inattendue :", err.message);
+        }
+    };
     return (
         <ImageBackground
             source={backgroundImage}
@@ -1300,37 +1370,47 @@ export default function HomePage({ navigation, route, setUser }) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-  style={styles.drawerItem}
-  onPress={() => {
-    Alert.alert(
-      "Confirmation",
-      "Êtes-vous sûr de vouloir vous déconnecter ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Déconnexion",
-          onPress: async () => {
-            try {
-              await handleLogout(); // met setUser(null)
-              toggleMenu(); // ferme le menu après
-            } catch (error) {
-              console.error("Erreur de déconnexion :", error);
-            }
-          },
-          style: "destructive",
-        },
-      ],
-      { cancelable: true }
-    );
-  }}
->
-  <Image
-    source={require("../assets/icons/disconnects.png")}
-    style={[styles.drawerItemIcon, { tintColor: "red" }]}
-  />
-  <Text style={styles.drawerItemText}>DÉCONNEXION</Text>
-</TouchableOpacity>
-
+                                style={styles.drawerItem}
+                                onPress={() => {
+                                    Alert.alert(
+                                        "Confirmation",
+                                        "Êtes-vous sûr de vouloir vous déconnecter ?",
+                                        [
+                                            {
+                                                text: "Annuler",
+                                                style: "cancel",
+                                            },
+                                            {
+                                                text: "Déconnexion",
+                                                onPress: async () => {
+                                                    try {
+                                                        await handleLogout(); // met setUser(null)
+                                                        toggleMenu(); // ferme le menu après
+                                                    } catch (error) {
+                                                        console.error(
+                                                            "Erreur de déconnexion :",
+                                                            error
+                                                        );
+                                                    }
+                                                },
+                                                style: "destructive",
+                                            },
+                                        ],
+                                        { cancelable: true }
+                                    );
+                                }}
+                            >
+                                <Image
+                                    source={require("../assets/icons/disconnects.png")}
+                                    style={[
+                                        styles.drawerItemIcon,
+                                        { tintColor: "red" },
+                                    ]}
+                                />
+                                <Text style={styles.drawerItemText}>
+                                    DÉCONNEXION
+                                </Text>
+                            </TouchableOpacity>
 
                             <Text style={styles.sectionTitle}>Filtres</Text>
                             <TouchableOpacity
@@ -1642,6 +1722,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                 </Text>
                             ) : (
                                 <>
+								
                                     {showClients && (
                                         <FlatList
                                             initialNumToRender={10}
@@ -1700,7 +1781,6 @@ export default function HomePage({ navigation, route, setUser }) {
                                                         animation="fadeInUp" // Animation au choix
                                                         duration={600}
                                                         delay={index * 100} // Délai basé sur l'index pour un effet progressif
-                                                        
                                                     >
                                                         <View
                                                             style={[
@@ -1818,7 +1898,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
-                                                                
+
                                                                 {item.devis_cost >
                                                                     0 && (
                                                                     <Text
@@ -2129,12 +2209,12 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                             }
                                                                         >
                                                                             <Image
-                                                                                source={require("../assets/icons/image.png")} // Chemin vers votre icône poubelle
+                                                                                source={require("../assets/icons/image.png")} // Chemin vers votre icône image
                                                                                 style={{
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#888787", // Couleur de l'icône (ici noir)
+                                                                                        "#00fd00", // Couleur de l'icône (ici vert)
                                                                                 }}
                                                                             />
                                                                         </TouchableOpacity>
@@ -2147,6 +2227,8 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                 "flex-end",
                                                                         }}
                                                                     >
+																	      {totalInterventions >
+																			0 && (
                                                                         <TouchableOpacity
                                                                             style={[
                                                                                 styles.iconButton,
@@ -2168,7 +2250,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                     width: 28,
                                                                                     height: 28,
                                                                                     tintColor:
-                                                                                        "#888787",
+                                                                                        "#00fd00",
                                                                                 }}
                                                                             />
                                                                             <Text
@@ -2181,6 +2263,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                 }
                                                                             </Text>
                                                                         </TouchableOpacity>
+																	)}
                                                                     </View>
                                                                     <TouchableOpacity
                                                                         style={{
@@ -2732,7 +2815,6 @@ export default function HomePage({ navigation, route, setUser }) {
                                 </Modal>
                             )}
                         </View>
-                        
                     </View>
                 </TouchableWithoutFeedback>
                 <View style={styles.paginationContainer}>
@@ -2772,6 +2854,7 @@ export default function HomePage({ navigation, route, setUser }) {
                     </TouchableOpacity>
                 </View>
                 <BottomMenu
+                    onFilterCommande={filterClientsWithCommandeEnCours}
                     navigation={navigation}
                     filterByStatus={filterByStatus}
                     resetFilter={resetFilter}

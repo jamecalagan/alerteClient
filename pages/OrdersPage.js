@@ -10,8 +10,9 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 
-export default function OrdersPage({ route, navigation }) {
+export default function OrdersPage({ route, navigation, order }) {
     const { clientId, clientName, clientPhone, clientNumber } = route.params || {};
+    const [signature, setSignature] = useState(order?.signatureclient || null);
     const [orders, setOrders] = useState([]);
     const [newOrder, setNewOrder] = useState({
         product: "",
@@ -27,30 +28,21 @@ export default function OrdersPage({ route, navigation }) {
         loadOrders();
     }, [clientId]);
 
-	const loadOrders = async () => {
-		try {
-			console.log(`📢 Chargement des commandes pour le client : ${clientId}`);
-			const { data, error } = await supabase
-				.from("orders")
-				.select("*")
-				.eq("client_id", clientId);
-	
-			if (error) throw error;
-	
-			// 🔹 Calcul du montant restant dû (seules les commandes non payées sont comptées)
-			const remainingBalance = data
-				.filter(order => !order.paid) // ✅ Ne prend que les commandes non payées
-				.reduce((sum, order) => sum + (order.price - order.deposit), 0);
-	
-			console.log("✅ Commandes récupérées :", data);
-			console.log(`💳 Nouveau total restant dû : ${remainingBalance} €`);
-	
-			setOrders(data || []);
-		} catch (error) {
-			console.error("❌ Erreur lors du chargement des commandes:", error);
-		}
-	};
-	
+    const loadOrders = async () => {
+        try {
+            const { data, error } = await supabase
+                .from("orders")
+                .select("*")
+                .eq("client_id", clientId)
+                .order("createdat", { ascending: false });
+
+            if (error) throw error;
+
+            setOrders(data || []);
+        } catch (error) {
+            console.error("❌ Erreur lors du chargement des commandes:", error);
+        }
+    };
 
     const handleCreateOrder = async () => {
         try {
@@ -58,8 +50,6 @@ export default function OrdersPage({ route, navigation }) {
                 alert("Veuillez remplir au moins le produit et le prix !");
                 return;
             }
-
-            console.log("📤 Données envoyées à Supabase :", newOrder);
 
             const { error } = await supabase.from("orders").insert([
                 {
@@ -75,7 +65,6 @@ export default function OrdersPage({ route, navigation }) {
 
             if (error) throw error;
 
-            console.log("✅ Commande ajoutée avec succès :", newOrder);
             setNewOrder({
                 product: "",
                 brand: "",
@@ -87,72 +76,102 @@ export default function OrdersPage({ route, navigation }) {
             });
             loadOrders();
         } catch (error) {
-            console.error("❌ Erreur lors de l'ajout de la commande :", error);
+            console.error("❌ Erreur lors de l'ajout de la commande:", error);
         }
     };
 
-	const handleDeleteOrder = async (orderId) => {
-		try {
-			const { error } = await supabase.from("orders").delete().eq("id", orderId);
-			if (error) throw error;
-			console.log(`🗑 Commande ${orderId} supprimée`);
-			
-			await loadOrders(); // 🔄 Rafraîchir la liste après suppression
-		} catch (error) {
-			console.error("❌ Erreur lors de la suppression de la commande :", error);
-		}
-	};
-	
+    const handleDeleteOrder = async (order) => {
+        if (!order.paid) {
+            Alert.alert("Suppression impossible", "Vous ne pouvez pas supprimer une commande non réglée.");
+            return;
+        }
 
-	const handleMarkAsPaid = async (orderId) => {
-		try {
-			const { error } = await supabase
-				.from("orders")
-				.update({ paid: true }) // ✅ Passe la commande à "payée"
-				.eq("id", orderId);
-			
-			if (error) throw error;
-	
-			console.log(`💰 Commande ${orderId} marquée comme payée`);
-	
-			await loadOrders(); // 🔄 Mettre à jour immédiatement la liste et le montant restant dû
-		} catch (error) {
-			console.error("❌ Erreur lors de la mise à jour du paiement :", error);
-		}
-	};
-	
-	
+        Alert.alert(
+            "Confirmation",
+            "Êtes-vous sûr de vouloir supprimer cette commande ?",
+            [
+                {
+                    text: "Annuler",
+                    style: "cancel",
+                },
+                {
+                    text: "Supprimer",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase.from("orders").delete().eq("id", order.id);
+                            if (error) throw error;
+                            loadOrders();
+                        } catch (error) {
+                            console.error("❌ Erreur lors de la suppression de la commande:", error);
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+
+    const handleMarkAsPaid = (order) => {
+        Alert.alert(
+            "Paiement complet",
+            `Confirmez-vous le paiement complet de ${order.price - (order.deposit || 0)} € ?`,
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "Confirmer",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from("orders")
+                                .update({ paid: true, deposit: order.price })
+                                .eq("id", order.id);
+
+                            if (error) throw error;
+
+                            loadOrders();
+                        } catch (error) {
+                            console.error("❌ Erreur lors de la mise à jour du paiement:", error);
+                        }
+                    },
+                    style: "default",
+                },
+            ],
+            { cancelable: true }
+        );
+    };
 
     return (
         <View style={styles.container}>
-  			<Text style={styles.header}>Commandes pour {clientName}</Text>
-			<Text style={styles.header}>Numéro de fiche: {clientNumber}</Text>
+            <Text style={styles.header}>Commandes pour {clientName}</Text>
+            <Text style={styles.header}>Numéro de fiche: {clientNumber}</Text>
             <View style={styles.formContainer}>
                 <TextInput
                     style={styles.input}
                     placeholder="Produit"
-					placeholderTextColor="#000"
+                    placeholderTextColor="#000"
                     value={newOrder.product}
                     onChangeText={(text) => setNewOrder({ ...newOrder, product: text })}
                 />
                 <TextInput
                     style={styles.input}
                     placeholder="Marque"
-					placeholderTextColor="#000"
+                    placeholderTextColor="#000"
                     value={newOrder.brand}
                     onChangeText={(text) => setNewOrder({ ...newOrder, brand: text })}
                 />
                 <TextInput
                     style={styles.input}
                     placeholder="Modèle"
-					placeholderTextColor="#000"
+                    placeholderTextColor="#000"
                     value={newOrder.model}
                     onChangeText={(text) => setNewOrder({ ...newOrder, model: text })}
                 />
                 <TextInput
                     style={styles.input}
                     placeholder="Prix (€)"
-					placeholderTextColor="#000"
+                    placeholderTextColor="#000"
                     keyboardType="numeric"
                     value={newOrder.price}
                     onChangeText={(text) => setNewOrder({ ...newOrder, price: text })}
@@ -160,77 +179,85 @@ export default function OrdersPage({ route, navigation }) {
                 <TextInput
                     style={styles.input}
                     placeholder="Acompte (€)"
-					placeholderTextColor="#000"
+                    placeholderTextColor="#000"
                     keyboardType="numeric"
                     value={newOrder.deposit}
                     onChangeText={(text) => setNewOrder({ ...newOrder, deposit: text })}
                 />
-                <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
-                    <Text style={styles.button}>➕ Ajouter une commande</Text>
-					</TouchableOpacity>
-					
-					<TouchableOpacity
-  onPress={() => {
-    if (orders.length === 0) {
-      Alert.alert("Erreur", "Aucune commande à imprimer.");
-      return;
-    }
-
-    const lastOrder = orders[orders.length - 1];
-
-    const order = {
-      client: {
-        id: clientId,
-        name: clientName,
-        ficheNumber: clientNumber,
-      },
-      deviceType: lastOrder.product,
-      brand: lastOrder.brand,
-      model: lastOrder.model,
-      cost: lastOrder.price,
-      acompte: lastOrder.deposit,
-    };
-
-    navigation.navigate("CommandePreviewPage", { order });
-  }}
-  style={styles.button}
->
-  <Text style={styles.buttonText}>🖨️ Imprimer la commande</Text>
-</TouchableOpacity>
-
-
+                <View style={{ alignItems: "center" }}>
+                    <TouchableOpacity style={styles.addButton} onPress={handleCreateOrder}>
+                        <Text style={styles.button}>➕ Ajouter une commande</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <FlatList
                 data={orders}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
-                    <View style={styles.orderItem}>
-                        <Text  style={styles.buttonOrderText}>Produit: {item.product}</Text>
-                        <Text  style={styles.buttonOrderText}>Marque: {item.brand}</Text>
-                        <Text  style={styles.buttonOrderText}>Modèle: {item.model}</Text>
-                        <Text  style={styles.buttonOrderText}>Prix: {item.price} €</Text>
-                        <Text  style={styles.buttonOrderText}>Acompte: {item.deposit} €</Text>
-						<Text  style={styles.buttonOrderText}>Date de création: {new Date(item.createdat).toLocaleDateString()}</Text>
-						<Text style={styles.header}>💳 Reste dû : {orders
-						.filter(order => !order.paid)
-						.reduce((sum, order) => sum + (order.price - order.deposit), 0)} €</Text>
-                        <Text  style={styles.buttonOrderText}>{item.paid ? "✅ Payé" : "❌ Non payé"}</Text>
-						<View style={{ flexDirection: "row", justifyContent: "space-evenly", alignItems: "center", marginTop: 10 }}>
-    <TouchableOpacity style={[styles.payButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => handleMarkAsPaid(item.id)}>
-        <Text style={styles.paid}>💰 Payé</Text>
-    </TouchableOpacity>
+                    <View style={styles.orderCard}>
+                        <Text style={styles.cardTitle}>{item.product}</Text>
+                        <Text style={styles.cardText}>🔸 Marque: <Text style={styles.cardValue}>{item.brand}</Text></Text>
+                        <Text style={styles.cardText}>🔸 Modèle: <Text style={styles.cardValue}>{item.model}</Text></Text>
+                        <Text style={styles.cardText}>🔸 Prix: <Text style={styles.cardValue}>{item.price} €</Text></Text>
+                        <Text style={styles.cardText}>🔸 Acompte: <Text style={styles.cardValue}>{item.deposit} €</Text></Text>
+                        <Text style={styles.cardText}>🔸 Montant restant dû : <Text style={[styles.cardValue, { color: item.paid ? "#00ff00" : "#ff5555" }]}>{item.price - (item.deposit || 0)} €</Text></Text>
+                        <Text style={styles.cardText}>📅 Créée le: <Text style={styles.cardValue}>{new Date(item.createdat).toLocaleDateString()}</Text></Text>
+                        <Text style={styles.cardText}>💳 Statut: <Text style={[styles.cardValue, { color: item.paid ? 'lightgreen' : 'tomato' }]}>{item.paid ? "✅ Payé" : "❌ Non payé"}</Text></Text>
 
-    <TouchableOpacity style={[styles.deleteButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => handleDeleteOrder(item.id)}>
-        <Text style={styles.buttonDel}>🗑 Supprimer</Text>
-    </TouchableOpacity>
+                        {item.signatureclient && (
+                            <View style={{ backgroundColor: '#e8f5e9', padding: 5, borderRadius: 4, marginTop: 8 }}>
+                                <Text style={{ color: 'green', fontWeight: 'bold' }}>✅ Signée</Text>
+                            </View>
+                        )}
 
-    <TouchableOpacity style={[styles.addButton, { flex: 1, marginHorizontal: 5, alignItems: "center" }]} onPress={() => navigation.goBack()}>
-        <Text style={styles.button}>⬅ Retour</Text>
-    </TouchableOpacity>
-</View>
+                        {item.printed && (
+                            <View style={{ backgroundColor: '#e3f2fd', padding: 5, borderRadius: 4, marginTop: 8 }}>
+                                <Text style={{ color: '#2196F3', fontWeight: 'bold' }}>🖨️ Commande imprimée</Text>
+                            </View>
+                        )}
 
+                        <View style={{ alignItems: "center", marginVertical: 10 }}>
+                            <TouchableOpacity
+                                style={styles.addButton}
+                                onPress={() => {
+                                    const remaining = item.price - (item.deposit || 0);
+                                    const order = {
+                                        id: item.id,
+                                        client: {
+                                            id: clientId,
+                                            name: clientName,
+                                            ficheNumber: clientNumber,
+                                        },
+                                        deviceType: item.product,
+                                        brand: item.brand,
+                                        model: item.model,
+                                        cost: item.price,
+                                        acompte: item.deposit,
+                                        remaining: remaining,
+                                        signatureclient: item.signatureclient,
+                                        printed: item.printed,
+                                    };
+                                    navigation.navigate("CommandePreviewPage", { order });
+                                }}
+                            >
+                                <Text style={styles.button}>🖨️ Imprimer cette commande</Text>
+                            </TouchableOpacity>
+                        </View>
 
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 10 }}>
+                            <TouchableOpacity style={[styles.pay, { flex: 1, alignItems: "center" }]} onPress={() => handleMarkAsPaid(item)}>
+                                <Text style={styles.paid}>💰 Payé</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.buttonDell, { flex: 1, alignItems: "center" }]} onPress={() => handleDeleteOrder(item)}>
+                                <Text style={styles.buttonDel}>🗑 Supprimer</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.addButton, { flex: 1, alignItems: "center" }]} onPress={() => navigation.goBack()}>
+                                <Text style={styles.ReturnButton}>⬅ Retour</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
             />
@@ -240,10 +267,31 @@ export default function OrdersPage({ route, navigation }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 20, backgroundColor: "#191f2f" },
-
-    header: { fontSize: 18, fontWeight: "bold", color:"#888787", marginBottom: 10 },
-    orderItem: { padding: 15, borderBottomWidth: 1, borderColor: "#888787" },
-	input: {
+    header: { fontSize: 18, fontWeight: "bold", color: "#888787", marginBottom: 10 },
+    orderCard: {
+        padding: 20,
+        marginBottom: 20,
+        backgroundColor: "#2a2f45",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#3e4c69",
+    },
+    cardTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        marginBottom: 10,
+        color: "#fff",
+    },
+    cardText: {
+        fontSize: 20,
+        marginBottom: 5,
+        color: "#ccc",
+    },
+    cardValue: {
+        fontWeight: "bold",
+        color: "#eee",
+    },
+    input: {
         borderWidth: 1,
         borderColor: "#53669b",
         padding: 10,
@@ -253,10 +301,9 @@ const styles = StyleSheet.create({
         width: "90%",
         alignSelf: "center",
     },
-	button: {
+    button: {
         flexDirection: "row",
-		gap: 5,
-		width: "100%",
+        gap: 5,
         alignItems: "center",
         backgroundColor: "#191f2f",
         padding: 15,
@@ -264,12 +311,15 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderColor: "#888787",
         marginBottom: 20,
-		fontSize: 18, fontWeight: "medium", color:"#888787",
+        marginTop: 20,
+        fontSize: 18,
+        fontWeight: "medium",
+        color: "#888787",
     },
-	paid: {
+    paid: {
         flexDirection: "row",
-		gap: 5,
-		width: "100%",
+        gap: 5,
+        width: "100%",
         alignItems: "center",
         backgroundColor: "#191f2f",
         padding: 15,
@@ -277,12 +327,29 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderColor: "#00ff00",
         marginBottom: 20,
-		fontSize: 18, fontWeight: "medium", color:"#888787",
+        fontSize: 18,
+        fontWeight: "medium",
+        color: "#888787",
     },
-	buttonDel: {
+    ReturnButton: {
         flexDirection: "row",
-		gap: 5,
-		width: "100%",
+        gap: 5,
+        width: "100%",
+        alignItems: "center",
+        backgroundColor: "#191f2f",
+        padding: 15,
+        borderWidth: 1,
+        borderRadius: 2,
+        borderColor: "#888787",
+        marginBottom: 20,
+        fontSize: 18,
+        fontWeight: "medium",
+        color: "#888787",
+    },
+    buttonDel: {
+        flexDirection: "row",
+        gap: 5,
+        width: "100%",
         alignItems: "center",
         backgroundColor: "#191f2f",
         padding: 15,
@@ -290,10 +357,11 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         borderColor: "#ff0000",
         marginBottom: 20,
-		fontSize: 18, fontWeight: "medium", color:"#888787",
+        fontSize: 18,
+        fontWeight: "medium",
+        color: "#888787",
     },
-	formContainer: { marginBottom: 20 },
-	addButton: { padding: 10, borderRadius: 2, alignItems: "center" },
-
-	buttonOrderText: { fontSize: 18, fontWeight: "bold", color:"#888787" },
+    formContainer: { marginBottom: 20 },
+    addButton: { width: "60%", padding: 10, borderRadius: 2, alignItems: "center" },
+    buttonOrderText: { fontSize: 18, fontWeight: "bold", color: "#888787" },
 });

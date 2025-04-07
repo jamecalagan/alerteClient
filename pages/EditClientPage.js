@@ -78,6 +78,7 @@ export default function EditClientPage({ route, navigation }) {
 		interventions(
 		  id,
 		  status,
+		  password,
 		  deviceType,
 		  brand,
 		  model,

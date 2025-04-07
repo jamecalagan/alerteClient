@@ -139,71 +139,56 @@ export default function HomePage({ navigation, route, setUser }) {
     });
     const [paginatedClients, setPaginatedClients] = useState([]);
     const itemsPerPage = 3;
-    const checkImagesToDelete = async () => {
-        setIsLoading(true);
-        try {
-            const dateLimite = new Date(
-                Date.now() - 10 * 24 * 60 * 60 * 1000
-            ).toISOString();
-
-            // Récupération des interventions
-            const { data: interventions, error: interventionError } =
-                await supabase
-                    .from("interventions")
-                    .select("id, photos, label_photo")
-                    .eq("status", "Récupéré")
-                    .lte('"updatedAt"', dateLimite)
-                    .not("photos", "eq", "[]");
-
-            if (interventionError) throw interventionError;
-
-            const interventionIds = interventions.map(
-                (intervention) => intervention.id
-            );
-
-            // Compter les images dans intervention_images
-            const { count: countImages, error: imagesError } = await supabase
-                .from("intervention_images")
-                .select("id", { count: "exact" })
-                .in("intervention_id", interventionIds);
-
-            if (imagesError) throw imagesError;
-
-            // Compter les photos valides dans interventions
-            let countPhotos = 0;
-            interventions.forEach((intervention) => {
-                try {
-                    const photos = intervention.photos;
-                    if (photos && typeof photos === "string") {
-                        // Vérification si la valeur est un tableau JSON
-                        if (photos.startsWith("[") && photos.endsWith("]")) {
-                            const photosArray = JSON.parse(photos);
-                            if (Array.isArray(photosArray)) {
-                                countPhotos += photosArray.length;
-                            }
-                        } else {
-                            console.warn(
-                                `La valeur de photos pour l'intervention ${intervention.id} n'est pas un tableau JSON.`
-                            );
-                        }
-                    }
-                } catch (err) {
-                    console.error(
-                        `Erreur de parsing JSON pour l'intervention ${intervention.id}:`,
-                        err
-                    );
-                }
-            });
-
-            setHasImagesToDelete(
-                (countImages || 0) > 0 || (countPhotos || 0) > 0
-            );
-        } catch (error) {
-            console.error("Erreur lors de la vérification des images :", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+	const checkImagesToDelete = async () => {
+		setIsLoading(true);
+		try {
+			const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+			console.log("📅 Date limite :", dateLimite);
+	
+			// Récupération des interventions concernées
+			const { data: interventions, error: interventionError } = await supabase
+				.from("interventions")
+				.select("id, photos")
+				.eq("status", "Récupéré")
+				.lte("updatedAt", dateLimite);
+	
+			if (interventionError) throw interventionError;
+	
+			console.log("🟡 Interventions récupérées :", interventions.length);
+	
+			let countPhotos = 0;
+	
+			interventions.forEach((intervention) => {
+				const photos = intervention.photos;
+				if (Array.isArray(photos)) {
+					countPhotos += photos.length;
+				}
+			});
+	
+			console.log("📸 Total photos détectées :", countPhotos);
+	
+			// Vérifie aussi les images dans la table intervention_images
+			const interventionIds = interventions.map((inter) => inter.id);
+	
+			const { count: countImages, error: imagesError } = await supabase
+				.from("intervention_images")
+				.select("id", { count: "exact" })
+				.in("intervention_id", interventionIds);
+	
+			if (imagesError) throw imagesError;
+	
+			console.log("🗂️ Total images dans intervention_images :", countImages);
+	
+			setHasImagesToDelete((countImages || 0) > 0 || countPhotos > 0);
+		} catch (error) {
+			console.error("❌ Erreur lors de la vérification des images :", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+	
+	
+	
     useEffect(() => {
         loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
     }, [orders]);

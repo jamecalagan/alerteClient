@@ -444,6 +444,7 @@ if (status === 'Devis en cours') {
                             setReference(text.toUpperCase())
                         } // Forcer la saisie en majuscules
                         autoCapitalize="characters" // Forcer la saisie en majuscules
+						placeholderTextColor="#888787"
                         placeholder="Référence du produit"
                     />
                     {labelPhoto && (

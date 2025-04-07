@@ -1,280 +1,140 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Image,
+    ScrollView,
+    Alert,
+} from "react-native";
 import { supabase } from "../supabaseClient";
 
 const ImageCleanupPage = () => {
-    const [interventionImagesGrouped, setInterventionImagesGrouped] = useState([]);
-    const [selectedImages, setSelectedImages] = useState([]); // État pour stocker les images sélectionnées
-    const [isLoading, setIsLoading] = useState(false);
+    const [clients, setClients] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const clientsPerPage = 6;
 
-    const loadInterventionImagesAndPhotos = async () => {
-        setIsLoading(true);
-        try {
-            const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    useEffect(() => {
+        fetchImages();
+    }, []);
 
-            // Charger les interventions de la table "interventions"
-            const { data: interventions, error: interventionError } = await supabase
-                .from("interventions")
-                .select('id, client_id, "updatedAt", photos, label_photo, deviceType, brand, model')
-                .eq("status", "Récupéré")
-                .lte("updatedAt", dateLimite)
-                .not("photos", "eq", "[]"); // Exclure les interventions sans photos
+    const fetchImages = async () => {
+        const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
 
-            if (interventionError || !interventions) {
-                console.error("Erreur lors du chargement des interventions :", interventionError);
-                return;
-            }
+        // Récupération des interventions avec photos base64 à supprimer
+        const { data: interventions, error } = await supabase
+            .from("interventions")
+            .select("id, client_id, photos, deviceType, brand, model")
+            .eq("status", "Récupéré")
+            .lte("updatedAt", dateLimite);
 
-            // Charger les images de la table "intervention_images"
-            const { data: imagesData, error: imagesError } = await supabase
-                .from("intervention_images")
-                .select("*")
-                .in(
-                    "intervention_id",
-                    interventions.map((intervention) => intervention.id)
-                )
-                .lte("created_at", dateLimite);
-
-            if (imagesError) {
-                console.error("Erreur lors du chargement des images :", imagesError);
-                return;
-            }
-
-            // Charger les noms des clients
-            const clientIds = interventions.map((intervention) => intervention.client_id);
-            const { data: clients, error: clientError } = await supabase
-                .from("clients")
-                .select("id, name")
-                .in("id", clientIds);
-
-            if (clientError) {
-                console.error("Erreur lors du chargement des clients :", clientError);
-                return;
-            }
-
-            const clientMap = clients.reduce((map, client) => {
-                map[client.id] = client.name || "Inconnu";
-                return map;
-            }, {});
-
-            const groupedImages = interventions.map((intervention) => {
-                let photosArray = [];
-
-                if (Array.isArray(intervention.photos) && intervention.photos.length > 0) {
-                    // Exclure la photo qui correspond à "label_photo"
-                    photosArray = intervention.photos.filter(
-                        (photo) => photo !== intervention.label_photo
-                    );
-                }
-
-                const additionalImages = imagesData.filter(
-                    (image) => image.intervention_id === intervention.id && !image.is_label
-                );
-
-                return {
-                    interventionId: intervention.id,
-                    clientName: clientMap[intervention.client_id],
-                    updatedAt: intervention.updatedAt,
-                    photos: [
-                        ...photosArray.map((photo, index) => ({
-                            id: `${intervention.id}_photo_${index}`,
-                            base64: photo,
-                        })),
-                        ...additionalImages.map((image) => ({
-                            id: image.id,
-                            file_path: image.file_path,
-                        })),
-                    ],
-                    deviceType: intervention.deviceType || "Type inconnu",
-                    brand: intervention.brand || "Marque inconnue",
-                    model: intervention.model || "Modèle inconnu",
-                };
-            });
-
-            setInterventionImagesGrouped(groupedImages.filter((group) => group.photos.length > 0));
-        } catch (err) {
-            console.error("Erreur inattendue :", err);
-        } finally {
-            setIsLoading(false);
+        if (error) {
+            console.error("Erreur récupération interventions:", error);
+            return;
         }
+
+        const filtered = interventions.filter((intervention) => {
+            const photos = intervention.photos;
+            return photos && Array.isArray(photos) && photos.length > 0;
+        });
+
+        const clientIds = [...new Set(filtered.map((i) => i.client_id))];
+        const { data: clientsData } = await supabase
+            .from("clients")
+            .select("id, name")
+            .in("id", clientIds);
+
+        const combined = filtered.map((intervention) => {
+            const client = clientsData.find((c) => c.id === intervention.client_id);
+            return {
+                ...intervention,
+                clientName: client?.name || "",
+            };
+        });
+
+        setClients(combined);
     };
 
-    // Fonction pour sélectionner/désélectionner une image
-    const toggleImageSelection = (imageId) => {
-        setSelectedImages((prevSelected) =>
-            prevSelected.includes(imageId)
-                ? prevSelected.filter((id) => id !== imageId) // Retire si déjà sélectionnée
-                : [...prevSelected, imageId] // Ajoute si pas encore sélectionnée
-        );
-    };
+    const deleteImage = async (clientId, imageIndex) => {
+        const client = clients.find((c) => c.id === clientId);
+        if (!client) return;
 
-// Fonction pour supprimer les images sélectionnées
-const deleteSelectedImages = async () => {
-    if (selectedImages.length === 0) {
-        Alert.alert("Aucune sélection", "Veuillez sélectionner au moins une image à supprimer.");
-        return;
-    }
-
-    Alert.alert(
-        "Confirmation",
-        `Voulez-vous vraiment supprimer ${selectedImages.length} images ?`,
-        [
-            { text: "Annuler", style: "cancel" },
+        Alert.alert("Confirmation", "Supprimer cette image ?", [
+            {
+                text: "Annuler",
+                style: "cancel",
+            },
             {
                 text: "Supprimer",
+                style: "destructive",
                 onPress: async () => {
-                    try {
-                        const interventionImageIds = selectedImages.filter(id => !id.includes("_photo_"));
-                        const photoIds = selectedImages.filter(id => id.includes("_photo_"));
+                    const updatedPhotos = [...client.photos];
+                    updatedPhotos.splice(imageIndex, 1);
 
-                        console.log("🗑️ Images à supprimer (intervention_images) :", interventionImageIds);
-                        console.log("🗑️ Photos à supprimer (interventions) :", photoIds);
+                    const { error } = await supabase
+                        .from("interventions")
+                        .update({ photos: updatedPhotos })
+                        .eq("id", client.id);
 
-                        // 1️⃣ Suppression des images de la table intervention_images
-                        if (interventionImageIds.length > 0) {
-                            const { error: deleteError } = await supabase
-                                .from("intervention_images")
-                                .delete()
-                                .in("id", interventionImageIds);
-
-                            if (deleteError) {
-                                console.error("❌ Erreur lors de la suppression des images :", deleteError);
-                                Alert.alert("Erreur", "Impossible de supprimer certaines images.");
-                                return;
-                            }
-                            console.log("✅ Suppression des images réussie dans intervention_images :", interventionImageIds);
-                        }
-
-                        // 2️⃣ Suppression des images dans la colonne photos de la table interventions
-                        for (const photoId of photoIds) {
-                            const [interventionId, , index] = photoId.split("_");
-
-                            const { data, error: fetchError } = await supabase
-                                .from("interventions")
-                                .select("photos")
-                                .eq("id", interventionId)
-                                .single();
-
-                            if (fetchError) {
-                                console.error("❌ Erreur lors de la récupération des photos :", fetchError);
-                                continue;
-                            }
-
-                            
-
-                            const updatedPhotos = data.photos.filter((_, idx) => idx !== parseInt(index));
-
-                            const { error: updateError } = await supabase
-                                .from("interventions")
-                                .update({ photos: updatedPhotos })
-                                .eq("id", interventionId);
-
-                            if (updateError) {
-                                console.error("❌ Erreur lors de la mise à jour des photos :", updateError);
-                            } else {
-                                console.log(`✅ Photo supprimée de l'intervention ${interventionId}`);
-                                console.log("📦 Photos après suppression :", updatedPhotos);
-                            }
-                        }
-
-                        // 🔄 Rechargement des données après suppression
-                        await loadInterventionImagesAndPhotos();
-
-                        // Réinitialiser la sélection
-                        setSelectedImages([]);
-                    } catch (err) {
-                        console.error("❌ Erreur inattendue lors de la suppression :", err);
+                    if (!error) {
+                        fetchImages();
+                    } else {
+                        console.error("Erreur suppression image:", error);
                     }
                 },
             },
-        ]
-    );
-};
+        ]);
+    };
 
-    useEffect(() => {
-        loadInterventionImagesAndPhotos();
-    }, []);
+    const indexOfLastClient = currentPage * clientsPerPage;
+    const indexOfFirstClient = indexOfLastClient - clientsPerPage;
+    const currentClients = clients.slice(indexOfFirstClient, indexOfLastClient);
+    const totalPages = Math.ceil(clients.length / clientsPerPage);
 
     return (
-        <View style={{ flex: 1, padding: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
-                Photos des interventions récupérées (plus de 10 jours)
-            </Text>
-            {isLoading ? (
-                <ActivityIndicator size="large" color="blue" />
-            ) : interventionImagesGrouped.length === 0 ? (
-                <Text>Aucune photo à supprimer.</Text>
-            ) : (
-                <>
-                    <FlatList
-                        data={interventionImagesGrouped}
-                        keyExtractor={(item) => item.interventionId.toString()}
-                        renderItem={({ item }) => (
-                            <View style={{ marginBottom: 20 }}>
-                                <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 5 }}>
-                                    Type : {item.deviceType} - Marque : {item.brand} - Modèle : {item.model}
-                                </Text>
-                                <Text style={{ fontSize: 14, marginBottom: 10, color: "gray" }}>
-                                    Client : {item.clientName}
-                                </Text>
-
-                                <FlatList
-                                    data={item.photos}
-                                    horizontal
-                                    keyExtractor={(photo) => photo.id.toString()}
-                                    renderItem={({ item: photo }) => (
-                                        <TouchableOpacity onPress={() => toggleImageSelection(photo.id)}>
-                                            <View style={{ position: "relative", marginRight: 10 }}>
-                                                <Image
-                                                    source={{
-                                                        uri: photo.base64
-                                                            ? `data:image/jpeg;base64,${photo.base64}`
-                                                            : photo.file_path,
-                                                    }}
-                                                    style={{
-                                                        width: 100,
-                                                        height: 100,
-                                                        borderWidth: selectedImages.includes(photo.id) ? 3 : 1,
-                                                        borderColor: selectedImages.includes(photo.id) ? "green" : "red",
-                                                        borderRadius: 5,
-                                                    }}
-                                                />
-                                                {selectedImages.includes(photo.id) && (
-                                                    <View
-                                                        style={{
-                                                            position: "absolute",
-                                                            top: 5,
-                                                            right: 5,
-                                                            backgroundColor: "green",
-                                                            padding: 5,
-                                                            borderRadius: 50,
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: "white", fontWeight: "bold" }}>✔</Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </TouchableOpacity>
-                                    )}
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {currentClients.map((client) => (
+                <View key={client.id} style={{ marginBottom: 30 }}>
+                    <Text style={{ fontWeight: "bold", marginBottom: 4 }}>
+                        {client.clientName} — {client.deviceType} {client.brand} {client.model}
+                    </Text>
+                    <ScrollView horizontal>
+                        {Array.isArray(client.photos) && client.photos.map((photo, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                onPress={() => deleteImage(client.id, index)}
+                                style={{ marginRight: 10 }}
+                            >
+                                <Image
+                                    source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                                    style={{ width: 100, height: 100, borderRadius: 4 }}
                                 />
-                            </View>
-                        )}
-                    />
-                    <TouchableOpacity
-                        onPress={deleteSelectedImages}
-                        style={{
-                            padding: 10,
-                            backgroundColor: "red",
-                            borderRadius: 5,
-                            marginVertical: 10,
-                            alignItems: "center",
-                        }}
-                    >
-                        <Text style={{ color: "white", fontWeight: "bold" }}>Supprimer les images sélectionnées</Text>
-                    </TouchableOpacity>
-                </>
-            )}
-        </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            ))}
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 20 }}>
+                <TouchableOpacity
+                    disabled={currentPage === 1}
+                    onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    style={{ padding: 10, backgroundColor: "#ccc", borderRadius: 5 }}
+                >
+                    <Text>⬅️ Précédent</Text>
+                </TouchableOpacity>
+                <Text style={{ alignSelf: "center", padding: 10 }}>
+                    Page {currentPage} / {totalPages}
+                </Text>
+                <TouchableOpacity
+                    disabled={currentPage === totalPages}
+                    onPress={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    style={{ padding: 10, backgroundColor: "#ccc", borderRadius: 5 }}
+                >
+                    <Text>Suivant ➡️</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     );
 };
 

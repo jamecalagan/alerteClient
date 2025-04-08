@@ -145,7 +145,6 @@ export default function HomePage({ navigation, route, setUser }) {
 			const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
 			console.log("📅 Date limite :", dateLimite);
 	
-			// Récupération des interventions concernées
 			const { data: interventions, error: interventionError } = await supabase
 				.from("interventions")
 				.select("id, photos")
@@ -161,11 +160,15 @@ export default function HomePage({ navigation, route, setUser }) {
 			interventions.forEach((intervention) => {
 				const photos = intervention.photos;
 				if (Array.isArray(photos)) {
-					countPhotos += photos.length;
+					// ✅ On ne compte que les vraies images (hors test et vides)
+					const validPhotos = photos.filter(
+						(p) => typeof p === "string" && p.trim() !== "" && p !== "base64testphoto"
+					);
+					countPhotos += validPhotos.length;
 				}
 			});
 	
-			console.log("📸 Total photos détectées :", countPhotos);
+			console.log("📸 Total vraies photos détectées :", countPhotos);
 	
 			// Vérifie aussi les images dans la table intervention_images
 			const interventionIds = interventions.map((inter) => inter.id);
@@ -2344,6 +2347,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                 index
                                                                             ) => (
                                                                                 <View
+																				key={intervention.id || index}
                                                                                     style={{
                                                                                         flexDirection:
                                                                                             "row",

@@ -7,7 +7,6 @@ import AlertBox from '../components/AlertBox'; // Import du composant AlertBox
 import * as Print from 'expo-print'; // Pour l'impression
 export default function EditClientPage({ route, navigation }) {
   const { client } = route.params;
-
   // États pour gérer les informations du client
   const [name, setName] = useState(client.name || '');
   const [phone, setPhone] = useState(client.phone || '');
@@ -195,6 +194,10 @@ export default function EditClientPage({ route, navigation }) {
   <p>${formattedPhone}</p>
 </div>
   const formattedPhone = formatWithSpaces(phone);
+  function formatDateFR(dateString) {
+	if (!dateString) return "Date inconnue";
+	return new Date(dateString).toLocaleDateString("fr-FR");
+  }
   
 
  
@@ -267,6 +270,10 @@ export default function EditClientPage({ route, navigation }) {
 				<p class="bold">Chargeur :</p>
 				<p>${intervention.chargeur ? 'Oui' : 'Non'}</p>
 			  </div>
+<div class="label-section">
+  <p class="bold">Date :</p>
+  <p>${formatDateFR(intervention?.createdAt)}</p>
+</div>
 			</body>
 		  </html>
 		`;

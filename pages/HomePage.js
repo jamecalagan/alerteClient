@@ -1614,20 +1614,21 @@ export default function HomePage({ navigation, route, setUser }) {
                                     </View>
                                 ) : (
                                     <View style={styles.images_numberText}>
-                                        <Text
-                                            style={{
-                                                color: "white",
-                                                marginTop: 18,
-                                                marginRight: 40,
-                                                padding: 10,
-                                                borderRadius: 2,
-                                                borderWidth: 1,
-                                                borderColor: "#888787",
-                                                backgroundColor: "#191f2f",
-                                            }}
-                                        >
-                                            Aucune image à supprimer.
-                                        </Text>
+									<TouchableOpacity
+    onPress={() => navigation.navigate("StoredImages")}
+    style={{
+        marginRight: 40,
+        marginTop: 15,
+        padding: 10,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderColor: "#888787",
+        backgroundColor: "#191f2f",
+    }}
+>
+    <Text style={{ color: "white" }}>Accès à la Galerie Cloud</Text>
+</TouchableOpacity>
+
                                         <TouchableOpacity
                                             onPress={() =>
                                                 navigation.navigate(

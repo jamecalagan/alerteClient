@@ -36,6 +36,7 @@ import OngoingAmountsPage from "./pages/OngoingAmountsPage";
 import SelectInterventionPage from './pages/SelectInterventionPage';
 import AddProductPage from "./pages/AddProductPage";
 import CommandePreviewPage from "./pages/CommandePreviewPage";
+import StoredImagesPage from "./pages/StoredImagesPage";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -232,7 +233,9 @@ function MainStack({ setUser }) {
 			<Stack.Screen name="OrdersPage" component={OrdersPage} options={{ title: "Commandes" }} />
 			<Stack.Screen name="RepairedInterventionsListPage" component={RepairedInterventionsListPage} />
 			<Stack.Screen name="CommandePreviewPage" component={CommandePreviewPage} />
-			<Stack.Screen name="ListingProduits"  component={ListingProduits} options={{ title: 'Gestion des Produits' }} 
+			<Stack.Screen name="ListingProduits"  component={ListingProduits} options={{ title: 'Gestion des Produits' }} />
+			<Stack.Screen name="StoredImages" component={StoredImagesPage}
+
         />
 		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
         <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />

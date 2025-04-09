@@ -18,6 +18,8 @@ import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from 'expo-image-manipulator';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 export default function EditInterventionPage({ route, navigation }) {
 	const { clientId } = route.params || {};
     const { interventionId } = route.params;
@@ -109,13 +111,86 @@ export default function EditInterventionPage({ route, navigation }) {
             if (data.marque_id) loadModels(data.marque_id);
         }
     };
-	const deletePhoto = (photoToDelete) => {
-		setPhotos((prevPhotos) => prevPhotos.filter((photo) => photo !== photoToDelete));
-		if (photoToDelete === labelPhoto) {
-			setLabelPhoto(null); // Si la photo supprimée est l'étiquette, réinitialiser l'étiquette
+	const uploadImageToStorage = async (base64Data, interventionId, isLabel = false) => {
+		try {
+		  const folder = isLabel ? 'etiquettes' : 'supplementaires';
+		  const fileName = `${Date.now()}.jpg`;
+		  const filePath = `images/${folder}/${interventionId}/${fileName}`;
+	
+		  const fileUri = FileSystem.cacheDirectory + fileName;
+		  await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+			encoding: FileSystem.EncodingType.Base64,
+		  });
+	
+		  const file = {
+			uri: fileUri,
+			name: fileName,
+			type: 'image/jpeg',
+		  };
+	
+		  const { error } = await supabase.storage
+			.from('images')
+			.upload(filePath, file, { upsert: true, contentType: 'image/jpeg' });
+	
+		  if (error) {
+			console.error('Erreur upload Supabase:', error.message);
+			return null;
+		  }
+	
+		  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+		  return data.publicUrl;
+		} catch (error) {
+		  console.error('Erreur dans uploadImageToStorage :', error);
+		  return null;
 		}
-	};
-    // Charger la liste des articles
+	  };
+	  const deletePhoto = (photoUrlToDelete) => {
+		Alert.alert(
+		  "Supprimer cette image ?",
+		  "Cette action est définitive et supprimera l'image du stockage et de la fiche.",
+		  [
+			{ text: "Annuler", style: "cancel" },
+			{
+			  text: "Supprimer",
+			  style: "destructive",
+			  onPress: async () => {
+				try {
+					const fullPath = photoUrlToDelete.split('/storage/v1/object/public/')[1];
+					const path = fullPath.startsWith('images/') ? fullPath.slice(7) : fullPath;
+					
+				  console.log("✅ Chemin à supprimer :", path);
+			  
+				  const { error } = await supabase.storage.from('images').remove([path]);
+
+			  
+				  if (error) {
+					console.error("❌ Erreur Supabase lors de la suppression :", error.message);
+					return;
+				  }
+			  
+				  const updatedPhotos = photos.filter((photo) => photo !== photoUrlToDelete);
+				  setPhotos(updatedPhotos);
+			  
+				  const { error: updateError } = await supabase
+					.from('interventions')
+					.update({ photos: updatedPhotos })
+					.eq('id', interventionId);
+			  
+				  if (updateError) {
+					console.error("❌ Erreur mise à jour BDD :", updateError.message);
+				  } else {
+					console.log("✅ Image supprimée et BDD mise à jour.");
+				  }
+				} catch (e) {
+				  console.error("❌ Erreur générale lors de la suppression :", e);
+				}
+			  }
+			  
+			},
+		  ]
+		);
+	  };
+		  // Charger la liste des articles
     const loadArticles = async () => {
         const { data, error } = await supabase.from("article").select("id, nom");
         if (error) {
@@ -172,88 +247,74 @@ export default function EditInterventionPage({ route, navigation }) {
     // Fonction pour prendre la photo de l'étiquette
 	const pickLabelImage = async () => {
 		try {
-			let result = await ImagePicker.launchCameraAsync({
-				mediaTypes: ['images'], // Sélectionne uniquement les images
-				allowsEditing: true,
-				quality: 0.5, // Compression initiale
-			});
+		  let result = await ImagePicker.launchCameraAsync({
+			mediaTypes: ['images'],
+			allowsEditing: true,
+			quality: 0.5,
+		  });
 	
-			if (!result.canceled && result.assets && result.assets.length > 0) {
-				const imageUri = result.assets[0].uri;
+		  if (!result.canceled && result.assets && result.assets.length > 0) {
+			const imageUri = result.assets[0].uri;
+			const compressedImage = await ImageManipulator.manipulateAsync(
+			  imageUri,
+			  [{ resize: { width: 800 } }],
+			  { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+			);
 	
-				// Compression et redimensionnement
-				const compressedImage = await ImageManipulator.manipulateAsync(
-					imageUri,
-					[{ resize: { width: 800 } }], // Redimensionne à une largeur maximale de 800px
-					{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG } // Compresse à 70%
-				);
+			const base64Image = await convertImageToBase64(compressedImage.uri);
 	
-				const base64Image = await convertImageToBase64(compressedImage.uri);
-	
-				if (base64Image) {
-					setPhotos([...photos, base64Image]);
-					setIsPhotoTaken(true);
-					setLabelPhoto(base64Image);
-					if (!reference) {
-						setReference('Voir photo pour référence produit');
-					}
-				}
-			} else {
-				console.log('Aucune image capturée ou opération annulée.');
+			if (base64Image) {
+			  const url = await uploadImageToStorage(base64Image, interventionId, true);
+			  if (url) setLabelPhoto(url);
 			}
+		  }
 		} catch (error) {
-			console.error('Erreur lors de la capture d\'image :', error);
+		  console.error('Erreur lors de la capture d\'image :', error);
 		}
-	};
+	  };
 	
 
-	const pickAdditionalImage = async () => {
+	  const pickAdditionalImage = async () => {
 		try {
-			let result = await ImagePicker.launchCameraAsync({
-				mediaTypes: ['images'],
-				allowsEditing: true,
-				quality: 0.5,
-			});
+		  let result = await ImagePicker.launchCameraAsync({
+			mediaTypes: ['images'],
+			allowsEditing: true,
+			quality: 0.5,
+		  });
 	
-			if (!result.canceled && result.assets && result.assets.length > 0) {
-				const imageUri = result.assets[0].uri;
+		  if (!result.canceled && result.assets && result.assets.length > 0) {
+			const imageUri = result.assets[0].uri;
+			const compressedImage = await ImageManipulator.manipulateAsync(
+			  imageUri,
+			  [{ resize: { width: 800 } }],
+			  { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+			);
 	
-				// Compression et redimensionnement
-				const compressedImage = await ImageManipulator.manipulateAsync(
-					imageUri,
-					[{ resize: { width: 800 } }],
-					{ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-				);
+			const base64Image = await convertImageToBase64(compressedImage.uri);
 	
-				const base64Image = await convertImageToBase64(compressedImage.uri);
-	
-				if (base64Image) {
-					setPhotos([...photos, base64Image]);
-				}
-			} else {
-				console.log('Aucune image capturée ou opération annulée.');
+			if (base64Image) {
+			  const url = await uploadImageToStorage(base64Image, interventionId, false);
+			  if (url) setPhotos((prev) => [...prev, url]);
 			}
+		  }
 		} catch (error) {
-			console.error('Erreur lors de la capture d\'image :', error);
+		  console.error('Erreur lors de la capture d\'image :', error);
 		}
-	};
+	  };
 	
 	
 
-    const convertImageToBase64 = async (uri) => {
-        try {
-            const base64 = await FileSystem.readAsStringAsync(uri, {
-                encoding: FileSystem.EncodingType.Base64,
-            });
-            return base64;
-        } catch (error) {
-            console.error(
-                "Erreur lors de la conversion de l'image en base64 :",
-                error
-            );
-            return null;
-        }
-    };
+	  const convertImageToBase64 = async (uri) => {
+		try {
+		  const base64 = await FileSystem.readAsStringAsync(uri, {
+			encoding: FileSystem.EncodingType.Base64,
+		  });
+		  return base64;
+		} catch (error) {
+		  console.error("Erreur lors de la conversion de l'image en base64 :", error);
+		  return null;
+		}
+	  };
 
     const handleSaveIntervention = async () => {
 		const formattedDevisCost = status === 'Devis en cours' && devisCost
@@ -307,7 +368,7 @@ export default function EditInterventionPage({ route, navigation }) {
 			status,
 			password,
 			serial_number,
-			photos,
+			photos: photos,
 			commande,
 			remarks,
 			paymentStatus,
@@ -447,11 +508,14 @@ if (status === 'Devis en cours') {
 						placeholderTextColor="#888787"
                         placeholder="Référence du produit"
                     />
-                    {labelPhoto && (
-						<Image
-    source={require('../assets/icons/ok.png')} // Chemin vers votre image
-    style={[styles.checkIcon, { width: 20, height: 20, tintColor: 'green' }]} // Personnalisation de l'image
-/>
+        {labelPhoto && (
+          <TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
+            <Image
+              source={{ uri: labelPhoto }}
+              style={{ width: 60, height: 60, borderWidth: 2, borderColor: 'green', margin: 10, borderRadius: 50 }}
+            />
+          </TouchableOpacity>
+        
 
                     )}
                 </View>
@@ -651,58 +715,42 @@ if (status === 'Devis en cours') {
                 </Picker>
 
                 {/* Affichage des images capturées */}
-                {photos.length > 0 && (
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            justifyContent: "center",
-                            marginTop: 20,
-                        }}
-                    >
-                        {photos.map((photo, index) => (
-							<TouchableOpacity key={index} onPress={() => handleImagePress(photo)}>
-							<Image
-          source={{ uri: `data:image/jpeg;base64,${photo}` }}
-          style={[
-            { width: 100, height: 100, margin: 5, borderRadius: 10 },
-            photo === labelPhoto && { borderWidth: 2, borderColor: '#43ec86' } // Applique le contour vert uniquement pour la photo d'étiquette
-          ]}
-        />
-		                {photo !== labelPhoto && (
-                    <TouchableOpacity
-                        style={{ position: "absolute", top: 5, right: 5 }}
-                        onPress={() => deletePhoto(photo)}
-                    >
-                        						<Image
-    source={require('../assets/icons/delete.png')} // Chemin vers votre image
-    style={[styles.checkIcon, { width: 20, height: 20, tintColor: 'red' }]} // Personnalisation de l'image
-/>
-                    </TouchableOpacity>
-                )}
-      </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
-                {selectedImage && (
-                    <Modal
-                        visible={true}
-                        transparent={true}
-                        onRequestClose={() => setSelectedImage(null)}
-                    >
-                        <TouchableWithoutFeedback
-                            onPress={() => setSelectedImage(null)}
-                        >
-                            <View style={styles.modalBackground}>
-                                <Image
-                                    source={{
-                                        uri: `data:image/jpeg;base64,${selectedImage}`,
-                                    }} // Affichage en grand
-                                    style={styles.fullImage}
-                                />
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </Modal>
+				{photos.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {photos.map((photo, index) => (
+              <View key={index}>
+                <TouchableOpacity onPress={() => setSelectedImage(photo)}>
+                  <Image
+                    source={{ uri: photo }}
+                    style={{ width: 100, height: 100, margin: 5, borderRadius: 10 }}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ position: 'absolute', top: 5, right: 5 }}
+                  onPress={() => deletePhoto(photo)}
+                >
+                  <Text style={{ color: 'red', fontWeight: 'bold' }}>X</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {selectedImage && (
+          <Modal
+            visible={true}
+            transparent={true}
+            onRequestClose={() => setSelectedImage(null)}
+          >
+            <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+              <View style={styles.modalBackground}>
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={styles.fullImage}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
                 )}
 
                 <View style={styles.buttonContainer}>

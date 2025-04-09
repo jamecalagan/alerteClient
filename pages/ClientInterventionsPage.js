@@ -243,61 +243,44 @@ export default function ClientInterventionsPage({ route, navigation }) {
                                     </View>
 
                                     <View style={styles.labelContainer}>
-                                        {item.label_photo ? (
-                                            <TouchableOpacity
-                                                onPress={() =>
-                                                    handleImagePress(
-                                                        item.label_photo
-                                                    )
-                                                }
-                                            >
-                                                <Image
-                                                    source={{
-                                                        uri: `data:image/jpeg;base64,${item.label_photo}`,
-                                                    }}
-                                                    style={styles.labelImage}
-                                                />
-                                            </TouchableOpacity>
-                                        ) : (
-                                            <Text style={styles.referenceText}>
-                                                {item.reference ||
-                                                    "Référence manquante"}
-                                            </Text>
-                                        )}
+									{item.label_photo ? (
+  <TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
+    <Image
+      source={{
+        uri: item.label_photo,
+      }}
+      style={styles.labelImage}
+    />
+  </TouchableOpacity>
+) : (
+  <Text style={styles.referenceText}>
+    {item.reference || "Référence manquante"}
+  </Text>
+)}
                                     </View>
 
-                                    <View style={styles.photosContainer}>
-                                        {item.photos &&
-                                        item.photos.length > 0 ? (
-                                            item.photos
-                                                .filter(
-                                                    (photoUri) =>
-                                                        photoUri !==
-                                                        item.label_photo
-                                                ) // Exclure l'image de l'étiquette
-                                                .map((photoUri, index) => (
-                                                    <TouchableOpacity
-                                                        key={index}
-                                                        onPress={() =>
-                                                            handleImagePress(
-                                                                photoUri
-                                                            )
-                                                        }
-                                                    >
-                                                        <Image
-                                                            source={{
-                                                                uri: `data:image/jpeg;base64,${photoUri}`,
-                                                            }}
-                                                            style={styles.photo}
-                                                        />
-                                                    </TouchableOpacity>
-                                                ))
-                                        ) : (
-                                            <Text style={styles.noPhotosText}>
-                                                Pas d'images disponibles
-                                            </Text>
-                                        )}
-                                    </View>
+									<View style={styles.photosContainer}>
+  {item.photos && item.photos.length > 0 ? (
+    item.photos
+      .filter((photoUri) => photoUri !== item.label_photo)
+      .map((photoUri, index) => (
+        <TouchableOpacity
+          key={index}
+          onPress={() => handleImagePress(photoUri)}
+        >
+          <Image
+            source={{ uri: photoUri }}
+            style={styles.photo}
+          />
+        </TouchableOpacity>
+      ))
+  ) : (
+    <Text style={styles.noPhotosText}>
+      Pas d'images disponibles
+    </Text>
+  )}
+</View>
+
                                 </View>
                             )}
                         />
@@ -335,12 +318,11 @@ export default function ClientInterventionsPage({ route, navigation }) {
                         style={styles.modalBackground}
                         onPress={() => setSelectedImage(null)}
                     >
-                        <Image
-                            source={{
-                                uri: `data:image/jpeg;base64,${selectedImage}`,
-                            }}
-                            style={styles.fullImage}
-                        />
+<Image
+  source={{ uri: selectedImage }}
+  style={styles.fullImage}
+/>
+
                     </TouchableOpacity>
                 </Modal>
             )}

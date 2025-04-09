@@ -7,6 +7,36 @@ import * as FileSystem from 'expo-file-system';
 import { MaterialIcons } from '@expo/vector-icons';
 import Icon from "react-native-vector-icons/FontAwesome";
 import * as ImageManipulator from 'expo-image-manipulator';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+const uploadImageToStorage = async (base64Data, interventionId, isLabel = false) => {
+  const folder = isLabel ? 'etiquettes' : 'supplementaires';
+  const fileName = `${Date.now()}.jpg`;
+  const filePath = `images/${folder}/${interventionId}/${fileName}`;
+
+  const fileUri = FileSystem.cacheDirectory + fileName;
+  await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const file = {
+    uri: fileUri,
+    name: fileName,
+    type: 'image/jpeg',
+  };
+
+  const { error } = await supabase.storage
+    .from('images')
+    .upload(filePath, file, { upsert: true, contentType: 'image/jpeg' });
+
+  if (error) {
+    console.error('Erreur upload Supabase:', error.message);
+    return null;
+  }
+
+  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+  return data.publicUrl;
+};
 
 export default function AddInterventionPage({ route, navigation }) {
 	const { clientId } = route.params || {};
@@ -327,6 +357,25 @@ if (error) {
     const brandId = await addBrandIfNeeded(articleId);
     const modelId = await addModelIfNeeded(brandId, articleId);
 
+
+const interventionId = uuidv4();
+console.log("ID intervention généré :", interventionId);
+
+	// Uploader la photo d’étiquette
+	let labelPhotoUrl = null;
+	if (labelPhoto) {
+	  labelPhotoUrl = await uploadImageToStorage(labelPhoto, interventionId, true);
+	}
+	
+	// Uploader les photos supplémentaires
+	const uploadedPhotoUrls = [];
+	for (const photoBase64 of photos) {
+	  if (photoBase64 !== labelPhoto) { // Évite d'uploader deux fois la même image
+		const url = await uploadImageToStorage(photoBase64, interventionId, false);
+		if (url) uploadedPhotoUrls.push(url);
+	  }
+	}
+	
     const interventionData = {
         reference,
         brand: customBrand || brands.find((b) => b.id === brand)?.nom,
@@ -341,8 +390,11 @@ if (error) {
         commande,
         chargeur: chargeur === 'Oui',
         client_id: clientId,
-        photos: photos.length > 0 ? photos : [],
-        label_photo: labelPhoto,
+		photos: uploadedPhotoUrls,
+		
+		label_photo: labelPhotoUrl,
+		
+		id: interventionId, // ajoute cette ligne aussi pour que l’ID soit bien enregistré
         article_id: articleId,
         marque_id: brandId,
         modele_id: modelId,

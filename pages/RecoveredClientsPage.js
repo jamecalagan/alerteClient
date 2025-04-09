@@ -352,15 +352,12 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                     (photo, photoIndex) => (
                                                         <TouchableOpacity
                                                             key={`photo-${photoIndex}`}
-                                                            onPress={() =>
-                                                                setSelectedImage(
-                                                                    `data:image/jpeg;base64,${photo}`
-                                                                )
-                                                            }
+															onPress={() => setSelectedImage(photo)}
+
                                                         >
                                                             <Image
                                                                 source={{
-                                                                    uri: `data:image/jpeg;base64,${photo}`,
+                                                                    uri: photo
                                                                 }}
                                                                 style={[
                                                                     styles.imageThumbnail,
@@ -374,29 +371,22 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                     )
                                                 )}
 
-                                            {item.intervention_images &&
-                                                item.intervention_images.map(
-                                                    (image, imageIndex) => (
-                                                        <TouchableOpacity
-                                                            key={`intervention-image-${imageIndex}`}
-                                                            onPress={() =>
-                                                                setSelectedImage(
-                                                                    `data:image/jpeg;base64,${image}`
-                                                                )
-                                                            }
-                                                        >
-                                                            <Image
-                                                                source={{
-                                                                    uri: `data:image/jpeg;base64,${image}`,
-                                                                }}
-                                                                style={[
-                                                                    styles.imageThumbnail,
-                                                                    styles.newImageThumbnail,
-                                                                ]}
-                                                            />
-                                                        </TouchableOpacity>
-                                                    )
-                                                )}
+												{item.intervention_images &&
+    item.intervention_images.map((image, imageIndex) => (
+        <TouchableOpacity
+            key={`intervention-image-${imageIndex}`}
+            onPress={() => setSelectedImage(image)}
+        >
+            <Image
+                source={{ uri: image }}
+                style={[
+                    styles.imageThumbnail,
+                    styles.newImageThumbnail,
+                ]}
+            />
+        </TouchableOpacity>
+    ))}
+
                                             <TouchableOpacity
                                                 style={styles.toggleButton}
                                                 onPress={() =>

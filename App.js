@@ -37,7 +37,8 @@ import SelectInterventionPage from './pages/SelectInterventionPage';
 import AddProductPage from "./pages/AddProductPage";
 import CommandePreviewPage from "./pages/CommandePreviewPage";
 import StoredImagesPage from "./pages/StoredImagesPage";
-
+import MigrateOldImagesPage from './pages/MigrateOldImagesPage';
+import CleanUpBucketPage from './pages/CleanUpBucketPage';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -234,8 +235,9 @@ function MainStack({ setUser }) {
 			<Stack.Screen name="RepairedInterventionsListPage" component={RepairedInterventionsListPage} />
 			<Stack.Screen name="CommandePreviewPage" component={CommandePreviewPage} />
 			<Stack.Screen name="ListingProduits"  component={ListingProduits} options={{ title: 'Gestion des Produits' }} />
-			<Stack.Screen name="StoredImages" component={StoredImagesPage}
-
+			<Stack.Screen name="StoredImages" component={StoredImagesPage}/>
+			<Stack.Screen name="CleanUpBucketPage" component={CleanUpBucketPage}/>
+			<Stack.Screen name="MigrateOldImagesPage" component={MigrateOldImagesPage}
         />
 		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
         <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />

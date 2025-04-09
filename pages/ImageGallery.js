@@ -116,7 +116,8 @@ export default function ImageGallery({ route }) {
                       <View key={photoIndex} style={styles.imageContainer}>
                         <TouchableOpacity onPress={() => handleImagePress(photo)}>
                           <Image
-                            source={{ uri: `data:image/jpeg;base64,${photo}` }}
+                            source={{ uri: photo }}
+
                             style={[
                               styles.thumbnail,
                               photo === labelPhoto ? styles.labelPhoto : null, // Bordure verte pour la photo de l'étiquette
@@ -153,7 +154,7 @@ export default function ImageGallery({ route }) {
         >
           <TouchableOpacity style={styles.modalBackground} onPress={() => setSelectedImage(null)}>
             <Image
-              source={{ uri: `data:image/jpeg;base64,${selectedImage}` }}
+              source={{ uri: selectedImage }}
               style={styles.fullImage}
             />
           </TouchableOpacity>

@@ -264,7 +264,23 @@ export default function SlidingMenu({
 								   DEVIS EN COURS
 							   </Text>
 						   </TouchableOpacity>
-   
+						   <TouchableOpacity
+  style={styles.drawerItem}
+  onPress={() => {
+    toggleMenu(); // Ferme le menu
+    navigation.navigate("MigrateOldImagesPage"); // Va vers la page de migration
+  }}
+>
+  <Image
+    source={require("../assets/icons/upload.png")} // Remplace par une icône de ton choix
+    style={[
+      styles.drawerItemIcon,
+      { tintColor: "#4CAF50" } // Couleur verte pour migration
+    ]}
+  />
+  <Text style={styles.drawerItemText}>MIGRATION IMAGES</Text>
+</TouchableOpacity>
+
 						   <TouchableOpacity
 							   style={styles.drawerItem}
 							   onPress={() => {

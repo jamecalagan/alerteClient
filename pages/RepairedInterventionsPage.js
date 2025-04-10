@@ -14,6 +14,7 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
     ScrollView,
+	Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
@@ -41,7 +42,7 @@ export default function RepairedInterventionsPage({ navigation }) {
 
     const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
     const [noPhotoRequired, setNoPhotoRequired] = useState({});
-
+	const [isDeleting, setIsDeleting] = useState(false);
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -118,24 +119,66 @@ export default function RepairedInterventionsPage({ navigation }) {
         }
     };
 
-    const deleteImage = async (imageId, interventionId) => {
+    const deleteImage = async (imageId, interventionId, imageUrl) => {
         try {
-            const { error } = await supabase
+            console.log("📦 Suppression INITIÉE pour :");
+            console.log("🆔 ID:", imageId);
+            console.log("🔧 Intervention ID:", interventionId);
+            console.log("🌐 URL:", imageUrl);
+
+            // 1. Supprimer de la base
+            const { error: dbError } = await supabase
                 .from("intervention_images")
                 .delete()
                 .eq("id", imageId);
 
-            if (error) throw error;
+            if (dbError) {
+                console.error("❌ Erreur suppression BDD :", dbError);
+                return;
+            } else {
+                console.log("✅ Supprimée de la table intervention_images");
+            }
 
-            // Recharge les images après suppression
-            await loadRepairedInterventions();
+            // 2. Supprimer du bucket
+            if (imageUrl && imageUrl.includes("/storage/v1/object/public/")) {
+				const pathToDelete = imageUrl.replace(
+					'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
+					''
+				  );
+				  setRepairedInterventions((prevState) =>
+					prevState.map((intervention) => {
+					  if (intervention.id === interventionId) {
+						return {
+						  ...intervention,
+						  intervention_images: intervention.intervention_images.filter(
+							(img) => img.id !== imageId
+						  ),
+						};
+					  }
+					  return intervention;
+					})
+				  );
+				   
+                console.log("📂 Chemin à supprimer :", pathToDelete);
 
-            setAlertMessage("Image supprimée avec succès.");
-            setAlertVisible(true);
-        } catch (error) {
-            console.error("Erreur lors de la suppression de l'image :", error);
-            setAlertMessage("Erreur lors de la suppression de l'image.");
-            setAlertVisible(true);
+				const { data, error: storageError } = await supabase
+				.storage
+				.from('images')
+				.remove([pathToDelete]);
+			  
+			  if (storageError) {
+				console.error("❌ Erreur suppression BUCKET :", storageError);
+			  } else {
+				console.log("✅ Tentative de suppression effectuée. Résultat :", data);
+				console.log("➡️ Chemin tenté :", pathToDelete);
+			  }
+            } else {
+                console.warn(
+                    "⚠️ URL non reconnue pour suppression dans le bucket."
+                );
+            }
+        } catch (err) {
+            console.error("❌ Exception dans deleteImage :", err);
         }
     };
 
@@ -264,16 +307,42 @@ export default function RepairedInterventionsPage({ navigation }) {
 
     const saveImage = async (interventionId, base64Image) => {
         try {
-            const { error } = await supabase
+            const fileName = `${Date.now()}.jpg`;
+            const filePath = `intervention_images/${interventionId}/${fileName}`;
+            const fileUri = FileSystem.cacheDirectory + fileName;
+
+            // Écrire le fichier temporairement
+            await FileSystem.writeAsStringAsync(fileUri, base64Image, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const file = {
+                uri: fileUri,
+                name: fileName,
+                type: "image/jpeg",
+            };
+
+            const { error: uploadError } = await supabase.storage
+                .from("images")
+                .upload(filePath, file, {
+                    upsert: true,
+                    contentType: "image/jpeg",
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage
+                .from("images")
+                .getPublicUrl(filePath);
+            const imageUrl = data.publicUrl;
+
+            const { error: insertError } = await supabase
                 .from("intervention_images")
                 .insert([
-                    {
-                        intervention_id: interventionId,
-                        image_data: base64Image,
-                    },
+                    { intervention_id: interventionId, image_data: imageUrl },
                 ]);
 
-            if (error) throw error;
+            if (insertError) throw insertError;
 
             setAlertMessage("Photo sauvegardée avec succès.");
             setAlertVisible(true);
@@ -309,7 +378,17 @@ export default function RepairedInterventionsPage({ navigation }) {
     };
 
     const openImageModal = (imageUri, imageId, interventionId) => {
-        setSelectedImage({ uri: imageUri, id: imageId, interventionId });
+        console.log("🧩 Données reçues pour le modal :", {
+            uri: imageUri,
+            id: imageId,
+            interventionId: interventionId,
+        });
+
+        setSelectedImage({
+            uri: imageUri,
+            id: imageId,
+            interventionId: interventionId,
+        });
         setIsModalVisible(true);
     };
 
@@ -658,45 +737,51 @@ export default function RepairedInterventionsPage({ navigation }) {
                                                                 styles.imageWrapper
                                                             }
                                                         >
-                                                            <TouchableOpacity
-                                                                onPress={() =>
-                                                                    openImageModal(
-                                                                        `data:image/jpeg;base64,${image.image_data}`,
-                                                                        image.id,
-                                                                        item.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Image
-                                                                    source={{
-                                                                        uri: `data:image/jpeg;base64,${image.image_data}`,
-                                                                    }}
-                                                                    style={
-                                                                        styles.imageThumbnail
-                                                                    }
-                                                                />
-                                                            </TouchableOpacity>
-                                                            <TouchableOpacity
-                                                                style={
-                                                                    styles.deleteIcon
-                                                                }
-                                                                onPress={() =>
-                                                                    deleteImage(
-                                                                        image.id,
-                                                                        item.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Image
-                                                                    source={require("../assets/icons/trash.png")} // Chemin vers l'image de corbeille
-                                                                    style={{
-                                                                        width: 20, // Largeur de l'image
-                                                                        height: 20, // Hauteur de l'image
-                                                                        tintColor:
-                                                                            "red", // Applique la couleur rouge
-                                                                    }}
-                                                                />
-                                                            </TouchableOpacity>
+                                                            {item.intervention_images?.map(
+                                                                (
+                                                                    image,
+                                                                    index
+                                                                ) => (
+                                                                    <TouchableOpacity
+                                                                        key={`intervention-image-${index}`}
+                                                                        onPress={() => {
+                                                                            console.log(
+                                                                                "👆 Image cliquée :",
+                                                                                image
+                                                                            );
+
+                                                                            setSelectedImage(
+                                                                                {
+                                                                                    id: image.id,
+                                                                                    intervention_id:
+                                                                                        image.intervention_id, // 🔑 on garde ce nom ici
+                                                                                    uri: image.image_data, // 💥 doit être un lien complet http(s)
+                                                                                }
+                                                                            );
+
+                                                                            setIsModalVisible(
+                                                                                true
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <Image
+                                                                            source={{
+                                                                                uri: image.image_data?.startsWith(
+                                                                                    "http"
+                                                                                )
+                                                                                    ? image.image_data
+                                                                                    : `data:image/jpeg;base64,${selectedImage.uri}`,
+                                                                            }}
+                                                                            style={[
+                                                                                styles.imageThumbnail,
+                                                                                styles.newImageThumbnail,
+                                                                            ]}
+                                                                        />
+                                                                    </TouchableOpacity>
+                                                                )
+                                                            )}
+
+
                                                         </View>
                                                     )
                                                 )}
@@ -728,48 +813,66 @@ export default function RepairedInterventionsPage({ navigation }) {
                 navigation={navigation}
                 currentRoute={route.name}
             />
-            <Modal
-                visible={isModalVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={closeImageModal}
-            >
-                <View style={styles.modalOverlay}>
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={closeImageModal}
-                    >
-                        <Ionicons name="close-circle" size={40} color="white" />
-                    </TouchableOpacity>
-                    {selectedImage && (
-                        <>
-                            <Image
-                                source={{ uri: selectedImage.uri }}
-                                style={styles.fullscreenImage}
-                            />
-                            <TouchableOpacity
-                                style={styles.deleteButton}
-                                onPress={() => {
-                                    deleteImage(
-                                        selectedImage.id,
-                                        selectedImage.interventionId
-                                    );
-                                    closeImageModal();
-                                }}
-                            >
-                                <Ionicons
-                                    name="trash"
-                                    size={30}
-                                    color="white"
-                                />
-                                <Text style={styles.deleteButtonText}>
-                                    Supprimer
-                                </Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-            </Modal>
+<Modal
+  visible={isModalVisible}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={closeImageModal}
+>
+  <View style={styles.modalOverlay}>
+    <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
+      <Ionicons name="close-circle" size={40} color="white" />
+    </TouchableOpacity>
+
+    {selectedImage?.uri && (
+      <View style={{ justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
+        <Image
+          source={{
+            uri: selectedImage.uri.startsWith('http')
+              ? selectedImage.uri
+              : `data:image/jpeg;base64,${selectedImage.uri}`,
+          }}
+          style={{ width: '90%', height: '70%', resizeMode: 'contain' }}
+        />
+
+        <TouchableOpacity
+          style={[styles.deleteButton, { position: 'absolute', bottom: 40 }]}
+          onPress={() => {
+            Alert.alert(
+              "Confirmer la suppression",
+              "Es-tu sûr de vouloir supprimer cette image ?",
+              [
+                { text: "Annuler", style: "cancel" },
+                {
+                  text: "Supprimer",
+                  style: "destructive",
+                  onPress: async () => {
+                    setIsDeleting(true);
+                    await deleteImage(
+                      selectedImage.id,
+                      selectedImage.intervention_id,
+                      selectedImage.uri
+                    );
+                    setIsDeleting(false);
+                    closeImageModal();
+                    await loadRepairedInterventions(); // recharge les données sans l'image supprimée
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <Ionicons name="trash" size={30} color="white" />
+          <Text style={styles.deleteButtonText}>
+            {isDeleting ? "Suppression..." : "Supprimer"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )}
+  </View>
+</Modal>
+
+
 
             <Modal
                 transparent={true}
@@ -1244,5 +1347,16 @@ const styles = StyleSheet.create({
         color: "white",
         fontSize: 18,
         fontWeight: "medium",
+    },
+    fullscreenImage: {
+        width: "100%",
+        height: "100%",
+        resizeMode: "contain",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.9)",
+        justifyContent: "center",
+        alignItems: "center",
     },
 });

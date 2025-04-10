@@ -338,14 +338,17 @@ const SearchClientsPage = () => {
                                     N° de fiche : {item.ficheNumber}
                                 </Text>
                             </View>
-                            {item.interventions?.[0]?.label_photo && (
-                                <Image
-                                    source={{
-                                        uri: `data:image/png;base64,${item.interventions[0].label_photo}`,
-                                    }}
-                                    style={styles.labelPhoto}
-                                />
-                            )}
+							{item.interventions?.[0]?.label_photo && (
+  <Image
+    source={{
+      uri: item.interventions[0].label_photo.startsWith("http")
+        ? item.interventions[0].label_photo
+        : `data:image/png;base64,${item.interventions[0].label_photo}`,
+    }}
+    style={styles.labelPhoto}
+  />
+)}
+
                         </View>
 
                         {item.interventions?.map((intervention, index) => (

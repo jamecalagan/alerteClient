@@ -718,6 +718,44 @@ export default function HomePage({ navigation, route, setUser }) {
             // Charger les statistiques des réparés non restitués
             loadRepairedNotReturnedCount();
             loadNotRepairedNotReturnedCount();
+			const checkForImagesToClean = async () => {
+				setIsLoading(true);
+		  
+				const { data: interventions } = await supabase
+				  .from("interventions")
+				  .select("updatedAt, photos, status");
+		  
+				const { data: extras } = await supabase
+				  .from("intervention_images")
+				  .select("created_at, image_data");
+		  
+				const now = new Date();
+				const tenDaysAgo = new Date(now);
+				tenDaysAgo.setDate(now.getDate() - 10);
+		  
+				const hasOldPhotos = interventions?.some((item) => {
+				  const updated = new Date(item.updatedAt);
+				  return (
+					item.status === "Récupéré" &&
+					updated < tenDaysAgo &&
+					Array.isArray(item.photos) &&
+					item.photos.some((p) => typeof p === "string" && p.startsWith("http"))
+				  );
+				});
+		  
+				const hasOldExtras = extras?.some((img) => {
+				  return (
+					typeof img.image_data === "string" &&
+					img.image_data.startsWith("http") &&
+					new Date(img.created_at) < tenDaysAgo
+				  );
+				});
+		  
+				setHasImagesToDelete(hasOldPhotos || hasOldExtras);
+				setIsLoading(false);
+			  };
+		  
+			  checkForImagesToClean();
         }, [])
     );
 
@@ -1580,39 +1618,13 @@ export default function HomePage({ navigation, route, setUser }) {
                                         </TouchableOpacity>
                                     </View>
                                 )}
-                                {isLoading ? (
-                                    <ActivityIndicator
-                                        size="large"
-                                        color="blue"
-                                    />
-                                ) : hasImagesToDelete ? (
-                                    <View>
-                                        <TouchableOpacity
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "ImageCleanup"
-                                                )
-                                            }
-                                            style={{
-                                                marginRight: 40,
-                                                marginTop: 15,
-                                                padding: 10,
-                                                borderRadius: 2,
-                                                borderWidth: 1,
-                                                borderColor: "#888787",
-                                                backgroundColor: "#191f2f",
-                                            }}
-                                        >
-                                            <Text style={{ color: "white" }}>
-                                                Nettoyer les images
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
-                                    <View style={styles.images_numberText}>
-									<TouchableOpacity
-    onPress={() => navigation.navigate("StoredImages")}
-    style={{
+								{isLoading ? (
+  <ActivityIndicator size="large" color="blue" />
+) : hasImagesToDelete ? (
+  <View>
+    <TouchableOpacity
+      onPress={() => navigation.navigate("ImageCleanup")}
+      style={{
         marginRight: 40,
         marginTop: 15,
         padding: 10,
@@ -1620,10 +1632,27 @@ export default function HomePage({ navigation, route, setUser }) {
         borderWidth: 1,
         borderColor: "#888787",
         backgroundColor: "#191f2f",
-    }}
->
-    <Text style={{ color: "white" }}>Accès à la Galerie Cloud</Text>
-</TouchableOpacity>
+      }}
+    >
+      <Text style={{ color: "white" }}>Nettoyer les images</Text>
+    </TouchableOpacity>
+  </View>
+) : (
+  <View style={styles.images_numberText}>
+    <TouchableOpacity
+      onPress={() => navigation.navigate("StoredImages")}
+      style={{
+        marginRight: 40,
+        marginTop: 15,
+        padding: 10,
+        borderRadius: 2,
+        borderWidth: 1,
+        borderColor: "#888787",
+        backgroundColor: "#191f2f",
+      }}
+    >
+      <Text style={{ color: "white" }}>Accès à la Galerie Cloud</Text>
+    </TouchableOpacity>
 
                                         <TouchableOpacity
                                             onPress={() =>

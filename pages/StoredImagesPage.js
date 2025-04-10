@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
-	View,
-	Text,
-	ScrollView,
-	Image,
-	TouchableOpacity,
-	StyleSheet,
-	Clipboard,
-	Alert,
-	FlatList,
-	ActivityIndicator,
-	Modal,
-	TextInput,
-	Pressable,
+  View,
+  Text,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Clipboard,
+  Alert,
+  FlatList,
+  ActivityIndicator,
+  Modal,
+  TextInput,
+  Pressable,
 } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useNavigation } from '@react-navigation/native';
@@ -26,48 +26,41 @@ export default function StoredImagesPage() {
   const [typeFilter, setTypeFilter] = useState(null);
   const navigation = useNavigation();
   const imagesPerPage = 12;
-  const [clients, setClients] = useState([]);
-  const [interventions, setInterventions] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const folders = ['intervention_images', 'etiquettes'];
-      let allImages = [];
 
+      const folders = ['etiquettes', 'intervention_images', 'supplementaires'];
       const { data: interventionsData } = await supabase.from('interventions').select('id, client_id');
       const { data: clientsData } = await supabase.from('clients').select('id, name, ficheNumber');
 
-      setInterventions(interventionsData || []);
-      setClients(clientsData || []);
+      let allImages = [];
 
-      for (const folder of folders) {
-        const { data, error } = await supabase.storage.from('images').list(folder, {
-          limit: 1000,
-        });
+      for (const intervention of interventionsData) {
+        const interventionId = intervention.id;
+        const relatedClient = clientsData.find((c) => c.id === intervention.client_id);
 
-        if (error) continue;
-
-        for (const item of data) {
-          const { data: files } = await supabase.storage
-            .from('images')
-            .list(`${folder}/${item.name}`);
+        for (const folder of folders) {
+          const { data: files } = await supabase.storage.from('images').list(`${folder}/${interventionId}`);
 
           if (files) {
             files.forEach((file) => {
-              const relatedIntervention = interventionsData.find((i) => i.id === item.name);
-              const relatedClient = clientsData.find((c) => c.id === relatedIntervention?.client_id);
-
               allImages.push({
                 name: file.name,
-                folder: item.name,
+                folder: interventionId,
                 created_at: file.created_at || file.metadata?.created_at || new Date(),
-                path: `${folder}/${item.name}/${file.name}`,
-                url: `https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/${folder}/${item.name}/${file.name}`,
-                type: folder === 'etiquettes' ? 'etiquette' : 'supplementaire',
+                path: `${folder}/${interventionId}/${file.name}`,
+                url: `https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/${folder}/${interventionId}/${file.name}`,
+                type:
+                  folder === 'etiquettes'
+                    ? 'etiquette'
+                    : folder === 'intervention_images'
+                    ? 'supplementaire'
+                    : 'supplementaire',
                 ficheDisplay: relatedClient
                   ? `${relatedClient.name} - ${relatedClient.ficheNumber}`
-                  : `Fiche : ${item.name}`,
+                  : `Fiche : ${interventionId}`,
               });
             });
           }
@@ -75,7 +68,6 @@ export default function StoredImagesPage() {
       }
 
       allImages.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
       setImages(allImages);
       setLoading(false);
     };
@@ -165,33 +157,33 @@ export default function StoredImagesPage() {
           data={currentImages}
           keyExtractor={(item) => item.path}
           numColumns={4}
-		  renderItem={({ item }) => (
-  <View style={styles.imageWrapper}>
-    <View
-      style={[
-        styles.imageBlock,
-        item.type === 'etiquette' && { borderColor: '#3cff00', borderWidth: 2 },
-      ]}
-    >
-      <TouchableOpacity onPress={() => setSelectedImage(item.url)}>
-        <Image source={{ uri: item.url }} style={styles.thumbnail} />
-      </TouchableOpacity>
-      <Text style={styles.ficheText}>{item.ficheDisplay}</Text>
-      <Text style={styles.dateText}>🕓 {new Date(item.created_at).toLocaleDateString()}</Text>
-      <View style={styles.imageActions}>
-        <Pressable style={styles.actionButton} onPress={() => setSelectedImage(item.url)}>
-          <Text style={styles.actionText}>Zoomer</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.actionButton, { backgroundColor: '#d9534f' }]}
-          onPress={() => confirmDeleteImage(item.path)}
-        >
-          <Text style={styles.actionText}>Supprimer</Text>
-        </Pressable>
-      </View>
-    </View>
-  </View>
-)}
+          renderItem={({ item }) => (
+            <View style={styles.imageWrapper}>
+              <View
+                style={[
+                  styles.imageBlock,
+                  item.type === 'etiquette' && { borderColor: 'green', borderWidth: 2 },
+                ]}
+              >
+                <TouchableOpacity onPress={() => setSelectedImage(item.url)}>
+                  <Image source={{ uri: item.url }} style={styles.thumbnail} />
+                </TouchableOpacity>
+                <Text style={styles.ficheText}>{item.ficheDisplay}</Text>
+                <Text style={styles.dateText}>🕓 {new Date(item.created_at).toLocaleDateString()}</Text>
+                <View style={styles.imageActions}>
+                  <Pressable style={styles.actionButton} onPress={() => setSelectedImage(item.url)}>
+                    <Text style={styles.actionText}>Zoom</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.actionButton, { backgroundColor: '#d9534f' }]}
+                    onPress={() => confirmDeleteImage(item.path)}
+                  >
+                    <Text style={styles.actionText}>Supprimer</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
         />
       )}
 
@@ -248,25 +240,24 @@ const styles = StyleSheet.create({
   thumbnail: { width: '100%', aspectRatio: 1, marginBottom: 4, borderRadius: 4 },
   ficheText: { fontSize: 12, marginBottom: 2, fontWeight: 'bold', textAlign: 'center' },
   dateText: { fontSize: 11, color: '#666', marginBottom: 4 },
-imageActions: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  gap: 8,
-  marginTop: 6,
-},
-actionButton: {
-  flex: 1,
-  paddingVertical: 6,
-  backgroundColor: '#007bff',
-  borderRadius: 6,
-  alignItems: 'center',
-},
-actionText: {
-  color: '#fff',
-  fontWeight: 'bold',
-  fontSize: 13,
-},
-  link: { fontSize: 18, color: 'blue' },
+  imageActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 6,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 6,
+    backgroundColor: '#007bff',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  actionText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -305,7 +296,7 @@ actionText: {
     borderRadius: 6,
     backgroundColor: '#e0e0e0',
   },
-  activeFilter: { backgroundColor: '#d0ee26' },
+  activeFilter: { backgroundColor: '#add8e6' },
   backButton: { marginBottom: 10 },
   backButtonText: { color: '#007bff', fontSize: 16 },
 });

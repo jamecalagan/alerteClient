@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Modal,
   TextInput,
   Pressable,
+  Animated,
 } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +21,8 @@ import { useNavigation } from '@react-navigation/native';
 export default function StoredImagesPage() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rawProgress, setRawProgress] = useState(0);
+  const animatedProgress = useRef(new Animated.Value(0)).current;
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedImage, setSelectedImage] = useState(null);
   const [search, setSearch] = useState('');
@@ -36,6 +39,8 @@ export default function StoredImagesPage() {
       const { data: clientsData } = await supabase.from('clients').select('id, name, ficheNumber');
 
       let allImages = [];
+      let totalFolders = folders.length * interventionsData.length;
+      let processedFolders = 0;
 
       for (const intervention of interventionsData) {
         const interventionId = intervention.id;
@@ -64,6 +69,15 @@ export default function StoredImagesPage() {
               });
             });
           }
+
+          processedFolders++;
+          const newValue = processedFolders / totalFolders;
+          setRawProgress(newValue);
+          Animated.timing(animatedProgress, {
+            toValue: newValue,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
         }
       }
 
@@ -117,7 +131,7 @@ export default function StoredImagesPage() {
         <Text style={styles.backButtonText}>⬅️ Retour</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>📁 Images stockées dans le cloud</Text>
+      <Text style={styles.title}>IMAGES STOCKÉES DANS LE CLOUD</Text>
 
       <View style={styles.filters}>
         <TextInput
@@ -128,31 +142,46 @@ export default function StoredImagesPage() {
           onChangeText={setSearch}
         />
 
-        <View style={styles.filterButtons}>
+<View style={styles.filterButtons}>
           <TouchableOpacity
-            style={[styles.filterButton, typeFilter === null && styles.activeFilter]}
+            style={[styles.filterButtonFull, typeFilter === null && styles.activeFilter]}
             onPress={() => setTypeFilter(null)}
           >
-            <Text>Toutes</Text>
+            <Text style={styles.filterButtonText}>Toutes</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterButton, typeFilter === 'etiquette' && styles.activeFilter]}
+            style={[styles.filterButtonFull, typeFilter === 'etiquette' && styles.activeFilter]}
             onPress={() => setTypeFilter('etiquette')}
           >
-            <Text>Étiquettes</Text>
+            <Text style={styles.filterButtonText}>Étiquettes</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterButton, typeFilter === 'supplementaire' && styles.activeFilter]}
+            style={[styles.filterButtonFull, typeFilter === 'supplementaire' && styles.activeFilter]}
             onPress={() => setTypeFilter('supplementaire')}
           >
-            <Text>Supplémentaires</Text>
+            <Text style={styles.filterButtonText}>Supplémentaires</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="blue" />
-      ) : (
+      {loading && (
+        <View>
+          
+          <Text style={{ textAlign: 'center', marginTop: 8 }}>
+            Chargement en cours... {(rawProgress * 100).toFixed(0)}%
+          </Text>
+          <View style={styles.progressBarContainer}>
+            <Animated.View
+              style={[styles.progressBar, {
+                width: animatedProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+              }]}
+            />
+          </View>
+        </View>
+      )}
         <FlatList
           data={currentImages}
           keyExtractor={(item) => item.path}
@@ -162,7 +191,7 @@ export default function StoredImagesPage() {
               <View
                 style={[
                   styles.imageBlock,
-                  item.type === 'etiquette' && { borderColor: 'green', borderWidth: 2 },
+                  item.type === 'etiquette' && { borderColor: '#49fa03', borderWidth: 2 },
                 ]}
               >
                 <TouchableOpacity onPress={() => setSelectedImage(item.url)}>
@@ -185,7 +214,7 @@ export default function StoredImagesPage() {
             </View>
           )}
         />
-      )}
+      
 
       <Modal visible={!!selectedImage} transparent onRequestClose={() => setSelectedImage(null)}>
         <View style={styles.modalOverlay}>
@@ -228,6 +257,18 @@ export default function StoredImagesPage() {
 const styles = StyleSheet.create({
   container: { padding: 12, backgroundColor: '#fff', flex: 1 },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: '#eeeeee',
+    borderRadius: 3,
+    marginHorizontal: 20,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#31a005',
+  },
   imageWrapper: { width: '25%', padding: 6 },
   imageBlock: {
     alignItems: 'center',
@@ -287,16 +328,23 @@ const styles = StyleSheet.create({
   filters: { marginBottom: 12 },
   filterButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#e0e0e0',
+  filterButtonFull: {
+    flexBasis: '32%',
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  activeFilter: { backgroundColor: '#add8e6' },
+  filterButtonText: {
+    fontWeight: '600',
+    color: '#000000',
+  },
+  activeFilter: { backgroundColor: '#049227', fontWeight:'800', color: '#ffffff' },
   backButton: { marginBottom: 10 },
   backButtonText: { color: '#007bff', fontSize: 16 },
 });

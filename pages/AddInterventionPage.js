@@ -335,23 +335,6 @@ if (isNaN(solderestant) || solderestant < 0) {
 // 🔹 Vérification avant insertion
 console.log("Coût total :", costValue, "Acompte :", partialPaymentValue, "Solde restant :", solderestant);
 
-const { error } = await supabase
-    .from("interventions")
-    .insert([
-        {
-            cost: costValue,
-            partialPayment: partialPaymentValue,
-            solderestant: solderestant, // S'assurer qu'on envoie bien cette valeur
-            paymentStatus: paymentStatus,
-        }
-    ]);
-
-if (error) {
-    console.error("Erreur lors de l'insertion de l'intervention :", error);
-}
-
-
-
     // 🔹 Création des entrées manquantes (Articles, Marques, Modèles)
     const articleId = await addArticleIfNeeded();
     const brandId = await addBrandIfNeeded(articleId);

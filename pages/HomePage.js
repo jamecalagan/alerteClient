@@ -966,6 +966,7 @@ export default function HomePage({ navigation, route, setUser }) {
         Batterie: require("../assets/icons/battery.png"),
         Commande: require("../assets/icons/shipping_box.png"),
         "Carte graphique": require("../assets/icons/Vga_card.png"),
+		Manette: require("../assets/icons/controller.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 

@@ -111,39 +111,42 @@ export default function EditInterventionPage({ route, navigation }) {
             if (data.marque_id) loadModels(data.marque_id);
         }
     };
-	const uploadImageToStorage = async (base64Data, interventionId, isLabel = false) => {
+	
+	const uploadImageToStorage = async (fileUri, interventionId, isLabel = false) => {
 		try {
 		  const folder = isLabel ? 'etiquettes' : 'supplementaires';
 		  const fileName = `${Date.now()}.jpg`;
-		  const filePath = `images/${folder}/${interventionId}/${fileName}`;
-	
-		  const fileUri = FileSystem.cacheDirectory + fileName;
-		  await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-			encoding: FileSystem.EncodingType.Base64,
-		  });
-	
+		  const filePath = `${folder}/${interventionId}/${fileName}`;
+	  
 		  const file = {
 			uri: fileUri,
 			name: fileName,
 			type: 'image/jpeg',
 		  };
-	
+	  
 		  const { error } = await supabase.storage
 			.from('images')
-			.upload(filePath, file, { upsert: true, contentType: 'image/jpeg' });
-	
+			.upload(filePath, file, {
+			  upsert: true,
+			  contentType: 'image/jpeg',
+			});
+	  
 		  if (error) {
-			console.error('Erreur upload Supabase:', error.message);
+			console.error('❌ Erreur upload Supabase:', error.message);
 			return null;
 		  }
-	
-		  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+	  
+		  const { data } = supabase.storage
+			.from('images')
+			.getPublicUrl(filePath);
+	  
 		  return data.publicUrl;
 		} catch (error) {
-		  console.error('Erreur dans uploadImageToStorage :', error);
+		  console.error('❌ Erreur dans uploadImageToStorage :', error);
 		  return null;
 		}
 	  };
+	  
 	  const deletePhoto = (photoUrlToDelete) => {
 		Alert.alert(
 		  "Supprimer cette image ?",
@@ -252,26 +255,29 @@ export default function EditInterventionPage({ route, navigation }) {
 			allowsEditing: true,
 			quality: 0.5,
 		  });
-	
+	  
 		  if (!result.canceled && result.assets && result.assets.length > 0) {
 			const imageUri = result.assets[0].uri;
+	  
 			const compressedImage = await ImageManipulator.manipulateAsync(
 			  imageUri,
 			  [{ resize: { width: 800 } }],
 			  { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
 			);
-	
-			const base64Image = await convertImageToBase64(compressedImage.uri);
-	
-			if (base64Image) {
-			  const url = await uploadImageToStorage(base64Image, interventionId, true);
-			  if (url) setLabelPhoto(url);
+	  
+			const url = await uploadImageToStorage(compressedImage.uri, interventionId, true);
+	  
+			if (url) {
+			  setLabelPhoto(url);
 			}
+		  } else {
+			console.log('Aucune image capturée ou opération annulée.');
 		  }
 		} catch (error) {
-		  console.error('Erreur lors de la capture d\'image :', error);
+		  console.error("Erreur lors de la capture d'image :", error);
 		}
 	  };
+	  
 	
 
 	  const pickAdditionalImage = async () => {
@@ -281,40 +287,30 @@ export default function EditInterventionPage({ route, navigation }) {
 			allowsEditing: true,
 			quality: 0.5,
 		  });
-	
+	  
 		  if (!result.canceled && result.assets && result.assets.length > 0) {
 			const imageUri = result.assets[0].uri;
+	  
 			const compressedImage = await ImageManipulator.manipulateAsync(
 			  imageUri,
 			  [{ resize: { width: 800 } }],
 			  { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
 			);
-	
-			const base64Image = await convertImageToBase64(compressedImage.uri);
-	
-			if (base64Image) {
-			  const url = await uploadImageToStorage(base64Image, interventionId, false);
-			  if (url) setPhotos((prev) => [...prev, url]);
+	  
+			const url = await uploadImageToStorage(compressedImage.uri, interventionId, false);
+	  
+			if (url) {
+			  setPhotos((prev) => [...prev, url]);
 			}
+		  } else {
+			console.log('Aucune image capturée ou opération annulée.');
 		  }
 		} catch (error) {
-		  console.error('Erreur lors de la capture d\'image :', error);
+		  console.error("Erreur lors de la capture d'image :", error);
 		}
 	  };
-	
-	
+	  
 
-	  const convertImageToBase64 = async (uri) => {
-		try {
-		  const base64 = await FileSystem.readAsStringAsync(uri, {
-			encoding: FileSystem.EncodingType.Base64,
-		  });
-		  return base64;
-		} catch (error) {
-		  console.error("Erreur lors de la conversion de l'image en base64 :", error);
-		  return null;
-		}
-	  };
 
     const handleSaveIntervention = async () => {
 		const formattedDevisCost = status === 'Devis en cours' && devisCost
@@ -343,12 +339,12 @@ export default function EditInterventionPage({ route, navigation }) {
 		const costValue = parseFloat(cost) || 0;
 		const partialPaymentValue = parseFloat(partialPayment) || 0;
 		
-		// 🔹 Calcul du solde restant dû
+		
 		const solderestantValue = paymentStatus === "reglement_partiel"
-			? Math.max(costValue - partialPaymentValue, 0)  // Évite les valeurs négatives
+			? Math.max(costValue - partialPaymentValue, 0)  
 			: paymentStatus === "solde"
 			? 0
-			: costValue;  // Si non réglé, le coût total est dû
+			: costValue; 
 		
 		console.log("🔄 Mise à jour - Coût:", costValue, "Acompte:", partialPaymentValue, "Solde restant:", solderestantValue);
 		
@@ -362,8 +358,8 @@ export default function EditInterventionPage({ route, navigation }) {
 			modele_id: model,
 			reference,
 			description,
-			cost: costValue, // Utiliser `costValue` ici
-			solderestant: solderestantValue || 0, // Assure que ce n'est jamais NULL
+			cost: costValue,
+			solderestant: solderestantValue || 0, 
 			partialPayment: partialPaymentValue || null,
 			status,
 			password,
@@ -375,9 +371,9 @@ export default function EditInterventionPage({ route, navigation }) {
 			chargeur: chargeur === "Oui",
 			accept_screen_risk: acceptScreenRisk,
 			label_photo: labelPhoto,
-			updatedAt: new Date().toISOString(), // Ajout de la date et heure actuelles
+			updatedAt: new Date().toISOString(),
 		};
-	// 🔹 Ajoute `devis_cost` uniquement si "Devis en cours"
+	
 if (status === 'Devis en cours') {
     updatedIntervention.devis_cost = formattedDevisCost;
 }
@@ -409,12 +405,12 @@ if (status === 'Devis en cours') {
     };
 
     const handleImagePress = (imageUri) => {
-        setSelectedImage(imageUri); // Sélectionner l'image pour l'afficher en plein écran
+        setSelectedImage(imageUri);
     };
 	useEffect(() => {
 		if (status === "Devis accepté" && devisCost && !cost) {
 			console.log("🔄 Transfert du montant du devis vers coût de réparation");
-			setCost(devisCost); // ✅ Transfert du montant
+			setCost(devisCost); 
 		}
 	}, [status, devisCost]); 
 	
@@ -422,7 +418,7 @@ if (status === 'Devis en cours') {
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.container}
-            keyboardVerticalOffset={80}
+            keyboardVerticalOffset={0}
         >
 		        {clientName && (
             <Text style={styles.clientName}>
@@ -447,7 +443,7 @@ if (status === 'Devis en cours') {
                 )}
 
                 <View style={styles.rowContainer}>
-                    {/* Sélection de la Marque du produit */}
+                   
                     <View style={styles.halfWidthContainer}>
                         <Text style={styles.label}>Marque du produit</Text>
 						<Picker selectedValue={brand} style={styles.input} onValueChange={handleBrandChange}>
@@ -466,7 +462,7 @@ if (status === 'Devis en cours') {
                         )}
                     </View>
 
-                    {/* Sélection du Modèle du produit */}
+                   
                     <View style={styles.halfWidthContainer}>
                         <Text style={styles.label}>Modèle du produit</Text>
                         {models.length > 0 ? (
@@ -508,16 +504,7 @@ if (status === 'Devis en cours') {
 						placeholderTextColor="#888787"
                         placeholder="Référence du produit"
                     />
-        {labelPhoto && (
-          <TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
-            <Image
-              source={{ uri: labelPhoto }}
-              style={{ width: 60, height: 60, borderWidth: 2, borderColor: 'green', margin: 10, borderRadius: 50 }}
-            />
-          </TouchableOpacity>
-        
 
-                    )}
                 </View>
 
                 <TouchableOpacity
@@ -532,6 +519,21 @@ if (status === 'Devis en cours') {
                         Prendre une photo de l'étiquette
                     </Text>
                 </TouchableOpacity>
+				<View style={{ alignItems: 'center' }}>
+  <TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
+    <Image
+      source={{ uri: labelPhoto }}
+      style={{
+        width: 80,
+        height: 80,
+        borderWidth: 2,
+        borderColor: 'green',
+        margin: 10,
+        borderRadius: 5,
+      }}
+    />
+  </TouchableOpacity>
+</View>
 
                 <Text style={styles.label}>Description de la panne</Text>
                 <TextInput
@@ -559,55 +561,102 @@ if (status === 'Devis en cours') {
     placeholder={status === 'Devis en cours' ? 'Indisponible en mode Devis' : 'Entrez le coût'}
 />
 
+
 <View>
-    {/* Ligne distincte pour l'acceptation */}
-    <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
-        <TouchableOpacity 
-     onPress={() => {
-        setAcceptScreenRisk((prevState) => {
-            
-            return !prevState;
-        });
-    }} 
-    style={styles.checkboxRow}
-        >
-            <View style={[styles.checkbox, acceptScreenRisk && styles.checkboxCheckedBlue]}>
-                {acceptScreenRisk && <View style={styles.checkboxIndicator} />}
-            </View>
-            <Text style={styles.checkboxLabel}>
-                J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
-            </Text>
-        </TouchableOpacity>
-    </View>
 
-    {/* Groupe pour les autres cases */}
-    <View style={styles.checkboxContainer}>
-        <TouchableOpacity onPress={() => {
-            setPaymentStatus('non_regle');
-            setPartialPayment(''); // Réinitialise l'acompte
-        }} style={styles.checkboxRow}>
-		
-            <View style={[styles.checkbox, paymentStatus === 'non_regle' && styles.checkboxCheckedRed]}>
-                {paymentStatus === 'non_regle' && <View style={styles.checkboxIndicator} />}
-            </View>
-            <Text style={styles.checkboxLabel}>Non réglé</Text>
-        </TouchableOpacity>
+  <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
+    <TouchableOpacity
+      onPress={() => setAcceptScreenRisk((prev) => !prev)}
+      style={styles.checkboxRow}
+    >
+      <View style={styles.checkbox}>
+        {acceptScreenRisk && (
+          <Image
+            source={require('../assets/icons/checked.png')}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: '#007bff', // 🔵 bleu pour acceptScreenRisk
+            }}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+      <Text style={styles.checkboxLabel}>
+        J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
+      </Text>
+    </TouchableOpacity>
+  </View>
 
-        <TouchableOpacity onPress={() => setPaymentStatus('reglement_partiel')} style={styles.checkboxRow}>
-            <View style={[styles.checkbox, paymentStatus === 'reglement_partiel' && styles.checkboxCheckedOrange]}>
-                {paymentStatus === 'reglement_partiel' && <View style={styles.checkboxIndicator} />}
-            </View>
-            <Text style={styles.checkboxLabel}>Règlement partiel</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setPaymentStatus('solde')} style={styles.checkboxRow}>
-            <View style={[styles.checkbox, paymentStatus === 'solde' && styles.checkboxCheckedGreen]}>
-                {paymentStatus === 'solde' && <View style={styles.checkboxIndicator} />}
-            </View>
-            <Text style={styles.checkboxLabel}>Soldé</Text>
-        </TouchableOpacity>
-    </View>
+  <View style={styles.checkboxContainer}>
+
+    <TouchableOpacity
+      onPress={() => {
+        setPaymentStatus('non_regle');
+        setPartialPayment('');
+      }}
+      style={styles.checkboxRow}
+    >
+      <View style={styles.checkbox}>
+        {paymentStatus === 'non_regle' && (
+          <Image
+            source={require('../assets/icons/checked.png')}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: '#fc0707', // 🔴 rouge
+            }}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+      <Text style={styles.checkboxLabel}>Non réglé</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      onPress={() => setPaymentStatus('reglement_partiel')}
+      style={styles.checkboxRow}
+    >
+      <View style={styles.checkbox}>
+        {paymentStatus === 'reglement_partiel' && (
+          <Image
+            source={require('../assets/icons/checked.png')}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: '#e4a907', // 🟠 orange
+            }}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+      <Text style={styles.checkboxLabel}>Règlement partiel</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      onPress={() => setPaymentStatus('solde')}
+      style={styles.checkboxRow}
+    >
+      <View style={styles.checkbox}>
+        {paymentStatus === 'solde' && (
+          <Image
+            source={require('../assets/icons/checked.png')}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: '#4CAF50', // 🟢 vert
+            }}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+      <Text style={styles.checkboxLabel}>Soldé</Text>
+    </TouchableOpacity>
+
+  </View>
 </View>
+
 {paymentStatus === 'reglement_partiel' && (
     <>
         <Text style={styles.label}>Acompte (€)</Text>
@@ -722,7 +771,7 @@ if (status === 'Devis en cours') {
                 <TouchableOpacity onPress={() => setSelectedImage(photo)}>
                   <Image
                     source={{ uri: photo }}
-                    style={{ width: 100, height: 100, margin: 5, borderRadius: 10 }}
+                    style={{ width: 100, height: 100, margin: 5, borderRadius: 10, borderColor: '#aaaaaa', borderWidth: 2 }}
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -859,7 +908,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 2,
         backgroundColor: "#191f2f",
-        width: "84%",
+        width: "100%",
 		fontSize: 16,
         fontWeight: "medium",
         marginBottom: 5,
@@ -1026,24 +1075,17 @@ checkboxRow: {
 	marginLeft: 40,
 },
 checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: '#888787',
-    borderRadius: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-},
-checkboxCheckedRed: {
-    backgroundColor: '#fc0707', // Couleur verte lorsque la case est cochée
-},
-checkboxCheckedGreen: {
-    backgroundColor: '#4CAF50', // Couleur verte lorsque la case est cochée
-},
-checkboxCheckedOrange: {
-    backgroundColor: '#e4a907', // Couleur verte lorsque la case est cochée
-},
+  width: 28,
+  height: 28,
+  borderWidth: 2,
+  borderColor: '#ccc',
+  borderRadius: 5,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 10,
+  backgroundColor: '#fff',
+}
+,
 checkboxIndicator: {
     width: 12,
     height: 12,

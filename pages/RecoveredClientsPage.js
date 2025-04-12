@@ -182,6 +182,8 @@ export default function RecoveredClientsPage({ navigation, route }) {
                 return require("../assets/icons/Vga_card.png");
 			case "Carte graphique":
 					return require("../assets/icons/cpu.png");
+			case "Manette":
+					return require("../assets/icons/controller.png");
             default:
                 return require("../assets/icons/point-dinterrogation.png");
         }

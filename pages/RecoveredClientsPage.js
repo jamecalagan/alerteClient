@@ -180,10 +180,10 @@ export default function RecoveredClientsPage({ navigation, route }) {
                 return require("../assets/icons/joystick.png");
             case "Processeur":
                 return require("../assets/icons/Vga_card.png");
-			case "Carte graphique":
-					return require("../assets/icons/cpu.png");
-			case "Manette":
-					return require("../assets/icons/controller.png");
+            case "Carte graphique":
+                return require("../assets/icons/cpu.png");
+            case "Manette":
+                return require("../assets/icons/controller.png");
             default:
                 return require("../assets/icons/point-dinterrogation.png");
         }
@@ -221,6 +221,11 @@ export default function RecoveredClientsPage({ navigation, route }) {
             setCurrentPage(newPage); // Met à jour la page actuelle
         }
     };
+    const handleLabelClick = (e, labelPhotoUri) => {
+        e.stopPropagation(); // Empêche le déclenchement du clic parent
+        setSelectedImage(labelPhotoUri); // Zoom
+    };
+
     return (
         <ImageBackground
             source={backgroundImage}
@@ -273,33 +278,61 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                         : styles.cardOdd, // Couleur alternée
                                 ]}
                             >
-                                <View style={styles.iconContainer}>
-                                    <Image
-                                        source={getDeviceIcon(item.deviceType)}
-                                        style={styles.deviceIcon}
-                                    />
-                                </View>
+
+
                                 {/* Informations principales */}
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        toggleCardExpansion(item.id, index)
-                                    }
-                                >
-                                    <Text style={styles.clientInfo}>
-                                        Fiche Client N°:{" "}
-                                        {item.clients.ficheNumber}
-                                    </Text>
-                                    <Text style={styles.clientInfo}>
-                                        Nom: {item.clients.name}
-                                    </Text>
-                                    <Text style={styles.clientInfo}>
-                                        Téléphone:{" "}
-                                        {item.clients.phone.replace(
-                                            /(\d{2})(?=\d)/g,
-                                            "$1 "
+                                <View style={styles.cardHeader}>
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            toggleCardExpansion(item.id, index)
+                                        }
+                                        activeOpacity={0.9}
+                                        style={{ flex: 1 }}
+                                    >
+                                        <Text style={styles.clientInfo}>
+                                            Fiche Client N°:{" "}
+                                            {item.clients.ficheNumber}
+                                        </Text>
+                                        <Text style={styles.clientInfo}>
+                                            Nom: {item.clients.name}
+                                        </Text>
+                                        <Text style={styles.clientInfo}>
+                                            Téléphone:{" "}
+                                            {item.clients.phone.replace(
+                                                /(\d{2})(?=\d)/g,
+                                                "$1 "
+                                            )}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {/* Bloc image à droite */}
+                                    <View style={styles.imageStack}>
+                                        <Image
+                                            source={getDeviceIcon(
+                                                item.deviceType
+                                            )}
+                                            style={styles.deviceIcon}
+                                        />
+                                        {item.label_photo && (
+                                            <TouchableOpacity
+                                                onPress={() =>
+                                                    setSelectedImage(
+                                                        item.label_photo
+                                                    )
+                                                }
+                                            >
+                                                <Image
+                                                    source={{
+                                                        uri: item.label_photo,
+                                                    }}
+                                                    style={
+                                                        styles.labelThumbnail
+                                                    }
+                                                />
+                                            </TouchableOpacity>
                                         )}
-                                    </Text>
-                                </TouchableOpacity>
+                                    </View>
+                                </View>
 
                                 {/* Affichage conditionnel des détails */}
                                 {expandedCards[item.id] && (
@@ -354,12 +387,15 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                     (photo, photoIndex) => (
                                                         <TouchableOpacity
                                                             key={`photo-${photoIndex}`}
-															onPress={() => setSelectedImage(photo)}
-
+                                                            onPress={() =>
+                                                                setSelectedImage(
+                                                                    photo
+                                                                )
+                                                            }
                                                         >
                                                             <Image
                                                                 source={{
-                                                                    uri: photo
+                                                                    uri: photo,
                                                                 }}
                                                                 style={[
                                                                     styles.imageThumbnail,
@@ -373,21 +409,29 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                     )
                                                 )}
 
-												{item.intervention_images &&
-    item.intervention_images.map((image, imageIndex) => (
-        <TouchableOpacity
-            key={`intervention-image-${imageIndex}`}
-            onPress={() => setSelectedImage(image)}
-        >
-            <Image
-                source={{ uri: image }}
-                style={[
-                    styles.imageThumbnail,
-                    styles.newImageThumbnail,
-                ]}
-            />
-        </TouchableOpacity>
-    ))}
+                                            {item.intervention_images &&
+                                                item.intervention_images.map(
+                                                    (image, imageIndex) => (
+                                                        <TouchableOpacity
+                                                            key={`intervention-image-${imageIndex}`}
+                                                            onPress={() =>
+                                                                setSelectedImage(
+                                                                    image
+                                                                )
+                                                            }
+                                                        >
+                                                            <Image
+                                                                source={{
+                                                                    uri: image,
+                                                                }}
+                                                                style={[
+                                                                    styles.imageThumbnail,
+                                                                    styles.newImageThumbnail,
+                                                                ]}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    )
+                                                )}
 
                                             <TouchableOpacity
                                                 style={styles.toggleButton}
@@ -529,8 +573,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#191f2f",
         padding: 10,
         borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
         marginBottom: 20,
         fontSize: 16,
         color: "#888787",
@@ -540,8 +584,8 @@ const styles = StyleSheet.create({
         padding: 15,
         marginBottom: 10,
         borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#888787",
+        borderWidth: 1,
+        borderColor: "#888787",
         elevation: 2,
     },
     deviceIcon: {
@@ -550,7 +594,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         resizeMode: "contain",
-		tintColor: "#888787",
+        tintColor: "#888787",
     },
     row: {
         flexDirection: "row", // Disposition en ligne
@@ -574,13 +618,12 @@ const styles = StyleSheet.create({
     clientInfo: {
         fontSize: 16,
         marginBottom: 5,
-		color: "#888787",
+        color: "#888787",
     },
     interventionInfo: {
         fontSize: 14,
-		color: "#888787",
+        color: "#888787",
         marginBottom: 5,
-        
     },
     toggleButton: {
         width: "100%",
@@ -604,7 +647,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     signatureImage: {
-		backgroundColor: "#888787",
+        backgroundColor: "#888787",
         width: "95%",
         height: 300,
         marginTop: 10,
@@ -681,5 +724,39 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 10,
         borderRadius: 10,
+    },
+    rightIconWrapper: {
+        position: "absolute",
+        right: 15,
+        top: 15,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+
+    labelThumbnail: {
+        width: 40,
+        height: 40,
+        borderRadius: 5,
+        borderWidth: 2,
+        borderColor: "green",
+        resizeMode: "cover",
+    },
+
+    deviceIcon: {
+        width: 40,
+        height: 40,
+        resizeMode: "contain",
+        tintColor: "#888787",
+    },
+    cardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    imageStack: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10, // ou padding entre les deux images
     },
 });

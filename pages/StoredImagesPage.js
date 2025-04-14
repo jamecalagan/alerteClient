@@ -257,7 +257,7 @@ export default function StoredImagesPage() {
     ]}
     onPress={() => setTypeFilter("old")}
 >
-    <Text style={styles.filterButtonText}>Old</Text>
+    <Text style={styles.filterButtonText}>Archives</Text>
     <Text style={styles.countText}>{countOld}</Text>
 </TouchableOpacity>
 

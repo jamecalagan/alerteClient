@@ -1780,10 +1780,14 @@ export default function HomePage({ navigation, route, setUser }) {
                                                         : 0;
                                                 const latestIntervention =
                                                     item.latestIntervention;
-                                                const status =
-                                                    latestIntervention
-                                                        ? latestIntervention.status
-                                                        : "Aucun statut";
+													const hasOrders = item.orders && item.orders.length > 0;
+
+const status =
+  ongoingInterventions.length > 0
+    ? ongoingInterventions[0].status
+    : hasOrders
+    ? "Commande en cours"
+    : "Aucun statut";
                                                 const totalImages =
                                                     latestIntervention?.photos
                                                         ?.length || 0;
@@ -1829,16 +1833,8 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                         }}
                                                                     />
                                                                 </View>
-                                                                <Text
-                                                                    style={
-                                                                        styles.statusText
-                                                                    }
-                                                                >
-                                                                    {item
-                                                                        .latestIntervention
-                                                                        ?.status ||
-                                                                        "Aucun statut"}
-                                                                </Text>
+																<Text style={styles.statusText}>{status}</Text>
+
                                                             </View>
 
                                                             <TouchableOpacity

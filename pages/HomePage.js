@@ -139,59 +139,69 @@ export default function HomePage({ navigation, route, setUser }) {
     });
     const [paginatedClients, setPaginatedClients] = useState([]);
     const itemsPerPage = 3;
-	const checkImagesToDelete = async () => {
-		setIsLoading(true);
-		try {
-			const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
-			console.log("📅 Date limite :", dateLimite);
-	
-			const { data: interventions, error: interventionError } = await supabase
-				.from("interventions")
-				.select("id, photos")
-				.eq("status", "Récupéré")
-				.lte("updatedAt", dateLimite);
-	
-			if (interventionError) throw interventionError;
-	
-			console.log("🟡 Interventions récupérées :", interventions.length);
-	
-			let countPhotos = 0;
-	
-			interventions.forEach((intervention) => {
-				const photos = intervention.photos;
-				if (Array.isArray(photos)) {
-					// ✅ On ne compte que les vraies images (hors test et vides)
-					const validPhotos = photos.filter(
-						(p) => typeof p === "string" && p.trim() !== "" && p !== "base64testphoto"
-					);
-					countPhotos += validPhotos.length;
-				}
-			});
-	
-			console.log("📸 Total vraies photos détectées :", countPhotos);
-	
-			// Vérifie aussi les images dans la table intervention_images
-			const interventionIds = interventions.map((inter) => inter.id);
-	
-			const { count: countImages, error: imagesError } = await supabase
-				.from("intervention_images")
-				.select("id", { count: "exact" })
-				.in("intervention_id", interventionIds);
-	
-			if (imagesError) throw imagesError;
-	
-			console.log("🗂️ Total images dans intervention_images :", countImages);
-	
-			setHasImagesToDelete((countImages || 0) > 0 || countPhotos > 0);
-		} catch (error) {
-			console.error("❌ Erreur lors de la vérification des images :", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-	
-	
-	
+    const checkImagesToDelete = async () => {
+        setIsLoading(true);
+        try {
+            const dateLimite = new Date(
+                Date.now() - 10 * 24 * 60 * 60 * 1000
+            ).toISOString();
+            console.log("📅 Date limite :", dateLimite);
+
+            const { data: interventions, error: interventionError } =
+                await supabase
+                    .from("interventions")
+                    .select("id, photos")
+                    .eq("status", "Récupéré")
+                    .lte("updatedAt", dateLimite);
+
+            if (interventionError) throw interventionError;
+
+            console.log("🟡 Interventions récupérées :", interventions.length);
+
+            let countPhotos = 0;
+
+            interventions.forEach((intervention) => {
+                const photos = intervention.photos;
+                if (Array.isArray(photos)) {
+                    // ✅ On ne compte que les vraies images (hors test et vides)
+                    const validPhotos = photos.filter(
+                        (p) =>
+                            typeof p === "string" &&
+                            p.trim() !== "" &&
+                            p !== "base64testphoto"
+                    );
+                    countPhotos += validPhotos.length;
+                }
+            });
+
+            console.log("📸 Total vraies photos détectées :", countPhotos);
+
+            // Vérifie aussi les images dans la table intervention_images
+            const interventionIds = interventions.map((inter) => inter.id);
+
+            const { count: countImages, error: imagesError } = await supabase
+                .from("intervention_images")
+                .select("id", { count: "exact" })
+                .in("intervention_id", interventionIds);
+
+            if (imagesError) throw imagesError;
+
+            console.log(
+                "🗂️ Total images dans intervention_images :",
+                countImages
+            );
+
+            setHasImagesToDelete((countImages || 0) > 0 || countPhotos > 0);
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de la vérification des images :",
+                error
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
     }, [orders]);
@@ -718,44 +728,46 @@ export default function HomePage({ navigation, route, setUser }) {
             // Charger les statistiques des réparés non restitués
             loadRepairedNotReturnedCount();
             loadNotRepairedNotReturnedCount();
-			const checkForImagesToClean = async () => {
-				setIsLoading(true);
-		  
-				const { data: interventions } = await supabase
-				  .from("interventions")
-				  .select("updatedAt, photos, status");
-		  
-				const { data: extras } = await supabase
-				  .from("intervention_images")
-				  .select("created_at, image_data");
-		  
-				const now = new Date();
-				const tenDaysAgo = new Date(now);
-				tenDaysAgo.setDate(now.getDate() - 10);
-		  
-				const hasOldPhotos = interventions?.some((item) => {
-				  const updated = new Date(item.updatedAt);
-				  return (
-					item.status === "Récupéré" &&
-					updated < tenDaysAgo &&
-					Array.isArray(item.photos) &&
-					item.photos.some((p) => typeof p === "string" && p.startsWith("http"))
-				  );
-				});
-		  
-				const hasOldExtras = extras?.some((img) => {
-				  return (
-					typeof img.image_data === "string" &&
-					img.image_data.startsWith("http") &&
-					new Date(img.created_at) < tenDaysAgo
-				  );
-				});
-		  
-				setHasImagesToDelete(hasOldPhotos || hasOldExtras);
-				setIsLoading(false);
-			  };
-		  
-			  checkForImagesToClean();
+            const checkForImagesToClean = async () => {
+                setIsLoading(true);
+
+                const { data: interventions } = await supabase
+                    .from("interventions")
+                    .select("updatedAt, photos, status");
+
+                const { data: extras } = await supabase
+                    .from("intervention_images")
+                    .select("created_at, image_data");
+
+                const now = new Date();
+                const tenDaysAgo = new Date(now);
+                tenDaysAgo.setDate(now.getDate() - 10);
+
+                const hasOldPhotos = interventions?.some((item) => {
+                    const updated = new Date(item.updatedAt);
+                    return (
+                        item.status === "Récupéré" &&
+                        updated < tenDaysAgo &&
+                        Array.isArray(item.photos) &&
+                        item.photos.some(
+                            (p) => typeof p === "string" && p.startsWith("http")
+                        )
+                    );
+                });
+
+                const hasOldExtras = extras?.some((img) => {
+                    return (
+                        typeof img.image_data === "string" &&
+                        img.image_data.startsWith("http") &&
+                        new Date(img.created_at) < tenDaysAgo
+                    );
+                });
+
+                setHasImagesToDelete(hasOldPhotos || hasOldExtras);
+                setIsLoading(false);
+            };
+
+            checkForImagesToClean();
         }, [])
     );
 
@@ -966,7 +978,7 @@ export default function HomePage({ navigation, route, setUser }) {
         Batterie: require("../assets/icons/battery.png"),
         Commande: require("../assets/icons/shipping_box.png"),
         "Carte graphique": require("../assets/icons/Vga_card.png"),
-		Manette: require("../assets/icons/controller.png"),
+        Manette: require("../assets/icons/controller.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -1529,23 +1541,24 @@ export default function HomePage({ navigation, route, setUser }) {
                                     DEVIS EN COURS
                                 </Text>
                             </TouchableOpacity>
-							<TouchableOpacity
-  style={styles.drawerItem}
-  onPress={() => {
-    toggleMenu(); // Ferme le menu
-    navigation.navigate("MigrateOldImagesPage"); // Va vers la page de migration
-  }}
->
-  <Image
-    source={require("../assets/icons/upload.png")} // Remplace par une icône de ton choix
-    style={[
-      styles.drawerItemIcon,
-      { tintColor: "#4CAF50" } // Couleur verte pour migration
-    ]}
-  />
-  <Text style={styles.drawerItemText}>MIGRATION IMAGES</Text>
-</TouchableOpacity>
-
+                            <TouchableOpacity
+                                style={styles.drawerItem}
+                                onPress={() => {
+                                    toggleMenu(); // Ferme le menu
+                                    navigation.navigate("MigrateOldImagesPage"); // Va vers la page de migration
+                                }}
+                            >
+                                <Image
+                                    source={require("../assets/icons/upload.png")} // Remplace par une icône de ton choix
+                                    style={[
+                                        styles.drawerItemIcon,
+                                        { tintColor: "#4CAF50" }, // Couleur verte pour migration
+                                    ]}
+                                />
+                                <Text style={styles.drawerItemText}>
+                                    MIGRATION IMAGES
+                                </Text>
+                            </TouchableOpacity>
 
                             <TouchableOpacity
                                 style={styles.drawerItem}
@@ -1619,41 +1632,56 @@ export default function HomePage({ navigation, route, setUser }) {
                                         </TouchableOpacity>
                                     </View>
                                 )}
-								{isLoading ? (
-  <ActivityIndicator size="large" color="blue" />
-) : hasImagesToDelete ? (
-  <View>
-    <TouchableOpacity
-      onPress={() => navigation.navigate("ImageCleanup")}
-      style={{
-        marginRight: 40,
-        marginTop: 15,
-        padding: 10,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        backgroundColor: "#191f2f",
-      }}
-    >
-      <Text style={{ color: "white" }}>Nettoyer les images</Text>
-    </TouchableOpacity>
-  </View>
-) : (
-  <View style={styles.images_numberText}>
-    <TouchableOpacity
-      onPress={() => navigation.navigate("StoredImages")}
-      style={{
-        marginRight: 40,
-        marginTop: 15,
-        padding: 10,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        backgroundColor: "#191f2f",
-      }}
-    >
-      <Text style={{ color: "white" }}>Accès à la Galerie Cloud</Text>
-    </TouchableOpacity>
+                                {isLoading ? (
+                                    <ActivityIndicator
+                                        size="large"
+                                        color="blue"
+                                    />
+                                ) : hasImagesToDelete ? (
+                                    <View>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                navigation.navigate(
+                                                    "ImageCleanup"
+                                                )
+                                            }
+                                            style={{
+                                                marginRight: 40,
+                                                marginTop: 15,
+                                                padding: 10,
+                                                borderRadius: 2,
+                                                borderWidth: 1,
+                                                borderColor: "#888787",
+                                                backgroundColor: "#191f2f",
+                                            }}
+                                        >
+                                            <Text style={{ color: "white" }}>
+                                                Nettoyer les images
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <View style={styles.images_numberText}>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                navigation.navigate(
+                                                    "StoredImages"
+                                                )
+                                            }
+                                            style={{
+                                                marginRight: 40,
+                                                marginTop: 15,
+                                                padding: 10,
+                                                borderRadius: 2,
+                                                borderWidth: 1,
+                                                borderColor: "#888787",
+                                                backgroundColor: "#191f2f",
+                                            }}
+                                        >
+                                            <Text style={{ color: "white" }}>
+                                                Accès à la Galerie Cloud
+                                            </Text>
+                                        </TouchableOpacity>
 
                                         <TouchableOpacity
                                             onPress={() =>
@@ -1737,7 +1765,6 @@ export default function HomePage({ navigation, route, setUser }) {
                                 </Text>
                             ) : (
                                 <>
-								
                                     {showClients && (
                                         <FlatList
                                             initialNumToRender={10}
@@ -1780,14 +1807,18 @@ export default function HomePage({ navigation, route, setUser }) {
                                                         : 0;
                                                 const latestIntervention =
                                                     item.latestIntervention;
-													const hasOrders = item.orders && item.orders.length > 0;
+                                                const hasOrders =
+                                                    item.orders &&
+                                                    item.orders.length > 0;
 
-const status =
-  ongoingInterventions.length > 0
-    ? ongoingInterventions[0].status
-    : hasOrders
-    ? "Commande en cours"
-    : "Aucun statut";
+                                                const status =
+                                                    ongoingInterventions.length >
+                                                    0
+                                                        ? ongoingInterventions[0]
+                                                              .status
+                                                        : hasOrders
+                                                        ? "Commande en cours"
+                                                        : "Aucun statut";
                                                 const totalImages =
                                                     latestIntervention?.photos
                                                         ?.length || 0;
@@ -1833,8 +1864,13 @@ const status =
                                                                         }}
                                                                     />
                                                                 </View>
-																<Text style={styles.statusText}>{status}</Text>
-
+                                                                <Text
+                                                                    style={
+                                                                        styles.statusText
+                                                                    }
+                                                                >
+                                                                    {status}
+                                                                </Text>
                                                             </View>
 
                                                             <TouchableOpacity
@@ -2238,43 +2274,43 @@ const status =
                                                                                 "flex-end",
                                                                         }}
                                                                     >
-																	      {totalInterventions >
-																			0 && (
-                                                                        <TouchableOpacity
-                                                                            style={[
-                                                                                styles.iconButton,
-                                                                                styles.interventionContainer,
-                                                                            ]}
-                                                                            onPress={() =>
-                                                                                navigation.navigate(
-                                                                                    "ClientInterventionsPage",
-                                                                                    {
-                                                                                        clientId:
-                                                                                            item.id,
-                                                                                    }
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <Image
-                                                                                source={require("../assets/icons/tools.png")}
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#00fd00",
-                                                                                }}
-                                                                            />
-                                                                            <Text
-                                                                                style={
-                                                                                    styles.interventionsCount
+                                                                        {totalInterventions >
+                                                                            0 && (
+                                                                            <TouchableOpacity
+                                                                                style={[
+                                                                                    styles.iconButton,
+                                                                                    styles.interventionContainer,
+                                                                                ]}
+                                                                                onPress={() =>
+                                                                                    navigation.navigate(
+                                                                                        "ClientInterventionsPage",
+                                                                                        {
+                                                                                            clientId:
+                                                                                                item.id,
+                                                                                        }
+                                                                                    )
                                                                                 }
                                                                             >
-                                                                                {
-                                                                                    item.totalInterventions
-                                                                                }
-                                                                            </Text>
-                                                                        </TouchableOpacity>
-																	)}
+                                                                                <Image
+                                                                                    source={require("../assets/icons/tools.png")}
+                                                                                    style={{
+                                                                                        width: 28,
+                                                                                        height: 28,
+                                                                                        tintColor:
+                                                                                            "#00fd00",
+                                                                                    }}
+                                                                                />
+                                                                                <Text
+                                                                                    style={
+                                                                                        styles.interventionsCount
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        item.totalInterventions
+                                                                                    }
+                                                                                </Text>
+                                                                            </TouchableOpacity>
+                                                                        )}
                                                                     </View>
                                                                     <TouchableOpacity
                                                                         style={{
@@ -2370,7 +2406,10 @@ const status =
                                                                                 index
                                                                             ) => (
                                                                                 <View
-																				key={intervention.id || index}
+                                                                                    key={
+                                                                                        intervention.id ||
+                                                                                        index
+                                                                                    }
                                                                                     style={{
                                                                                         flexDirection:
                                                                                             "row",

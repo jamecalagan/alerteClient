@@ -481,141 +481,131 @@ export default function HomePage({ navigation, route, setUser }) {
             // 🔹 Récupérer les commandes avec leur montant total
             const { data: ordersData, error: ordersError } = await supabase
                 .from("orders")
-                .select("client_id, price, deposit, paid"); // ✅ Ajout de "paid"
+                .select("id, client_id, price, deposit, paid, saved, notified, product");
 
-            if (ordersError) throw ordersError;
+				if (ordersError) throw ordersError;
 
-            console.log("📦 Commandes récupérées :", ordersData);
+				const ordersByClient = {};
+		
+				ordersData.forEach((order) => {
+					const clientId = String(order.client_id);
+					if (!ordersByClient[clientId]) {
+						ordersByClient[clientId] = {
+							total: 0,
+							deposit: 0,
+							remaining: 0,
+							hasUnpaid: false,
+							hasUnsaved: false,
+							orders: []
+						};
+					}
+					ordersByClient[clientId].orders.push(order);
+					ordersByClient[clientId].total += order.price || 0;
+					ordersByClient[clientId].deposit += order.deposit || 0;
+		
+					if (!order.paid) {
+						ordersByClient[clientId].remaining += (order.price || 0) - (order.deposit || 0);
+						ordersByClient[clientId].hasUnpaid = true;
+					}
+					if (!order.saved) {
+						ordersByClient[clientId].hasUnsaved = true;
+					}
+				});
+		
+				if (clientsData) {
+					const updatedData = clientsData.map((client) => {
+						const clientId = String(client.id);
+						const interventions = Array.isArray(client.interventions)
+							? client.interventions
+							: [];
+		
+						const ongoingInterventions = interventions.filter(
+							(intervention) =>
+								intervention.status !== "Réparé" &&
+								intervention.status !== "Récupéré" &&
+								intervention.status !== "Non réparable"
+						);
+		
+						const totalAmountOngoing = ongoingInterventions.reduce(
+							(total, intervention) =>
+								total + (parseFloat(intervention.cost) || parseFloat(intervention.solderestant) || 0),
+							0
+						);
+		
+						const totalDevisAmount = interventions.reduce(
+							(total, intervention) =>
+								intervention.status === "Devis en cours" && intervention.devis_cost
+									? total + parseFloat(intervention.devis_cost)
+									: total,
+							0
+						);
+		
+						const totalOrderAmount = ordersByClient[clientId]?.total || 0;
+						const totalOrderDeposit = ordersByClient[clientId]?.deposit || 0;
+						const totalOrderRemaining = ordersByClient[clientId]?.remaining || 0;
+						const clientOrders = ordersByClient[clientId]?.orders || [];
+						return {
+							...client,
+							orders: clientOrders,
+							totalInterventions: interventions.length,
+							devis_cost: totalDevisAmount,
+							clientUpdatedAt: client.updatedAt,
+							interventions: interventions.map((intervention) => ({
+								...intervention,
+								interventionUpdatedAt: intervention.updatedAt,
+							})),
+							totalAmountOngoing,
+							totalOrderAmount,
+							totalOrderDeposit,
+							totalOrderRemaining,
+							hasOrderUnsaved: ordersByClient[clientId]?.hasUnsaved || false,
+						};
+					});
+            // ✅ On garde tous les clients pour la recherche
+            setClients(updatedData);
 
-            // 🔹 Regrouper les commandes par client et calculer le total
-            const ordersByClient = {};
+            // ✅ On affiche uniquement ceux avec intervention en cours ou commande non sauvegardée/non payée
+            const clientsToShow = updatedData
+    .filter((client) => {
+        const interventions = client.interventions || [];
+        const orders = client.orders || [];
 
-            ordersData.forEach((order) => {
-                if (!ordersByClient[order.client_id]) {
-                    ordersByClient[order.client_id] = {
-                        total: 0,
-                        deposit: 0,
-                        remaining: 0,
-                    };
-                }
-                ordersByClient[order.client_id].total += order.price || 0; // ✅ Total des commandes
-                ordersByClient[order.client_id].deposit += order.deposit || 0; // ✅ Total des acomptes
-                // ✅ Ne prend que les commandes non payées pour calculer le "reste dû"
-                if (!order.paid) {
-                    ordersByClient[order.client_id].remaining +=
-                        order.price - order.deposit;
-                }
-            });
+        const hasInterventionEnCours = interventions.some(
+            (intervention) =>
+                intervention.status !== "Réparé" &&
+                intervention.status !== "Récupéré" &&
+                intervention.status !== "Non réparable"
+        );
 
-            if (clientsData) {
-                const updatedData = clientsData.map((client) => {
-                    const interventions = Array.isArray(client.interventions)
-                        ? client.interventions
-                        : [];
-                    // 🔹 Filtrer les interventions qui ne sont pas "Réparé", "Récupéré", "Non réparable"
-                    const ongoingInterventions =
-                        client.interventions?.filter(
-                            (intervention) =>
-                                intervention.status !== "Réparé" &&
-                                intervention.status !== "Récupéré" &&
-                                intervention.status !== "Non réparable"
-                        ) || [];
+        const hasCommandeActive = orders.length > 0 && orders.some(
+            (order) => !order.saved || !order.paid
+        );
 
-                    const totalAmountOngoing = ongoingInterventions.reduce(
-                        (total, intervention) =>
-                            total +
-                            (parseFloat(intervention.cost) ||
-                                parseFloat(intervention.solderestant) ||
-                                0),
-                        0
-                    );
+        return hasInterventionEnCours || hasCommandeActive;
+    })
+    .map((client) => {
+        client.interventions = client.interventions
+            .filter(
+                (intervention) =>
+                    intervention.status !== "Réparé" &&
+                    intervention.status !== "Récupéré" &&
+                    intervention.status !== "Non réparable"
+            )
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-                    const totalDevisAmount = interventions.reduce(
-                        (total, intervention) =>
-                            intervention.status === "Devis en cours" &&
-                            intervention.devis_cost
-                                ? total + parseFloat(intervention.devis_cost)
-                                : total,
-                        0
-                    );
-                    // 🔹 Ajouter le montant total des commandes
-                    const totalOrderAmount =
-                        ordersByClient[client.id]?.total || 0;
-                    const totalOrderDeposit =
-                        ordersByClient[client.id]?.deposit || 0;
-                    const totalOrderRemaining =
-                        ordersByClient[client.id]?.remaining || 0; // ✅ Correctif
+        client.latestIntervention = client.interventions[0];
+        return client;
+    });
 
-                    return {
-                        ...client,
-                        totalInterventions: client.interventions.length,
-                        devis_cost: totalDevisAmount, // ✅ Ajout du total des devis
-                        clientUpdatedAt: client.updatedAt,
-                        interventions: client.interventions.map(
-                            (intervention) => ({
-                                ...intervention,
-                                interventionUpdatedAt: intervention.updatedAt,
-                            })
-                        ),
-                        totalAmountOngoing,
-                        totalOrderAmount, // ✅ Montant total des commandes
-                        totalOrderDeposit, // ✅ Montant total des acomptes
-                        totalOrderRemaining, // ✅ Correctif : le montant restant dû est mis à jour correctement
-                    };
-                });
-
-                // 🔹 Vérifier quels clients ont une commande
-                const clientsWithOrders = ordersData.map(
-                    (order) => order.client_id
-                );
-
-                // 🔹 Inclure les clients ayant une intervention en cours OU une commande
-                const clientsToShow = updatedData
-                    .filter(
-                        (client) =>
-                            client.interventions.some(
-                                (intervention) =>
-                                    intervention.status !== "Réparé" &&
-                                    intervention.status !== "Récupéré" &&
-                                    intervention.status !== "Non réparable"
-                            ) || clientsWithOrders.includes(client.id) // ✅ Inclure les clients avec une commande
-                    )
-                    .map((client) => {
-                        client.interventions = client.interventions
-                            .filter(
-                                (intervention) =>
-                                    intervention.status !== "Réparé" &&
-                                    intervention.status !== "Récupéré" &&
-                                    intervention.status !== "Non réparable"
-                            )
-                            .sort(
-                                (a, b) =>
-                                    new Date(b.createdAt) -
-                                    new Date(a.createdAt)
-                            );
-                        client.latestIntervention = client.interventions[0];
-                        return client;
-                    });
-
-                const sortedClients = clientsToShow.sort((a, b) => {
-                    const dateA = new Date(a[sortBy]);
-                    const dateB = new Date(b[sortBy]);
-                    return orderAsc ? dateA - dateB : dateB - dateA;
-                });
-
-                console.log(
-                    "👥 Clients affichés après filtrage :",
-                    sortedClients
-                );
-                setClients(sortedClients);
-                setFilteredClients(sortedClients);
-            }
-        } catch (error) {
-            console.error("❌ Erreur lors du chargement des clients:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+	setClients(clientsToShow);
+	setFilteredClients(clientsToShow);
+			}
+		} catch (error) {
+			console.error("❌ Erreur lors du chargement des clients:", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
     const loadOrders = async () => {
         try {

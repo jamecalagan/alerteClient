@@ -86,37 +86,37 @@ export default function OrdersPage({ route, navigation, order }) {
     };
 
     const handleDeleteOrder = async (order) => {
-		if (order.saved) {
-			Alert.alert("Suppression impossible", "Cette commande a été sauvegardée et ne peut plus être supprimée.");
+		if (!order.paid && !order.saved) {
+			Alert.alert("Suppression impossible", "Impossible de supprimer une commande ni payée ni sauvegardée.");
 			return;
 		}
-		
-
-        Alert.alert(
-            "Confirmation",
-            "Êtes-vous sûr de vouloir supprimer cette commande ?",
-            [
-                {
-                    text: "Annuler",
-                    style: "cancel",
-                },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase.from("orders").delete().eq("id", order.id);
-                            if (error) throw error;
-                            loadOrders();
-                        } catch (error) {
-                            console.error("❌ Erreur lors de la suppression de la commande:", error);
-                        }
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
-    };
+	
+		Alert.alert(
+			"Confirmation",
+			"Êtes-vous sûr de vouloir supprimer cette commande ?",
+			[
+				{
+					text: "Annuler",
+					style: "cancel",
+				},
+				{
+					text: "Supprimer",
+					style: "destructive",
+					onPress: async () => {
+						try {
+							const { error } = await supabase.from("orders").delete().eq("id", order.id);
+							if (error) throw error;
+							loadOrders();
+						} catch (error) {
+							console.error("❌ Erreur lors de la suppression de la commande:", error);
+						}
+					},
+				},
+			],
+			{ cancelable: true }
+		);
+	};
+	
 
 
     const handleMarkAsPaid = (order) => {
@@ -149,7 +149,7 @@ export default function OrdersPage({ route, navigation, order }) {
     };
 	const handleSaveOrder = async (order) => {
 		if (!order.paid) {
-			Alert.alert("Erreur", "Vous devez d'abord marquer la commande comme payée.");
+			Alert.alert("Erreur", "Vous devez d'abord marquer la commande comme payée avant de sauvegarder.");
 			return;
 		}
 	
@@ -166,7 +166,7 @@ export default function OrdersPage({ route, navigation, order }) {
 								.from("orders")
 								.update({
 									saved: true,
-									paid_at: new Date().toISOString()
+									paid_at: new Date().toISOString(),
 								})
 								.eq("id", order.id);
 	
@@ -176,11 +176,12 @@ export default function OrdersPage({ route, navigation, order }) {
 						} catch (error) {
 							console.error("❌ Erreur lors de la sauvegarde:", error);
 						}
-					}
-				}
+					},
+				},
 			]
 		);
 	};
+	
 	const toggleExpand = (id) => {
 		if (expandedOrders.includes(id)) {
 			setExpandedOrders(expandedOrders.filter(item => item !== id));

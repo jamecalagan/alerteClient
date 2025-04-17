@@ -496,7 +496,7 @@ export default function HomePage({ navigation, route, setUser }) {
 							remaining: 0,
 							hasUnpaid: false,
 							hasUnsaved: false,
-							orders: []
+							orders: ordersByClient[clientId]?.orders || [],
 						};
 					}
 					ordersByClient[clientId].orders.push(order);
@@ -1156,19 +1156,25 @@ export default function HomePage({ navigation, route, setUser }) {
 
         fetchOrders();
     }, []);
-    const getOrderColor = (clientId) => {
-        const clientOrders = orders.filter(
-            (order) => order.client_id === clientId
-        );
-
-        if (clientOrders.length === 0) {
-            return "#888787"; // Pas de commande
-        }
-
-        const allPaid = clientOrders.every((order) => order.paid); // ✅ Vérifie si toutes les commandes sont payées
-
-        return allPaid ? "#00ff00" : "#ffa32c"; // 🟢 Vert si toutes les commandes sont payées, sinon 🟠 Orange
-    };
+	const getOrderColor = (clientOrders = []) => {
+		if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
+			return "#888787"; // ⚪ Gris, aucune commande
+		}
+	
+		const hasUnsavedAndPaid = clientOrders.some(order => order.paid && !order.saved);
+		if (hasUnsavedAndPaid) {
+			return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
+		}
+	
+		const hasUnpaidOrder = clientOrders.some(order => !order.paid);
+		if (hasUnpaidOrder) {
+			return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
+		}
+	
+		return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
+	};
+	
+	
     const filterClientsWithCommandeEnCours = async () => {
         try {
             // 🧾 1. Récupère les commandes simples non réglées
@@ -1814,7 +1820,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                         ?.length || 0;
                                                 const commande =
                                                     latestIntervention?.commande;
-
+													const orderColor = getOrderColor(item.orders || []);
                                                 return (
                                                     // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
                                                     <Animatable.View
@@ -2302,56 +2308,33 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                             </TouchableOpacity>
                                                                         )}
                                                                     </View>
-                                                                    <TouchableOpacity
-                                                                        style={{
-                                                                            padding: 10,
-                                                                            alignItems:
-                                                                                "center",
-                                                                            borderRadius: 2,
-                                                                            borderWidth:
-                                                                                getOrderColor(
-                                                                                    item.id
-                                                                                ) !==
-                                                                                "#888787"
-                                                                                    ? 2
-                                                                                    : 1, // ✅ Bordure de 2px si l'icône est verte ou orange
-                                                                            borderColor:
-                                                                                getOrderColor(
-                                                                                    item.id
-                                                                                ) !==
-                                                                                "#888787"
-                                                                                    ? getOrderColor(
-                                                                                          item.id
-                                                                                      )
-                                                                                    : "#888787",
-                                                                            marginRight: 7, // ✅ La couleur de la bordure suit l'icône
-                                                                        }}
-                                                                        onPress={() =>
-                                                                            navigation.navigate(
-                                                                                "OrdersPage",
-                                                                                {
-                                                                                    clientId:
-                                                                                        item.id,
-                                                                                    clientName:
-                                                                                        item.name,
-                                                                                    clientPhone:
-                                                                                        item.phone,
-                                                                                    clientNumber:
-                                                                                        item.ficheNumber,
-                                                                                }
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <Image
-                                                                            source={require("../assets/icons/order.png")}
-                                                                            style={{
-                                                                                width: 28,
-                                                                                height: 28,
-                                                                                tintColor:
-                                                                                    "#888787",
-                                                                            }}
-                                                                        />
-                                                                    </TouchableOpacity>
+																	<TouchableOpacity
+  style={{
+    padding: 10,
+    alignItems: "center",
+    borderRadius: 2,
+    borderWidth: orderColor !== "#888787" ? 2 : 1,
+    borderColor: orderColor,
+    marginRight: 7,
+  }}
+  onPress={() =>
+    navigation.navigate("OrdersPage", {
+      clientId: item.id,
+      clientName: item.name,
+      clientPhone: item.phone,
+      clientNumber: item.ficheNumber,
+    })
+  }
+>
+  <Image
+    source={require("../assets/icons/order.png")}
+    style={{
+      width: 28,
+      height: 28,
+      tintColor: orderColor,
+    }}
+  />
+</TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,

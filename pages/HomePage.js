@@ -80,7 +80,7 @@ export default function HomePage({ navigation, route, setUser }) {
                 style={{
                     width: 28,
                     height: 28,
-                    tintColor: "#f54242", // 🔴 rouge pour attirer l’attention
+                    tintColor: "#fad503", // 🔴 rouge pour attirer l’attention
                     opacity: opacity,
                 }}
             />
@@ -1821,12 +1821,13 @@ export default function HomePage({ navigation, route, setUser }) {
                                                 const commande =
                                                     latestIntervention?.commande;
 													const orderColor = getOrderColor(item.orders || []);
+													const shouldBlink = item.orders?.some(order => !order.paid);
                                                 return (
                                                     // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
                                                     <Animatable.View
-                                                        animation="fadeInUp" // Animation au choix
-                                                        duration={600}
-                                                        delay={index * 100} // Délai basé sur l'index pour un effet progressif
+													animation="zoomIn" // Type d'animation
+                            duration={500} // Durée en millisecondes
+                            delay={index * 200} // Délai basé sur l'index pour un effet "une après l'autre"
                                                     >
                                                         <View
                                                             style={[
@@ -2309,32 +2310,36 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                         )}
                                                                     </View>
 																	<TouchableOpacity
-  style={{
-    padding: 10,
-    alignItems: "center",
-    borderRadius: 2,
-    borderWidth: orderColor !== "#888787" ? 2 : 1,
-    borderColor: orderColor,
-    marginRight: 7,
-  }}
-  onPress={() =>
-    navigation.navigate("OrdersPage", {
-      clientId: item.id,
-      clientName: item.name,
-      clientPhone: item.phone,
-      clientNumber: item.ficheNumber,
-    })
-  }
->
-  <Image
-    source={require("../assets/icons/order.png")}
-    style={{
-      width: 28,
-      height: 28,
-      tintColor: orderColor,
-    }}
-  />
-</TouchableOpacity>
+            style={{
+                padding: 10,
+                alignItems: "center",
+                borderRadius: 2,
+                borderWidth: orderColor !== "#888787" ? 2 : 1,
+                borderColor: orderColor,
+                marginRight: 7,
+            }}
+            onPress={() =>
+                navigation.navigate("OrdersPage", {
+                    clientId: item.id,
+                    clientName: item.name,
+                    clientPhone: item.phone,
+                    clientNumber: item.ficheNumber,
+                })
+            }
+        >
+            {shouldBlink ? ( 
+                <BlinkingIcon source={require("../assets/icons/order.png")} tintColor={orderColor} />
+            ) : (
+                <Image
+                    source={require("../assets/icons/order.png")}
+                    style={{
+                        width: 28,
+                        height: 28,
+                        tintColor: orderColor,
+                    }}
+                />
+            )}
+        </TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,

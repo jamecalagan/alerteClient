@@ -20,6 +20,7 @@ import { useNavigation } from "@react-navigation/native";
 import BottomNavigation  from "../components/BottomNavigation";
 
 export default function AdminPage({ navigation, route }) {
+	
     const [searchText, setSearchText] = useState("");
     const [filteredClients, setFilteredClients] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -180,7 +181,20 @@ export default function AdminPage({ navigation, route }) {
                     ) : (
                         <Text style={styles.noDataText}>Aucun client à afficher.</Text>
                     )}
-
+					<TouchableOpacity
+  onPress={() => navigation.navigate('ImageBackup')}
+  style={{
+    backgroundColor: '#24435c',
+    padding: 12,
+    marginVertical: 10,
+    borderRadius: 8,
+	borderWidth: 1,
+	borderColor: '#888787',
+    alignItems: 'center',
+  }}
+>
+  <Text style={{ color: '#888787', fontWeight: 'bold' }}>SAUVEGARDER LES IMAGES</Text>
+</TouchableOpacity>
                     <View style={styles.paginationContainer}>
                         <TouchableOpacity
                             onPress={() => handlePageChange(currentPage - 1)}

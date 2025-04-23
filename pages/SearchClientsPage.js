@@ -9,6 +9,7 @@ import {
     ScrollView,
     Alert,
     Image,
+	Modal,
     ActivityIndicator,
 } from "react-native";
 import { supabase } from "../supabaseClient";
@@ -30,6 +31,9 @@ const SearchClientsPage = () => {
     const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
     const [loading, setLoading] = useState(false);
     const [deviceTypes, setDeviceTypes] = useState([]);
+	const [modalVisible, setModalVisible] = useState(false);
+const [selectedImageUri, setSelectedImageUri] = useState(null);
+
     // 🔄 Charger les types d'appareils depuis la base de données
     useEffect(() => {
         const fetchDeviceTypes = async () => {
@@ -339,15 +343,26 @@ const SearchClientsPage = () => {
                                 </Text>
                             </View>
 							{item.interventions?.[0]?.label_photo && (
-  <Image
-    source={{
-      uri: item.interventions[0].label_photo.startsWith("http")
+  <TouchableOpacity
+    onPress={() => {
+      const imageUri = item.interventions[0].label_photo.startsWith("http")
         ? item.interventions[0].label_photo
-        : `data:image/png;base64,${item.interventions[0].label_photo}`,
+        : `data:image/png;base64,${item.interventions[0].label_photo}`;
+      setSelectedImageUri(imageUri);
+      setModalVisible(true);
     }}
-    style={styles.labelPhoto}
-  />
+  >
+    <Image
+      source={{
+        uri: item.interventions[0].label_photo.startsWith("http")
+          ? item.interventions[0].label_photo
+          : `data:image/png;base64,${item.interventions[0].label_photo}`,
+      }}
+      style={styles.labelPhoto}
+    />
+  </TouchableOpacity>
 )}
+
 
                         </View>
 
@@ -453,7 +468,20 @@ const SearchClientsPage = () => {
                         <Text style={styles.pageButtonText}>Suivant</Text>
                     </TouchableOpacity>
                 </View>
+				
             )}
+			{modalVisible && (
+  <Modal transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+    <View style={styles.modalContainer}>
+      <TouchableOpacity style={styles.modalCloseArea} onPress={() => setModalVisible(false)} />
+      <Image source={{ uri: selectedImageUri }} style={styles.fullscreenImage} resizeMode="contain" />
+      <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+        <Text style={styles.closeText}>✖</Text>
+      </TouchableOpacity>
+    </View>
+  </Modal>
+)}
+
         </View>
     );
 };
@@ -638,6 +666,35 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "gray",
     },
+	modalContainer: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.9)",
+  justifyContent: "center",
+  alignItems: "center",
+},
+fullscreenImage: {
+  width: "90%",
+  height: "80%",
+  borderRadius: 10,
+},
+closeButton: {
+  position: "absolute",
+  top: 40,
+  right: 20,
+  backgroundColor: "#fff",
+  padding: 8,
+  borderRadius: 20,
+},
+closeText: {
+  fontSize: 18,
+  fontWeight: "bold",
+},
+modalCloseArea: {
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+},
+
 });
 
 export default SearchClientsPage;

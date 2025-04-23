@@ -139,6 +139,7 @@ export default function HomePage({ navigation, route, setUser }) {
     });
     const [paginatedClients, setPaginatedClients] = useState([]);
     const itemsPerPage = 3;
+	
     const checkImagesToDelete = async () => {
         setIsLoading(true);
         try {
@@ -205,9 +206,7 @@ export default function HomePage({ navigation, route, setUser }) {
     useEffect(() => {
         loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
     }, [orders]);
-    useEffect(() => {
-        checkImagesToDelete();
-    }, []);
+
     const handleLoadRecoveredInterventions = async () => {
         try {
             const { data: interventions, error } = await supabase
@@ -481,131 +480,146 @@ export default function HomePage({ navigation, route, setUser }) {
             // 🔹 Récupérer les commandes avec leur montant total
             const { data: ordersData, error: ordersError } = await supabase
                 .from("orders")
-                .select("id, client_id, price, deposit, paid, saved, notified, product");
+                .select(
+                    "id, client_id, price, deposit, paid, saved, notified, product"
+                );
 
-				if (ordersError) throw ordersError;
+            if (ordersError) throw ordersError;
 
-				const ordersByClient = {};
-		
-				ordersData.forEach((order) => {
-					const clientId = String(order.client_id);
-					if (!ordersByClient[clientId]) {
-						ordersByClient[clientId] = {
-							total: 0,
-							deposit: 0,
-							remaining: 0,
-							hasUnpaid: false,
-							hasUnsaved: false,
-							orders: ordersByClient[clientId]?.orders || [],
-						};
-					}
-					ordersByClient[clientId].orders.push(order);
-					ordersByClient[clientId].total += order.price || 0;
-					ordersByClient[clientId].deposit += order.deposit || 0;
-		
-					if (!order.paid) {
-						ordersByClient[clientId].remaining += (order.price || 0) - (order.deposit || 0);
-						ordersByClient[clientId].hasUnpaid = true;
-					}
-					if (!order.saved) {
-						ordersByClient[clientId].hasUnsaved = true;
-					}
-				});
-		
-				if (clientsData) {
-					const updatedData = clientsData.map((client) => {
-						const clientId = String(client.id);
-						const interventions = Array.isArray(client.interventions)
-							? client.interventions
-							: [];
-		
-						const ongoingInterventions = interventions.filter(
-							(intervention) =>
-								intervention.status !== "Réparé" &&
-								intervention.status !== "Récupéré" &&
-								intervention.status !== "Non réparable"
-						);
-		
-						const totalAmountOngoing = ongoingInterventions.reduce(
-							(total, intervention) =>
-								total + (parseFloat(intervention.cost) || parseFloat(intervention.solderestant) || 0),
-							0
-						);
-		
-						const totalDevisAmount = interventions.reduce(
-							(total, intervention) =>
-								intervention.status === "Devis en cours" && intervention.devis_cost
-									? total + parseFloat(intervention.devis_cost)
-									: total,
-							0
-						);
-		
-						const totalOrderAmount = ordersByClient[clientId]?.total || 0;
-						const totalOrderDeposit = ordersByClient[clientId]?.deposit || 0;
-						const totalOrderRemaining = ordersByClient[clientId]?.remaining || 0;
-						const clientOrders = ordersByClient[clientId]?.orders || [];
-						return {
-							...client,
-							orders: clientOrders,
-							totalInterventions: interventions.length,
-							devis_cost: totalDevisAmount,
-							clientUpdatedAt: client.updatedAt,
-							interventions: interventions.map((intervention) => ({
-								...intervention,
-								interventionUpdatedAt: intervention.updatedAt,
-							})),
-							totalAmountOngoing,
-							totalOrderAmount,
-							totalOrderDeposit,
-							totalOrderRemaining,
-							hasOrderUnsaved: ordersByClient[clientId]?.hasUnsaved || false,
-						};
-					});
-            // ✅ On garde tous les clients pour la recherche
-            setClients(updatedData);
+            const ordersByClient = {};
 
-            // ✅ On affiche uniquement ceux avec intervention en cours ou commande non sauvegardée/non payée
-            const clientsToShow = updatedData
-    .filter((client) => {
-        const interventions = client.interventions || [];
-        const orders = client.orders || [];
+            ordersData.forEach((order) => {
+                const clientId = String(order.client_id);
+                if (!ordersByClient[clientId]) {
+                    ordersByClient[clientId] = {
+                        total: 0,
+                        deposit: 0,
+                        remaining: 0,
+                        hasUnpaid: false,
+                        hasUnsaved: false,
+                        orders: ordersByClient[clientId]?.orders || [],
+                    };
+                }
+                ordersByClient[clientId].orders.push(order);
+                ordersByClient[clientId].total += order.price || 0;
+                ordersByClient[clientId].deposit += order.deposit || 0;
 
-        const hasInterventionEnCours = interventions.some(
-            (intervention) =>
-                intervention.status !== "Réparé" &&
-                intervention.status !== "Récupéré" &&
-                intervention.status !== "Non réparable"
-        );
+                if (!order.paid) {
+                    ordersByClient[clientId].remaining +=
+                        (order.price || 0) - (order.deposit || 0);
+                    ordersByClient[clientId].hasUnpaid = true;
+                }
+                if (!order.saved) {
+                    ordersByClient[clientId].hasUnsaved = true;
+                }
+            });
 
-        const hasCommandeActive = orders.length > 0 && orders.some(
-            (order) => !order.saved || !order.paid
-        );
+            if (clientsData) {
+                const updatedData = clientsData.map((client) => {
+                    const clientId = String(client.id);
+                    const interventions = Array.isArray(client.interventions)
+                        ? client.interventions
+                        : [];
 
-        return hasInterventionEnCours || hasCommandeActive;
-    })
-    .map((client) => {
-        client.interventions = client.interventions
-            .filter(
-                (intervention) =>
-                    intervention.status !== "Réparé" &&
-                    intervention.status !== "Récupéré" &&
-                    intervention.status !== "Non réparable"
-            )
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    const ongoingInterventions = interventions.filter(
+                        (intervention) =>
+                            intervention.status !== "Réparé" &&
+                            intervention.status !== "Récupéré" &&
+                            intervention.status !== "Non réparable"
+                    );
 
-        client.latestIntervention = client.interventions[0];
-        return client;
-    });
+                    const totalAmountOngoing = ongoingInterventions.reduce(
+                        (total, intervention) =>
+                            total +
+                            (parseFloat(intervention.cost) ||
+                                parseFloat(intervention.solderestant) ||
+                                0),
+                        0
+                    );
 
-	setClients(clientsToShow);
-	setFilteredClients(clientsToShow);
-			}
-		} catch (error) {
-			console.error("❌ Erreur lors du chargement des clients:", error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
+                    const totalDevisAmount = interventions.reduce(
+                        (total, intervention) =>
+                            intervention.status === "Devis en cours" &&
+                            intervention.devis_cost
+                                ? total + parseFloat(intervention.devis_cost)
+                                : total,
+                        0
+                    );
+
+                    const totalOrderAmount =
+                        ordersByClient[clientId]?.total || 0;
+                    const totalOrderDeposit =
+                        ordersByClient[clientId]?.deposit || 0;
+                    const totalOrderRemaining =
+                        ordersByClient[clientId]?.remaining || 0;
+                    const clientOrders = ordersByClient[clientId]?.orders || [];
+                    return {
+                        ...client,
+                        orders: clientOrders,
+                        totalInterventions: interventions.length,
+                        devis_cost: totalDevisAmount,
+                        clientUpdatedAt: client.updatedAt,
+                        interventions: interventions.map((intervention) => ({
+                            ...intervention,
+                            interventionUpdatedAt: intervention.updatedAt,
+                        })),
+                        totalAmountOngoing,
+                        totalOrderAmount,
+                        totalOrderDeposit,
+                        totalOrderRemaining,
+                        hasOrderUnsaved:
+                            ordersByClient[clientId]?.hasUnsaved || false,
+                    };
+                });
+                // ✅ On garde tous les clients pour la recherche
+                setClients(updatedData);
+
+                // ✅ On affiche uniquement ceux avec intervention en cours ou commande non sauvegardée/non payée
+                const clientsToShow = updatedData
+                    .filter((client) => {
+                        const interventions = client.interventions || [];
+                        const orders = client.orders || [];
+
+                        const hasInterventionEnCours = interventions.some(
+                            (intervention) =>
+                                intervention.status !== "Réparé" &&
+                                intervention.status !== "Récupéré" &&
+                                intervention.status !== "Non réparable"
+                        );
+
+                        const hasCommandeActive =
+                            orders.length > 0 &&
+                            orders.some((order) => !order.saved || !order.paid);
+
+                        return hasInterventionEnCours || hasCommandeActive;
+                    })
+                    .map((client) => {
+                        client.interventions = client.interventions
+                            .filter(
+                                (intervention) =>
+                                    intervention.status !== "Réparé" &&
+                                    intervention.status !== "Récupéré" &&
+                                    intervention.status !== "Non réparable"
+                            )
+                            .sort(
+                                (a, b) =>
+                                    new Date(b.createdAt) -
+                                    new Date(a.createdAt)
+                            );
+
+                        client.latestIntervention = client.interventions[0];
+                        return client;
+                    });
+
+                setClients(clientsToShow);
+                setFilteredClients(clientsToShow);
+            }
+        } catch (error) {
+            console.error("❌ Erreur lors du chargement des clients:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const loadOrders = async () => {
         try {
@@ -708,58 +722,22 @@ export default function HomePage({ navigation, route, setUser }) {
             setCurrentPage((prevPage) => prevPage + 1);
         }
     };
-    useFocusEffect(
-        React.useCallback(() => {
-            // Toujours charger les clients triés par date décroissante
-            setSortBy("createdAt");
-            setOrderAsc(false);
-            loadClients(); // Charge la liste des clients triée
-            loadOrders(); // ✅ Ajout du rechargement des commandes
-            // Charger les statistiques des réparés non restitués
-            loadRepairedNotReturnedCount();
-            loadNotRepairedNotReturnedCount();
-            const checkForImagesToClean = async () => {
-                setIsLoading(true);
-
-                const { data: interventions } = await supabase
-                    .from("interventions")
-                    .select("updatedAt, photos, status");
-
-                const { data: extras } = await supabase
-                    .from("intervention_images")
-                    .select("created_at, image_data");
-
-                const now = new Date();
-                const tenDaysAgo = new Date(now);
-                tenDaysAgo.setDate(now.getDate() - 10);
-
-                const hasOldPhotos = interventions?.some((item) => {
-                    const updated = new Date(item.updatedAt);
-                    return (
-                        item.status === "Récupéré" &&
-                        updated < tenDaysAgo &&
-                        Array.isArray(item.photos) &&
-                        item.photos.some(
-                            (p) => typeof p === "string" && p.startsWith("http")
-                        )
-                    );
-                });
-
-                const hasOldExtras = extras?.some((img) => {
-                    return (
-                        typeof img.image_data === "string" &&
-                        img.image_data.startsWith("http") &&
-                        new Date(img.created_at) < tenDaysAgo
-                    );
-                });
-
-                setHasImagesToDelete(hasOldPhotos || hasOldExtras);
-                setIsLoading(false);
-            };
-
-            checkForImagesToClean();
-        }, [])
-    );
+	useFocusEffect(
+		React.useCallback(() => {
+			// Toujours charger les clients triés par date décroissante
+			setSortBy("createdAt");
+			setOrderAsc(false);
+			loadClients(); // Charge la liste des clients triée
+			loadOrders(); // ✅ Ajout du rechargement des commandes
+			// Charger les statistiques des réparés non restitués
+			loadRepairedNotReturnedCount();
+			loadNotRepairedNotReturnedCount();
+	
+			// ✅ Remplace la fonction interne par l'appel direct
+			checkImagesToDelete();
+		}, [])
+	);
+	
 
     const confirmDeleteClient = (clientId) => {
         setSelectedClientId(clientId);
@@ -1156,100 +1134,92 @@ export default function HomePage({ navigation, route, setUser }) {
 
         fetchOrders();
     }, []);
-	const getOrderColor = (clientOrders = []) => {
-		if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
-			return "#888787"; // ⚪ Gris, aucune commande
-		}
+    const getOrderColor = (clientOrders = []) => {
+        if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
+            return "#888787"; // ⚪ Gris, aucune commande
+        }
+
+        const hasUnsavedAndPaid = clientOrders.some(
+            (order) => order.paid && !order.saved
+        );
+        if (hasUnsavedAndPaid) {
+            return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
+        }
+
+        const hasUnpaidOrder = clientOrders.some((order) => !order.paid);
+        if (hasUnpaidOrder) {
+            return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
+        }
+
+        return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
+    };
+
+	const filterClientsWithCommandeEnCours = async () => {
+		try {
+			// 1. Récupère les commandes non réglées
+			const { data: unpaidOrders, error: orderError } = await supabase
+				.from("orders")
+				.select("id, client_id, paid, saved")
+				.eq("paid", false);
 	
-		const hasUnsavedAndPaid = clientOrders.some(order => order.paid && !order.saved);
-		if (hasUnsavedAndPaid) {
-			return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
-		}
+			// 2. Récupère les interventions actives avec une commande
+			const { data: interventions, error: interventionError } = await supabase
+				.from("interventions")
+				.select("*")
+				.not("commande", "is", null)
+				.neq("commande", "")
+				.not("status", "in", '("Réparé","Récupéré")');
 	
-		const hasUnpaidOrder = clientOrders.some(order => !order.paid);
-		if (hasUnpaidOrder) {
-			return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
-		}
+			if (orderError || interventionError) {
+				console.error("❌ Erreur Supabase :", orderError || interventionError);
+				return;
+			}
 	
-		return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
+			// 3. IDs des clients concernés
+			const clientIdsFromOrders = unpaidOrders.map(o => o.client_id).filter(Boolean);
+			const clientIdsFromInterventions = interventions.map(i => i.client_id).filter(Boolean);
+			const allClientIds = [...new Set([...clientIdsFromOrders, ...clientIdsFromInterventions])];
+	
+			if (allClientIds.length === 0) {
+				console.warn("Aucun client avec commande en cours.");
+				setFilteredClients([]);
+				return;
+			}
+	
+			// 4. Récupère les clients concernés
+			const { data: clients, error: clientError } = await supabase
+				.from("clients")
+				.select("*")
+				.in("id", allClientIds)
+				.order("createdAt", { ascending: false });
+	
+			if (clientError) {
+				console.error("❌ Erreur chargement clients :", clientError.message);
+				return;
+			}
+	
+			// 5. Fusionne les infos avec commandes et interventions
+			const enrichedClients = clients.map(client => {
+				const clientOrders = unpaidOrders.filter(o => o.client_id === client.id);
+				const clientInterventions = interventions.filter(i => i.client_id === client.id);
+	
+				// Récupère la dernière intervention (si plusieurs)
+				const latestIntervention = clientInterventions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+	
+				return {
+					...client,
+					orders: clientOrders,
+					interventions: clientInterventions,
+					latestIntervention,
+				};
+			});
+	
+			setFilteredClients(enrichedClients);
+		} catch (err) {
+			console.error("❌ Erreur inattendue :", err.message);
+		}
 	};
 	
-	
-    const filterClientsWithCommandeEnCours = async () => {
-        try {
-            // 🧾 1. Récupère les commandes simples non réglées
-            const { data: unpaidOrders, error: orderError } = await supabase
-                .from("orders")
-                .select("client_id, paid")
-                .eq("paid", false); // <- uniquement celles NON payées
-
-            // 🧾 2. Récupère les interventions avec commande non vide ET non terminées
-            const { data: interventions, error: interventionError } =
-                await supabase
-                    .from("interventions")
-                    .select("client_id, commande, status")
-                    .not("commande", "is", null)
-                    .neq("commande", "")
-                    .not("status", "in", '("Réparé","Récupéré")');
-
-            if (orderError || interventionError) {
-                console.error(
-                    "❌ Erreur Supabase :",
-                    orderError || interventionError
-                );
-                return;
-            }
-
-            // 🔍 Log pour vérifier
-            console.log("📦 Orders non réglées :", unpaidOrders);
-            console.log(
-                "🔧 Interventions actives avec commande :",
-                interventions
-            );
-
-            // 🔁 Filtrage des ID valides
-            const clientIdsFromOrders =
-                unpaidOrders
-                    ?.map((o) => o.client_id)
-                    .filter((id) => !!id && id !== "null") || [];
-
-            const clientIdsFromInterventions =
-                interventions
-                    ?.map((i) => i.client_id)
-                    .filter((id) => !!id && id !== "null") || [];
-
-            const allClientIds = [
-                ...new Set([
-                    ...clientIdsFromOrders,
-                    ...clientIdsFromInterventions,
-                ]),
-            ];
-
-            if (allClientIds.length === 0) {
-                console.warn("Aucun client avec commande en cours.");
-                setFilteredClients([]);
-                return;
-            }
-
-            const { data: clients, error: clientError } = await supabase
-                .from("clients")
-                .select("*")
-                .in("id", allClientIds)
-                .order("createdAt", { ascending: false }); // ← tri du plus récent au plus ancien
-
-            if (clientError) {
-                console.error(
-                    "❌ Erreur chargement clients :",
-                    clientError.message
-                );
-                return;
-            }
-
-            setFilteredClients(clients);
-        } catch (err) {
-            console.error("❌ Erreur inattendue :", err.message);
-        }
-    };
     return (
         <ImageBackground
             source={backgroundImage}
@@ -1666,7 +1636,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                             }
                                             style={{
                                                 marginRight: 40,
-                                                marginTop: 15,
+                                                marginTop: 17,
                                                 padding: 10,
                                                 borderRadius: 2,
                                                 borderWidth: 1,
@@ -1820,14 +1790,20 @@ export default function HomePage({ navigation, route, setUser }) {
                                                         ?.length || 0;
                                                 const commande =
                                                     latestIntervention?.commande;
-													const orderColor = getOrderColor(item.orders || []);
-													const shouldBlink = item.orders?.some(order => !order.paid);
+                                                const orderColor =
+                                                    getOrderColor(
+                                                        item.orders || []
+                                                    );
+                                                const shouldBlink =
+                                                    item.orders?.some(
+                                                        (order) => !order.paid
+                                                    );
                                                 return (
                                                     // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
                                                     <Animatable.View
-													animation="zoomIn" // Type d'animation
-                            duration={500} // Durée en millisecondes
-                            delay={index * 200} // Délai basé sur l'index pour un effet "une après l'autre"
+                                                        animation="zoomIn" // Type d'animation
+                                                        duration={500} // Durée en millisecondes
+                                                        delay={index * 200} // Délai basé sur l'index pour un effet "une après l'autre"
                                                     >
                                                         <View
                                                             style={[
@@ -2309,37 +2285,56 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                             </TouchableOpacity>
                                                                         )}
                                                                     </View>
-																	<TouchableOpacity
-            style={{
-                padding: 10,
-                alignItems: "center",
-                borderRadius: 2,
-                borderWidth: orderColor !== "#888787" ? 2 : 1,
-                borderColor: orderColor,
-                marginRight: 7,
-            }}
-            onPress={() =>
-                navigation.navigate("OrdersPage", {
-                    clientId: item.id,
-                    clientName: item.name,
-                    clientPhone: item.phone,
-                    clientNumber: item.ficheNumber,
-                })
-            }
-        >
-            {shouldBlink ? ( 
-                <BlinkingIcon source={require("../assets/icons/order.png")} tintColor={orderColor} />
-            ) : (
-                <Image
-                    source={require("../assets/icons/order.png")}
-                    style={{
-                        width: 28,
-                        height: 28,
-                        tintColor: orderColor,
-                    }}
-                />
-            )}
-        </TouchableOpacity>
+                                                                    <TouchableOpacity
+                                                                        style={{
+                                                                            padding: 10,
+                                                                            alignItems:
+                                                                                "center",
+                                                                            borderRadius: 2,
+                                                                            borderWidth:
+                                                                                orderColor !==
+                                                                                "#888787"
+                                                                                    ? 2
+                                                                                    : 1,
+                                                                            borderColor:
+                                                                                orderColor,
+                                                                            marginRight: 7,
+                                                                        }}
+                                                                        onPress={() =>
+                                                                            navigation.navigate(
+                                                                                "OrdersPage",
+                                                                                {
+                                                                                    clientId:
+                                                                                        item.id,
+                                                                                    clientName:
+                                                                                        item.name,
+                                                                                    clientPhone:
+                                                                                        item.phone,
+                                                                                    clientNumber:
+                                                                                        item.ficheNumber,
+                                                                                }
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {shouldBlink ? (
+                                                                            <BlinkingIcon
+                                                                                source={require("../assets/icons/order.png")}
+                                                                                tintColor={
+                                                                                    orderColor
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <Image
+                                                                                source={require("../assets/icons/order.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        orderColor,
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                    </TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
                                                                             styles.iconButton,
@@ -3206,7 +3201,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
 
-        marginBottom: 150,
+        marginBottom: 140,
     },
     paginationText: {
         fontSize: 18,

@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import {
     View,
     Text,
+	Alert,
     FlatList,
     TouchableOpacity,
     Image,
@@ -225,7 +226,48 @@ export default function RecoveredClientsPage({ navigation, route }) {
         e.stopPropagation(); // Empêche le déclenchement du clic parent
         setSelectedImage(labelPhotoUri); // Zoom
     };
-
+	const deleteIntervention = async (id) => {
+		Alert.alert(
+			"Confirmation",
+			"Es-tu sûr de vouloir supprimer cette intervention ?",
+			[
+				{
+					text: "Annuler",
+					style: "cancel",
+				},
+				{
+					text: "Supprimer",
+					onPress: async () => {
+						try {
+							const { error: imageError } = await supabase
+								.from("intervention_images")
+								.delete()
+								.eq("intervention_id", id);
+	
+							const { error } = await supabase
+								.from("interventions")
+								.delete()
+								.eq("id", id);
+	
+							if (error || imageError) {
+								console.error("Erreur suppression :", error || imageError);
+							} else {
+								setRecoveredClients((prev) =>
+									prev.filter((item) => item.id !== id)
+								);
+								setFilteredClients((prev) =>
+									prev.filter((item) => item.id !== id)
+								);
+							}
+						} catch (err) {
+							console.error("Erreur lors de la suppression :", err);
+						}
+					},
+					style: "destructive",
+				},
+			]
+		);
+	};
     return (
         <ImageBackground
             source={backgroundImage}
@@ -432,6 +474,66 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                         </TouchableOpacity>
                                                     )
                                                 )}
+												<View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10,}}>
+												<TouchableOpacity
+  style={{
+    backgroundColor: "#007BFF",
+    padding: 10,
+    borderRadius: 5,
+    alignItems: "center",
+    width: "48%",
+    flexDirection: "row",
+    justifyContent: "center",
+  }}
+  onPress={() =>
+    navigation.navigate("PrintPage", {
+      clientInfo: {
+        ficheNumber: item.clients?.ficheNumber,
+        name: item.clients?.name,
+        phone: item.clients?.phone,
+      },
+      receiverName: item.receiver_name,
+      signature: item.signature, // ✅ bien corrigé
+      guaranteeText: item.detailIntervention,
+      productInfo: {
+        deviceType: item.deviceType,
+        brand: item.brand,
+        model: item.model,
+        reference: item.reference,
+        cost: item.cost,
+        remarks: item.remarks,
+        date: item.updatedAt,
+		description: item.description, 		
+      },
+    })
+  }
+>
+  <Icon name="print" size={18} color="white" style={{ marginRight: 8 }} />
+  <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
+    Imprimer
+  </Text>
+</TouchableOpacity>
+
+
+  <TouchableOpacity
+    style={{
+      backgroundColor: "#ff4d4d",
+      padding: 10,
+      borderRadius: 5,
+      alignItems: "center",
+      width: "48%",
+    }}
+    onPress={() => deleteIntervention(item.id)}
+  >
+    <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
+      Supprimer
+    </Text>
+  </TouchableOpacity>
+</View>
+
+
+
+
 
                                             <TouchableOpacity
                                                 style={styles.toggleButton}
@@ -685,7 +787,7 @@ const styles = StyleSheet.create({
     },
     receiverText: {
         fontSize: 18,
-        color: "#571515",
+        color: "#fbff00",
         marginTop: 5,
     },
     labelImage: {

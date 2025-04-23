@@ -39,6 +39,11 @@ import CommandePreviewPage from "./pages/CommandePreviewPage";
 import StoredImagesPage from "./pages/StoredImagesPage";
 import MigrateOldImagesPage from './pages/MigrateOldImagesPage';
 import CleanUpBucketPage from './pages/CleanUpBucketPage';
+import ImageBackupPage from './pages/ImageBackupPage';
+import ExpressClientPage from './pages/ExpressClientPage';
+import PrintExpressPage from './pages/PrintExpressPage';
+import ExpressListPage from "./pages/ExpressListPage";
+import ExpressTypeSelectorPage from "./pages/ExpressTypeSelectorPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -237,11 +242,16 @@ function MainStack({ setUser }) {
 			<Stack.Screen name="ListingProduits"  component={ListingProduits} options={{ title: 'Gestion des Produits' }} />
 			<Stack.Screen name="StoredImages" component={StoredImagesPage}/>
 			<Stack.Screen name="CleanUpBucketPage" component={CleanUpBucketPage}/>
-			<Stack.Screen name="MigrateOldImagesPage" component={MigrateOldImagesPage}
-        />
+			<Stack.Screen name="MigrateOldImagesPage" component={MigrateOldImagesPage} />
+			<Stack.Screen name="ImageBackup" component={ImageBackupPage} />
+			<Stack.Screen name="ExpressClientPage" component={ExpressClientPage} />
+			<Stack.Screen name="PrintExpressPage" component={PrintExpressPage} />
 		<Stack.Screen name="ArticlesPage" component={ArticlesPage} options={{ title: 'Articles' }} />
         <Stack.Screen name="BrandsPage" component={BrandsPage} options={{ title: 'Marques' }} />
         <Stack.Screen name="ModelsPage" component={ModelsPage} options={{ title: 'Modèles' }} />
+		<Stack.Screen name="ExpressListPage" component={ExpressListPage} />
+		<Stack.Screen name="ExpressTypeSelectorPage" component={ExpressTypeSelectorPage} />
+
         </Stack.Navigator>
     );
 }

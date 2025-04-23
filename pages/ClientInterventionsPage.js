@@ -141,7 +141,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         );
     };
     return (
-        <KeyboardAvoidingView
+        < KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             keyboardVerticalOffset={0} // Ajuster en fonction de la position désirée

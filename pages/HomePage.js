@@ -1555,7 +1555,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                         <TouchableOpacity
                                             onPress={() =>
                                                 navigation.navigate(
-                                                    "RepairedInterventionsPage"
+                                                    "RepairedInterventionsListPage"
                                                 )
                                             }
                                             style={styles.repairedCountButton}

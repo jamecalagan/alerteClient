@@ -14,7 +14,11 @@ import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
+const formatPhoneNumber = (phoneNumber) => {
+	if (!phoneNumber) return "";
 
+	return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 "); // Ajoute un espace après chaque deux chiffres
+};
 export default function RepairedInterventionsListPage({ navigation }) {
     const [repairedInterventions, setRepairedInterventions] = useState([]);
 
@@ -27,7 +31,7 @@ export default function RepairedInterventionsListPage({ navigation }) {
             const { data, error } = await supabase
                 .from("interventions")
                 .select(
-                    "id, status,notifiedBy, deviceType, brand, model, clients (name, ficheNumber)"
+                    "id, status,notifiedBy, deviceType, brand, model, clients (name, ficheNumber, phone)"
                 )
                 .in("status", ["Réparé", "Non réparable"]);
 
@@ -116,6 +120,9 @@ export default function RepairedInterventionsListPage({ navigation }) {
                                 </Text>
                                 <Text style={styles.itemText}>
                                     Client: {item.clients.name}
+                                </Text>
+								<Text style={styles.itemText}>
+									Téléphone: {formatPhoneNumber(item.clients.phone)}
                                 </Text>
                                 <Text style={styles.itemText}>
                                     Produit: {item.deviceType} - {item.brand}

@@ -44,6 +44,11 @@ import ExpressClientPage from './pages/ExpressClientPage';
 import PrintExpressPage from './pages/PrintExpressPage';
 import ExpressListPage from "./pages/ExpressListPage";
 import ExpressTypeSelectorPage from "./pages/ExpressTypeSelectorPage";
+import BillingPage from "./pages/BillingPage";
+import BillingListPage from "./pages/BillingListPage";
+import BillingEditPage from "./pages/BillingEditPage";
+
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -251,6 +256,12 @@ function MainStack({ setUser }) {
         <Stack.Screen name="ModelsPage" component={ModelsPage} options={{ title: 'Modèles' }} />
 		<Stack.Screen name="ExpressListPage" component={ExpressListPage} />
 		<Stack.Screen name="ExpressTypeSelectorPage" component={ExpressTypeSelectorPage} />
+		<Stack.Screen name="BillingPage" component={BillingPage} options={{ title: "Facture client" }} />
+		<Stack.Screen name="BillingListPage" component={BillingListPage} options={{ title: "Liste des factures" }} />
+		<Stack.Screen name="BillingEditPage" component={BillingEditPage} options={{ title: "Modifier facture" }} />
+
+
+
 
         </Stack.Navigator>
     );

@@ -10,26 +10,37 @@ const ExpressTypeSelectorPage = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Choisir un type de fiche express</Text>
-
-      <TouchableOpacity style={styles.button} onPress={() => goToExpress("logiciel")}>
-        <Text style={styles.buttonText}>🖥 Dépannage système express</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => goToExpress("reparation")}>
-        <Text style={styles.buttonText}>🛠 Réparation matériel express</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => goToExpress("video")}>
-        <Text style={styles.buttonText}>🎬 Transfert vidéo</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => navigation.navigate("ExpressListPage")}>
-        <Text style={styles.buttonText}>📄 Voir les fiches enregistrées</Text>
-      </TouchableOpacity>
-    </View>
+	<View style={styles.container}>
+	  <Text style={styles.title}>Choisir un type de fiche express</Text>
+  
+	  <TouchableOpacity style={styles.button} onPress={() => goToExpress("logiciel")}>
+		<Text style={styles.buttonText}>🖥 Dépannage système express</Text>
+	  </TouchableOpacity>
+  
+	  <TouchableOpacity style={styles.button} onPress={() => goToExpress("reparation")}>
+		<Text style={styles.buttonText}>🛠 Réparation matériel express</Text>
+	  </TouchableOpacity>
+  
+	  <TouchableOpacity style={styles.button} onPress={() => goToExpress("video")}>
+		<Text style={styles.buttonText}>🎬 Transfert vidéo</Text>
+	  </TouchableOpacity>
+  
+	  <TouchableOpacity
+		style={[styles.button, styles.secondaryButton]}
+		onPress={() => navigation.navigate("ExpressListPage")}
+	  >
+		<Text style={styles.buttonText}>📄 Voir les fiches enregistrées</Text>
+	  </TouchableOpacity>
+  
+	  <TouchableOpacity
+		style={[styles.button, styles.secondaryButton]}
+		onPress={() => navigation.navigate("BillingPage")}
+	  >
+		<Text style={styles.buttonText}>🧾 Créer une facture</Text>
+	  </TouchableOpacity>
+	</View>
   );
+  
 };
 const styles = StyleSheet.create({
   container: {

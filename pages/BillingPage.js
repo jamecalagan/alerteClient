@@ -1,25 +1,57 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Button, ScrollView, StyleSheet, TouchableOpacity, FlatList } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute  } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 
 const BillingPage = () => {
-  const navigation = useNavigation();
-  const [clientname, setClientName] = useState("");
-  const [clientphone, setClientPhone] = useState("");
-  const [client_address, setClientAddress] = useState("");
-  const [invoicenumber, setInvoiceNumber] = useState("FAC-001");
-  const [invoicedate, setInvoiceDate] = useState(new Date().toLocaleDateString());
-  const [paymentmethod, setPaymentMethod] = useState("");
-  const [acompte, setAcompte] = useState("");
-  const [lines, setLines] = useState([{ designation: "", quantity: "1", price: "" }]);
-  const [isSaved, setIsSaved] = useState(false);
-  const [clientSuggestions, setClientSuggestions] = useState([]);
+	const navigation = useNavigation();
+	const route = useRoute();
+	const { expressData } = route.params || {}; // récupérer les données
+	const [clientSuggestions, setClientSuggestions] = useState([]);
 
-  useEffect(() => {
-    generateInvoiceNumber();
-  }, []);
+	const [clientname, setClientName] = useState(expressData?.clientname || "");
+	const [clientphone, setClientPhone] = useState(expressData?.clientphone || "");
+	const [client_address, setClientAddress] = useState(expressData?.client_address || "");
+	const [invoicenumber, setInvoiceNumber] = useState(""); // ← celui-là reste vide car il sera généré
+	const [invoicedate, setInvoiceDate] = useState(new Date().toLocaleDateString());
+	const [paymentmethod, setPaymentMethod] = useState(expressData?.paymentmethod || "");
+	const [acompte, setAcompte] = useState(expressData?.acompte || "");
+	const [lines, setLines] = useState(
+	  expressData
+		? [{ 
+			designation: expressData?.designation || "", 
+			quantity: "1", 
+			price: expressData?.price || "" 
+		  }]
+		: [{ designation: "", quantity: "1", price: "" }]
+	);
+	const [isSaved, setIsSaved] = useState(false);
+	
+  
+	useEffect(() => {
+		generateInvoiceNumber();
+	  
+		if (expressData) {
+		  setClientName(expressData.name || expressData.clientname || "");
+		  setClientPhone(expressData.phone || expressData.clientphone || "");
+		  setClientAddress(expressData.client_address || "");
+	  
+		  setLines([
+			{
+				designation: expressData.description?.trim() || "Prestation",
+				quantity: expressData.quantity ? expressData.quantity.toString() : "1",
+				price: expressData.price ? expressData.price.toString() : "0",
+			  }
+		  ]);
+	  
+		  setPaymentMethod(expressData.paymentmethod || "");
+		  setAcompte(expressData.acompte || "");
+		}
+	  }, []);
+	  
+	  
+	  
 
   const generateInvoiceNumber = async () => {
     const { data, error } = await supabase
@@ -168,35 +200,36 @@ const BillingPage = () => {
   };
 
   const handleSave = async () => {
-    if (!clientname.trim() || !clientphone.trim() || lines.length === 0) {
-      alert("❌ Remplissez correctement la fiche.");
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from("billing").insert([{
-        clientname,
-        clientphone,
-        client_address,
-        invoicenumber,
-        invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
-        paymentmethod,
-        acompte,
-        lines,
-        totalht,
-        totaltva,
-        totalttc,
-        created_at: new Date()
-      }]);
-
-      if (error) throw error;
-      alert("✅ Facture enregistrée avec succès");
-      setIsSaved(true);
-    } catch (error) {
-      console.error("Erreur de sauvegarde:", error);
-      alert("❌ Erreur lors de la sauvegarde");
-    }
+	if (!clientname.trim() || !clientphone.trim() || lines.length === 0) {
+	  alert("❌ Remplissez correctement la fiche.");
+	  return;
+	}
+  
+	try {
+	  const { error } = await supabase.from("billing").insert([{
+		clientname,
+		clientphone,
+		client_address,
+		invoicenumber,
+		invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
+		paymentmethod,
+		acompte: acompte === "" ? 0 : parseFloat(acompte),
+		lines,
+		totalht: isNaN(totalht) ? 0 : totalht,
+		totaltva: isNaN(totaltva) ? 0 : totaltva,
+		totalttc: isNaN(totalttc) ? 0 : totalttc,
+		created_at: new Date()
+	  }]);
+  
+	  if (error) throw error;
+	  alert("✅ Facture enregistrée avec succès");
+	  setIsSaved(true);
+	} catch (error) {
+	  console.error("Erreur de sauvegarde:", error);
+	  alert("❌ Erreur lors de la sauvegarde");
+	}
   };
+  
 
   const removeLine = (indexToRemove) => {
     const newLines = lines.filter((_, index) => index !== indexToRemove);

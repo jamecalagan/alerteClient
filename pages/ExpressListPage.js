@@ -109,15 +109,20 @@ const ExpressListPage = () => {
             </>
           ) : null}
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.printButton} onPress={() => goToPrint(item)}>
-              <Text style={styles.printText}>🖨️ Imprimer</Text>
-            </TouchableOpacity>
+		  <View style={styles.buttonRow}>
+  <TouchableOpacity style={styles.printButton} onPress={() => goToPrint(item)}>
+    <Text style={styles.printText}>🖨️ Imprimer</Text>
+  </TouchableOpacity>
 
-            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
-              <Text style={styles.deleteText}>🗑️ Supprimer</Text>
-            </TouchableOpacity>
-          </View>
+  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
+    <Text style={styles.deleteText}>🗑️ Supprimer</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.invoiceButton} onPress={() => navigation.navigate('BillingPage', { expressData: item })}>
+    <Text style={styles.invoiceText}>🧾 Imprimer facture</Text>
+  </TouchableOpacity>
+</View>
+
         </View>
       ))}
     </ScrollView>
@@ -208,6 +213,16 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
+  invoiceButton: {
+  backgroundColor: "#007bff",
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+},
+invoiceText: {
+  color: "#fff",
+  fontWeight: "bold",
+},
 });
 
 export default ExpressListPage;

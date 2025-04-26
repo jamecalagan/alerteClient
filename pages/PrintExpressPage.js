@@ -1,28 +1,16 @@
 import React, { useRef, useState, useEffect} from "react";
 import { View, Text, StyleSheet, Button, ScrollView, Alert, Image } from "react-native";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 
 const PrintExpressPage = () => {
   const route = useRoute();
-  const {
-    name,
-    phone,
-    device,
-    description,
-    price,
-    date,
-    signature,
-    cassettecount,
-    cassettetype,
-    outputtype,
-    softwaretype,
-    type
-  } = route.params;
+  const { id, name, phone, device, description, price, date, type, cassettecount, cassettetype, outputtype, softwaretype } = route.params;
 
   const [signatureData, setSignatureData] = useState(null);
+  const [isSaved, setIsSaved] = useState(false);
   const sigRef = useRef();
 
   useEffect(() => {
@@ -41,33 +29,26 @@ const PrintExpressPage = () => {
 
   const saveToSupabase = async () => {
 	if (!signatureData) {
-		Alert.alert("Erreur", "Veuillez valider la signature avant de sauvegarder.");
-		return;
-	  }
-
-    try {
-      const { error } = await supabase.from("express").insert({
-        name,
-        phone,
-        device,
-        description,
-        price,
-        signature: signatureData || null,
-        cassettecount,
-        cassettetype,
-        outputtype,
-        softwaretype,
-        type,
-        created_at: new Date()
-      });
-
-      if (error) throw error;
-      Alert.alert("✅ Sauvegarde réussie", "La fiche a été enregistrée.");
-    } catch (error) {
-      console.error("❌ Erreur de sauvegarde :", error);
-      Alert.alert("Erreur", "La sauvegarde a échoué.");
-    }
+	  Alert.alert("Erreur", "Veuillez valider la signature avant de sauvegarder.");
+	  return;
+	}
+  
+	try {
+	  const { error } = await supabase.from("express").update({
+		signature: signatureData,
+	  }).eq("id", id);
+  
+	  if (error) throw error;
+	  
+	  Alert.alert("✅ Sauvegarde réussie", "La fiche a été enregistrée.");
+	  setIsSaved(true); // 🟢 Marque comme "sauvegardé"
+	} catch (error) {
+	  console.error("❌ Erreur de sauvegarde :", error);
+	  Alert.alert("Erreur", "La sauvegarde a échoué.");
+	}
   };
+  
+  
 
   const handlePrint = async () => {
     const htmlContent = `
@@ -219,7 +200,7 @@ const PrintExpressPage = () => {
           padding: 10px;
         }
         .m-signature-pad--footer .button {
-          background-color: #007bff;
+          background-color: #24ad69;
           color: white;
           border: none;
           border-radius: 4px;
@@ -238,13 +219,14 @@ const PrintExpressPage = () => {
         <Button title="Sauvegarder dans la base" onPress={saveToSupabase} />
       </View>
 
-      <View style={{ marginTop: 20 }}>
-        <Button
-          title="Imprimer cette fiche"
-          onPress={handlePrint}
-          disabled={!signatureData}
-        />
-      </View>
+	  <View style={{ marginTop: 20 }}>
+  <Button
+    title="Imprimer cette fiche"
+    onPress={handlePrint}
+    disabled={!isSaved} // 🟢 bascule en fonction de la sauvegarde réussie
+  />
+</View>
+
     </ScrollView>
   );
 };

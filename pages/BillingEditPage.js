@@ -300,7 +300,7 @@ const BillingEditPage = () => {
                 <TouchableOpacity
                     style={[
                         styles.button,
-                        { backgroundColor: isSaved ? "#007bff" : "#ccc" },
+                        { backgroundColor: isSaved ? "#03990b" : "#cccccc" },
                     ]}
                     disabled={!isSaved}
                     onPress={handlePrint}

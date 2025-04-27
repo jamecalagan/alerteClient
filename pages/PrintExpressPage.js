@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect} from "react";
-import { View, Text, StyleSheet, Button, ScrollView, Alert, Image } from "react-native";
+import { View, Text, StyleSheet, Button, ScrollView, Alert, Image, TouchableOpacity } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
@@ -8,16 +8,25 @@ import { supabase } from "../supabaseClient";
 const PrintExpressPage = () => {
   const route = useRoute();
   const { id, name, phone, device, description, price, date, type, cassettecount, cassettetype, outputtype, softwaretype } = route.params;
-
+  const [signatureExists, setSignatureExists] = useState(false);
   const [signatureData, setSignatureData] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
   const sigRef = useRef();
 
   useEffect(() => {
 	if (route.params?.signature) {
 	  setSignatureData(route.params.signature);
+	  setSignatureExists(true);
+	  setIsSaved(true);
+  
+	  setShowBanner(true); // 🎉 Active le bandeau
+	  setTimeout(() => setShowBanner(false), 3000); // Bandeau disparaît après 3 secondes
 	}
   }, [route.params?.signature]);
+  
+  
+  
 
   const handleOK = (sig) => {
 	const formatted = sig.startsWith("data:image")
@@ -34,14 +43,16 @@ const PrintExpressPage = () => {
 	}
   
 	try {
-	  const { error } = await supabase.from("express").update({
-		signature: signatureData,
-	  }).eq("id", id);
+	  const { error } = await supabase
+		.from("express")
+		.update({ signature: signatureData })
+		.eq("id", id);
   
 	  if (error) throw error;
-	  
-	  Alert.alert("✅ Sauvegarde réussie", "La fiche a été enregistrée.");
-	  setIsSaved(true); // 🟢 Marque comme "sauvegardé"
+  
+	  Alert.alert("✅ Signature sauvegardée !");
+	  setIsSaved(true); // 🟢 Active l'impression juste après sauvegarde
+	  setSignatureExists(true); // 🟢 En plus on dit que la signature existe
 	} catch (error) {
 	  console.error("❌ Erreur de sauvegarde :", error);
 	  Alert.alert("Erreur", "La sauvegarde a échoué.");
@@ -49,8 +60,46 @@ const PrintExpressPage = () => {
   };
   
   
+  
 
   const handlePrint = async () => {
+	const conditionsText = `
+	<div style="
+	  background-color: #eef6ff;
+	  padding: 10px;
+	  border: 1px solid #007bff;
+	  border-radius: 8px;
+	  margin-top: 20px;
+	  font-size: 7px;
+	  line-height: 1.4;
+	  max-height: 180px;
+	  overflow: hidden;
+	  text-align: justify;
+	">
+	  ${
+		type === "video" 
+		? `
+		  <p style="font-weight: bold; text-align: center;">Conditions spécifiques au transfert vidéo 📼</p>
+		  <p>7. La qualité dépend de l’état des cassettes originales. Aucun remboursement ne sera accordé pour des défauts présents sur le support source.</p>
+		  <p>8. Les conversions sont fournies sur le support choisi par le client (clé USB, disque dur, etc.).</p>
+		`
+		: `
+		  <p style="font-weight: bold; text-align: center;">Conditions générales de réparation 🛠️</p>
+		  <p>1. Le client reconnaît avoir déposé le matériel de son plein gré pour analyse ou réparation.</p>
+		  <p>2. L’entreprise décline toute responsabilité en cas de perte de données. Il appartient au client de procéder à ses sauvegardes.</p>
+		  <p>3. En cas d’impossibilité de réparation, seul un diagnostic pourra être facturé.</p>
+		  <p>4. Les pièces remplacées peuvent ne pas être restituées sauf demande expresse.</p>
+		  <p>5. Aucun matériel ne sera restitué sans le paiement complet de la prestation.</p>
+		  <p>6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.</p>
+		  <p>9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.</p>
+		`
+	  }
+	</div>
+	`;
+	
+  
+  
+
     const htmlContent = `
       <html>
         <body style="font-family: Arial; padding: 5px; font-size: 11px; max-width: 595px;">
@@ -79,17 +128,18 @@ const PrintExpressPage = () => {
 <div style="font-size: 10px; text-align: justify;">
   <p>Je soussigné(e), M. ${name || "________________________"}, certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.</p>
 
-  <p>
-    1. Le client reconnaît avoir déposé le matériel de son plein gré pour analyse ou réparation.<br/>
-    2. L’entreprise décline toute responsabilité en cas de perte de données. Il appartient au client de procéder à ses sauvegardes.<br/>
-    3. En cas d’impossibilité de réparation, seul un diagnostic pourra être facturé.<br/>
-    4. Les pièces remplacées peuvent ne pas être restituées sauf demande expresse.<br/>
-    5. Aucun matériel ne sera restitué sans le paiement complet de la prestation.<br/>
-    6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.<br/>
-    7. Pour les prestations de transfert vidéo, la qualité dépend de l’état des cassettes. Aucun remboursement ne sera accordé pour les défauts dus aux supports originaux.<br/>
-    8. Les conversions sont livrées sur le support choisi par le client.<br/>
-    9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.
-  </p>
+<p style="font-size: 9px; text-align: left; margin-top: 20px;">
+  1. Le client reconnaît avoir déposé le matériel de son plein gré pour analyse ou réparation.<br/>
+  2. L’entreprise décline toute responsabilité en cas de perte de données. Il appartient au client de procéder à ses sauvegardes.<br/>
+  3. En cas d’impossibilité de réparation, seul un diagnostic pourra être facturé.<br/>
+  4. Les pièces remplacées peuvent ne pas être restituées sauf demande expresse.<br/>
+  5. Aucun matériel ne sera restitué sans le paiement complet de la prestation.<br/>
+  6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.<br/>
+  <span style="color: #007bff; font-weight: bold;">📼 7. Pour les prestations de transfert vidéo, la qualité dépend de l’état des cassettes. Aucun remboursement ne sera accordé pour les défauts dus aux supports originaux.</span><br/>
+  <span style="color: #007bff; font-weight: bold;">📼 8. Les conversions sont livrées sur le support choisi par le client.</span><br/>
+  9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.
+</p>
+
 
   <p>En signant ce document, vous acceptez les conditions ci-dessus.</p>
 </div>
@@ -101,10 +151,9 @@ const PrintExpressPage = () => {
 
           <br/><br/>
           <div style="text-align: center; font-size: 10px;">
-            <p><strong>AVENIR INFORMATIQUE</strong></p>
-            <p>16, place de l'Hôtel de Ville 93700 Drancy</p>
-            <p>Tel : 01 41 60 18 18</p>
+            <p><strong>AVENIR INFORMATIQUE</strong> 16, place de l'Hôtel de Ville 93700 Drancy Tel : 01 41 60 18 18</p>
           </div>
+		  ${conditionsText}
         </body>
       </html>
     `;
@@ -114,6 +163,12 @@ const PrintExpressPage = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+	{showBanner && (
+  <View style={styles.banner}>
+    <Text style={styles.bannerText}>✅ Signature déjà enregistrée. Prêt à imprimer !</Text>
+  </View>
+)}
+
       <Text style={styles.title}>
   {type === "logiciel" && "Fiche Express - Dépannage système"}
   {type === "reparation" && "Fiche Express - Réparation matériel"}
@@ -215,17 +270,30 @@ const PrintExpressPage = () => {
   </View>
 )}
 
-      <View style={{ marginTop: 20 }}>
-        <Button title="Sauvegarder dans la base" onPress={saveToSupabase} />
-      </View>
+<View style={styles.buttonRow}>
+  {!signatureExists && signatureData && (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: "#007bff" }]}
+      onPress={saveToSupabase}
+    >
+      <Text style={styles.buttonText}>💾 Sauvegarder Signature</Text>
+    </TouchableOpacity>
+  )}
 
-	  <View style={{ marginTop: 20 }}>
-  <Button
-    title="Imprimer cette fiche"
+  <TouchableOpacity
+    style={[
+      styles.actionButton,
+      { backgroundColor: isSaved ? "#28a745" : "#ccc" },
+    ]}
     onPress={handlePrint}
-    disabled={!isSaved} // 🟢 bascule en fonction de la sauvegarde réussie
-  />
+    disabled={!isSaved}
+  >
+    <Text style={styles.buttonText}>🖨️ Imprimer</Text>
+  </TouchableOpacity>
 </View>
+
+
+
 
     </ScrollView>
   );
@@ -253,6 +321,56 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "justify",
   },
+saveButton: {
+  paddingVertical: 14,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 20,
+},
+
+printButton: {
+  paddingVertical: 14,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+},
+buttonRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: 40,
+},
+
+actionButton: {
+  flex: 1,
+  marginHorizontal: 5,
+  paddingVertical: 14,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+buttonText: {
+  color: "white",
+  fontWeight: "bold",
+  fontSize: 16,
+},
+banner: {
+  backgroundColor: "#d4edda",
+  padding: 10,
+  borderRadius: 8,
+  marginBottom: 15,
+  alignItems: "center",
+},
+
+bannerText: {
+  color: "#155724",
+  fontWeight: "bold",
+},
+
 });
 
 export default PrintExpressPage;

@@ -191,7 +191,7 @@ const ExpressClientPage = () => {
                                         {softwaretype === "Installation"
                                             ? "🔘"
                                             : "⚪"}{" "}
-                                        Installation
+                                        Installation Logiciel
                                     </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
@@ -204,7 +204,7 @@ const ExpressClientPage = () => {
                                         {softwaretype === "Maintenance"
                                             ? "🔘"
                                             : "⚪"}{" "}
-                                        Maintenance
+                                        Maintenance Systeme
                                     </Text>
                                 </TouchableOpacity>
                                 <TextInput
@@ -302,10 +302,10 @@ const ExpressClientPage = () => {
                             keyboardType="decimal-pad"
                         />
 
-                        <Button
-                            title="Signer la fiche"
-                            onPress={handleSubmit}
-                        />
+<TouchableOpacity style={styles.customButton} onPress={handleSubmit}>
+  <Text style={styles.buttonText}>🖋️ Faire signer la fiche</Text>
+</TouchableOpacity>
+
                     </View>
                 }
                 data={[]}
@@ -364,6 +364,21 @@ const styles = StyleSheet.create({
         gap: 10,
         justifyContent: "flex-start",
     },
+	customButton: {
+  backgroundColor: '#007bff',
+  paddingVertical: 14,
+  paddingHorizontal: 20,
+  borderRadius: 10,
+  alignSelf: 'center', // centre le bouton
+  width: '50%', // largeur de 50%
+  alignItems: 'center', // centre le texte
+  marginVertical: 10,
+},
+buttonText: {
+  color: '#fff',
+  fontSize: 18,
+  fontWeight: 'bold',
+},
 });
 
 export default ExpressClientPage;

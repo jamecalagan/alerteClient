@@ -9,7 +9,7 @@ const BillingPage = () => {
 	const route = useRoute();
 	const { expressData } = route.params || {}; // récupérer les données
 	const [clientSuggestions, setClientSuggestions] = useState([]);
-
+	const [focusedField, setFocusedField] = useState(null);
 	const [clientname, setClientName] = useState(expressData?.clientname || "");
 	const [clientphone, setClientPhone] = useState(expressData?.clientphone || "");
 	const [client_address, setClientAddress] = useState(expressData?.client_address || "");
@@ -111,14 +111,43 @@ const BillingPage = () => {
       return;
     }
 
-	const rows = lines.map(line => `
+	let rows = '';
+
+	if (expressData?.type === "video") {
+	  // Cas du transfert vidéo
+	  const quantity = parseFloat(expressData.cassettecount || 1);
+	  const totalPriceTTC = parseFloat(expressData.price || 0);
+	  const priceTTCUnit = totalPriceTTC / quantity;
+	  const priceHTUnit = priceTTCUnit / 1.2;
+	
+	  rows = `
 		<tr>
-		  <td style="border: 1px solid #000; padding: 6px;">${line.designation}</td>
-		  <td style="border: 1px solid #000; padding: 6px; text-align: center;">${line.quantity}</td>
-		  <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(parseFloat(line.price) / 1.2).toFixed(2)} €</td>
-		  <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(parseFloat(line.price) * parseFloat(line.quantity)).toFixed(2)} €</td>
+		  <td style="border: 1px solid #000; padding: 6px;">${expressData.description}</td>
+		  <td style="border: 1px solid #000; padding: 6px; text-align: center;">${quantity}</td>
+		  <td style="border: 1px solid #000; padding: 6px; text-align: right;">${priceHTUnit.toFixed(2)} €</td>
+		  <td style="border: 1px solid #000; padding: 6px; text-align: right;">${totalPriceTTC.toFixed(2)} €</td>
 		</tr>
-	  `).join("");
+	  `;
+	} else {
+	  // Cas normal (réparation, dépannage logiciel...)
+	  rows = lines.map(line => {
+		const quantity = parseFloat(line.quantity || 1);
+		const totalPriceTTC = parseFloat(line.price || 0);
+		const priceTTCUnit = totalPriceTTC / quantity;
+		const priceHTUnit = priceTTCUnit / 1.2;
+	
+		return `
+		  <tr>
+			<td style="border: 1px solid #000; padding: 6px;">${line.designation}</td>
+			<td style="border: 1px solid #000; padding: 6px; text-align: center;">${quantity}</td>
+			<td style="border: 1px solid #000; padding: 6px; text-align: right;">${priceHTUnit.toFixed(2)} €</td>
+			<td style="border: 1px solid #000; padding: 6px; text-align: right;">${totalPriceTTC.toFixed(2)} €</td>
+		  </tr>
+		`;
+	  }).join('');
+	}
+	
+	  
 	  
 
 	const html = `
@@ -260,8 +289,15 @@ const BillingPage = () => {
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Facture client</Text>
 
-      <TextInput placeholder="Nom du client" value={clientname} onChangeText={searchClients} style={styles.input} />
-	  {clientSuggestions.length > 0 && (
+	  <TextInput
+  placeholder="Nom du client"
+  value={clientname}
+  onChangeText={searchClients}
+  style={[styles.input, focusedField === "name" && styles.inputFocused]}
+  onFocus={() => setFocusedField("name")}
+  onBlur={() => setFocusedField(null)}
+/>
+{clientSuggestions.length > 0 && (
   <View style={styles.suggestionContainer}>
     {clientSuggestions.map((item, index) => (
       <TouchableOpacity key={index} onPress={() => selectClient(item)} style={styles.suggestionItem}>
@@ -273,64 +309,144 @@ const BillingPage = () => {
   </View>
 )}
 
+<TextInput
+  placeholder="Téléphone"
+  value={clientphone}
+  onChangeText={setClientPhone}
+  style={[styles.input, focusedField === "phone" && styles.inputFocused]}
+  keyboardType="phone-pad"
+  onFocus={() => setFocusedField("phone")}
+  onBlur={() => setFocusedField(null)}
+/>
 
+<TextInput
+  placeholder="Adresse"
+  value={client_address}
+  onChangeText={setClientAddress}
+  style={[styles.input, focusedField === "address" && styles.inputFocused]}
+  onFocus={() => setFocusedField("address")}
+  onBlur={() => setFocusedField(null)}
+/>
 
-      <TextInput placeholder="Téléphone" value={clientphone} onChangeText={setClientPhone} style={styles.input} keyboardType="phone-pad" />
-      <TextInput placeholder="Adresse" value={client_address} onChangeText={setClientAddress} style={styles.input} />
-      <TextInput placeholder="Numéro de facture" value={invoicenumber} onChangeText={setInvoiceNumber} style={styles.input} />
-      <TextInput placeholder="Date" value={invoicedate} onChangeText={setInvoiceDate} style={styles.input} />
-      <TextInput placeholder="Acompte versé (€)" value={acompte} onChangeText={setAcompte} style={styles.input} keyboardType="numeric" />
+<TextInput
+  placeholder="Numéro de facture"
+  value={invoicenumber}
+  onChangeText={setInvoiceNumber}
+  style={[styles.input, focusedField === "invoice" && styles.inputFocused]}
+  onFocus={() => setFocusedField("invoice")}
+  onBlur={() => setFocusedField(null)}
+/>
+
+<TextInput
+  placeholder="Date"
+  value={invoicedate}
+  onChangeText={setInvoiceDate}
+  style={[styles.input, focusedField === "date" && styles.inputFocused]}
+  onFocus={() => setFocusedField("date")}
+  onBlur={() => setFocusedField(null)}
+/>
+
+<TextInput
+  placeholder="Acompte versé (€)"
+  value={acompte}
+  onChangeText={setAcompte}
+  style={[styles.input, focusedField === "acompte" && styles.inputFocused]}
+  keyboardType="numeric"
+  onFocus={() => setFocusedField("acompte")}
+  onBlur={() => setFocusedField(null)}
+/>
+
 
 
 	  <Text style={styles.subtitle}>Prestations :</Text>
 
-{lines.map((line, index) => (
-  <View key={index} style={[styles.lineRow, { alignItems: "center" }]}>
+	  {lines.map((line, index) => (
+  <View key={index} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
     <TextInput
       placeholder="Désignation"
       value={line.designation}
       onChangeText={(text) => updateLine(index, "designation", text)}
-      style={[styles.input, { flex: 2 }]}
+      style={[
+        styles.input,
+        { flex: 2 },
+        focusedField === `designation-${index}` && styles.inputFocused
+      ]}
+      onFocus={() => setFocusedField(`designation-${index}`)}
+      onBlur={() => setFocusedField(null)}
     />
     <TextInput
       placeholder="Qté"
       value={line.quantity}
       onChangeText={(text) => updateLine(index, "quantity", text)}
-      style={[styles.input, { flex: 1 }]}
+      style={[
+        styles.input,
+        { flex: 1 },
+        focusedField === `quantity-${index}` && styles.inputFocused
+      ]}
       keyboardType="numeric"
+      onFocus={() => setFocusedField(`quantity-${index}`)}
+      onBlur={() => setFocusedField(null)}
     />
     <TextInput
       placeholder="P.U. TTC"
       value={line.price}
       onChangeText={(text) => updateLine(index, "price", text)}
-      style={[styles.input, { flex: 1 }]}
+      style={[
+        styles.input,
+        { flex: 1 },
+        focusedField === `price-${index}` && styles.inputFocused
+      ]}
       keyboardType="numeric"
+      onFocus={() => setFocusedField(`price-${index}`)}
+      onBlur={() => setFocusedField(null)}
     />
-    <Button title="🗑️" color="red" onPress={() => removeLine(index)} />
+<TouchableOpacity
+  onPress={() => removeLine(index)}
+  style={styles.deleteButton}
+>
+  <Text style={styles.deleteButtonText}>🗑️</Text>
+</TouchableOpacity>
   </View>
 ))}
 
-<View style={{ marginVertical: 10 }}>
-  <Button title="+ Ajouter une ligne" onPress={() => setLines([...lines, { designation: "", quantity: "1", price: "" }])} />
+<View style={styles.addButtonContainer}>
+  <TouchableOpacity 
+    style={styles.addButton}
+    onPress={() => setLines([...lines, { designation: "", quantity: "1", price: "" }])}
+  >
+    <Text style={styles.addButtonText}>➕ Ajouter une ligne</Text>
+  </TouchableOpacity>
 </View>
 
+
 <Text style={styles.subtitle}>Mode de paiement :</Text>
-<View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 20 }}>
-  <View style={{ flex: 1, marginHorizontal: 5 }}>
-    <Button
-      title="CARTE BANQUAIRE"
-      onPress={() => setPaymentMethod("CB")}
-      color={paymentmethod === "CB" ? "green" : "#007bff"}
-    />
-  </View>
-  <View style={{ flex: 1, marginHorizontal: 5 }}>
-    <Button
-      title="Espèces"
-      onPress={() => setPaymentMethod("Espèces")}
-      color={paymentmethod === "Espèces" ? "green" : "#007bff"}
-    />
-  </View>
+
+<View style={styles.paymentRow}>
+  <TouchableOpacity
+    style={[
+      styles.paymentButton,
+      paymentmethod === "CB" && styles.paymentButtonSelected
+    ]}
+    onPress={() => setPaymentMethod("CB")}
+  >
+    <Text style={styles.paymentButtonText}>
+      💳 CARTE BANCAIRE
+    </Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={[
+      styles.paymentButton,
+      paymentmethod === "Espèces" && styles.paymentButtonSelected
+    ]}
+    onPress={() => setPaymentMethod("Espèces")}
+  >
+    <Text style={styles.paymentButtonText}>
+      💵 ESPÈCES
+    </Text>
+  </TouchableOpacity>
 </View>
+
 
 <View style={styles.buttonRow}>
   <TouchableOpacity
@@ -419,6 +535,84 @@ buttonText: {
   color: "#fff",
   fontWeight: "bold",
   fontSize: 14,
+},
+deleteButton: {
+  backgroundColor: "#dc3545",
+  borderRadius: 8,
+  justifyContent: "center",
+  alignItems: "center",
+  height: 36,         // 🔥 même hauteur que ton TextInput + padding
+  width: 36,          // 🔥 carré
+  marginTop: 0,       // 🛠️ pour éviter de descendre
+  alignSelf: "center", // 🔥 centre verticalement
+  marginLeft: 8,       // 👈 petit espace entre le champ et le bouton
+},
+deleteButtonText: {
+  color: "white",
+  fontSize: 22,
+  fontWeight: "bold",
+},
+input: {
+  borderWidth: 1,
+  borderColor: "#ccc",
+  padding: 8,
+  borderRadius: 5,
+  marginBottom: 10,
+  fontSize: 14,
+  backgroundColor: "#fff",
+  height: 42,
+},
+inputFocused: {
+  borderColor: "#007bff",
+  backgroundColor: "#eef6ff",
+  fontSize: 18,
+  height: 55,
+},
+paymentRow: {
+  flexDirection: "row",
+  justifyContent: "center",
+  gap: 10,
+  marginVertical: 20,
+},
+
+paymentButton: {
+  flex: 1,
+  backgroundColor: "#ddd",
+  paddingVertical: 12,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+  elevation: 3, // Petite ombre
+},
+
+paymentButtonSelected: {
+  backgroundColor: "#28a745", // Vert si sélectionné
+},
+
+paymentButtonText: {
+  color: "#000",
+  fontWeight: "bold",
+  fontSize: 14,
+  textTransform: "uppercase",
+},
+addButtonContainer: {
+  marginVertical: 10,
+  alignItems: "center",
+},
+
+addButton: {
+  backgroundColor: "#4da6ff", // Bleu clair
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 8,
+  alignItems: "center",
+  elevation: 3,
+},
+
+addButtonText: {
+  color: "#fff",
+  fontSize: 16,
+  fontWeight: "bold",
 },
 
 

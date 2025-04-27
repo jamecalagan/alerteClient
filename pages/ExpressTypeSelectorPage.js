@@ -13,34 +13,50 @@ const ExpressTypeSelectorPage = () => {
 	<View style={styles.container}>
   <Text style={styles.title}>Choisir un type de fiche express</Text>
 
-  {/* Groupe des boutons de création */}
-  <View style={styles.creationGroup}>
-    <TouchableOpacity style={styles.button} onPress={() => goToExpress("logiciel")}>
-      <Text style={styles.buttonText}>🖥 Dépannage système express</Text>
-    </TouchableOpacity>
+  <View style={styles.creationRow}>
+  <TouchableOpacity
+    style={[styles.squareButton, { backgroundColor: "#007bff" }]}
+    onPress={() => goToExpress("logiciel")}
+  >
+    <Text style={styles.buttonIcon}>🖥</Text>
+    <Text style={styles.buttonLabel}>Dépannage</Text>
+  </TouchableOpacity>
 
-    <TouchableOpacity style={styles.button} onPress={() => goToExpress("reparation")}>
-      <Text style={styles.buttonText}>🛠 Réparation matériel express</Text>
-    </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.squareButton, { backgroundColor: "#28a745" }]}
+    onPress={() => goToExpress("reparation")}
+  >
+    <Text style={styles.buttonIcon}>🛠</Text>
+    <Text style={styles.buttonLabel}>Réparation</Text>
+  </TouchableOpacity>
 
-    <TouchableOpacity style={styles.button} onPress={() => goToExpress("video")}>
-      <Text style={styles.buttonText}>🎬 Transfert vidéo</Text>
-    </TouchableOpacity>
-  </View>
+  <TouchableOpacity
+    style={[styles.squareButton, { backgroundColor: "#ffc107" }]}
+    onPress={() => goToExpress("video")}
+  >
+    <Text style={styles.buttonIcon}>🎬</Text>
+    <Text style={styles.buttonLabel}>Vidéo</Text>
+  </TouchableOpacity>
+</View>
 
-  {/* Séparateur */}
-  <View style={styles.separator} />
+<View style={styles.separator} />
 
-  {/* Groupe des autres boutons */}
-  <View style={styles.otherGroup}>
-    <TouchableOpacity style={styles.secondaryButtonFiche} onPress={() => navigation.navigate("ExpressListPage")}>
-      <Text style={styles.buttonTextFiche}>📄 Voir les fiches enregistrées</Text>
-    </TouchableOpacity>
+<View style={styles.otherGroup}>
+  <TouchableOpacity
+    style={[styles.longButton, { backgroundColor: "#f3ae54" }]}
+    onPress={() => navigation.navigate("ExpressListPage")}
+  >
+    <Text style={styles.buttonTextFiche}>📄 Voir les fiches enregistrées</Text>
+  </TouchableOpacity>
 
-    <TouchableOpacity style={styles.secondaryButtonFact} onPress={() => navigation.navigate("BillingPage")}>
-      <Text style={styles.buttonText}>🧾 Créer une facture</Text>
-    </TouchableOpacity>
-  </View>
+  <TouchableOpacity
+    style={[styles.longButton, { backgroundColor: "#3a8f56" }]}
+    onPress={() => navigation.navigate("BillingPage")}
+  >
+    <Text style={styles.buttonText}>🧾 Créer une facture</Text>
+  </TouchableOpacity>
+</View>
+
 </View>
 
   );
@@ -77,18 +93,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
   },
-  buttonText: {
-    color: "white",
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  buttonTextFiche: {
-    color: "black",
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+buttonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 16,
+},
+buttonTextFiche: {
+  color: "#000",
+  fontWeight: "bold",
+  fontSize: 16,
+},
   creationGroup: {
   marginBottom: 20,
 },
@@ -101,7 +115,8 @@ separator: {
 },
 
 otherGroup: {
-  gap: 10,
+  alignItems: "center",
+  gap: 15,
 },
 
 secondaryButton: {
@@ -110,6 +125,39 @@ secondaryButton: {
   borderRadius: 10,
   marginBottom: 10,
 },
+creationRow: {
+  flexDirection: "row",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 20,
+  marginBottom: 20,
+},
+
+squareButton: {
+  width: 90, // largeur carrée
+  height: 90,
+  borderRadius: 12,
+  alignItems: "center",
+  justifyContent: "center",
+},
+buttonIcon: {
+  fontSize: 26,
+  marginBottom: 5,
+},
+
+buttonLabel: {
+  fontSize: 12,
+  fontWeight: "bold",
+  color: "white",
+  textAlign: "center",
+},
+longButton: {
+  width: 310, // la somme de (90 * 3 + 2 gaps de 20px) = 310px !
+  paddingVertical: 16,
+  borderRadius: 12,
+  alignItems: "center",
+},
+
 });
 
 export default ExpressTypeSelectorPage;

@@ -7,21 +7,45 @@ const ExpressListPage = () => {
   const [expressList, setExpressList] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [selectedItems, setSelectedItems] = useState([]); // 🆕
   const navigation = useNavigation();
-
+  const [page, setPage] = useState(1); // page actuelle
+  const [pageSize] = useState(10); // nombre d'éléments par page
+  const [totalPages, setTotalPages] = useState(1); // nombre total de pages
   useEffect(() => {
-    fetchExpressList();
-  }, []);
+	fetchExpressList(page);
+  }, [page]);
+  
 
-  const fetchExpressList = async () => {
-    const { data, error } = await supabase
-      .from("express")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error) setExpressList(data);
-    else console.error("Erreur de récupération:", error);
+  const fetchExpressList = async (currentPage = 1) => {
+	const from = (currentPage - 1) * pageSize;
+	const to = from + pageSize - 1;
+  
+	const { data: totalData, error: countError } = await supabase
+	  .from("express")
+	  .select("*", { count: "exact", head: true });
+  
+	if (countError) {
+	  console.error("Erreur de récupération du total:", countError);
+	  return;
+	}
+  
+	const total = totalData?.length || 0;
+	setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
+  
+	const { data, error } = await supabase
+	  .from("express")
+	  .select("*")
+	  .order("created_at", { ascending: false })
+	  .range(from, to);
+  
+	if (error) {
+	  console.error("Erreur de récupération des fiches:", error);
+	} else {
+	  setExpressList(data);
+	}
   };
+  
 
   const filteredList = expressList.filter((item) => {
     const matchesSearch = `${item.name} ${item.phone}`.toLowerCase().includes(searchText.toLowerCase());
@@ -42,8 +66,48 @@ const ExpressListPage = () => {
       cassettetype: item.cassettetype,
       outputtype: item.outputtype,
       softwaretype: item.softwaretype,
-      type: item.type
+      type: item.type,
     });
+  };
+
+  const toggleSelectItem = (id) => {
+    if (selectedItems.includes(id)) {
+      setSelectedItems(selectedItems.filter((itemId) => itemId !== id));
+    } else {
+      setSelectedItems([...selectedItems, id]);
+    }
+  };
+
+  const deleteSelectedItems = () => {
+    if (selectedItems.length === 0) {
+      alert("❌ Sélectionnez au moins une fiche à supprimer.");
+      return;
+    }
+
+    Alert.alert(
+      "Confirmation",
+      `Supprimer ${selectedItems.length} fiche(s) sélectionnée(s) ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer", style: "destructive", onPress: async () => {
+            const { error } = await supabase
+              .from("express")
+              .delete()
+              .in("id", selectedItems);
+
+            if (error) {
+              console.error("Erreur suppression:", error);
+              alert("Erreur lors de la suppression !");
+            } else {
+              alert("✅ Suppression réussie !");
+              setSelectedItems([]);
+              fetchExpressList();
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleDelete = async (id) => {
@@ -91,8 +155,21 @@ const ExpressListPage = () => {
         ))}
       </View>
 
+      {selectedItems.length > 0 && (
+        <TouchableOpacity style={styles.deleteSelectedButton} onPress={deleteSelectedItems}>
+          <Text style={styles.deleteSelectedText}>🗑️ Supprimer la sélection ({selectedItems.length})</Text>
+        </TouchableOpacity>
+      )}
+
       {filteredList.map((item) => (
-        <View key={item.id} style={styles.card}>
+        <TouchableOpacity
+          key={item.id}
+          style={[
+            styles.card,
+            selectedItems.includes(item.id) && { backgroundColor: "#d1e7dd" }, // ✅ fond vert clair si sélectionné
+          ]}
+          onPress={() => toggleSelectItem(item.id)}
+        >
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.details}>📞 {item.phone}</Text>
           <Text style={styles.details}>💶 {item.price} €</Text>
@@ -109,23 +186,46 @@ const ExpressListPage = () => {
             </>
           ) : null}
 
-		  <View style={styles.buttonRow}>
-  <TouchableOpacity style={styles.printButton} onPress={() => goToPrint(item)}>
-    <Text style={styles.printText}>🖨️ Imprimer</Text>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.printButton} onPress={() => goToPrint(item)}>
+              <Text style={styles.printText}>🖨️ Imprimer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
+              <Text style={styles.deleteText}>🗑️ Supprimer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.invoiceButton} onPress={() => navigation.navigate('BillingPage', { expressData: item })}>
+              <Text style={styles.invoiceText}>🧾 Imprimer facture</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+		
+      ))}
+	  <View style={styles.paginationRow}>
+  <TouchableOpacity
+    style={[styles.pageButton, page === 1 && styles.disabledButton]}
+    onPress={() => page > 1 && setPage(page - 1)}
+    disabled={page === 1}
+  >
+    <Text style={styles.pageButtonText}>⏪ Précédent</Text>
   </TouchableOpacity>
 
-  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
-    <Text style={styles.deleteText}>🗑️ Supprimer</Text>
-  </TouchableOpacity>
+  <Text style={styles.pageIndicator}>
+    Page {page} / {totalPages}
+  </Text>
 
-  <TouchableOpacity style={styles.invoiceButton} onPress={() => navigation.navigate('BillingPage', { expressData: item })}>
-    <Text style={styles.invoiceText}>🧾 Imprimer facture</Text>
+  <TouchableOpacity
+    style={[styles.pageButton, page === totalPages && styles.disabledButton]}
+    onPress={() => page < totalPages && setPage(page + 1)}
+    disabled={page === totalPages}
+  >
+    <Text style={styles.pageButtonText}>Suivant ⏩</Text>
   </TouchableOpacity>
 </View>
 
-        </View>
-      ))}
     </ScrollView>
+	
   );
 };
 
@@ -165,6 +265,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textTransform: "capitalize",
   },
+  deleteSelectedButton: {
+    backgroundColor: "#dc3545",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  deleteSelectedText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
   card: {
     backgroundColor: "#f2f2f2",
     borderRadius: 10,
@@ -195,7 +306,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignItems: "center",
-    marginRight: 5,
   },
   deleteButton: {
     flex: 1,
@@ -203,7 +313,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignItems: "center",
-    marginLeft: 5,
   },
   printText: {
     color: "white",
@@ -214,15 +323,46 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   invoiceButton: {
-  backgroundColor: "#007bff",
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderRadius: 8,
+    backgroundColor: "#007bff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  invoiceText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  paginationRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  marginVertical: 20,
+  gap: 10,
 },
-invoiceText: {
-  color: "#fff",
+
+pageButton: {
+  backgroundColor: "#296494",
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+  borderRadius: 6,
+},
+
+disabledButton: {
+  backgroundColor: "#aaa",
+},
+
+pageButtonText: {
+  color: "white",
+  fontWeight: "bold",
+  fontSize: 14,
+},
+
+pageIndicator: {
+  fontSize: 14,
   fontWeight: "bold",
 },
+
 });
 
 export default ExpressListPage;

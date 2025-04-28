@@ -47,6 +47,7 @@ import ExpressTypeSelectorPage from "./pages/ExpressTypeSelectorPage";
 import BillingPage from "./pages/BillingPage";
 import BillingListPage from "./pages/BillingListPage";
 import BillingEditPage from "./pages/BillingEditPage";
+import AllOrdersPage from "./pages/AllOrdersPage";
 
 
 const Stack = createStackNavigator();
@@ -259,6 +260,8 @@ function MainStack({ setUser }) {
 		<Stack.Screen name="BillingPage" component={BillingPage} options={{ title: "Facture client" }} />
 		<Stack.Screen name="BillingListPage" component={BillingListPage} options={{ title: "Liste des factures" }} />
 		<Stack.Screen name="BillingEditPage" component={BillingEditPage} options={{ title: "Modifier facture" }} />
+		<Stack.Screen name="AllOrdersPage" component={AllOrdersPage} />
+
 
 
 

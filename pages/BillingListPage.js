@@ -101,6 +101,14 @@ const BillingListPage = () => {
           <Text style={styles.pageButtonText}>Suivant ⏩</Text>
         </TouchableOpacity>
       </View>
+	  <View style={{ alignItems: "center", marginTop: 20 }}>
+  <TouchableOpacity
+    style={styles.buttonBack}
+    onPress={() => navigation.goBack()}
+  >
+    <Text style={styles.buttonText}>⬅ Retour</Text>
+  </TouchableOpacity>
+</View>
     </ScrollView>
   );
 };
@@ -163,6 +171,14 @@ const styles = StyleSheet.create({
   pageInfo: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  buttonBack: {
+    backgroundColor: "#3e4c69",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+	width: "100%",
   },
 });
 

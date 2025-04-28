@@ -471,7 +471,14 @@ const BillingPage = () => {
     <Text style={styles.buttonText}>📄 Liste des Factures</Text>
   </TouchableOpacity>
 </View>
-
+<View style={{ alignItems: "center", marginTop: 20 }}>
+  <TouchableOpacity
+    style={styles.button}
+    onPress={() => navigation.goBack()}
+  >
+    <Text style={styles.buttonText}>⬅ Retour</Text>
+  </TouchableOpacity>
+</View>
 
     </ScrollView>
   );
@@ -614,7 +621,14 @@ addButtonText: {
   fontSize: 16,
   fontWeight: "bold",
 },
-
+button: {
+    backgroundColor: "#3e4c69",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+	width: "100%",
+  },
 
 });
 

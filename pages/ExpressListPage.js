@@ -224,8 +224,19 @@ const ExpressListPage = () => {
   </TouchableOpacity>
 </View>
 
-    </ScrollView>
-	
+{/* Bouton retour déplacé clairement ici, juste après la pagination */}
+<View style={{ alignItems: "center", marginTop: 20 }}>
+  <TouchableOpacity
+    style={styles.button}
+    onPress={() => navigation.goBack()}
+  >
+    <Text style={styles.buttonText}>⬅ Retour</Text>
+  </TouchableOpacity>
+</View>
+
+</ScrollView>
+
+
   );
 };
 
@@ -277,7 +288,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   card: {
-    backgroundColor: "#f2f2f2",
+    backgroundColor: "#dbdada",
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
@@ -362,6 +373,18 @@ pageIndicator: {
   fontSize: 14,
   fontWeight: "bold",
 },
+button: {
+    backgroundColor: "#3e4c69",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+	width: "100%",
+  },
+  buttonText: {
+    fontSize: 18,
+    color: "#fff",
+  },
 
 });
 

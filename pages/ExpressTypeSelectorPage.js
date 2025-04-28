@@ -55,6 +55,14 @@ const ExpressTypeSelectorPage = () => {
   >
     <Text style={styles.buttonText}>🧾 Créer une facture</Text>
   </TouchableOpacity>
+
+  <TouchableOpacity
+  style={styles.optionButton}
+  onPress={() => navigation.navigate("AllOrdersPage")}
+>
+  <Text style={styles.optionText}>📦 Voir toutes les commandes</Text>
+</TouchableOpacity>
+
 </View>
 
 </View>
@@ -157,6 +165,18 @@ longButton: {
   borderRadius: 12,
   alignItems: "center",
 },
+optionButton: {
+    width: 310,
+    paddingVertical: 15,
+    backgroundColor: "#3e4c69",
+    borderRadius: 8,
+    marginVertical: 10,
+    alignItems: "center",
+  },
+  optionText: {
+    fontSize: 18,
+    color: "#ffffff",
+  },
 
 });
 

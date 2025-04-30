@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import RoundedButton from "../components/RoundedButton";
-import CustomAlert from "../components/CustomAlert"; // Import du composant CustomAlert
+import CustomAlert from "../components/CustomAlert";
 import BottomNavigation from "../components/BottomNavigation";
 
 export default function AddClientPage({ navigation, route }) {
@@ -25,6 +25,7 @@ export default function AddClientPage({ navigation, route }) {
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [alertTitle, setAlertTitle] = useState("");
+    const [focusedField, setFocusedField] = useState(null);
 
     const validateFields = () => {
         if (!name || !phone) {
@@ -168,7 +169,12 @@ export default function AddClientPage({ navigation, route }) {
 			setPhone("");
 			setEmail("");
 			Keyboard.dismiss();
-			navigation.navigate("OrdersPage", { clientId: insertedData.id });
+			navigation.navigate("OrdersPage", {
+				clientId: insertedData.id,
+				clientName: insertedData.name,
+				clientPhone: insertedData.phone,
+				clientNumber: insertedData.ficheNumber, // 🔥 très important
+			});
 		} catch (error) {
 			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
 		} finally {
@@ -176,13 +182,10 @@ export default function AddClientPage({ navigation, route }) {
 		}
 	};
 
-    const handleCloseAlert = () => {
-        setAlertVisible(false);
-        Keyboard.dismiss();
-        setTimeout(() => {
-            navigation.navigate("AddIntervention", { clientId: data.id });
-        }, 100);
-    };
+	const handleCloseAlert = () => {
+		setAlertVisible(false);
+		Keyboard.dismiss();
+	};
 
     useEffect(() => {
         const unsubscribe = navigation.addListener("focus", () => {
@@ -197,17 +200,44 @@ export default function AddClientPage({ navigation, route }) {
         <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
             <View style={styles.overlay}>
                 <View style={styles.container}>
-                    <View style={styles.inputContainer}>
-                        <Image source={require("../assets/icons/person.png")} style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#888787", marginRight: 10 }]} />
-                        <TextInput style={styles.input} placeholder="Nom du client" value={name} onChangeText={setName} autoCapitalize="characters" placeholderTextColor="#888787" />
+                    <View style={[styles.inputContainer, focusedField === "name" && styles.inputFocused]}>
+                        <Image source={require("../assets/icons/person.png")} style={[styles.checkIcon]} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Nom du client"
+                            value={name}
+                            onChangeText={setName}
+                            autoCapitalize="characters"
+                            placeholderTextColor="#888787"
+                            onFocus={() => setFocusedField("name")}
+                            onBlur={() => setFocusedField(null)}
+                        />
                     </View>
-                    <View style={styles.inputContainer}>
-                        <Image source={require("../assets/icons/call.png")} style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#888787", marginRight: 10 }]} />
-                        <TextInput style={styles.input} placeholder="Numéro de téléphone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholderTextColor="#888787" />
+                    <View style={[styles.inputContainer, focusedField === "phone" && styles.inputFocused]}>
+                        <Image source={require("../assets/icons/call.png")} style={[styles.checkIcon]} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Numéro de téléphone"
+                            value={phone}
+                            onChangeText={setPhone}
+                            keyboardType="phone-pad"
+                            placeholderTextColor="#888787"
+                            onFocus={() => setFocusedField("phone")}
+                            onBlur={() => setFocusedField(null)}
+                        />
                     </View>
-                    <View style={styles.inputContainer}>
-                        <Image source={require("../assets/icons/mail.png")} style={[styles.checkIcon, { width: 20, height: 20, tintColor: "#888787", marginRight: 10 }]} />
-                        <TextInput style={styles.input} placeholder="Adresse e-mail (optionnel)" value={email} onChangeText={setEmail} keyboardType="email-address" placeholderTextColor="#888787" />
+                    <View style={[styles.inputContainer, focusedField === "email" && styles.inputFocused]}>
+                        <Image source={require("../assets/icons/mail.png")} style={[styles.checkIcon]} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Adresse e-mail (optionnel)"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            placeholderTextColor="#888787"
+                            onFocus={() => setFocusedField("email")}
+                            onBlur={() => setFocusedField(null)}
+                        />
                     </View>
                     <TouchableOpacity style={styles.button} onPress={handleAddClient} disabled={loading || isSubmitting}>
                         <Text style={styles.buttonText}>{loading ? "En cours..." : "Enregistrer le client"}</Text>
@@ -253,6 +283,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         marginBottom: 15,
         height: 40,
+        transition: "all 0.2s ease",
+    },
+    inputFocused: {
+        borderColor: "#007bff",
+        backgroundColor: "#29314f",
+        height: 50,
     },
     input: {
         flex: 1,
@@ -276,5 +312,11 @@ const styles = StyleSheet.create({
         color: "#888787",
         fontSize: 16,
         fontWeight: "medium",
-    }
+    },
+    checkIcon: {
+        width: 20,
+        height: 20,
+        tintColor: "#888787",
+        marginRight: 10,
+    },
 });

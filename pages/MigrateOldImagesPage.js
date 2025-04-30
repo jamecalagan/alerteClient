@@ -44,6 +44,7 @@ const uploadSignatureToStorage = async (base64Data, id, type = '') => {
 export default function MigrateOldImagesPage() {
   const [signaturesClient, setSignaturesClient] = useState([]);
   const [signaturesIntervention, setSignaturesIntervention] = useState([]);
+  const [signaturesOrder, setSignaturesOrder] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const looksLikeBase64 = (val) =>
@@ -65,6 +66,15 @@ export default function MigrateOldImagesPage() {
 
       setSignaturesClient(clients);
       setSignaturesIntervention(techniciens);
+
+      const { data: orders, error: orderError } = await supabase
+        .from('orders')
+        .select('id, signatureclient');
+
+      if (!orderError) {
+        const orderSignatures = orders.filter((o) => looksLikeBase64(o.signatureclient));
+        setSignaturesOrder(orderSignatures);
+      }
     };
 
     fetchSignatures();
@@ -106,12 +116,33 @@ export default function MigrateOldImagesPage() {
     setLoading(false);
   };
 
+  const migrateSignatureOrder = async (order) => {
+    setLoading(true);
+    const base64 = order.signatureclient.replace(/^data:image\/(png|jpeg);base64,/, '');
+    const url = await uploadSignatureToStorage(base64, order.id, 'signature-client');
+
+    if (url) {
+      const { error } = await supabase
+        .from('orders')
+        .update({ signatureclient: url })
+        .eq('id', order.id);
+
+      if (!error) {
+        setSignaturesOrder((prev) => prev.filter((o) => o.id !== order.id));
+      }
+    }
+    setLoading(false);
+  };
+
   const migrateAll = async () => {
     for (const sig of signaturesClient) {
       await migrateSignatureClient(sig);
     }
     for (const sig of signaturesIntervention) {
       await migrateSignatureIntervention(sig);
+    }
+    for (const sig of signaturesOrder) {
+      await migrateSignatureOrder(sig);
     }
   };
 
@@ -124,7 +155,7 @@ export default function MigrateOldImagesPage() {
           <Text style={styles.subtitle}>Signatures client à migrer</Text>
           {signaturesClient.map((intervention) => (
             <View key={intervention.id} style={styles.card}>
-              <Text style={styles.idText}>ID : {intervention.id}</Text>
+              <Text style={styles.idText}>ID intervention : {intervention.id}</Text>
               <Button
                 title="Migrer signature client"
                 onPress={() => migrateSignatureClient(intervention)}
@@ -140,7 +171,7 @@ export default function MigrateOldImagesPage() {
           <Text style={styles.subtitle}>Signatures intervention à migrer</Text>
           {signaturesIntervention.map((intervention) => (
             <View key={intervention.id} style={styles.card}>
-              <Text style={styles.idText}>ID : {intervention.id}</Text>
+              <Text style={styles.idText}>ID intervention : {intervention.id}</Text>
               <Button
                 title="Migrer signature intervention"
                 onPress={() => migrateSignatureIntervention(intervention)}
@@ -151,11 +182,27 @@ export default function MigrateOldImagesPage() {
         </>
       )}
 
-      {(signaturesClient.length > 0 || signaturesIntervention.length > 0) && (
+      {signaturesOrder.length > 0 && (
+        <>
+          <Text style={styles.subtitle}>Signatures commandes à migrer</Text>
+          {signaturesOrder.map((order) => (
+            <View key={order.id} style={styles.card}>
+              <Text style={styles.idText}>Commande ID : {order.id}</Text>
+              <Button
+                title="Migrer signature commande"
+                onPress={() => migrateSignatureOrder(order)}
+                disabled={loading}
+              />
+            </View>
+          ))}
+        </>
+      )}
+
+      {(signaturesClient.length > 0 || signaturesIntervention.length > 0 || signaturesOrder.length > 0) && (
         <Button title="Tout migrer" onPress={migrateAll} disabled={loading} />
       )}
 
-      {signaturesClient.length === 0 && signaturesIntervention.length === 0 && !loading && (
+      {signaturesClient.length === 0 && signaturesIntervention.length === 0 && signaturesOrder.length === 0 && !loading && (
         <Text style={{ marginTop: 20 }}>Aucune signature à migrer.</Text>
       )}
     </ScrollView>

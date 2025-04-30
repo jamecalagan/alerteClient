@@ -24,6 +24,7 @@ export default function OrdersPage({ route, navigation, order }) {
         product: "",
         brand: "",
         model: "",
+        serial: "",
         price: "",
         deposit: "",
         paid: false,
@@ -44,51 +45,58 @@ export default function OrdersPage({ route, navigation, order }) {
 
             if (error) throw error;
 
-            setOrders(data || []);
+            // Ajout de originalSerial pour le suivi des changements
+            setOrders(
+                (data || []).map((order) => ({
+                    ...order,
+                    originalSerial: order.serial || "",
+                }))
+            );
         } catch (error) {
             console.error("❌ Erreur lors du chargement des commandes:", error);
         }
     };
 
-	const handleCreateOrder = async () => {
-		try {
-		  if (!newOrder.product || !newOrder.price) {
-			alert("Veuillez remplir au moins le produit et le prix !");
-			return;
-		  }
-	  
-		  const priceToSend = newOrder.price.replace(",", ".");
-		  const depositToSend = newOrder.deposit.replace(",", ".");
-	  
-		  const { error } = await supabase.from("orders").insert([
-			{
-			  product: newOrder.product,
-			  brand: newOrder.brand || "",
-			  model: newOrder.model || "",
-			  price: parseFloat(priceToSend),
-			  deposit: parseFloat(depositToSend) || 0,
-			  paid: false,
-			  client_id: clientId,
-			},
-		  ]);
-	  
-		  if (error) throw error;
-	  
-		  setNewOrder({
-			product: "",
-			brand: "",
-			model: "",
-			price: "",
-			deposit: "",
-			paid: false,
-			client_id: clientId,
-		  });
-		  loadOrders();
-		} catch (error) {
-		  console.error("❌ Erreur lors de l'ajout de la commande:", error);
-		}
-	  };
-	  
+    const handleCreateOrder = async () => {
+        try {
+            if (!newOrder.product || !newOrder.price) {
+                alert("Veuillez remplir au moins le produit et le prix !");
+                return;
+            }
+
+            const priceToSend = newOrder.price.replace(",", ".");
+            const depositToSend = newOrder.deposit.replace(",", ".");
+
+            const { error } = await supabase.from("orders").insert([
+                {
+                    product: newOrder.product,
+                    brand: newOrder.brand || "",
+                    model: newOrder.model || "",
+                    serial: newOrder.serial || "", // 👈 important pour l'enregistrement
+                    price: parseFloat(priceToSend),
+                    deposit: parseFloat(depositToSend) || 0,
+                    paid: false,
+                    client_id: clientId,
+                },
+            ]);
+
+            if (error) throw error;
+
+            setNewOrder({
+                product: "",
+                brand: "",
+                model: "",
+                serial: "", // 👈 n'oublie pas de le réinitialiser ici
+                price: "",
+                deposit: "",
+                paid: false,
+                client_id: clientId,
+            });
+            loadOrders();
+        } catch (error) {
+            console.error("❌ Erreur lors de l'ajout de la commande:", error);
+        }
+    };
 
     const handleDeleteOrder = async (order) => {
         if (!order.paid && !order.saved) {
@@ -145,7 +153,7 @@ export default function OrdersPage({ route, navigation, order }) {
                         try {
                             const { error } = await supabase
                                 .from("orders")
-                                .update({ paid: true, deposit: order.price })
+                                .update({ paid: true }) // 🛑 on ne touche plus au deposit ici
                                 .eq("id", order.id);
 
                             if (error) throw error;
@@ -164,6 +172,7 @@ export default function OrdersPage({ route, navigation, order }) {
             { cancelable: true }
         );
     };
+
     const handleSaveOrder = async (order) => {
         if (!order.paid) {
             Alert.alert(
@@ -249,65 +258,71 @@ export default function OrdersPage({ route, navigation, order }) {
             ]
         );
     };
-	const handleMarkAsOrdered = (order) => {
-		Alert.alert(
-		  "Commande passée",
-		  "Confirmez-vous que cette commande a été passée au fournisseur ?",
-		  [
-			{ text: "Annuler", style: "cancel" },
-			{
-			  text: "Confirmer",
-			  onPress: async () => {
-				try {
-				  const { error } = await supabase
-					.from("orders")
-					.update({ ordered: true })
-					.eq("id", order.id);
-	  
-				  if (error) throw error;
-				  loadOrders();
-				} catch (error) {
-				  console.error("❌ Erreur marquage commande passée :", error);
-				}
-			  },
-			},
-		  ],
-		  { cancelable: true }
-		);
-	  };
-	  
-	
-	  const handleMarkAsReceived = (order) => {
-		Alert.alert(
-		  "Commande reçue",
-		  "Confirmez-vous que cette commande a été reçue du fournisseur ?",
-		  [
-			{ text: "Annuler", style: "cancel" },
-			{
-			  text: "Confirmer",
-			  onPress: async () => {
-				try {
-				  const { error } = await supabase
-					.from("orders")
-					.update({ received: true })
-					.eq("id", order.id);
-	  
-				  if (error) throw error;
-				  loadOrders();
-				} catch (error) {
-				  console.error("❌ Erreur marquage commande reçue :", error);
-				}
-			  },
-			},
-		  ],
-		  { cancelable: true }
-		);
-	  };
-	  
-	
+    const handleMarkAsOrdered = (order) => {
+        Alert.alert(
+            "Commande passée",
+            "Confirmez-vous que cette commande a été passée au fournisseur ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "Confirmer",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from("orders")
+                                .update({ ordered: true })
+                                .eq("id", order.id);
+
+                            if (error) throw error;
+                            loadOrders();
+                        } catch (error) {
+                            console.error(
+                                "❌ Erreur marquage commande passée :",
+                                error
+                            );
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+    const handleMarkAsReceived = (order) => {
+        Alert.alert(
+            "Commande reçue",
+            "Confirmez-vous que cette commande a été reçue du fournisseur ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "Confirmer",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase
+                                .from("orders")
+                                .update({ received: true })
+                                .eq("id", order.id);
+
+                            if (error) throw error;
+                            loadOrders();
+                        } catch (error) {
+                            console.error(
+                                "❌ Erreur marquage commande reçue :",
+                                error
+                            );
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
     return (
         <View style={styles.container}>
-            <Text style={styles.header}>Crér une commande pour: {clientName}</Text>
+            <Text style={styles.header}>
+                Crér une commande pour: {clientName}
+            </Text>
 
             <View style={styles.formContainer}>
                 <TextInput
@@ -369,160 +384,507 @@ export default function OrdersPage({ route, navigation, order }) {
                 </View>
             </View>
 
-			<FlatList
-  data={orders}
-  keyExtractor={(item) => item.id.toString()}
-  renderItem={({ item }) => {
-  const isExpanded = expandedOrders.includes(item.id);
+            <FlatList
+                data={orders}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => {
+                    const isExpanded = expandedOrders.includes(item.id);
 
-  return (
-    <View style={styles.orderCard}>
-      {/* Titre + bouton expand */}
-	        {/* Informations de base */}
-			<Text style={styles.cardText}>💾 Commande sauvegardée</Text>
-	  {/* ✅ Pastilles de statut Commande passée et reçue */}
-<View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8, gap: 8 }}>
-  {item.ordered && (
-    <View style={{ backgroundColor: "#cfcfcf", padding: 5, borderRadius: 5 }}>
-      <Text style={{ color: "#92400e", fontWeight: "bold" }}>🚚 Commande passée</Text>
-    </View>
-  )}
-  {item.received && (
-    <View style={{ backgroundColor: "#bbf7d0", padding: 5, borderRadius: 5 }}>
-      <Text style={{ color: "#166534", fontWeight: "bold" }}>📦 Commande reçue</Text>
-    </View>
-  )}
-</View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={styles.cardTitle}>{item.product}</Text>
+                    return (
+                        <View style={styles.orderCard}>
+                            {/* Titre + bouton expand */}
+                            {/* Informations de base */}
+                            <Text style={styles.cardText}>
+                                💾 Commande sauvegardée
+                            </Text>
+                            {/* ✅ Pastilles de statut Commande passée et reçue */}
+                            <View
+                                style={{
+                                    flexDirection: "row",
+                                    flexWrap: "wrap",
+                                    marginTop: 8,
+                                    gap: 8,
+                                }}
+                            >
+                                {item.ordered && (
+                                    <View
+                                        style={{
+                                            backgroundColor: "#cfcfcf",
+                                            padding: 5,
+                                            borderRadius: 5,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: "#92400e",
+                                                fontWeight: "bold",
+                                            }}
+                                        >
+                                            🚚 Commande passée
+                                        </Text>
+                                    </View>
+                                )}
+                                {item.received && (
+                                    <View
+                                        style={{
+                                            backgroundColor: "#bbf7d0",
+                                            padding: 5,
+                                            borderRadius: 5,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: "#166534",
+                                                fontWeight: "bold",
+                                            }}
+                                        >
+                                            📦 Commande reçue
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View
+                                style={{
+                                    flexDirection: "row",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                }}
+                            >
+                                <Text style={styles.cardTitle}>
+                                    {item.product}
+                                </Text>
 
-        {item.saved && (
-          <TouchableOpacity onPress={() => toggleExpand(item.id)}>
-            <Image
-              source={isExpanded ? EyeSlashIcon : EyeIcon}
-              style={{ width: 24, height: 24, tintColor: "#ccc" }}
+                                {item.saved && (
+                                    <TouchableOpacity
+                                        onPress={() => toggleExpand(item.id)}
+                                    >
+                                        <Image
+                                            source={
+                                                isExpanded
+                                                    ? EyeSlashIcon
+                                                    : EyeIcon
+                                            }
+                                            style={{
+                                                width: 24,
+                                                height: 24,
+                                                tintColor: "#ccc",
+                                            }}
+                                        />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {/* ✅ Commande récupérée */}
+                            {item.recovered && (
+                                <View
+                                    style={{
+                                        backgroundColor: "#d1fae5",
+                                        padding: 5,
+                                        borderRadius: 4,
+                                        marginTop: 8,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: "#065f46",
+                                            fontWeight: "bold",
+                                        }}
+                                    >
+                                        ✅ Commande récupérée par le client
+                                    </Text>
+                                </View>
+                            )}
+
+                            <Text style={styles.cardText}>
+                                💳 Montant :{" "}
+                                <Text style={styles.cardValue}>
+                                    {item.price} €
+                                </Text>
+                            </Text>
+                            {item.paid_at && (
+                                <Text style={styles.cardText}>
+                                    📅 Payée le :{" "}
+                                    <Text style={styles.cardValue}>
+                                        {new Date(
+                                            item.paid_at
+                                        ).toLocaleDateString()}
+                                    </Text>
+                                </Text>
+                            )}
+
+                            {/* Affichage étendu */}
+                            {(!item.saved || isExpanded) && (
+                                <>
+                                    <Text style={styles.cardText}>
+                                        🔸 Produit:{" "}
+                                        <Text style={styles.cardValue}>
+                                            {item.product}
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        🔸 Marque:{" "}
+                                        <Text style={styles.cardValue}>
+                                            {item.brand}
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        🔸 Modèle:{" "}
+                                        <Text style={styles.cardValue}>
+                                            {item.model}
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        🔸 Acompte:{" "}
+                                        <Text style={styles.cardValue}>
+                                            {item.deposit} €
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        🔸 Montant restant dû :{" "}
+                                        <Text
+                                            style={[
+                                                styles.cardValue,
+                                                {
+                                                    color: item.paid
+                                                        ? "#00ff00"
+                                                        : "#ff5555",
+                                                },
+                                            ]}
+                                        >
+                                            {item.price - (item.deposit || 0)} €
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        📅 Créée le :{" "}
+                                        <Text style={styles.cardValue}>
+                                            {new Date(
+                                                item.createdat
+                                            ).toLocaleDateString()}
+                                        </Text>
+                                    </Text>
+                                    <Text style={styles.cardText}>
+                                        💳 Statut :{" "}
+                                        <Text
+                                            style={[
+                                                styles.cardValue,
+                                                {
+                                                    color: item.paid
+                                                        ? "lightgreen"
+                                                        : "tomato",
+                                                },
+                                            ]}
+                                        >
+                                            {item.paid
+                                                ? "✅ Payé"
+                                                : "❌ Non payé"}
+                                        </Text>
+                                    </Text>
+                                    <View
+                                        style={{
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            marginTop: 10,
+                                            backgroundColor:
+                                                item.serial ===
+                                                    item.originalSerial &&
+                                                item.serial !== ""
+                                                    ? "#e6ffe6"
+                                                    : "#fff",
+                                            padding: 8,
+                                            borderRadius: 8,
+                                            borderWidth: 1,
+                                            borderColor: "#888",
+                                        }}
+                                    >
+                                        <TextInput
+                                            placeholder="Numéro de série"
+                                            value={item.serial || ""}
+                                            onChangeText={(text) => {
+                                                setOrders((prev) =>
+                                                    prev.map((o) =>
+                                                        o.id === item.id
+                                                            ? {
+                                                                  ...o,
+                                                                  serial: text,
+                                                              }
+                                                            : o
+                                                    )
+                                                );
+                                            }}
+                                            editable={
+                                                !item.originalSerial ||
+                                                item.serial !==
+                                                    item.originalSerial
+                                            }
+                                            style={{
+                                                flex: 1,
+                                                fontSize: 16,
+                                                color: "#000",
+                                                padding: 6,
+                                            }}
+                                        />
+
+                                        <TouchableOpacity
+                                            disabled={
+                                                item.serial ===
+                                                item.originalSerial
+                                            }
+                                            onPress={async () => {
+                                                try {
+                                                    const { error } =
+                                                        await supabase
+                                                            .from("orders")
+                                                            .update({
+                                                                serial: item.serial,
+                                                            })
+                                                            .eq("id", item.id);
+
+                                                    if (error) throw error;
+
+                                                    Alert.alert(
+                                                        "✅ Numéro de série sauvegardé"
+                                                    );
+                                                    loadOrders();
+                                                } catch (e) {
+                                                    console.error(
+                                                        "❌ Erreur sauvegarde numéro de série :",
+                                                        e
+                                                    );
+                                                    Alert.alert(
+                                                        "Erreur",
+                                                        "Impossible de sauvegarder le numéro."
+                                                    );
+                                                }
+                                            }}
+                                            style={{
+                                                backgroundColor:
+                                                    item.serial ===
+                                                    item.originalSerial
+                                                        ? "#ccc"
+                                                        : "#4da6ff",
+                                                paddingVertical: 8,
+                                                paddingHorizontal: 12,
+                                                borderRadius: 6,
+                                                marginLeft: 8,
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    color:
+                                                        item.serial ===
+                                                        item.originalSerial
+                                                            ? "#666"
+                                                            : "#fff",
+                                                    fontWeight: "bold",
+                                                    fontSize: 14,
+                                                }}
+                                            >
+                                                Valider
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {item.serial === item.originalSerial &&
+                                            item.serial !== "" && (
+                                                <Text
+                                                    style={{
+                                                        fontSize: 20,
+                                                        marginLeft: 8,
+                                                        color: "green",
+                                                    }}
+                                                >
+                                                    ✅
+                                                </Text>
+                                            )}
+                                    </View>
+
+                                    {/* ✅ Boutons Imprimer + Marquer récupérée alignés */}
+                                    <View
+                                        style={{
+                                            flexDirection: "row",
+                                            flexWrap: "wrap",
+                                            justifyContent: "space-between",
+                                            marginTop: 10,
+                                        }}
+                                    >
+                                        {/* Ligne 3 : Bouton Imprimer */}
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() => {
+                                                const remaining =
+                                                    item.price -
+                                                    (item.deposit || 0);
+                                                const order = {
+                                                    id: item.id,
+                                                    client: {
+                                                        id: clientId,
+                                                        name: clientName,
+                                                        ficheNumber:
+                                                            clientNumber,
+                                                    },
+                                                    deviceType: item.product,
+                                                    brand: item.brand,
+                                                    model: item.model,
+                                                    cost: item.price,
+                                                    acompte: item.deposit,
+                                                    remaining: remaining,
+                                                    signatureclient:
+                                                        item.signatureclient,
+                                                    printed: item.printed,
+                                                };
+                                                navigation.navigate(
+                                                    "CommandePreviewPage",
+                                                    { order }
+                                                );
+                                            }}
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                🖨️ Imprimer
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {/* Ligne 2 */}
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleMarkAsOrdered(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                🚚 Commande passée
+                                            </Text>
+                                        </TouchableOpacity>
+
+										<TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleMarkAsReceived(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                📦 Commande reçue
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleMarkAsPaid(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                💰 Payé
+                                            </Text>
+                                        </TouchableOpacity>
+
+											                                        {/* Nouveau bouton Créer Facture */}
+																					<TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                navigation.navigate(
+                                                    "BillingPage",
+                                                    {
+                                                        expressData: {
+                                                            clientname:
+                                                                clientName,
+                                                            clientphone:
+                                                                clientPhone,
+                                                            product:
+                                                                item.product,
+                                                            brand: item.brand,
+                                                            model: item.model,
+                                                            price: item.price?.toString(),
+                                                            quantity: "1",
+                                                            description: `${item.product} ${item.brand} ${item.model}`,
+                                                            acompte:
+                                                                item.deposit?.toString() ||
+                                                                "0",
+                                                            paymentmethod:
+                                                                item.paymentmethod ||
+                                                                "",
+                                                            serial:
+                                                                item.serial ||
+                                                                "",
+                                                            paid:
+                                                                item.paid ||
+                                                                false, // <<< 🔥 AJOUT ESSENTIEL
+                                                        },
+                                                    }
+                                                )
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                🧾 Créer Facture
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleSaveOrder(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                💾 Sauvegarder
+                                            </Text>
+                                        </TouchableOpacity>
+
+
+
+
+
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleMarkAsRecovered(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                ✅ Récupérée
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() =>
+                                                handleDeleteOrder(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                🗑 Supprimer
+                                            </Text>
+                                        </TouchableOpacity>
+
+
+                                        <TouchableOpacity
+                                            style={[styles.squareButton]}
+                                            onPress={() => navigation.goBack()}
+                                        >
+                                            <Text
+                                                style={styles.squareButtonText}
+                                            >
+                                                ⬅ Retour
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    );
+                }}
             />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* ✅ Commande récupérée */}
-      {item.recovered && (
-        <View style={{ backgroundColor: "#d1fae5", padding: 5, borderRadius: 4, marginTop: 8 }}>
-          <Text style={{ color: "#065f46", fontWeight: "bold" }}>
-            ✅ Commande récupérée par le client
-          </Text>
-        </View>
-      )}
-
-
-
-      <Text style={styles.cardText}>💳 Montant : <Text style={styles.cardValue}>{item.price} €</Text></Text>
-      {item.paid_at && (
-        <Text style={styles.cardText}>📅 Payée le : <Text style={styles.cardValue}>{new Date(item.paid_at).toLocaleDateString()}</Text></Text>
-      )}
-
-      {/* Affichage étendu */}
-      {(!item.saved || isExpanded) && (
-        <>
-		
-          <Text style={styles.cardText}>🔸 Produit: <Text style={styles.cardValue}>{item.product}</Text></Text>
-          <Text style={styles.cardText}>🔸 Marque: <Text style={styles.cardValue}>{item.brand}</Text></Text>
-          <Text style={styles.cardText}>🔸 Modèle: <Text style={styles.cardValue}>{item.model}</Text></Text>
-          <Text style={styles.cardText}>🔸 Acompte: <Text style={styles.cardValue}>{item.deposit} €</Text></Text>
-          <Text style={styles.cardText}>🔸 Montant restant dû : <Text style={[styles.cardValue, { color: item.paid ? "#00ff00" : "#ff5555" }]}>{item.price - (item.deposit || 0)} €</Text></Text>
-          <Text style={styles.cardText}>📅 Créée le : <Text style={styles.cardValue}>{new Date(item.createdat).toLocaleDateString()}</Text></Text>
-          <Text style={styles.cardText}>💳 Statut : <Text style={[styles.cardValue, { color: item.paid ? "lightgreen" : "tomato" }]}>{item.paid ? "✅ Payé" : "❌ Non payé"}</Text></Text>
-
-{/* ✅ Boutons Imprimer + Marquer récupérée alignés */}
-<View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginTop: 10 }}>
-  {/* Ligne 3 : Bouton Imprimer */}
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => {
-      const remaining = item.price - (item.deposit || 0);
-      const order = {
-        id: item.id,
-        client: {
-          id: clientId,
-          name: clientName,
-          ficheNumber: clientNumber,
-        },
-        deviceType: item.product,
-        brand: item.brand,
-        model: item.model,
-        cost: item.price,
-        acompte: item.deposit,
-        remaining: remaining,
-        signatureclient: item.signatureclient,
-        printed: item.printed,
-      };
-      navigation.navigate("CommandePreviewPage", { order });
-    }}
-  >
-    <Text style={styles.squareButtonText}>🖨️ Imprimer</Text>
-  </TouchableOpacity>
-
-
-
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleSaveOrder(item)}
-  >
-    <Text style={styles.squareButtonText}>💾 Sauvegarder</Text>
-  </TouchableOpacity>
-
-
-
-  {/* Ligne 2 */}
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleMarkAsOrdered(item)}
-  >
-    <Text style={styles.squareButtonText}>🚚 Commande passée</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleMarkAsReceived(item)}
-  >
-    <Text style={styles.squareButtonText}>📦 Commande reçue</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleMarkAsPaid(item)}
-  >
-    <Text style={styles.squareButtonText}>💰 Payé</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleMarkAsRecovered(item)}
-  >
-    <Text style={styles.squareButtonText}>✅ Récupérée</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-    style={[styles.squareButton]}
-    onPress={() => handleDeleteOrder(item)}
-  >
-    <Text style={styles.squareButtonText}>🗑 Supprimer</Text>
-  </TouchableOpacity>
-  <TouchableOpacity
-  style={[styles.squareButton]}
-  onPress={() => navigation.goBack()}
->
-  <Text style={styles.squareButtonText}>⬅ Retour</Text>
-</TouchableOpacity>
-
-</View>
-
-        </>
-      )}
-    </View>
-  );
-}}
-
-/>
-
         </View>
     );
 }
@@ -651,7 +1013,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     buttonOrderText: { fontSize: 18, fontWeight: "bold", color: "#888787" },
-	buttonRecovered: {
+    buttonRecovered: {
         flexDirection: "row",
         gap: 5,
         alignItems: "center",
@@ -665,22 +1027,21 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "medium",
         color: "#888787",
-},
-squareButton: {
-    width: "30%", // pour avoir 3 par ligne
-    aspectRatio: 2, // carré
-    backgroundColor: "#191f2f",
-    borderWidth: 1,
-    borderColor: "#888787",
-    borderRadius: 4,
-    marginVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-},
-squareButtonText: {
-    color: "#888787",
-    fontSize: 14,
-    textAlign: "center",
-},
-
+    },
+    squareButton: {
+        width: "30%", // pour avoir 3 par ligne
+        aspectRatio: 2, // carré
+        backgroundColor: "#191f2f",
+        borderWidth: 1,
+        borderColor: "#888787",
+        borderRadius: 4,
+        marginVertical: 8,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    squareButtonText: {
+        color: "#888787",
+        fontSize: 14,
+        textAlign: "center",
+    },
 });

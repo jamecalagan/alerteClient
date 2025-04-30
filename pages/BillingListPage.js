@@ -8,6 +8,7 @@ const BillingListPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 10; // 🔥 10 factures par page
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const navigation = useNavigation();
 
@@ -64,6 +65,27 @@ const BillingListPage = () => {
           <Text style={styles.label}>Facture N° : {bill.invoicenumber}</Text>
           <Text style={styles.label}>Date : {new Date(bill.invoicedate).toLocaleDateString()}</Text>
           <Text style={styles.label}>Total TTC : {parseFloat(bill.totalttc).toFixed(2)} €</Text>
+		  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+  <TouchableOpacity
+    onPress={() => {
+      if (selectedIds.includes(bill.id)) {
+        setSelectedIds(selectedIds.filter((id) => id !== bill.id));
+      } else {
+        setSelectedIds([...selectedIds, bill.id]);
+      }
+    }}
+    style={{
+      width: 24,
+      height: 24,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: "#007bff",
+      marginRight: 10,
+      backgroundColor: selectedIds.includes(bill.id) ? "#007bff" : "transparent",
+    }}
+  />
+  <Text style={{ fontWeight: "bold" }}>Sélectionner</Text>
+</View>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity style={[styles.button, { backgroundColor: "#007bff" }]} onPress={() => navigation.navigate("BillingEditPage", { id: bill.id, print: true })}>
@@ -101,6 +123,49 @@ const BillingListPage = () => {
           <Text style={styles.pageButtonText}>Suivant ⏩</Text>
         </TouchableOpacity>
       </View>
+	  {selectedIds.length > 0 && (
+  <TouchableOpacity
+    style={{
+      backgroundColor: "#dc3545",
+      padding: 12,
+      borderRadius: 8,
+      alignItems: "center",
+      marginVertical: 10,
+    }}
+    onPress={async () => {
+      Alert.alert(
+        "Confirmation",
+        `Supprimer ${selectedIds.length} facture(s) ?`,
+        [
+          { text: "Annuler", style: "cancel" },
+          {
+            text: "Supprimer",
+            style: "destructive",
+            onPress: async () => {
+              const { error } = await supabase
+                .from("billing")
+                .delete()
+                .in("id", selectedIds);
+
+              if (error) {
+                alert("❌ Erreur lors de la suppression !");
+              } else {
+                alert("✅ Factures supprimées");
+                setSelectedIds([]);
+                fetchBills();
+              }
+            },
+          },
+        ]
+      );
+    }}
+  >
+    <Text style={{ color: "#fff", fontWeight: "bold" }}>
+      🗑️ Supprimer la sélection
+    </Text>
+  </TouchableOpacity>
+)}
+
 	  <View style={{ alignItems: "center", marginTop: 20 }}>
   <TouchableOpacity
     style={styles.buttonBack}

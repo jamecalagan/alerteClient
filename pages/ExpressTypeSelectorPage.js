@@ -55,7 +55,12 @@ const ExpressTypeSelectorPage = () => {
   >
     <Text style={styles.buttonText}>🧾 Créer une facture</Text>
   </TouchableOpacity>
-
+  <TouchableOpacity
+					style={[styles.optionButton, { backgroundColor: "#555" }]}
+					onPress={() => navigation.navigate("BillingListPage")}
+				>
+					<Text style={styles.buttonText}>📄 Liste des Factures</Text>
+				</TouchableOpacity>
   <TouchableOpacity
   style={styles.optionButton}
   onPress={() => navigation.navigate("AllOrdersPage")}

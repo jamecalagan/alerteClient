@@ -12,7 +12,6 @@ import { supabase } from "../supabaseClient";
 import EyeIcon from "../assets/icons/eye.png";
 import EyeSlashIcon from "../assets/icons/eye-slash.png";
 import { Image } from "react-native";
-
 export default function OrdersPage({ route, navigation, order }) {
     const { clientId, clientName, clientPhone, clientNumber } =
         route.params || {};
@@ -39,7 +38,7 @@ export default function OrdersPage({ route, navigation, order }) {
         try {
             const { data, error } = await supabase
                 .from("orders")
-                .select("*")
+                .select("*, billing(id)")
                 .eq("client_id", clientId)
                 .order("createdat", { ascending: false });
 
@@ -782,48 +781,42 @@ export default function OrdersPage({ route, navigation, order }) {
                                             </Text>
                                         </TouchableOpacity>
 
-											                                        {/* Nouveau bouton Créer Facture */}
-																					<TouchableOpacity
-                                            style={[styles.squareButton]}
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "BillingPage",
-                                                    {
-                                                        expressData: {
-                                                            clientname:
-                                                                clientName,
-                                                            clientphone:
-                                                                clientPhone,
-                                                            product:
-                                                                item.product,
-                                                            brand: item.brand,
-                                                            model: item.model,
-                                                            price: item.price?.toString(),
-                                                            quantity: "1",
-                                                            description: `${item.product} ${item.brand} ${item.model}`,
-                                                            acompte:
-                                                                item.deposit?.toString() ||
-                                                                "0",
-                                                            paymentmethod:
-                                                                item.paymentmethod ||
-                                                                "",
-                                                            serial:
-                                                                item.serial ||
-                                                                "",
-                                                            paid:
-                                                                item.paid ||
-                                                                false, // <<< 🔥 AJOUT ESSENTIEL
-                                                        },
-                                                    }
-                                                )
-                                            }
-                                        >
-                                            <Text
-                                                style={styles.squareButtonText}
-                                            >
-                                                🧾 Créer Facture
-                                            </Text>
-                                        </TouchableOpacity>
+										{item.billing && item.billing.length > 0 ? (
+  <TouchableOpacity
+    style={[styles.squareButton, { backgroundColor: "#ccc" }]}
+    disabled={true}
+  >
+    <Text style={[styles.squareButtonText, { color: "#666" }]}>
+      🧾 Facture créée
+    </Text>
+  </TouchableOpacity>
+) : (
+  <TouchableOpacity
+    style={styles.squareButton}
+    onPress={() =>
+      navigation.navigate("BillingPage", {
+        expressData: {
+          clientname: clientName,
+          clientphone: clientPhone,
+          product: item.product,
+          brand: item.brand,
+          model: item.model,
+          price: item.price?.toString(),
+          quantity: "1",
+          description: `${item.product} ${item.brand} ${item.model}`,
+          acompte: item.deposit?.toString() || "0",
+          paymentmethod: item.paymentmethod || "",
+          serial: item.serial || "",
+          paid: item.paid || false,
+        },
+        order_id: item.id,
+      })
+    }
+  >
+    <Text style={styles.squareButtonText}>🧾 Créer Facture</Text>
+  </TouchableOpacity>
+)}
+
 
                                         <TouchableOpacity
                                             style={[styles.squareButton]}
@@ -1044,4 +1037,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: "center",
     },
+	squareButtonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  textAlign: "center",
+}
+
 });

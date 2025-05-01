@@ -22,8 +22,9 @@ const handlePrintGuard = () => {
 const BillingPage = () => {
     const navigation = useNavigation();
     const route = useRoute();
-
-    // 🔒 Ne PAS utiliser expressData ici !
+	const expressData = route.params?.expressData || {};
+	const order_id = expressData.order_id || null;
+	console.log("✅ order_id reçu :", order_id);
     const [clientSuggestions, setClientSuggestions] = useState([]);
     const [focusedField, setFocusedField] = useState(null);
     const [clientname, setClientName] = useState("");
@@ -40,9 +41,7 @@ const BillingPage = () => {
     const [isSaved, setIsSaved] = useState(false);
 
 	useEffect(() => {
-		const expressData = route.params?.expressData;
-		console.log("📦 expressData reçu :", expressData);
-	  
+
 		if (expressData?.invoicenumber) {
 		  setInvoiceNumber(expressData.invoicenumber);
 		} else {
@@ -73,10 +72,6 @@ const BillingPage = () => {
 		setIsSaved(false); // 🔥 important pour éviter bouton vert à tort
 	  }, []);
 	  
-	  
-
-	
-	
 
     const generateInvoiceNumber = async () => {
         const { data, error } = await supabase
@@ -261,28 +256,48 @@ ${paid ? `
 	  
 
 	  const handleSave = async () => {
-		if (!clientname.trim() || !clientphone.trim() || lines.length === 0) {
-			alert("❌ Remplissez correctement la fiche.");
+		console.log("🟡 Tentative de sauvegarde de la facture...");
+	
+		// Vérifications
+		if (!clientname.trim()) {
+			alert("❌ Le nom du client est requis.");
+			return;
+		}
+		if (!clientphone.trim()) {
+			alert("❌ Le téléphone du client est requis.");
+			return;
+		}
+		if (!paymentmethod.trim()) {
+			alert("❌ Le mode de paiement est requis.");
+			return;
+		}
+		if (
+			lines.length === 0 ||
+			lines.some(
+				(line) =>
+					!line.designation.trim() ||
+					!line.quantity.trim() ||
+					!line.price.trim()
+			)
+		) {
+			alert("❌ Remplissez correctement toutes les lignes de prestation.");
 			return;
 		}
 	
 		try {
-			// Vérifie si une facture avec le même invoicenumber existe déjà
+			// Vérifie si une facture existe déjà avec le même numéro
 			const { data: existing, error: fetchError } = await supabase
 				.from("billing")
 				.select("id")
 				.eq("invoicenumber", invoicenumber)
-				.single();
+				.maybeSingle();
 	
-			if (fetchError && fetchError.code !== "PGRST116") {
-				console.error("Erreur de vérification :", fetchError);
+			if (fetchError) {
+				console.error("❌ Erreur vérification invoice :", fetchError);
 				alert("❌ Erreur lors de la vérification de la facture.");
 				return;
 			}
-			if (existing) {
-				alert("⚠️ Cette facture a déjà été enregistrée.");
-				return;
-			}
+	
 			const factureData = {
 				clientname,
 				clientphone,
@@ -297,14 +312,16 @@ ${paid ? `
 				totalttc: isNaN(totalttc) ? 0 : totalttc,
 				created_at: new Date(),
 				paid,
+				order_id: order_id,
 			};
 	
 			let saveError;
+	
 			if (existing) {
 				const { error } = await supabase
 					.from("billing")
 					.update(factureData)
-					.eq("invoicenumber", invoicenumber);
+					.eq("id", existing.id);
 				saveError = error;
 			} else {
 				const { error } = await supabase
@@ -314,15 +331,15 @@ ${paid ? `
 			}
 	
 			if (saveError) {
-				console.error("Erreur de sauvegarde :", saveError);
-				alert("❌ Erreur lors de la sauvegarde");
+				console.error("❌ Erreur sauvegarde :", saveError);
+				alert("❌ Erreur lors de la sauvegarde de la facture.");
 			} else {
-				alert("✅ Facture enregistrée avec succès");
+				alert("✅ Facture enregistrée avec succès.");
 				setIsSaved(true);
 			}
 		} catch (error) {
-			console.error("Erreur générale :", error);
-			alert("❌ Erreur inattendue lors de la sauvegarde");
+			console.error("❌ Erreur inattendue :", error);
+			alert("❌ Erreur inattendue lors de la sauvegarde.");
 		}
 	};
 	

@@ -34,7 +34,7 @@ const BillingEditPage = () => {
             alert("Erreur de chargement");
         } else {
             setInvoice(data);
-            setIsSaved(true); // ✅ Une facture existante est considérée comme "sauvée"
+            setIsSaved(true);
         }
     };
 
@@ -51,39 +51,63 @@ const BillingEditPage = () => {
         return { totalttc, totalht, totaltva };
     };
 
-    const updateInvoice = async () => {
-        const { error } = await supabase
-            .from("billing")
-            .update(invoice)
-            .eq("id", id);
-
-        if (error) {
-            alert("Erreur de sauvegarde");
-        } else {
-            alert("✅ Facture mise à jour");
-            setIsSaved(true); // ✅ Active l'impression après sauvegarde
-        }
-    };
-
+	const updateInvoice = async () => {
+		const { error } = await supabase
+			.from("billing")
+			.update(invoice)
+			.eq("id", id);
+	
+		if (error) {
+			alert("Erreur de sauvegarde");
+		} else {
+			alert("✅ Facture mise à jour");
+			setIsSaved(true);
+	
+			// 🔁 Mettre à jour l'acompte dans la commande liée si serial et client_id sont connus
+			const serial = invoice.lines?.[0]?.serial;
+			const clientname = invoice.clientname;
+	
+			if (serial && clientname) {
+				const { data: clientData, error: clientError } = await supabase
+					.from("clients")
+					.select("id")
+					.eq("name", clientname)
+					.single();
+	
+				if (clientData?.id) {
+					const { error: orderUpdateError } = await supabase
+						.from("orders")
+						.update({ deposit: parseFloat(invoice.acompte || 0) })
+						.eq("client_id", clientData.id)
+						.eq("serial", serial);
+	
+					if (orderUpdateError) {
+						console.warn("⚠️ Erreur mise à jour acompte commande :", orderUpdateError);
+					} else {
+						console.log("🔄 Acompte mis à jour dans orders");
+					}
+				}
+			}
+		}
+	};
+	
     const handlePrint = async () => {
         if (!invoice) return;
 
         const rows = invoice.lines
             .map(
                 (line) => `
-	  <tr>
-		<td style="border: 1px solid #000; padding: 6px;">${line.designation}</td>
-		<td style="border: 1px solid #000; padding: 6px; text-align: center;">${
-            line.quantity
-        }</td>
-		<td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-            parseFloat(line.price) / 1.2
-        ).toFixed(2)} €</td>
-		<td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-            parseFloat(line.price) * parseFloat(line.quantity)
-        ).toFixed(2)} €</td>
-	  </tr>
-	`
+  <tr>
+    <td style="border: 1px solid #000; padding: 6px;">${line.designation}${line.serial ? ` (SN: ${line.serial})` : ""}</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${line.quantity}</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
+                    parseFloat(line.price) / 1.2
+                ).toFixed(2)} €</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
+                    parseFloat(line.price) * parseFloat(line.quantity)
+                ).toFixed(2)} €</td>
+  </tr>
+`
             )
             .join("");
 
@@ -92,73 +116,70 @@ const BillingEditPage = () => {
         const tva = invoice.totaltva || 0;
 
         const html = `
-	  <html>
-		<body style="font-family: Arial, sans-serif; padding: 10px; margin: 0; background: #fff;">
-		  <div style="max-width: 480px; height: 100%; min-height: 720px; margin: auto; display: flex; flex-direction: column; justify-content: space-between;">
-			<div>
-			  <div style="text-align: center; margin-bottom: 10px;">
-				<img src="https://www.avenir-informatique.fr/logo.webp" style="height: 40px;" />
-			  </div>
-			  <h2 style="text-align:center; font-size: 16px; margin: 10px 0;">FACTURE</h2>
-  
-			  <div style="font-size: 9px; margin-bottom: 8px;">
-				<p><strong>Client :</strong> ${invoice.clientname}<br/>
-				<strong>Téléphone :</strong> ${invoice.clientphone}<br/>
-				<strong>Adresse :</strong> ${invoice.client_address || "Non renseignée"}</p>
-			  </div>
-  
-			  <div style="font-size: 9px; margin-bottom: 10px;">
-				<p><strong>Facture N° :</strong> ${invoice.invoicenumber}<br/>
-				<strong>Date :</strong> ${invoice.invoicedate}</p>
-			  </div>
-  
-			  <table width="100%" style="border-collapse: collapse; margin-top: 20px; font-size: 9px;">
-				<thead style="background-color: #d3d3d3;">
-				  <tr>
-					<th style="border: 1px solid #000; padding: 6px;">Désignation</th>
-					<th style="border: 1px solid #000; padding: 6px;">Qté</th>
-					<th style="border: 1px solid #000; padding: 6px;">P.U. HT</th>
-					<th style="border: 1px solid #000; padding: 6px;">Montant TTC</th>
-				  </tr>
-				</thead>
-				<tbody>
-				  ${rows}
-				</tbody>
-			  </table>
-  
-			  <div style="font-size: 9px; margin-top: 15px;">
-				<p style="text-align: right;">TVA (20%) : ${tva.toFixed(2)} €</p>
-				<p style="text-align: right;">Total TTC : ${ttc.toFixed(2)} €</p>
-				<p style="text-align: right;">Acompte versé : ${acompte.toFixed(2)} €</p>
-			  </div>
-  
-			  <div style="background: #e0f7fa; padding: 8px; border-radius: 6px; margin-top: 10px;">
-				<h3 style="text-align: right; margin: 0; font-size: 10px; color: #00796b;">
-				  Net à payer : ${(ttc - acompte).toFixed(2)} €
-				</h3>
-			  </div>
-  
-			  <p style="text-align: right; margin-top: 8px; font-size: 9px;">
-				<strong>Mode de paiement :</strong> ${
-                    invoice.paymentmethod ||
-                    "....................................."
-                }
-			  </p>
-			</div>
-  
-			<div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
-			  <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
-			  <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
-			  <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
-			  <p style="margin-top: 6px;">
-				Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
-				En cas de litige, le tribunal de Bobigny est seul compétent. TVA non applicable, art. 293B du CGI.
-			  </p>
-			</div>
-		  </div>
-		</body>
-	  </html>
-	`;
+  <html>
+    <body style="font-family: Arial, sans-serif; padding: 10px; margin: 0; background: #fff;">
+      <div style="max-width: 480px; height: 100%; min-height: 720px; margin: auto; display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="text-align: center; margin-bottom: 10px;">
+            <img src="https://www.avenir-informatique.fr/logo.webp" style="height: 40px;" />
+          </div>
+          <h2 style="text-align:center; font-size: 16px; margin: 10px 0;">FACTURE</h2>
+
+          <div style="font-size: 9px; margin-bottom: 8px;">
+            <p><strong>Client :</strong> ${invoice.clientname}<br/>
+            <strong>Téléphone :</strong> ${invoice.clientphone}<br/>
+            <strong>Adresse :</strong> ${invoice.client_address || "Non renseignée"}</p>
+          </div>
+
+          <div style="font-size: 9px; margin-bottom: 10px;">
+            <p><strong>Facture N° :</strong> ${invoice.invoicenumber}<br/>
+            <strong>Date :</strong> ${invoice.invoicedate}</p>
+          </div>
+
+          <table width="100%" style="border-collapse: collapse; margin-top: 20px; font-size: 9px;">
+            <thead style="background-color: #d3d3d3;">
+              <tr>
+                <th style="border: 1px solid #000; padding: 6px;">Désignation</th>
+                <th style="border: 1px solid #000; padding: 6px;">Qté</th>
+                <th style="border: 1px solid #000; padding: 6px;">P.U. HT</th>
+                <th style="border: 1px solid #000; padding: 6px;">Montant TTC</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div style="font-size: 9px; margin-top: 15px;">
+            <p style="text-align: right;">TVA (20%) : ${tva.toFixed(2)} €</p>
+            <p style="text-align: right;">Total TTC : ${ttc.toFixed(2)} €</p>
+            <p style="text-align: right;">Acompte versé : ${acompte.toFixed(2)} €</p>
+          </div>
+
+          <div style="background: #e0f7fa; padding: 8px; border-radius: 6px; margin-top: 10px;">
+            <h3 style="text-align: right; margin: 0; font-size: 10px; color: #00796b;">
+              Net à payer : ${(ttc - acompte).toFixed(2)} €
+            </h3>
+          </div>
+
+          <p style="text-align: right; margin-top: 8px; font-size: 9px;">
+            <strong>Mode de paiement :</strong> ${invoice.paymentmethod || "....................................."}
+          </p>
+        </div>
+
+        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+          <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
+          <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
+          <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
+          <p style="margin-top: 6px;">
+            Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
+            En cas de litige, le tribunal de Bobigny est seul compétent. TVA non applicable, art. 293B du CGI.
+          </p>
+        </div>
+      </div>
+    </body>
+  </html>
+`;
 
         await Print.printAsync({ html });
     };
@@ -166,149 +187,168 @@ const BillingEditPage = () => {
     if (!invoice) return <Text style={{ padding: 20 }}>Chargement...</Text>;
 
     return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.title}>Modifier la facture</Text>
+<ScrollView style={styles.container}>
+  <Text style={styles.title}>Modifier la facture</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Nom du client"
-                value={invoice.clientname}
-                onChangeText={(text) => {
-                    setInvoice({ ...invoice, clientname: text });
-                    setIsSaved(false);
-                }}
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Téléphone"
-                value={invoice.clientphone}
-                onChangeText={(text) => {
-                    setInvoice({ ...invoice, clientphone: text });
-                    setIsSaved(false);
-                }}
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Adresse"
-                value={invoice.client_address}
-                onChangeText={(text) => {
-                    setInvoice({ ...invoice, client_address: text });
-                    setIsSaved(false);
-                }}
-            />
+  <View style={{ position: "relative", marginBottom: 20 }}>
+    <Text style={[styles.floatingLabel, invoice.clientname && styles.floatingLabelFocused]}>Nom du client</Text>
+    <TextInput
+      style={styles.input}
+      value={invoice.clientname}
+      onChangeText={(text) => {
+        setInvoice({ ...invoice, clientname: text });
+        setIsSaved(false);
+      }}
+    />
+  </View>
 
-            <Text style={styles.subtitle}>Prestations :</Text>
+  <View style={{ position: "relative", marginBottom: 20 }}>
+    <Text style={[styles.floatingLabel, invoice.clientphone && styles.floatingLabelFocused]}>Téléphone</Text>
+    <TextInput
+      style={styles.input}
+      value={invoice.clientphone}
+      onChangeText={(text) => {
+        setInvoice({ ...invoice, clientphone: text });
+        setIsSaved(false);
+      }}
+    />
+  </View>
 
-            {invoice.lines.map((line, index) => (
-                <View key={index} style={styles.lineRow}>
-                    <TextInput
-                        style={[styles.input, { flex: 2 }]}
-                        placeholder="Désignation"
-                        value={line.designation}
-                        onChangeText={(text) => {
-                            const newLines = [...invoice.lines];
-                            newLines[index].designation = text;
-                            const { totalttc, totalht, totaltva } =
-                                recalculateTotals(newLines);
-                            setInvoice({
-                                ...invoice,
-                                lines: newLines,
-                                totalttc,
-                                totalht,
-                                totaltva,
-                            });
-                            setIsSaved(false); // ✅ ici aussi
-                        }}
-                    />
-                    <TextInput
-                        style={[styles.input, { flex: 1 }]}
-                        placeholder="Qté"
-                        value={line.quantity}
-                        onChangeText={(text) => {
-                            const newLines = [...invoice.lines];
-                            newLines[index].quantity = text;
-                            const { totalttc, totalht, totaltva } =
-                                recalculateTotals(newLines);
-                            setInvoice({
-                                ...invoice,
-                                lines: newLines,
-                                totalttc,
-                                totalht,
-                                totaltva,
-                            });
-                            setIsSaved(false); // ✅ ici aussi
-                        }}
-                        keyboardType="numeric"
-                    />
-                    <TextInput
-                        style={[styles.input, { flex: 1 }]}
-                        placeholder="P.U. TTC"
-                        value={line.price}
-                        onChangeText={(text) => {
-                            const newLines = [...invoice.lines];
-                            newLines[index].price = text;
-                            const { totalttc, totalht, totaltva } =
-                                recalculateTotals(newLines);
-                            setInvoice({
-                                ...invoice,
-                                lines: newLines,
-                                totalttc,
-                                totalht,
-                                totaltva,
-                            });
-                            setIsSaved(false); // ✅ ici aussi
-                        }}
-                        keyboardType="numeric"
-                    />
-                </View>
-            ))}
+  <View style={{ position: "relative", marginBottom: 20 }}>
+    <Text style={[styles.floatingLabel, invoice.client_address && styles.floatingLabelFocused]}>Adresse</Text>
+    <TextInput
+      style={styles.input}
+      value={invoice.client_address}
+      onChangeText={(text) => {
+        setInvoice({ ...invoice, client_address: text });
+        setIsSaved(false);
+      }}
+    />
+  </View>
 
-            <Button
-                title="+ Ajouter une ligne"
-                onPress={() => {
-                    setInvoice({
-                        ...invoice,
-                        lines: [
-                            ...invoice.lines,
-                            { designation: "", quantity: "1", price: "" },
-                        ],
-                    });
-                    setIsSaved(false); // ✅ Ajout d'une ligne = facture modifiée = griser Réimprimer
-                }}
-            />
+  <View style={{ position: "relative", marginBottom: 20 }}>
+    <Text style={[styles.floatingLabel, invoice.acompte && styles.floatingLabelFocused]}>Acompte</Text>
+    <TextInput
+      style={styles.input}
+      keyboardType="numeric"
+      value={invoice.acompte?.toString() || ""}
+      onChangeText={(text) => {
+        setInvoice({ ...invoice, acompte: text });
+        setIsSaved(false);
+      }}
+    />
+  </View>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Mode de paiement"
-                value={invoice.paymentmethod}
-                onChangeText={(text) =>
-                    setInvoice({ ...invoice, paymentmethod: text })
-                }
-            />
+  <View style={{ position: "relative", marginBottom: 20 }}>
+    <Text style={[styles.floatingLabel, invoice.paymentmethod && styles.floatingLabelFocused]}>Mode de paiement</Text>
+    <TextInput
+      style={styles.input}
+      value={invoice.paymentmethod}
+      onChangeText={(text) => {
+        setInvoice({ ...invoice, paymentmethod: text });
+        setIsSaved(false);
+      }}
+    />
+  </View>
 
-            <View style={styles.buttonRow}>
-                <TouchableOpacity
-                    style={[styles.button, { backgroundColor: "#007bff" }]}
-                    onPress={() => {
-                        updateInvoice();
-                        setIsSaved(true);
-                    }}
-                >
-                    <Text style={styles.buttonText}>💾 Sauvegarder</Text>
-                </TouchableOpacity>
+  <Text style={styles.subtitle}>Prestations :</Text>
 
-                <TouchableOpacity
-                    style={[
-                        styles.button,
-                        { backgroundColor: isSaved ? "#03990b" : "#cccccc" },
-                    ]}
-                    disabled={!isSaved}
-                    onPress={handlePrint}
-                >
-                    <Text style={styles.buttonText}>🖨️ Réimprimer</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+  {invoice.lines.map((line, index) => (
+    <View key={index} style={styles.lineRow}>
+      <View style={{ flex: 2, position: "relative" }}>
+        <Text style={[styles.floatingLabel, line.designation && styles.floatingLabelFocused]}>Désignation</Text>
+        <TextInput
+          style={styles.input}
+          value={line.designation}
+          onChangeText={(text) => {
+            const newLines = [...invoice.lines];
+            newLines[index].designation = text;
+            const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
+            setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
+            setIsSaved(false);
+          }}
+        />
+      </View>
+      <View style={{ flex: 1, position: "relative" }}>
+        <Text style={[styles.floatingLabel, line.quantity && styles.floatingLabelFocused]}>Qté</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={line.quantity}
+          onChangeText={(text) => {
+            const newLines = [...invoice.lines];
+            newLines[index].quantity = text;
+            const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
+            setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
+            setIsSaved(false);
+          }}
+        />
+      </View>
+      <View style={{ flex: 1, position: "relative" }}>
+        <Text style={[styles.floatingLabel, line.price && styles.floatingLabelFocused]}>P.U. TTC</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          value={line.price}
+          onChangeText={(text) => {
+            const newLines = [...invoice.lines];
+            newLines[index].price = text;
+            const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
+            setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
+            setIsSaved(false);
+          }}
+        />
+      </View>
+      <View style={{ flex: 2, position: "relative" }}>
+        <Text style={[styles.floatingLabel, line.serial && styles.floatingLabelFocused]}>N° de série</Text>
+        <TextInput
+          style={styles.input}
+          value={line.serial || ""}
+          onChangeText={(text) => {
+            const newLines = [...invoice.lines];
+            newLines[index].serial = text;
+            setInvoice({ ...invoice, lines: newLines });
+            setIsSaved(false);
+          }}
+        />
+      </View>
+    </View>
+  ))}
+
+  <Button
+    title="+ Ajouter une ligne"
+    onPress={() => {
+      setInvoice({
+        ...invoice,
+        lines: [...invoice.lines, { designation: "", quantity: "1", price: "", serial: "" }],
+      });
+      setIsSaved(false);
+    }}
+  />
+
+  <View style={styles.buttonRow}>
+    <TouchableOpacity
+      style={[styles.button, { backgroundColor: "#007bff" }]}
+      onPress={() => {
+        updateInvoice();
+        setIsSaved(true);
+      }}
+    >
+      <Text style={styles.buttonText}>💾 Sauvegarder</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      style={[styles.button, { backgroundColor: isSaved ? "#03990b" : "#cccccc" }]}
+      disabled={!isSaved}
+      onPress={handlePrint}
+    >
+      <Text style={styles.buttonText}>🖨️ Réimprimer</Text>
+    </TouchableOpacity>
+  </View>
+</ScrollView>
+
+
+	  
     );
 };
 
@@ -328,8 +368,8 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 10,
         backgroundColor: "#fff",
-		marginTop: 10,
-		fontSize: 14,
+        marginTop: 10,
+        fontSize: 14,
     },
     lineRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
     buttonGroup: { marginTop: 20, gap: 10 },
@@ -350,6 +390,31 @@ const styles = StyleSheet.create({
         color: "white",
         fontWeight: "bold",
     },
+	label: {
+  fontWeight: "bold",
+  fontSize: 13,
+  marginBottom: 4,
+  marginTop: 10,
+},
+floatingLabel: {
+	position: "absolute",
+	left: 10,
+	top: 12,
+	fontSize: 14,
+	color: "#888",
+	zIndex: 1,
+},
+
+floatingLabelFocused: {
+	top: -10,
+	left: 8,
+	fontSize: 12,
+	color: "#007bff",
+	backgroundColor: "#eef6ff",
+	paddingHorizontal: 5,
+	borderRadius: 4,
+},
+
 });
 
 export default BillingEditPage;

@@ -62,7 +62,11 @@ const BillingPage = () => {
 			},
 		  ]);
 		  setPaymentMethod(expressData.paymentmethod || "");
-		  setAcompte(expressData.acompte || "");
+		  setAcompte(
+			expressData.acompte !== undefined && !isNaN(expressData.acompte)
+			  ? expressData.acompte.toString()
+			  : ""
+		  );
 		  setPaid(expressData.paid || false);
 		}
 	  
@@ -531,30 +535,32 @@ ${paid ? `
                         />
                     </>
                 ) : (
-                    <View>
-                        <Text
-                            style={[
-                                styles.floatingLabel,
-                                styles.floatingLabelFocused,
-                            ]}
-                        >
-                            Acompte versé (€)
-                        </Text>
-                        <Text
-                            style={{
-                                paddingVertical: 14,
-                                paddingHorizontal: 8,
-                                backgroundColor: "#eef6ff",
-                                borderColor: "#007bff",
-                                borderWidth: 1,
-                                borderRadius: 5,
-                                color: "green",
-                                fontWeight: "bold",
-                            }}
-                        >
-                            ✅ Facture réglée en totalité
-                        </Text>
-                    </View>
+					<View style={{ marginBottom: 20 }}>
+    <Text
+        style={[
+            styles.floatingLabel,
+            (focusedField === "acompte" || acompte) &&
+                styles.floatingLabelFocused,
+        ]}
+    >
+        Acompte versé (€)
+    </Text>
+    <TextInput
+        value={acompte}
+        onChangeText={setAcompte}
+        style={[
+            styles.input,
+            (focusedField === "acompte" || acompte) && {
+                paddingTop: 18,
+            },
+            focusedField === "acompte" && styles.inputFocused,
+        ]}
+        keyboardType="numeric"
+        placeholder="0"
+        onFocus={() => setFocusedField("acompte")}
+        onBlur={() => setFocusedField(null)}
+    />
+</View>
                 )}
             </View>
 

@@ -255,94 +255,94 @@ ${paid ? `
 	  };
 	  
 
-	  const handleSave = async () => {
-		console.log("🟡 Tentative de sauvegarde de la facture...");
-	
-		// Vérifications
-		if (!clientname.trim()) {
-			alert("❌ Le nom du client est requis.");
-			return;
-		}
-		if (!clientphone.trim()) {
-			alert("❌ Le téléphone du client est requis.");
-			return;
-		}
-		if (!paymentmethod.trim()) {
-			alert("❌ Le mode de paiement est requis.");
-			return;
-		}
-		if (
-			lines.length === 0 ||
-			lines.some(
-				(line) =>
-					!line.designation.trim() ||
-					!line.quantity.trim() ||
-					!line.price.trim()
-			)
-		) {
-			alert("❌ Remplissez correctement toutes les lignes de prestation.");
-			return;
-		}
-	
-		try {
-			// Vérifie si une facture existe déjà avec le même numéro
-			const { data: existing, error: fetchError } = await supabase
-				.from("billing")
-				.select("id")
-				.eq("invoicenumber", invoicenumber)
-				.maybeSingle();
-	
-			if (fetchError) {
-				console.error("❌ Erreur vérification invoice :", fetchError);
-				alert("❌ Erreur lors de la vérification de la facture.");
-				return;
-			}
-	
-			const factureData = {
-				clientname,
-				clientphone,
-				client_address,
-				invoicenumber,
-				invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
-				paymentmethod,
-				acompte: acompte === "" ? 0 : parseFloat(acompte),
-				lines,
-				totalht: isNaN(totalht) ? 0 : totalht,
-				totaltva: isNaN(totaltva) ? 0 : totaltva,
-				totalttc: isNaN(totalttc) ? 0 : totalttc,
-				created_at: new Date(),
-				paid,
-				order_id: order_id,
-			};
-	
-			let saveError;
-	
-			if (existing) {
-				const { error } = await supabase
-					.from("billing")
-					.update(factureData)
-					.eq("id", existing.id);
-				saveError = error;
-			} else {
-				const { error } = await supabase
-					.from("billing")
-					.insert([factureData]);
-				saveError = error;
-			}
-	
-			if (saveError) {
-				console.error("❌ Erreur sauvegarde :", saveError);
-				alert("❌ Erreur lors de la sauvegarde de la facture.");
-			} else {
-				alert("✅ Facture enregistrée avec succès.");
-				setIsSaved(true);
-			}
-		} catch (error) {
-			console.error("❌ Erreur inattendue :", error);
-			alert("❌ Erreur inattendue lors de la sauvegarde.");
-		}
-	};
-	
+	 const handleSave = async () => {
+    console.log("🟡 Tentative de sauvegarde de la facture...");
+
+    // Vérifications
+    if (!clientname.trim()) {
+        alert("❌ Le nom du client est requis.");
+        return;
+    }
+    if (!clientphone.trim()) {
+        alert("❌ Le téléphone du client est requis.");
+        return;
+    }
+    if (!paymentmethod.trim()) {
+        alert("❌ Le mode de paiement est requis.");
+        return;
+    }
+    if (
+        lines.length === 0 ||
+        lines.some(
+            (line) =>
+                !line.designation.trim() ||
+                !line.quantity.trim() ||
+                !line.price.trim()
+        )
+    ) {
+        alert("❌ Remplissez correctement toutes les lignes de prestation.");
+        return;
+    }
+
+    try {
+        // Vérifie si une facture existe déjà avec le même numéro
+        const { data: existing, error: fetchError } = await supabase
+            .from("billing")
+            .select("id")
+            .eq("invoicenumber", invoicenumber)
+            .maybeSingle();
+
+        if (fetchError) {
+            console.error("❌ Erreur vérification invoice :", fetchError);
+            alert("❌ Erreur lors de la vérification de la facture.");
+            return;
+        }
+
+        const factureData = {
+            clientname,
+            clientphone,
+            client_address,
+            invoicenumber,
+            invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
+            paymentmethod,
+            acompte: acompte === "" ? 0 : parseFloat(acompte),
+            lines,
+            totalht: isNaN(totalht) ? 0 : totalht,
+            totaltva: isNaN(totaltva) ? 0 : totaltva,
+            totalttc: isNaN(totalttc) ? 0 : totalttc,
+            created_at: new Date(),
+            paid,
+            order_id: order_id || null,
+        };
+
+        let saveError;
+
+        if (existing) {
+            const { error } = await supabase
+                .from("billing")
+                .update(factureData)
+                .eq("id", existing.id);
+            saveError = error;
+        } else {
+            const { error } = await supabase
+                .from("billing")
+                .insert([factureData]);
+            saveError = error;
+        }
+
+        if (saveError) {
+            console.error("❌ Erreur sauvegarde :", saveError);
+            alert("❌ Erreur lors de la sauvegarde de la facture.");
+        } else {
+            alert("✅ Facture enregistrée avec succès.");
+            setIsSaved(true);
+        }
+    } catch (error) {
+        console.error("❌ Erreur inattendue :", error);
+        alert("❌ Erreur inattendue lors de la sauvegarde.");
+    }
+};
+
 
     const removeLine = (indexToRemove) => {
         const newLines = lines.filter((_, index) => index !== indexToRemove);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -7,11 +7,12 @@ import {
     TextInput,
     Alert,
     StyleSheet,
+	Image,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import EyeIcon from "../assets/icons/eye.png";
 import EyeSlashIcon from "../assets/icons/eye-slash.png";
-import { Image } from "react-native";
 export default function OrdersPage({ route, navigation, order }) {
     const { clientId, clientName, clientPhone, clientNumber } =
         route.params || {};
@@ -29,7 +30,11 @@ export default function OrdersPage({ route, navigation, order }) {
         paid: false,
         client_id: clientId,
     });
-
+	useFocusEffect(
+		useCallback(() => {
+		  loadOrders(); // ta fonction qui recharge les commandes
+		}, [])
+	  );
     useEffect(() => {
         loadOrders();
     }, [clientId]);
@@ -49,6 +54,7 @@ export default function OrdersPage({ route, navigation, order }) {
                 (data || []).map((order) => ({
                     ...order,
                     originalSerial: order.serial || "",
+					billing: order.billing || null,
                 }))
             );
         } catch (error) {
@@ -387,6 +393,7 @@ export default function OrdersPage({ route, navigation, order }) {
                 data={orders}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
+					console.log("📦 billing pour", item.id, "=>", item.billing);
                     const isExpanded = expandedOrders.includes(item.id);
 
                     return (
@@ -781,41 +788,38 @@ export default function OrdersPage({ route, navigation, order }) {
                                             </Text>
                                         </TouchableOpacity>
 
-										{item.billing && item.billing.length > 0 ? (
-  <TouchableOpacity
-    style={[styles.squareButton, { backgroundColor: "#ccc" }]}
-    disabled={true}
-  >
-    <Text style={[styles.squareButtonText, { color: "#666" }]}>
-      🧾 Facture créée
-    </Text>
-  </TouchableOpacity>
+
+										{(item.billing?.length ?? 0) === 0 ? (
+    <TouchableOpacity
+        style={styles.squareButton}
+        onPress={() =>
+            navigation.navigate("BillingPage", {
+                expressData: {
+                    order_id: item.id,
+                    clientname: clientName,
+                    clientphone: clientPhone,
+                    product: item.product,
+                    brand: item.brand,
+                    model: item.model,
+                    price: item.price?.toString(),
+                    quantity: "1",
+                    description: `${item.product} ${item.brand} ${item.model}`,
+                    acompte: item.deposit?.toString() || "0",
+                    paymentmethod: item.paymentmethod || "",
+                    serial: item.serial || "",
+                    paid: item.paid || false,
+                },
+            })
+        }
+    >
+        <Text style={styles.squareButtonText}>🧾 Créer Facture</Text>
+    </TouchableOpacity>
 ) : (
-  <TouchableOpacity
-    style={styles.squareButton}
-    onPress={() =>
-      navigation.navigate("BillingPage", {
-        expressData: {
-          clientname: clientName,
-          clientphone: clientPhone,
-          product: item.product,
-          brand: item.brand,
-          model: item.model,
-          price: item.price?.toString(),
-          quantity: "1",
-          description: `${item.product} ${item.brand} ${item.model}`,
-          acompte: item.deposit?.toString() || "0",
-          paymentmethod: item.paymentmethod || "",
-          serial: item.serial || "",
-          paid: item.paid || false,
-        },
-        order_id: item.id,
-      })
-    }
-  >
-    <Text style={styles.squareButtonText}>🧾 Créer Facture</Text>
-  </TouchableOpacity>
+    <View style={styles.squareButtonDisabled}>
+        <Text style={styles.squareButtonText}>✅ Facture créée</Text>
+    </View>
 )}
+
 
 
                                         <TouchableOpacity
@@ -1041,6 +1045,18 @@ const styles = StyleSheet.create({
   color: "#fff",
   fontWeight: "bold",
   textAlign: "center",
-}
+},
+squareButtonDisabled: {
+	width: "30%", // pour avoir 3 par ligne
+	aspectRatio: 2, // carré
+	backgroundColor: "#636262",
+	borderWidth: 1,
+	borderColor: "#888787",
+	borderRadius: 4,
+	marginVertical: 8,
+	alignItems: "center",
+	justifyContent: "center",
+},
+
 
 });

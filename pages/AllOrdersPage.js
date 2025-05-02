@@ -20,7 +20,7 @@ export default function AllOrdersPage({ navigation }) {
     const [editedOrder, setEditedOrder] = useState({});
     const [filterStatus, setFilterStatus] = useState("all"); // "all", "pending", "completed"
     const [suggestions, setSuggestions] = useState([]);
-	const [focusedField, setFocusedField] = useState(null);
+    const [focusedField, setFocusedField] = useState(null);
     const getStatusIcon = (order) => {
         if (order.recovered && order.paid) return "🟢";
         if (order.received || order.paid) return "🟡";
@@ -53,7 +53,7 @@ export default function AllOrdersPage({ navigation }) {
     const fetchOrders = async () => {
         const { data, error } = await supabase
             .from("orders")
-            .select("*, clients(name, ficheNumber)")
+            .select("*, clients(name, ficheNumber), billing(id)")
             .order("createdat", { ascending: false });
 
         if (error) {
@@ -174,51 +174,95 @@ export default function AllOrdersPage({ navigation }) {
         (currentPage - 1) * ITEMS_PER_PAGE,
         currentPage * ITEMS_PER_PAGE
     );
+    const handleDeleteOrder = async (orderId) => {
+        // Vérifier si une facture existe pour cette commande
+        const { data: billings, error: billingError } = await supabase
+            .from("billing")
+            .select("id")
+            .eq("order_id", orderId);
+
+        if (billingError) {
+            console.error("Erreur vérification facture :", billingError);
+            Alert.alert(
+                "Erreur",
+                "Impossible de vérifier la présence d'une facture."
+            );
+            return;
+        }
+
+        if (billings && billings.length > 0) {
+            Alert.alert(
+                "❌ Suppression interdite",
+                "Une facture est liée à cette commande."
+            );
+            return;
+        }
+
+        // Si aucune facture, on peut supprimer
+		Alert.alert(
+			"Confirmation de suppression",
+			"Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.",
+			[
+			  { text: "Annuler", style: "cancel" },
+			  {
+				text: "Supprimer",
+				style: "destructive",
+				onPress: async () => {
+				  // suppression
+				},
+			  },
+			]
+		  );
+		  
+    };
 
     return (
         <View style={styles.container}>
             <Text style={styles.header}>📦 Toutes les commandes</Text>
 
-			<View style={{ marginBottom: 20 }}>
-  <Text
-    style={[
-      styles.floatingLabel,
-      (focusedField === "search" || search) && styles.floatingLabelFocused,
-    ]}
-  >
-    Recherche client
-  </Text>
-  <TextInput
-    value={search}
-    onChangeText={handleSearchChange}
-    style={[
-      styles.input,
-      (focusedField === "search" || search) && { paddingTop: 18 },
-      focusedField === "search" && styles.inputFocused,
-    ]}
-    onFocus={() => setFocusedField("search")}
-    onBlur={() => setFocusedField(null)}
-  />
-  {suggestions.length > 0 && (
-    <View style={styles.suggestionContainer}>
-      {suggestions.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          onPress={() => {
-            setSearch(item.clients.name);
-            setSuggestions([]);
-          }}
-          style={styles.suggestionItem}
-        >
-          <Text style={styles.suggestionText}>
-            {item.clients.name} - {item.clients.ficheNumber}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  )}
-</View>
-
+            <View style={{ marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        (focusedField === "search" || search) &&
+                            styles.floatingLabelFocused,
+                    ]}
+                >
+                    Recherche client
+                </Text>
+                <TextInput
+                    value={search}
+                    onChangeText={handleSearchChange}
+                    style={[
+                        styles.input,
+                        (focusedField === "search" || search) && {
+                            paddingTop: 18,
+                        },
+                        focusedField === "search" && styles.inputFocused,
+                    ]}
+                    onFocus={() => setFocusedField("search")}
+                    onBlur={() => setFocusedField(null)}
+                />
+                {suggestions.length > 0 && (
+                    <View style={styles.suggestionContainer}>
+                        {suggestions.map((item) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                onPress={() => {
+                                    setSearch(item.clients.name);
+                                    setSuggestions([]);
+                                }}
+                                style={styles.suggestionItem}
+                            >
+                                <Text style={styles.suggestionText}>
+                                    {item.clients.name} -{" "}
+                                    {item.clients.ficheNumber}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
 
             <View
                 style={{
@@ -342,6 +386,19 @@ export default function AllOrdersPage({ navigation }) {
                                             ❌ Annuler
                                         </Text>
                                     </TouchableOpacity>
+                                    {(!item.billing ||
+                                        item.billing.length === 0) && (
+                                        <TouchableOpacity
+                                            style={styles.deleteButton}
+                                            onPress={() =>
+                                                handleDeleteOrder(item.id)
+                                            }
+                                        >
+                                            <Text style={styles.buttonText}>
+                                                🗑️ Supprimer
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                             </>
                         ) : (
@@ -530,25 +587,24 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     saveButton: {
-        backgroundColor: "#28a745",
-        padding: 10,
-        borderRadius: 8,
         flex: 1,
-        marginRight: 5,
+        backgroundColor: "#28a745", // vert
+        paddingVertical: 10,
+        borderRadius: 6,
         alignItems: "center",
     },
     cancelButton: {
-        backgroundColor: "#dc3545",
-        padding: 10,
-        borderRadius: 8,
         flex: 1,
-        marginLeft: 5,
+        backgroundColor: "#ffc107", // jaune
+        paddingVertical: 10,
+        borderRadius: 6,
         alignItems: "center",
     },
     editButtons: {
         flexDirection: "row",
         justifyContent: "space-between",
         marginTop: 10,
+        gap: 8,
     },
     pagination: {
         flexDirection: "row",
@@ -602,21 +658,21 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         padding: 10,
     },
-	suggestionContainer: {
-  backgroundColor: "#fff",
-  borderColor: "#ccc",
-  borderWidth: 1,
-  borderTopWidth: 0,
-  maxHeight: 120,
-},
-suggestionItem: {
-  padding: 8,
-  borderBottomWidth: 1,
-  borderBottomColor: "#eee",
-},
-suggestionText: {
-  fontSize: 14,
-},
+    suggestionContainer: {
+        backgroundColor: "#fff",
+        borderColor: "#ccc",
+        borderWidth: 1,
+        borderTopWidth: 0,
+        maxHeight: 120,
+    },
+    suggestionItem: {
+        padding: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: "#eee",
+    },
+    suggestionText: {
+        fontSize: 14,
+    },
 
     suggestionsBox: {
         backgroundColor: "#fff",
@@ -635,21 +691,28 @@ suggestionText: {
         borderBottomWidth: 1,
         borderBottomColor: "#eee",
     },
-	floatingLabel: {
-  position: "absolute",
-  top: 10,
-  left: 10,
-  fontSize: 14,
-  color: "#888",
-  zIndex: 1,
-},
-floatingLabelFocused: {
-  top: -10,
-  fontSize: 12,
-  color: "#296494",
-},
-inputFocused: {
-  borderColor: "#296494",
-  backgroundColor: "#eef6ff",
-},
+    floatingLabel: {
+        position: "absolute",
+        top: 10,
+        left: 10,
+        fontSize: 14,
+        color: "#888",
+        zIndex: 1,
+    },
+    floatingLabelFocused: {
+        top: -10,
+        fontSize: 12,
+        color: "#296494",
+    },
+    inputFocused: {
+        borderColor: "#296494",
+        backgroundColor: "#eef6ff",
+    },
+    deleteButton: {
+        flex: 1,
+        backgroundColor: "#dc3545", // rouge
+        paddingVertical: 10,
+        borderRadius: 6,
+        alignItems: "center",
+    },
 });

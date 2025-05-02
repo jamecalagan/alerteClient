@@ -18,10 +18,37 @@ export default function AllOrdersPage({ navigation }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [editedOrder, setEditedOrder] = useState({});
-
+    const [filterStatus, setFilterStatus] = useState("all"); // "all", "pending", "completed"
+    const [suggestions, setSuggestions] = useState([]);
+	const [focusedField, setFocusedField] = useState(null);
+    const getStatusIcon = (order) => {
+        if (order.recovered && order.paid) return "🟢";
+        if (order.received || order.paid) return "🟡";
+        return "🔴";
+    };
+    const getStatusText = (order) => {
+        if (order.recovered && order.paid) return "Terminée";
+        if (order.received || order.paid) return "En cours";
+        return "En attente";
+    };
     useEffect(() => {
         fetchOrders();
     }, []);
+    const handleSearchChange = (text) => {
+        setSearch(text);
+
+        const lower = text.toLowerCase();
+        const matches = orders.filter(
+            (order) =>
+                order.product?.toLowerCase().includes(lower) ||
+                order.brand?.toLowerCase().includes(lower) ||
+                order.model?.toLowerCase().includes(lower) ||
+                order.clients?.name?.toLowerCase().includes(lower) ||
+                order.clients?.ficheNumber?.toString().includes(lower)
+        );
+
+        setSuggestions(text.length > 0 ? matches.slice(0, 5) : []);
+    };
 
     const fetchOrders = async () => {
         const { data, error } = await supabase
@@ -33,73 +60,89 @@ export default function AllOrdersPage({ navigation }) {
             console.error("Erreur chargement commandes :", error);
             return;
         }
-        setOrders(data || []);
+        const sorted = (data || []).sort((a, b) => {
+            const priority = (order) => {
+                const received = !!order.received;
+                const paid = !!order.paid;
+                const recovered = !!order.recovered;
+
+                if (!received && !paid && !recovered) return 0; // 🔴 En attente
+                if ((received || paid) && !recovered) return 1; // 🟡 En cours
+                if (recovered) return 2; // 🟢 Terminée
+                return 3;
+            };
+
+            return priority(a) - priority(b);
+        });
+
+        setOrders(sorted);
     };
 
-	const handleEditOrder = (item) => {
-		setEditingOrderId(item.id);
-		setEditedOrder({
-			product: item.product,
-			brand: item.brand,
-			model: item.model,
-			price: item.price?.toString() || "",
-			deposit: item.deposit?.toString() || "",
-		});
-	};
+    const handleEditOrder = (item) => {
+        setEditingOrderId(item.id);
+        setEditedOrder({
+            product: item.product,
+            brand: item.brand,
+            model: item.model,
+            price: item.price?.toString() || "",
+            deposit: item.deposit?.toString() || "",
+        });
+    };
 
-	const handleSaveEditedOrder = async (orderId) => {
-		try {
-			const { error: orderError } = await supabase
-				.from("orders")
-				.update({
-					product: editedOrder.product,
-					brand: editedOrder.brand,
-					model: editedOrder.model,
-					price: parseFloat(editedOrder.price),
-					deposit: parseFloat(editedOrder.deposit),
-				})
-				.eq("id", orderId);
-	
-			if (orderError) {
-				console.error("❌ Erreur mise à jour commande:", orderError);
-				alert("Erreur lors de la mise à jour de la commande.");
-				return;
-			}
-	
-			// Mise à jour de la facture liée (si elle existe)
-			const { data: facture, error: factureFetchError } = await supabase
-				.from("billing")
-				.select("id")
-				.eq("order_id", orderId)
-				.single();
-	
-			if (facture) {
-				const { error: factureUpdateError } = await supabase
-					.from("billing")
-					.update({
-						totalttc: parseFloat(editedOrder.price),
-						acompte: parseFloat(editedOrder.deposit),
-					})
-					.eq("id", facture.id);
-	
-				if (factureUpdateError) {
-					console.error("⚠️ Erreur mise à jour facture :", factureUpdateError);
-				} else {
-					console.log("✅ Facture mise à jour avec succès");
-				}
-			}
-	
-			alert("✅ Commande mise à jour avec succès");
-			setEditingOrderId(null);
-			setEditedOrder({});
-			fetchOrders(); // Recharge la liste
-		} catch (err) {
-			console.error("❌ Erreur générale :", err);
-			alert("Erreur inattendue.");
-		}
-	};
-	
-	  
+    const handleSaveEditedOrder = async (orderId) => {
+        try {
+            const { error: orderError } = await supabase
+                .from("orders")
+                .update({
+                    product: editedOrder.product,
+                    brand: editedOrder.brand,
+                    model: editedOrder.model,
+                    price: parseFloat(editedOrder.price),
+                    deposit: parseFloat(editedOrder.deposit),
+                })
+                .eq("id", orderId);
+
+            if (orderError) {
+                console.error("❌ Erreur mise à jour commande:", orderError);
+                alert("Erreur lors de la mise à jour de la commande.");
+                return;
+            }
+
+            // Mise à jour de la facture liée (si elle existe)
+            const { data: facture, error: factureFetchError } = await supabase
+                .from("billing")
+                .select("id")
+                .eq("order_id", orderId)
+                .single();
+
+            if (facture) {
+                const { error: factureUpdateError } = await supabase
+                    .from("billing")
+                    .update({
+                        totalttc: parseFloat(editedOrder.price),
+                        acompte: parseFloat(editedOrder.deposit),
+                    })
+                    .eq("id", facture.id);
+
+                if (factureUpdateError) {
+                    console.error(
+                        "⚠️ Erreur mise à jour facture :",
+                        factureUpdateError
+                    );
+                } else {
+                    console.log("✅ Facture mise à jour avec succès");
+                }
+            }
+
+            alert("✅ Commande mise à jour avec succès");
+            setEditingOrderId(null);
+            setEditedOrder({});
+            fetchOrders(); // Recharge la liste
+        } catch (err) {
+            console.error("❌ Erreur générale :", err);
+            alert("Erreur inattendue.");
+        }
+    };
 
     const handleCancelEdit = () => {
         setEditingOrderId(null);
@@ -108,13 +151,22 @@ export default function AllOrdersPage({ navigation }) {
 
     const filteredOrders = orders.filter((order) => {
         const searchLower = search.toLowerCase();
-        return (
+        const matchesSearch =
             order.product.toLowerCase().includes(searchLower) ||
             order.brand.toLowerCase().includes(searchLower) ||
             order.model.toLowerCase().includes(searchLower) ||
             order.clients.name.toLowerCase().includes(searchLower) ||
-            order.clients.ficheNumber.toString().includes(searchLower)
-        );
+            order.clients.ficheNumber.toString().includes(searchLower);
+
+        const isPending = !order.received && !order.paid && !order.recovered;
+        const isInProgress = order.received && !order.recovered;
+        const isCompleted = order.recovered;
+
+        if (filterStatus === "pending" && !isPending) return false;
+        if (filterStatus === "inprogress" && !isInProgress) return false;
+        if (filterStatus === "completed" && !isCompleted) return false;
+
+        return matchesSearch;
     });
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
@@ -127,22 +179,103 @@ export default function AllOrdersPage({ navigation }) {
         <View style={styles.container}>
             <Text style={styles.header}>📦 Toutes les commandes</Text>
 
-            <TextInput
-                style={styles.searchInput}
-                placeholder="🔍 Rechercher commande ou client..."
-                placeholderTextColor="#aaa"
-                value={search}
-                onChangeText={(text) => {
-                    setSearch(text);
-                    setCurrentPage(1);
+			<View style={{ marginBottom: 20 }}>
+  <Text
+    style={[
+      styles.floatingLabel,
+      (focusedField === "search" || search) && styles.floatingLabelFocused,
+    ]}
+  >
+    Recherche client
+  </Text>
+  <TextInput
+    value={search}
+    onChangeText={handleSearchChange}
+    style={[
+      styles.input,
+      (focusedField === "search" || search) && { paddingTop: 18 },
+      focusedField === "search" && styles.inputFocused,
+    ]}
+    onFocus={() => setFocusedField("search")}
+    onBlur={() => setFocusedField(null)}
+  />
+  {suggestions.length > 0 && (
+    <View style={styles.suggestionContainer}>
+      {suggestions.map((item) => (
+        <TouchableOpacity
+          key={item.id}
+          onPress={() => {
+            setSearch(item.clients.name);
+            setSuggestions([]);
+          }}
+          style={styles.suggestionItem}
+        >
+          <Text style={styles.suggestionText}>
+            {item.clients.name} - {item.clients.ficheNumber}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  )}
+</View>
+
+
+            <View
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "space-around",
+                    marginBottom: 10,
                 }}
-            />
+            >
+                <TouchableOpacity
+                    style={[
+                        styles.filterButton,
+                        filterStatus === "all" && styles.filterActive,
+                    ]}
+                    onPress={() => setFilterStatus("all")}
+                >
+                    <Text style={styles.filterText}>Toutes</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.filterButton,
+                        filterStatus === "pending" && styles.filterActive,
+                    ]}
+                    onPress={() => setFilterStatus("pending")}
+                >
+                    <Text style={styles.filterText}>🔴 En attente</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.filterButton,
+                        filterStatus === "inprogress" && styles.filterActive,
+                    ]}
+                    onPress={() => setFilterStatus("inprogress")}
+                >
+                    <Text style={styles.filterText}>🟡 En cours</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.filterButton,
+                        filterStatus === "completed" && styles.filterActive,
+                    ]}
+                    onPress={() => setFilterStatus("completed")}
+                >
+                    <Text style={styles.filterText}>✅ Terminées</Text>
+                </TouchableOpacity>
+            </View>
 
             <FlatList
                 data={displayedOrders}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <View style={styles.card}>
+                        <Text style={{ fontSize: 22, marginBottom: 10 }}>
+                            {getStatusIcon(item)} {getStatusText(item)}
+                        </Text>
+
                         <Text style={styles.client}>
                             👤 {item.clients.name} (#{item.clients.ficheNumber})
                         </Text>
@@ -340,6 +473,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         backgroundColor: "#fff",
+        height: 40,
         padding: 12,
         borderRadius: 8,
         color: "#333",
@@ -449,4 +583,73 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         textAlign: "center",
     },
+    filterButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: "#ccc",
+        borderRadius: 6,
+    },
+    filterActive: {
+        backgroundColor: "#296494",
+    },
+    filterText: {
+        color: "#fff",
+        fontWeight: "bold",
+    },
+    searchInputFocused: {
+        borderColor: "#296494",
+        height: 52,
+        borderWidth: 2,
+        padding: 10,
+    },
+	suggestionContainer: {
+  backgroundColor: "#fff",
+  borderColor: "#ccc",
+  borderWidth: 1,
+  borderTopWidth: 0,
+  maxHeight: 120,
+},
+suggestionItem: {
+  padding: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: "#eee",
+},
+suggestionText: {
+  fontSize: 14,
+},
+
+    suggestionsBox: {
+        backgroundColor: "#fff",
+        borderColor: "#ccc",
+        borderWidth: 1,
+        borderRadius: 8,
+        marginBottom: 10,
+        paddingVertical: 4,
+        paddingHorizontal: 6,
+        zIndex: 10,
+    },
+
+    suggestionText: {
+        paddingVertical: 6,
+        fontSize: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "#eee",
+    },
+	floatingLabel: {
+  position: "absolute",
+  top: 10,
+  left: 10,
+  fontSize: 14,
+  color: "#888",
+  zIndex: 1,
+},
+floatingLabelFocused: {
+  top: -10,
+  fontSize: 12,
+  color: "#296494",
+},
+inputFocused: {
+  borderColor: "#296494",
+  backgroundColor: "#eef6ff",
+},
 });

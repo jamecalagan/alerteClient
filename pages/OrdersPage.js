@@ -7,7 +7,7 @@ import {
     TextInput,
     Alert,
     StyleSheet,
-	Image,
+    Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -30,11 +30,11 @@ export default function OrdersPage({ route, navigation, order }) {
         paid: false,
         client_id: clientId,
     });
-	useFocusEffect(
-		useCallback(() => {
-		  loadOrders(); // ta fonction qui recharge les commandes
-		}, [])
-	  );
+    useFocusEffect(
+        useCallback(() => {
+            loadOrders(); // ta fonction qui recharge les commandes
+        }, [])
+    );
     useEffect(() => {
         loadOrders();
     }, [clientId]);
@@ -54,7 +54,7 @@ export default function OrdersPage({ route, navigation, order }) {
                 (data || []).map((order) => ({
                     ...order,
                     originalSerial: order.serial || "",
-					billing: order.billing || null,
+                    billing: order.billing || null,
                 }))
             );
         } catch (error) {
@@ -393,7 +393,7 @@ export default function OrdersPage({ route, navigation, order }) {
                 data={orders}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
-					console.log("📦 billing pour", item.id, "=>", item.billing);
+                    console.log("📦 billing pour", item.id, "=>", item.billing);
                     const isExpanded = expandedOrders.includes(item.id);
 
                     return (
@@ -585,123 +585,129 @@ export default function OrdersPage({ route, navigation, order }) {
                                                 : "❌ Non payé"}
                                         </Text>
                                     </Text>
-                                    <View
-                                        style={{
-                                            flexDirection: "row",
-                                            alignItems: "center",
-                                            marginTop: 10,
-                                            backgroundColor:
-                                                item.serial ===
-                                                    item.originalSerial &&
-                                                item.serial !== ""
-                                                    ? "#e6ffe6"
-                                                    : "#fff",
-                                            padding: 8,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: "#888",
-                                        }}
-                                    >
-                                        <TextInput
-                                            placeholder="Numéro de série"
-                                            value={item.serial || ""}
-                                            onChangeText={(text) => {
-                                                setOrders((prev) =>
-                                                    prev.map((o) =>
-                                                        o.id === item.id
-                                                            ? {
-                                                                  ...o,
-                                                                  serial: text,
-                                                              }
-                                                            : o
-                                                    )
-                                                );
-                                            }}
-                                            editable={
-                                                !item.originalSerial ||
-                                                item.serial !==
-                                                    item.originalSerial
-                                            }
+                                    {item.received && (
+                                        <View
                                             style={{
-                                                flex: 1,
-                                                fontSize: 16,
-                                                color: "#000",
-                                                padding: 6,
-                                            }}
-                                        />
-
-                                        <TouchableOpacity
-                                            disabled={
-                                                item.serial ===
-                                                item.originalSerial
-                                            }
-                                            onPress={async () => {
-                                                try {
-                                                    const { error } =
-                                                        await supabase
-                                                            .from("orders")
-                                                            .update({
-                                                                serial: item.serial,
-                                                            })
-                                                            .eq("id", item.id);
-
-                                                    if (error) throw error;
-
-                                                    Alert.alert(
-                                                        "✅ Numéro de série sauvegardé"
-                                                    );
-                                                    loadOrders();
-                                                } catch (e) {
-                                                    console.error(
-                                                        "❌ Erreur sauvegarde numéro de série :",
-                                                        e
-                                                    );
-                                                    Alert.alert(
-                                                        "Erreur",
-                                                        "Impossible de sauvegarder le numéro."
-                                                    );
-                                                }
-                                            }}
-                                            style={{
+                                                flexDirection: "row",
+                                                alignItems: "center",
+                                                marginTop: 10,
                                                 backgroundColor:
                                                     item.serial ===
-                                                    item.originalSerial
-                                                        ? "#ccc"
-                                                        : "#4da6ff",
-                                                paddingVertical: 8,
-                                                paddingHorizontal: 12,
-                                                borderRadius: 6,
-                                                marginLeft: 8,
+                                                        item.originalSerial &&
+                                                    item.serial !== ""
+                                                        ? "#e6ffe6"
+                                                        : "#fff",
+                                                padding: 8,
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: "#888",
                                             }}
                                         >
-                                            <Text
+                                            <TextInput
+                                                placeholder="Numéro de série"
+                                                value={item.serial || ""}
+                                                onChangeText={(text) => {
+                                                    setOrders((prev) =>
+                                                        prev.map((o) =>
+                                                            o.id === item.id
+                                                                ? {
+                                                                      ...o,
+                                                                      serial: text,
+                                                                  }
+                                                                : o
+                                                        )
+                                                    );
+                                                }}
+                                                editable={
+                                                    !item.originalSerial ||
+                                                    item.serial !==
+                                                        item.originalSerial
+                                                }
                                                 style={{
-                                                    color:
+                                                    flex: 1,
+                                                    fontSize: 16,
+                                                    color: "#000",
+                                                    padding: 6,
+                                                }}
+                                            />
+
+                                            <TouchableOpacity
+                                                disabled={
+                                                    item.serial ===
+                                                    item.originalSerial
+                                                }
+                                                onPress={async () => {
+                                                    try {
+                                                        const { error } =
+                                                            await supabase
+                                                                .from("orders")
+                                                                .update({
+                                                                    serial: item.serial,
+                                                                })
+                                                                .eq(
+                                                                    "id",
+                                                                    item.id
+                                                                );
+
+                                                        if (error) throw error;
+
+                                                        Alert.alert(
+                                                            "✅ Numéro de série sauvegardé"
+                                                        );
+                                                        loadOrders();
+                                                    } catch (e) {
+                                                        console.error(
+                                                            "❌ Erreur sauvegarde numéro de série :",
+                                                            e
+                                                        );
+                                                        Alert.alert(
+                                                            "Erreur",
+                                                            "Impossible de sauvegarder le numéro."
+                                                        );
+                                                    }
+                                                }}
+                                                style={{
+                                                    backgroundColor:
                                                         item.serial ===
                                                         item.originalSerial
-                                                            ? "#666"
-                                                            : "#fff",
-                                                    fontWeight: "bold",
-                                                    fontSize: 14,
+                                                            ? "#ccc"
+                                                            : "#4da6ff",
+                                                    paddingVertical: 8,
+                                                    paddingHorizontal: 12,
+                                                    borderRadius: 6,
+                                                    marginLeft: 8,
                                                 }}
                                             >
-                                                Valider
-                                            </Text>
-                                        </TouchableOpacity>
-
-                                        {item.serial === item.originalSerial &&
-                                            item.serial !== "" && (
                                                 <Text
                                                     style={{
-                                                        fontSize: 20,
-                                                        marginLeft: 8,
-                                                        color: "green",
+                                                        color:
+                                                            item.serial ===
+                                                            item.originalSerial
+                                                                ? "#666"
+                                                                : "#fff",
+                                                        fontWeight: "bold",
+                                                        fontSize: 14,
                                                     }}
                                                 >
-                                                    ✅
+                                                    Valider
                                                 </Text>
-                                            )}
-                                    </View>
+                                            </TouchableOpacity>
+
+                                            {item.serial ===
+                                                item.originalSerial &&
+                                                item.serial !== "" && (
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 20,
+                                                            marginLeft: 8,
+                                                            color: "green",
+                                                        }}
+                                                    >
+                                                        ✅
+                                                    </Text>
+                                                )}
+                                        </View>
+                                    )}
 
                                     {/* ✅ Boutons Imprimer + Marquer récupérée alignés */}
                                     <View
@@ -751,76 +757,147 @@ export default function OrdersPage({ route, navigation, order }) {
                                         </TouchableOpacity>
                                         {/* Ligne 2 */}
                                         <TouchableOpacity
-                                            style={[styles.squareButton]}
+                                            style={[
+                                                styles.squareButton,
+                                                item.ordered && {
+                                                    backgroundColor: "#ccc",
+                                                },
+                                            ]}
                                             onPress={() =>
+                                                !item.ordered &&
                                                 handleMarkAsOrdered(item)
                                             }
+                                            disabled={item.ordered}
                                         >
                                             <Text
-                                                style={styles.squareButtonText}
+                                                style={[
+                                                    styles.squareButtonText,
+                                                    item.ordered && {
+                                                        color: "#666",
+                                                    },
+                                                ]}
                                             >
-                                                🚚 Commande passée
+                                                {item.ordered
+                                                    ? "✅ Commande passée"
+                                                    : "📦 Commande passée"}
                                             </Text>
                                         </TouchableOpacity>
 
-										<TouchableOpacity
-                                            style={[styles.squareButton]}
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.squareButton,
+                                                item.received && {
+                                                    backgroundColor: "#ccc",
+                                                },
+                                            ]}
                                             onPress={() =>
+                                                !item.received &&
                                                 handleMarkAsReceived(item)
                                             }
+                                            disabled={item.received}
                                         >
                                             <Text
-                                                style={styles.squareButtonText}
+                                                style={[
+                                                    styles.squareButtonText,
+                                                    item.received && {
+                                                        color: "#666",
+                                                    },
+                                                ]}
                                             >
-                                                📦 Commande reçue
+                                                {item.received
+                                                    ? "✅ Reçue"
+                                                    : "📦 Commande reçue"}
                                             </Text>
                                         </TouchableOpacity>
+
                                         <TouchableOpacity
-                                            style={[styles.squareButton]}
+                                            style={[
+                                                styles.squareButton,
+                                                item.paid && {
+                                                    backgroundColor: "#ccc",
+                                                },
+                                            ]}
                                             onPress={() =>
+                                                !item.paid &&
                                                 handleMarkAsPaid(item)
                                             }
+                                            disabled={item.paid}
                                         >
                                             <Text
-                                                style={styles.squareButtonText}
+                                                style={[
+                                                    styles.squareButtonText,
+                                                    item.paid && {
+                                                        color: "#666",
+                                                    },
+                                                ]}
                                             >
-                                                💰 Payé
+                                                {item.paid
+                                                    ? "✅ Payé"
+                                                    : "💰 Paiement reçu"}
                                             </Text>
                                         </TouchableOpacity>
 
-
-										{(item.billing?.length ?? 0) === 0 ? (
-    <TouchableOpacity
-        style={styles.squareButton}
-        onPress={() =>
-            navigation.navigate("BillingPage", {
-                expressData: {
-                    order_id: item.id,
-                    clientname: clientName,
-                    clientphone: clientPhone,
-                    product: item.product,
-                    brand: item.brand,
-                    model: item.model,
-                    price: item.price?.toString(),
-                    quantity: "1",
-                    description: `${item.product} ${item.brand} ${item.model}`,
-                    acompte: item.deposit?.toString() || "0",
-                    paymentmethod: item.paymentmethod || "",
-                    serial: item.serial || "",
-                    paid: item.paid || false,
-                },
-            })
-        }
-    >
-        <Text style={styles.squareButtonText}>🧾 Créer Facture</Text>
-    </TouchableOpacity>
-) : (
-    <View style={styles.squareButtonDisabled}>
-        <Text style={styles.squareButtonText}>✅ Facture créée</Text>
-    </View>
-)}
-
-
+                                        {(item.billing?.length ?? 0) === 0 ? (
+                                            <TouchableOpacity
+                                                style={styles.squareButton}
+                                                onPress={() =>
+                                                    navigation.navigate(
+                                                        "BillingPage",
+                                                        {
+                                                            expressData: {
+                                                                order_id:
+                                                                    item.id,
+                                                                clientname:
+                                                                    clientName,
+                                                                clientphone:
+                                                                    clientPhone,
+                                                                product:
+                                                                    item.product,
+                                                                brand: item.brand,
+                                                                model: item.model,
+                                                                price: item.price?.toString(),
+                                                                quantity: "1",
+                                                                description: `${item.product} ${item.brand} ${item.model}`,
+                                                                acompte:
+                                                                    item.deposit?.toString() ||
+                                                                    "0",
+                                                                paymentmethod:
+                                                                    item.paymentmethod ||
+                                                                    "",
+                                                                serial:
+                                                                    item.serial ||
+                                                                    "",
+                                                                paid:
+                                                                    item.paid ||
+                                                                    false,
+                                                            },
+                                                        }
+                                                    )
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.squareButtonText
+                                                    }
+                                                >
+                                                    🧾 Créer Facture
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <View
+                                                style={
+                                                    styles.squareButtonDisabled
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.squareButtonText
+                                                    }
+                                                >
+                                                    ✅ Facture créée
+                                                </Text>
+                                            </View>
+                                        )}
 
                                         <TouchableOpacity
                                             style={[styles.squareButton]}
@@ -835,22 +912,33 @@ export default function OrdersPage({ route, navigation, order }) {
                                             </Text>
                                         </TouchableOpacity>
 
-
-
-
-
                                         <TouchableOpacity
-                                            style={[styles.squareButton]}
+                                            style={[
+                                                styles.squareButton,
+                                                item.recovered && {
+                                                    backgroundColor: "#ccc",
+                                                },
+                                            ]}
                                             onPress={() =>
+                                                !item.recovered &&
                                                 handleMarkAsRecovered(item)
                                             }
+                                            disabled={item.recovered}
                                         >
                                             <Text
-                                                style={styles.squareButtonText}
+                                                style={[
+                                                    styles.squareButtonText,
+                                                    item.recovered && {
+                                                        color: "#666",
+                                                    },
+                                                ]}
                                             >
-                                                ✅ Récupérée
+                                                {item.recovered
+                                                    ? "✅ Récupérée"
+                                                    : "📦 Commande récupérée"}
                                             </Text>
                                         </TouchableOpacity>
+
                                         <TouchableOpacity
                                             style={[styles.squareButton]}
                                             onPress={() =>
@@ -863,7 +951,6 @@ export default function OrdersPage({ route, navigation, order }) {
                                                 🗑 Supprimer
                                             </Text>
                                         </TouchableOpacity>
-
 
                                         <TouchableOpacity
                                             style={[styles.squareButton]}
@@ -1041,22 +1128,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: "center",
     },
-	squareButtonText: {
-  color: "#fff",
-  fontWeight: "bold",
-  textAlign: "center",
-},
-squareButtonDisabled: {
-	width: "30%", // pour avoir 3 par ligne
-	aspectRatio: 2, // carré
-	backgroundColor: "#636262",
-	borderWidth: 1,
-	borderColor: "#888787",
-	borderRadius: 4,
-	marginVertical: 8,
-	alignItems: "center",
-	justifyContent: "center",
-},
-
-
+    squareButtonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        textAlign: "center",
+    },
+    squareButtonDisabled: {
+        width: "30%", // pour avoir 3 par ligne
+        aspectRatio: 2, // carré
+        backgroundColor: "#636262",
+        borderWidth: 1,
+        borderColor: "#888787",
+        borderRadius: 4,
+        marginVertical: 8,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });

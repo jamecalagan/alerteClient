@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
-
+import { useCallback } from 'react';
 const ExpressListPage = () => {
   const [expressList, setExpressList] = useState([]);
   const [searchText, setSearchText] = useState("");
@@ -20,20 +20,26 @@ const ExpressListPage = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [totalPages, setTotalPages] = useState(1);
-
+  useFocusEffect(
+	useCallback(() => {
+	  fetchExpressList(page);
+	}, [page])
+  );
   useEffect(() => {
     fetchExpressList(page);
   }, [page]);
 
   const fetchExpressList = async (currentPage = 1) => {
+	console.log("🧾 Liste Express avec billing :", data);
+	console.log("🧾 Express avec billing lié :", JSON.stringify(data, null, 2));
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error, count } = await supabase
-      .from("express")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+	const { data, error, count } = await supabase
+	.from("express")
+	.select("*, billing:billing(*)")
+	.order("created_at", { ascending: false })
+	.range(from, to);
 
     if (error) {
       console.error("Erreur récupération:", error);
@@ -151,12 +157,48 @@ const ExpressListPage = () => {
             <Text style={styles.buttonText}>🖨️ Imprimer</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#007bff" }]}
-            onPress={() => goToInvoice(selectedItem)}
-          >
-            <Text style={styles.buttonText}>🧾 Facturer</Text>
-          </TouchableOpacity>
+		  {selectedItem.billing && selectedItem.billing.length > 0 ? (
+  // facture déjà créée
+  <TouchableOpacity
+    style={[styles.actionButton, { backgroundColor: "#ccc", opacity: 0.6 }]}
+    disabled={true}
+  >
+    <Text style={[styles.buttonText, { color: "#666" }]}>
+      ✅ Facture déjà créée
+    </Text>
+  </TouchableOpacity>
+) : (
+  // bouton actif
+  <TouchableOpacity
+    style={[styles.actionButton, { backgroundColor: "#007bff" }]}
+    onPress={() =>
+      navigation.navigate("BillingPage", {
+        expressData: {
+          express_id: selectedItem.id,
+          clientname: selectedItem.name,
+          clientphone: selectedItem.phone,
+          product: selectedItem.product,
+          brand: selectedItem.brand,
+          model: selectedItem.model,
+          price: selectedItem.price,
+          description: selectedItem.description,
+          acompte: selectedItem.acompte,
+          paymentmethod: selectedItem.paymentmethod,
+          serial: selectedItem.serial,
+          paid: selectedItem.paid,
+          type: "express",
+        },
+      })
+    }
+  >
+    <Text style={styles.buttonText}>🧾 Facturer</Text>
+  </TouchableOpacity>
+)}
+
+
+
+
+
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: "#dc3545" }]}

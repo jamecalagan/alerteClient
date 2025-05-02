@@ -23,7 +23,9 @@ const BillingPage = () => {
     const navigation = useNavigation();
     const route = useRoute();
 	const expressData = route.params?.expressData || {};
-	const order_id = expressData.order_id || null;
+	const order_id = expressData.order_id || null; 
+	const express_id = expressData.express_id || null;
+
 	console.log("✅ order_id reçu :", order_id);
     const [clientSuggestions, setClientSuggestions] = useState([]);
     const [focusedField, setFocusedField] = useState(null);
@@ -301,6 +303,7 @@ ${paid ? `
         const factureData = {
             clientname,
             clientphone,
+			express_id: express_id, 
             client_address,
             invoicenumber,
             invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
@@ -313,6 +316,7 @@ ${paid ? `
             created_at: new Date(),
             paid,
             order_id: order_id || null,
+			express_id: express_id || null,
         };
 
         let saveError;

@@ -301,22 +301,7 @@ export default function BillingListPage() {
                             </View>
                         ) : (
                             <View style={styles.buttonRow}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        { backgroundColor: "#007bff" },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate("BillingEditPage", {
-                                            id: bill.id,
-                                            print: true,
-                                        })
-                                    }
-                                >
-                                    <Text style={styles.buttonText}>
-                                        🖨️ Imprimer
-                                    </Text>
-                                </TouchableOpacity>
+
                                 <TouchableOpacity
                                     style={[
                                         styles.button,
@@ -329,7 +314,7 @@ export default function BillingListPage() {
                                     }
                                 >
                                     <Text style={styles.buttonText}>
-                                        ✏️ Modifier
+                                        ✏️ Modifier / 🖨️ Imprimer
                                     </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity

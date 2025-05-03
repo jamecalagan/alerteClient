@@ -48,7 +48,8 @@ import BillingPage from "./pages/BillingPage";
 import BillingListPage from "./pages/BillingListPage";
 import BillingEditPage from "./pages/BillingEditPage";
 import AllOrdersPage from "./pages/AllOrdersPage";
-
+import QuoteEditPage from "./pages/QuoteEditPage";
+import QuotePrintPage from "./pages/QuotePrintPage"; // à créer ensuite
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -261,12 +262,9 @@ function MainStack({ setUser }) {
 		<Stack.Screen name="BillingListPage" component={BillingListPage} options={{ title: "Liste des factures" }} />
 		<Stack.Screen name="BillingEditPage" component={BillingEditPage} options={{ title: "Modifier facture" }} />
 		<Stack.Screen name="AllOrdersPage" component={AllOrdersPage} />
-
-
-
-
-
-        </Stack.Navigator>
+		<Stack.Screen name="QuoteEditPage" component={QuoteEditPage} options={{ title: "Nouveau devis" }} />
+		<Stack.Screen name="QuotePrintPage" component={QuotePrintPage} options={{ title: "Impression devis" }} />
+		</Stack.Navigator>
     );
 }
 

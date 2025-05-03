@@ -1,0 +1,375 @@
+import React, { useRef, useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { supabase } from "../supabaseClient";
+
+const QuoteEditPage = () => {
+  const navigation = useNavigation();
+  const suppressRef = useRef(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [items, setItems] = useState([
+    { description: "", quantity: "1", unitPrice: "", total: "" },
+  ]);
+  const [remarks, setRemarks] = useState("");
+  const [quoteNumber, setQuoteNumber] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [discount, setDiscount] = useState("0");
+  const [deposit, setDeposit] = useState("0");
+  const [status, setStatus] = useState("en_attente");
+  const [isSaved, setIsSaved] = useState(false);
+  const [quoteId, setQuoteId] = useState(null);
+  const [focusedField, setFocusedField] = useState(null);
+  const [clientSuggestions, setClientSuggestions] = useState([]);
+
+  useEffect(() => {
+    if (!validUntil) {
+      const today = new Date();
+      const future = new Date(today.setDate(today.getDate() + 30));
+      const formatted = future.toISOString().split("T")[0];
+      setValidUntil(formatted);
+    }
+  }, []);
+
+  useEffect(() => {
+    generateQuoteNumber();
+  }, []);
+
+  const generateQuoteNumber = async () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `DEV-AI-${year}-${month}`;
+
+    const { data, error } = await supabase
+      .from("quotes")
+      .select("quote_number")
+      .ilike("quote_number", `${prefix}-%`);
+
+    if (!error) {
+      const numbers = data.map((q) => {
+        const parts = q.quote_number?.split("-");
+        return parts ? parseInt(parts[4]) : 0;
+      });
+      const max = numbers.length > 0 ? Math.max(...numbers) : 0;
+      const nextNumber = String(max + 1).padStart(4, '0');
+      setQuoteNumber(`${prefix}-${nextNumber}`);
+    }
+  };
+
+  useEffect(() => {
+    if (suppressRef.current) {
+      suppressRef.current = false;
+      return;
+    }
+
+    if (name.length >= 2) {
+      searchClients(name);
+    } else {
+      setClientSuggestions([]);
+    }
+  }, [name]);
+
+  const searchClients = async (text) => {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("name, phone")
+      .ilike("name", `${text}%`);
+
+    if (!error) setClientSuggestions(data || []);
+  };
+
+  const selectClient = (client) => {
+    suppressRef.current = true;
+    setName(client.name);
+    setPhone(client.phone || "");
+    setClientSuggestions([]);
+  };
+
+  const updateItem = (index, field, value) => {
+	const newItems = [...items];
+	newItems[index][field] = value;
+  
+	const qty = parseFloat(newItems[index].quantity) || 0;
+	const puTTC = parseFloat(newItems[index].unitPrice) || 0;
+	const totalTTC = qty * puTTC;
+  
+	newItems[index].total = totalTTC.toFixed(2); // total TTC affiché
+	setItems(newItems);
+  };
+
+  const addItem = () => {
+    setItems([...items, { description: "", quantity: "1", unitPrice: "", total: "" }]);
+  };
+
+  const removeItem = (index) => {
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
+  };
+
+  const getTotalHT = () => {
+	return getTotalTTC() / 1.2;
+  };
+  
+
+  const getDiscountValue = () => {
+    return (getTotalHT() * (parseFloat(discount) / 100));
+  };
+
+  const getTVA = () => {
+	return getTotalTTC() - getTotalHT();
+  };
+
+
+
+  const getTotalTTC = () => {
+	return items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+  };
+  
+
+  const getTotalDue = () => {
+    return getTotalTTC() - parseFloat(deposit || 0);
+  };
+
+  const handleSave = async () => {
+    if (!name || items.length === 0) {
+      Alert.alert("Erreur", "Le nom du client et au moins une ligne de devis sont requis.");
+      return;
+    }
+
+    const { data, error } = await supabase.from("quotes").insert([
+      {
+        name,
+        phone,
+        items,
+        remarks,
+        total: getTotalTTC().toFixed(2),
+        quote_number: quoteNumber,
+        valid_until: validUntil,
+        discount: parseFloat(discount || 0),
+        deposit: parseFloat(deposit || 0),
+        status,
+        created_at: new Date(),
+      },
+    ]).select();
+
+    if (error) {
+      Alert.alert("Erreur", error.message);
+    } else {
+      setIsSaved(true);
+      setQuoteId(data[0].id);
+      Alert.alert("✅ Devis enregistré");
+    }
+  };
+
+  const handlePrint = () => {
+    if (!isSaved || !quoteId) {
+      Alert.alert("Enregistrez d'abord le devis avant d'imprimer.");
+      return;
+    }
+    navigation.navigate("QuotePrintPage", { id: quoteId });
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>📝 Nouveau Devis</Text>
+
+      <Text style={styles.label}>Numéro de devis</Text>
+      <TextInput
+        style={styles.input}
+        value={quoteNumber}
+        onChangeText={setQuoteNumber}
+        placeholder="DEV-2024-0001"
+      />
+
+      <Text style={styles.label}>Valable jusqu'au</Text>
+      <TextInput
+        style={styles.input}
+        value={validUntil}
+        onChangeText={setValidUntil}
+        placeholder="2024-12-31"
+      />
+
+      <Text style={styles.label}>Nom du client</Text>
+      <TextInput
+        style={[styles.input, focusedField === "name" && styles.inputFocused]}
+        value={name}
+        onChangeText={setName}
+        onFocus={() => setFocusedField("name")}
+        onBlur={() => setFocusedField(null)}
+      />
+
+      {clientSuggestions.length > 0 && (
+        <View style={styles.suggestionBox}>
+          {clientSuggestions.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              onPress={() => selectClient(item)}
+              style={styles.suggestionItem}
+            >
+              <Text>{item.name} - {item.phone}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      <Text style={styles.label}>Téléphone</Text>
+      <TextInput
+        style={[styles.input, focusedField === "phone" && styles.inputFocused]}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        onFocus={() => setFocusedField("phone")}
+        onBlur={() => setFocusedField(null)}
+      />
+
+      <Text style={styles.subtitle}>Prestations / Produits :</Text>
+
+      {items.map((item, index) => (
+        <View key={index} style={styles.itemRow}>
+          <TextInput
+            style={[styles.input, { flex: 2 }]}
+            placeholder="Description"
+            value={item.description}
+            onChangeText={(text) => updateItem(index, "description", text)}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Qté"
+            keyboardType="numeric"
+            value={item.quantity}
+            onChangeText={(text) => updateItem(index, "quantity", text)}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Prix"
+            keyboardType="decimal-pad"
+            value={item.unitPrice}
+            onChangeText={(text) => updateItem(index, "unitPrice", text)}
+          />
+          <TouchableOpacity onPress={() => removeItem(index)}>
+            <Text style={styles.removeButton}>❌</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <TouchableOpacity style={styles.addButton} onPress={addItem}>
+        <Text style={styles.addButtonText}>➕ Ajouter une ligne</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.label}>Remise globale (%)</Text>
+      <TextInput
+        style={styles.input}
+        value={discount}
+        onChangeText={setDiscount}
+        keyboardType="decimal-pad"
+        placeholder="ex : 10"
+      />
+
+      <Text style={styles.label}>Acompte versé (€)</Text>
+      <TextInput
+        style={styles.input}
+        value={deposit}
+        onChangeText={setDeposit}
+        keyboardType="decimal-pad"
+        placeholder="ex : 100"
+      />
+
+      <Text style={styles.total}>Total HT : {getTotalHT().toFixed(2)} €</Text>
+      <Text style={styles.total}>Remise : -{getDiscountValue().toFixed(2)} €</Text>
+      <Text style={styles.total}>TVA (20%) : {getTVA().toFixed(2)} €</Text>
+      <Text style={styles.total}>Total TTC : {getTotalTTC().toFixed(2)} €</Text>
+      <Text style={styles.total}>Acompte : -{parseFloat(deposit || 0).toFixed(2)} €</Text>
+      <Text style={styles.total}>Total à payer : {getTotalDue().toFixed(2)} €</Text>
+
+      <Text style={styles.label}>Remarques ou conditions particulières</Text>
+      <TextInput
+        style={[styles.input, { height: 80 }]}
+        multiline
+        value={remarks}
+        onChangeText={setRemarks}
+      />
+
+      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+        <Text style={styles.saveButtonText}>💾 Enregistrer le devis</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.printButton, { backgroundColor: isSaved ? "#28a745" : "#ccc" }]}
+        onPress={handlePrint}
+        disabled={!isSaved}
+      >
+        <Text style={styles.saveButtonText}>🖨️ Imprimer</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { padding: 20 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    fontSize: 16,
+  },
+  inputFocused: {
+    borderColor: "#007bff",
+    backgroundColor: "#eef6ff",
+    fontSize: 18,
+    height: 55,
+  },
+  label: { fontWeight: "bold", marginBottom: 5, marginTop: 10 },
+  subtitle: { fontSize: 18, fontWeight: "bold", marginTop: 10, marginBottom: 10 },
+  itemRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 },
+  removeButton: { fontSize: 20, marginLeft: 8 },
+  addButton: {
+    backgroundColor: "#007bff",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  addButtonText: { color: "#fff", fontWeight: "bold" },
+  total: { fontSize: 18, fontWeight: "bold", marginVertical: 5 },
+  saveButton: {
+    backgroundColor: "#007bff",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  printButton: {
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  suggestionBox: {
+    backgroundColor: "#f9f9f9",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+});
+
+export default QuoteEditPage;

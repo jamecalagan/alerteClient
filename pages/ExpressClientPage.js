@@ -17,6 +17,7 @@ const ExpressClientPage = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const type = route.params?.type || "reparation";
+	const isQuote = type === "devis";
     const [focusedField, setFocusedField] = useState(null);
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
@@ -76,7 +77,7 @@ const ExpressClientPage = () => {
                 {
                     name,
                     phone,
-                    type,
+                    type: isQuote ? "devis" : type,
                     device,
                     description,
                     price,
@@ -347,14 +348,18 @@ const ExpressClientPage = () => {
         onBlur={() => setFocusedField(null)}
       />
 
-      <TouchableOpacity
-        style={styles.customButton}
-        onPress={handleSubmit}
-      >
-        <Text style={styles.buttonText}>
-          🖋️ Faire signer la fiche
-        </Text>
-      </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    styles.customButton,
+    { backgroundColor: isQuote ? "#28a745" : "#007bff" },
+  ]}
+  onPress={handleSubmit}
+>
+  <Text style={styles.buttonText}>
+    {isQuote ? "📝 Enregistrer le devis" : "🖋️ Faire signer la fiche"}
+  </Text>
+</TouchableOpacity>
+
     </View>
   }
   data={[]}

@@ -37,6 +37,15 @@ const ExpressTypeSelectorPage = () => {
     <Text style={styles.buttonIcon}>🎬</Text>
     <Text style={styles.buttonLabel}>Vidéo</Text>
   </TouchableOpacity>
+
+  <TouchableOpacity
+  style={[styles.squareButton, { backgroundColor: "#351f32" }]}
+  onPress={() => navigation.navigate("QuoteEditPage")}
+>
+  <Text style={styles.buttonIcon}>🎬</Text>
+  <Text style={styles.buttonLabel}>Devis</Text>
+</TouchableOpacity>
+
 </View>
 
 <View style={styles.separator} />

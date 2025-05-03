@@ -13,7 +13,8 @@ const PrintExpressPage = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const sigRef = useRef();
-
+  const [isSigning, setIsSigning] = useState(false);
+  const [includeSignature, setIncludeSignature] = useState(true);
   useEffect(() => {
 	if (route.params?.signature) {
 	  setSignatureData(route.params.signature);
@@ -162,7 +163,7 @@ const PrintExpressPage = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} scrollEnabled={!isSigning}>
 	{showBanner && (
   <View style={styles.banner}>
     <Text style={styles.bannerText}>✅ Signature déjà enregistrée. Prêt à imprimer !</Text>
@@ -216,9 +217,25 @@ const PrintExpressPage = () => {
           ci-dessus.
         </Text>
       </View>
-
+	  <TouchableOpacity
+  style={{
+    backgroundColor: includeSignature ? "#28a745" : "#ccc",
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 10,
+    alignItems: "center",
+  }}
+  onPress={() => setIncludeSignature(!includeSignature)}
+>
+  <Text style={{ color: "#fff", fontWeight: "bold" }}>
+    {includeSignature ? "✅ Inclure la signature" : "❌ Signature exclue"}
+  </Text>
+</TouchableOpacity>
+{includeSignature && (
+	<View style={styles.signatureBox}>
 	  <Text style={[styles.label, { marginTop: 20 }]}>Signature du client :</Text>
-
+	  </View>
+	)}
 {signatureData ? (
   <View style={{ alignItems: "center", marginTop: 10 }}>
     <Text style={styles.label}>Signature enregistrée :</Text>
@@ -237,7 +254,9 @@ const PrintExpressPage = () => {
   <View style={{ height: 380, borderWidth: 1, borderColor: "#ccc" }}>
     <Signature
       ref={sigRef}
-      onOK={handleOK}
+	  onBegin={() => setIsSigning(true)}        // 👈 On commence à signer
+  onEnd={() => setIsSigning(false)}         // 👈 On arrête de signer
+  onOK={handleOK}
       descriptionText="Signer ici"
       clearText="Effacer"
       confirmText="Valider"
@@ -283,10 +302,10 @@ const PrintExpressPage = () => {
   <TouchableOpacity
     style={[
       styles.actionButton,
-      { backgroundColor: isSaved ? "#28a745" : "#ccc" },
+      { backgroundColor: includeSignature && !isSaved ? "#ccc" : "#28a745" },
     ]}
     onPress={handlePrint}
-    disabled={!isSaved}
+    disabled={includeSignature && !isSaved}
   >
     <Text style={styles.buttonText}>🖨️ Imprimer</Text>
   </TouchableOpacity>

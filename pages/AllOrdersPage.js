@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 
-const ITEMS_PER_PAGE = 3;
+const ITEMS_PER_PAGE = 2;
 
 export default function AllOrdersPage({ navigation }) {
     const [orders, setOrders] = useState([]);
@@ -21,6 +21,10 @@ export default function AllOrdersPage({ navigation }) {
     const [filterStatus, setFilterStatus] = useState("all"); // "all", "pending", "completed"
     const [suggestions, setSuggestions] = useState([]);
     const [focusedField, setFocusedField] = useState(null);
+    const [showDeleted, setShowDeleted] = useState(false);
+	const [activeCount, setActiveCount] = useState(0);
+	const [deletedCount, setDeletedCount] = useState(0);
+	
     const getStatusIcon = (order) => {
         if (order.recovered && order.paid) return "🟢";
         if (order.received || order.paid) return "🟡";
@@ -60,22 +64,24 @@ export default function AllOrdersPage({ navigation }) {
             console.error("Erreur chargement commandes :", error);
             return;
         }
+
         const sorted = (data || []).sort((a, b) => {
             const priority = (order) => {
                 const received = !!order.received;
                 const paid = !!order.paid;
                 const recovered = !!order.recovered;
 
-                if (!received && !paid && !recovered) return 0; // 🔴 En attente
-                if ((received || paid) && !recovered) return 1; // 🟡 En cours
-                if (recovered) return 2; // 🟢 Terminée
+                if (!received && !paid && !recovered) return 0;
+                if ((received || paid) && !recovered) return 1;
+                if (recovered) return 2;
                 return 3;
             };
-
             return priority(a) - priority(b);
         });
 
         setOrders(sorted);
+		setActiveCount(data.filter(o => !o.deleted).length);
+setDeletedCount(data.filter(o => o.deleted).length);
     };
 
     const handleEditOrder = (item) => {
@@ -149,25 +155,31 @@ export default function AllOrdersPage({ navigation }) {
         setEditedOrder({});
     };
 
-    const filteredOrders = orders.filter((order) => {
-        const searchLower = search.toLowerCase();
-        const matchesSearch =
-            order.product.toLowerCase().includes(searchLower) ||
-            order.brand.toLowerCase().includes(searchLower) ||
-            order.model.toLowerCase().includes(searchLower) ||
-            order.clients.name.toLowerCase().includes(searchLower) ||
-            order.clients.ficheNumber.toString().includes(searchLower);
+    const filteredOrders = orders
+        .filter((order) => {
+            if (showDeleted) return order.deleted === true;
+            return order.deleted !== true;
+        })
+        .filter((order) => {
+            const searchLower = search.toLowerCase();
+            const matchesSearch =
+                order.product.toLowerCase().includes(searchLower) ||
+                order.brand.toLowerCase().includes(searchLower) ||
+                order.model.toLowerCase().includes(searchLower) ||
+                order.clients.name.toLowerCase().includes(searchLower) ||
+                order.clients.ficheNumber.toString().includes(searchLower);
 
-        const isPending = !order.received && !order.paid && !order.recovered;
-        const isInProgress = order.received && !order.recovered;
-        const isCompleted = order.recovered;
+            const isPending =
+                !order.received && !order.paid && !order.recovered;
+            const isInProgress = order.received && !order.recovered;
+            const isCompleted = order.recovered;
 
-        if (filterStatus === "pending" && !isPending) return false;
-        if (filterStatus === "inprogress" && !isInProgress) return false;
-        if (filterStatus === "completed" && !isCompleted) return false;
+            if (filterStatus === "pending" && !isPending) return false;
+            if (filterStatus === "inprogress" && !isInProgress) return false;
+            if (filterStatus === "completed" && !isCompleted) return false;
 
-        return matchesSearch;
-    });
+            return matchesSearch;
+        });
 
     const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
     const displayedOrders = filteredOrders.slice(
@@ -199,21 +211,29 @@ export default function AllOrdersPage({ navigation }) {
         }
 
         // Si aucune facture, on peut supprimer
-		Alert.alert(
-			"Confirmation de suppression",
-			"Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.",
-			[
-			  { text: "Annuler", style: "cancel" },
-			  {
-				text: "Supprimer",
-				style: "destructive",
-				onPress: async () => {
-				  // suppression
-				},
-			  },
-			]
-		  );
-		  
+        Alert.alert(
+            "Confirmation de suppression",
+            "Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.",
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "Supprimer",
+                    style: "destructive",
+                    onPress: async () => {
+                        const { error } = await supabase
+                            .from("orders")
+                            .update({ deleted: true })
+                            .eq("id", orderId);
+
+                        if (error) {
+                            console.error("Erreur suppression :", error);
+                        } else {
+                            fetchOrders(); // recharge la liste
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -276,7 +296,7 @@ export default function AllOrdersPage({ navigation }) {
                         styles.filterButton,
                         filterStatus === "all" && styles.filterActive,
                     ]}
-                    onPress={() => setFilterStatus("all")}
+                    onPress={() => {setFilterStatus("all");setCurrentPage(1);}}
                 >
                     <Text style={styles.filterText}>Toutes</Text>
                 </TouchableOpacity>
@@ -286,7 +306,8 @@ export default function AllOrdersPage({ navigation }) {
                         styles.filterButton,
                         filterStatus === "pending" && styles.filterActive,
                     ]}
-                    onPress={() => setFilterStatus("pending")}
+                    onPress={() => {setFilterStatus("pending");setCurrentPage(1);
+					}}
                 >
                     <Text style={styles.filterText}>🔴 En attente</Text>
                 </TouchableOpacity>
@@ -295,7 +316,7 @@ export default function AllOrdersPage({ navigation }) {
                         styles.filterButton,
                         filterStatus === "inprogress" && styles.filterActive,
                     ]}
-                    onPress={() => setFilterStatus("inprogress")}
+                    onPress={() =>{ setFilterStatus("inprogress");setCurrentPage(1);}}
                 >
                     <Text style={styles.filterText}>🟡 En cours</Text>
                 </TouchableOpacity>
@@ -305,11 +326,39 @@ export default function AllOrdersPage({ navigation }) {
                         styles.filterButton,
                         filterStatus === "completed" && styles.filterActive,
                     ]}
-                    onPress={() => setFilterStatus("completed")}
+                    onPress={() =>{ setFilterStatus("completed");setCurrentPage(1);}}
                 >
                     <Text style={styles.filterText}>✅ Terminées</Text>
                 </TouchableOpacity>
             </View>
+			<View style={styles.toggleContainer}>
+  <TouchableOpacity
+    onPress={() => {
+      setShowDeleted(false);
+      setCurrentPage(1);
+    }}
+    style={[
+      styles.toggleButton,
+      !showDeleted && styles.toggleButtonActive,
+    ]}
+  >
+    <Text style={styles.toggleButtonText}>✅ Actives ({activeCount})</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    onPress={() => {
+      setShowDeleted(true);
+      setCurrentPage(1);
+    }}
+    style={[
+      styles.toggleButton,
+      showDeleted && styles.toggleButtonActive,
+    ]}
+  >
+    <Text style={styles.toggleButtonText}>🗑️ Supprimées ({deletedCount})</Text>
+  </TouchableOpacity>
+</View>
+
 
             <FlatList
                 data={displayedOrders}
@@ -460,6 +509,25 @@ export default function AllOrdersPage({ navigation }) {
                                     📦 Commande récupérée par le client
                                 </Text>
                             </View>
+                        )}
+                        {showDeleted && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.editButton,
+                                    { backgroundColor: "#17a2b8" },
+                                ]}
+                                onPress={async () => {
+                                    const { error } = await supabase
+                                        .from("orders")
+                                        .update({ deleted: false })
+                                        .eq("id", item.id);
+                                    if (!error) fetchOrders();
+                                }}
+                            >
+                                <Text style={styles.buttonText}>
+                                    ♻ Restaurer
+                                </Text>
+                            </TouchableOpacity>
                         )}
 
                         {editingOrderId !== item.id && (
@@ -715,4 +783,31 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         alignItems: "center",
     },
+toggleContainer: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginBottom: 16,
+  gap: 10,
+  marginTop: 40,
+marginBottom: 40,
+},
+
+toggleButton: {
+  flex: 1,
+  backgroundColor: "#444",
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+toggleButtonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 14,
+},
+
+toggleButtonActive: {
+  backgroundColor: "#000",
+},
+
 });

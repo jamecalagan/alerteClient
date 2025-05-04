@@ -39,24 +39,28 @@ const QuotePrintPage = () => {
 		  day: "numeric", month: "long", year: "numeric"
 		});
 	  
-		const rowsHtml = quote.items.map(item => {
-		  const qty = parseFloat(item.quantity) || 0;
-		  const puTTC = parseFloat(item.unitPrice) || 0;
-		  const totalTTC = qty * puTTC;
-		  const puHT = puTTC / 1.2;
-		  const totalHT = puHT * qty;
-		  const tva = totalTTC - totalHT;
-	  
-		  return `
-    <tr>
-      <td style="border: 1px solid #ccc; padding: 4px;">${item.description}</td>
-      <td style="border: 1px solid #ccc; padding: 4px;">${qty}</td>
-      <td style="border: 1px solid #ccc; padding: 4px;">${puHT.toFixed(2)} €</td>
-      <td style="border: 1px solid #ccc; padding: 4px;">${tva.toFixed(2)} €</td>
-      <td style="border: 1px solid #ccc; padding: 4px;">${totalTTC.toFixed(2)} €</td>
-    </tr>
-		  `;
-		}).join("");
+		const rowsHtml = quote.items.map((item) => {
+			const qty = parseFloat(item.quantity) || 0;
+			const puTTC = parseFloat(item.unitPrice) || 0;
+			const puHT = puTTC / 1.2;
+			const totalTTC = qty * puTTC;
+			const tva = totalTTC - (puHT * qty);
+		  
+			const designation = item.label
+			  ? `${item.label} — ${item.description}`
+			  : item.description;
+		  
+			return `
+			  <tr>
+				<td style="border: 1px solid #ccc; padding: 4px;">${designation}</td>
+				<td style="border: 1px solid #ccc; padding: 4px;">${qty}</td>
+				<td style="border: 1px solid #ccc; padding: 4px;">${puHT.toFixed(2)} €</td>
+				<td style="border: 1px solid #ccc; padding: 4px;">${tva.toFixed(2)} €</td>
+				<td style="border: 1px solid #ccc; padding: 4px;">${totalTTC.toFixed(2)} €</td>
+			  </tr>
+			`;
+		  }).join("");
+		  
 	  
 		const totalTTC = quote.items.reduce((sum, item) => {
 			const qty = parseFloat(item.quantity) || 0;
@@ -234,25 +238,30 @@ const QuotePrintPage = () => {
 			year: "numeric",
 		  });
 	  
-		  const rowsHtml = quote.items.map(item => {
+		  const rowsHtml = quote.items.map((item) => {
 			const qty = parseFloat(item.quantity) || 0;
 			const puTTC = parseFloat(item.unitPrice) || 0;
-			const totalTTC = qty * puTTC;
 			const puHT = puTTC / 1.2;
-			const totalHT = puHT * qty;
-			const tva = totalTTC - totalHT;
-	  
-			return `
-			<tr>
-			  <td style="border: 1px solid #000; padding: 4px;">${item.description}</td>
-			  <td style="border: 1px solid #000; padding: 4px;">${qty}</td>
-			  <td style="border: 1px solid #000; padding: 4px;">${puHT.toFixed(2)} €</td>
-			  <td style="border: 1px solid #000; padding: 4px;">${tva.toFixed(2)} €</td>
-			  <td style="border: 1px solid #000; padding: 4px;">${totalTTC.toFixed(2)} €</td>
-			</tr>
-		  `;
+			const totalTTC = qty * puTTC;
+			const tva = totalTTC - (puHT * qty);
 		  
-		}).join(""); // fin du map()
+			const designation = item.label
+			  ? `${item.label} — ${item.description}`
+			  : item.description || "";
+		  
+			return `
+			  <tr>
+				<td style="border: 1px solid #ccc; padding: 3px;">${designation}</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: center;">${qty}</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${puHT.toFixed(2)} €</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${tva.toFixed(2)} €</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${totalTTC.toFixed(2)} €</td>
+			  </tr>
+			`;
+		  }).join("");
+		  
+		  
+
 
 		const totalTTC = quote.items.reduce((sum, item) => {
 			const qty = parseFloat(item.quantity) || 0;

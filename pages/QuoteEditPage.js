@@ -51,7 +51,24 @@ const QuoteEditPage = () => {
   useEffect(() => {
     generateQuoteNumber();
   }, []);
-
+  useEffect(() => {
+	if (route.params?.preset === "pc") {
+		setItems([
+			{ label: "Boîtier PC", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Carte mère", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Processeur (CPU)", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Mémoire RAM", description: "", quantity: "2", unitPrice: "", total: "" },
+			{ label: "Disque SSD / NVMe", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Carte graphique (GPU)", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Alimentation (PSU)", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Refroidissement", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Montage & tests", description: "", quantity: "1", unitPrice: "", total: "" },
+			{ label: "Installation système", description: "", quantity: "1", unitPrice: "", total: "" },
+		  ]);
+		  
+	}
+  }, []);
+  
   const generateQuoteNumber = async () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -296,33 +313,46 @@ const getTotalTTC = () => {
 
       <Text style={styles.subtitle}>Prestations / Produits :</Text>
 
-      {items.map((item, index) => (
-        <View key={index} style={styles.itemRow}>
-          <TextInput
-            style={[styles.input, { flex: 2 }]}
-            placeholder="Description"
-            value={item.description}
-            onChangeText={(text) => updateItem(index, "description", text)}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Qté"
-            keyboardType="numeric"
-            value={item.quantity}
-            onChangeText={(text) => updateItem(index, "quantity", text)}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Prix"
-            keyboardType="decimal-pad"
-            value={item.unitPrice}
-            onChangeText={(text) => updateItem(index, "unitPrice", text)}
-          />
-          <TouchableOpacity onPress={() => removeItem(index)}>
-            <Text style={styles.removeButton}>❌</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+	  {items.map((item, index) => (
+  <View key={index} style={styles.itemRow}>
+    
+    {/* Label au-dessus de la ligne */}
+    {item.label && (
+      <Text style={styles.itemLabel}>{item.label}</Text>
+    )}
+
+    {/* Ligne avec les 3 champs + bouton supprimer */}
+    <View style={styles.rowLine}>
+      <TextInput
+        style={[styles.input, { flex: 2 }]}
+        placeholder="Marque / modèle / détails"
+        value={item.description}
+        onChangeText={(text) => updateItem(index, "description", text)}
+      />
+
+      <TextInput
+        style={[styles.input, { flex: 1 }]}
+        placeholder="Qté"
+        keyboardType="numeric"
+        value={item.quantity}
+        onChangeText={(text) => updateItem(index, "quantity", text)}
+      />
+
+      <TextInput
+        style={[styles.input, { flex: 1 }]}
+        placeholder="Prix"
+        keyboardType="decimal-pad"
+        value={item.unitPrice}
+        onChangeText={(text) => updateItem(index, "unitPrice", text)}
+      />
+
+      <TouchableOpacity onPress={() => removeItem(index)}>
+        <Text style={styles.removeButton}>❌</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+))}
+
 
       <TouchableOpacity style={styles.addButton} onPress={addItem}>
         <Text style={styles.addButtonText}>➕ Ajouter une ligne</Text>
@@ -433,6 +463,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+  itemRow: {
+  marginBottom: 12,
+},
+
+itemLabel: {
+  fontWeight: "bold",
+  fontSize: 13,
+  marginBottom: 4,
+  color: "#333",
+},
+
+rowLine: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+
 });
 
 export default QuoteEditPage;

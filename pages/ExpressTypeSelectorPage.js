@@ -77,6 +77,13 @@ const ExpressTypeSelectorPage = () => {
   <Text style={styles.optionText}>📦 Voir toutes les commandes</Text>
 </TouchableOpacity>
 
+<TouchableOpacity
+  style={[styles.optionButton, { backgroundColor: "#09a4ca" }]}
+  onPress={() => navigation.navigate("QuoteListPage")}
+>
+  
+  <Text style={styles.optionText}>📄 Liste des devis</Text>
+</TouchableOpacity>
 </View>
 
 </View>

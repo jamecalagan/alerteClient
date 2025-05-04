@@ -50,7 +50,7 @@ import BillingEditPage from "./pages/BillingEditPage";
 import AllOrdersPage from "./pages/AllOrdersPage";
 import QuoteEditPage from "./pages/QuoteEditPage";
 import QuotePrintPage from "./pages/QuotePrintPage"; // à créer ensuite
-
+import QuoteListPage from "./pages/QuoteListPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -264,6 +264,7 @@ function MainStack({ setUser }) {
 		<Stack.Screen name="AllOrdersPage" component={AllOrdersPage} />
 		<Stack.Screen name="QuoteEditPage" component={QuoteEditPage} options={{ title: "Nouveau devis" }} />
 		<Stack.Screen name="QuotePrintPage" component={QuotePrintPage} options={{ title: "Impression devis" }} />
+		<Stack.Screen name="QuoteListPage" component={QuoteListPage} options={{ title: "Devis enregistrés" }} />
 		</Stack.Navigator>
     );
 }

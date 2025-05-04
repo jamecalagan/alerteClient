@@ -8,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import {  useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 
 const QuoteEditPage = () => {
@@ -29,6 +29,15 @@ const QuoteEditPage = () => {
   const [quoteId, setQuoteId] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [clientSuggestions, setClientSuggestions] = useState([]);
+  const route = useRoute();
+  const editingId = route.params?.id || null;
+
+  useEffect(() => {
+	if (editingId) {
+	  loadQuoteForEdit(editingId);
+	}
+  }, [editingId]);
+  
 
   useEffect(() => {
     if (!validUntil) {
@@ -115,61 +124,92 @@ const QuoteEditPage = () => {
     setItems(newItems);
   };
 
+// Le prix total TTC saisi (cumul des lignes)
+const getTotalTTC = () => {
+	return items.reduce((sum, item) => {
+	  const qty = parseFloat(item.quantity) || 0;
+	  const unitTTC = parseFloat(item.unitPrice) || 0;
+	  return sum + qty * unitTTC;
+	}, 0);
+  };
+  
+  // On extrait le HT à partir du TTC (TTC = HT * 1.2 → donc HT = TTC / 1.2)
   const getTotalHT = () => {
 	return getTotalTTC() / 1.2;
   };
   
-
+  // La remise est appliquée sur le HT
   const getDiscountValue = () => {
-    return (getTotalHT() * (parseFloat(discount) / 100));
-  };
-
-  const getTVA = () => {
-	return getTotalTTC() - getTotalHT();
-  };
-
-
-
-  const getTotalTTC = () => {
-	return items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+	return getTotalHT() * (parseFloat(discount) / 100);
   };
   
-
-  const getTotalDue = () => {
-    return getTotalTTC() - parseFloat(deposit || 0);
+  // TVA recalculée après remise
+  const getTVA = (taux = 20) => {
+	const htAfterDiscount = getTotalHT() - getDiscountValue();
+	return htAfterDiscount * (taux / 100);
   };
+  
+  // Total TTC après remise
+  const getTotalTTCApresRemise = () => {
+	return (getTotalHT() - getDiscountValue()) + getTVA();
+  };
+  
+  // Total à payer après acompte
+  const getTotalDue = () => {
+	return getTotalTTCApresRemise() - parseFloat(deposit || 0);
+  };
+  
+  
+  
 
   const handleSave = async () => {
-    if (!name || items.length === 0) {
-      Alert.alert("Erreur", "Le nom du client et au moins une ligne de devis sont requis.");
-      return;
-    }
-
-    const { data, error } = await supabase.from("quotes").insert([
-      {
-        name,
-        phone,
-        items,
-        remarks,
-        total: getTotalTTC().toFixed(2),
-        quote_number: quoteNumber,
-        valid_until: validUntil,
-        discount: parseFloat(discount || 0),
-        deposit: parseFloat(deposit || 0),
-        status,
-        created_at: new Date(),
-      },
-    ]).select();
-
-    if (error) {
-      Alert.alert("Erreur", error.message);
-    } else {
-      setIsSaved(true);
-      setQuoteId(data[0].id);
-      Alert.alert("✅ Devis enregistré");
-    }
+	if (!name || items.length === 0) {
+	  Alert.alert("Erreur", "Le nom du client et au moins une ligne de devis sont requis.");
+	  return;
+	}
+  
+	const quoteData = {
+	  name,
+	  phone,
+	  items,
+	  remarks,
+	  total: getTotalTTC().toFixed(2),
+	  quote_number: quoteNumber,
+	  valid_until: validUntil,
+	  discount: parseFloat(discount || 0),
+	  deposit: parseFloat(deposit || 0),
+	  status,
+	};
+  
+	if (editingId) {
+	  const { error } = await supabase
+		.from("quotes")
+		.update(quoteData)
+		.eq("id", editingId);
+  
+	  if (error) {
+		Alert.alert("Erreur", error.message);
+	  } else {
+		setIsSaved(true);
+		setQuoteId(editingId);
+		Alert.alert("✅ Devis modifié");
+	  }
+	} else {
+	  const { data, error } = await supabase
+		.from("quotes")
+		.insert([{ ...quoteData, created_at: new Date() }])
+		.select();
+  
+	  if (error) {
+		Alert.alert("Erreur", error.message);
+	  } else {
+		setIsSaved(true);
+		setQuoteId(data[0].id);
+		Alert.alert("✅ Devis enregistré");
+	  }
+	}
   };
-
+  
   const handlePrint = () => {
     if (!isSaved || !quoteId) {
       Alert.alert("Enregistrez d'abord le devis avant d'imprimer.");
@@ -177,7 +217,30 @@ const QuoteEditPage = () => {
     }
     navigation.navigate("QuotePrintPage", { id: quoteId });
   };
-
+  const loadQuoteForEdit = async (id) => {
+	const { data, error } = await supabase
+	  .from("quotes")
+	  .select("*")
+	  .eq("id", id)
+	  .single();
+  
+	if (!error && data) {
+	  setName(data.name);
+	  setPhone(data.phone || "");
+	  setItems(data.items || []);
+	  setRemarks(data.remarks || "");
+	  setQuoteNumber(data.quote_number || "");
+	  setValidUntil(data.valid_until || "");
+	  setDiscount(data.discount?.toString() || "0");
+	  setDeposit(data.deposit?.toString() || "0");
+	  setStatus(data.status || "en_attente");
+	  setQuoteId(data.id);
+	  setIsSaved(true);
+	} else {
+	  Alert.alert("Erreur", "Impossible de charger le devis.");
+	}
+  };
+  
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>📝 Nouveau Devis</Text>

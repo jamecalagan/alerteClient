@@ -3,231 +3,494 @@ import { ScrollView, Text, View, Alert, TouchableOpacity } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
-
+import * as Sharing from "expo-sharing";
 const QuotePrintPage = () => {
-  const route = useRoute();
-  const { id } = route.params;
-  const [quote, setQuote] = useState(null);
+    const route = useRoute();
+    const { id } = route.params;
+    const [quote, setQuote] = useState(null);
 
-  useEffect(() => {
-    fetchQuote();
-  }, []);
+    useEffect(() => {
+        fetchQuote();
+    }, []);
 
-  const fetchQuote = async () => {
-    const { data, error } = await supabase
-      .from("quotes")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const fetchQuote = async () => {
+        const { data, error } = await supabase
+            .from("quotes")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-    if (error) {
-      Alert.alert("Erreur", "Impossible de charger le devis");
-      console.error(error);
-    } else {
-      setQuote(data);
-    }
-  };
+        if (error) {
+            Alert.alert("Erreur", "Impossible de charger le devis");
+            console.error(error);
+        } else {
+            setQuote(data);
+        }
+    };
 
-  const handlePrint = async () => {
-    if (!quote) return;
+	const handlePrint = async () => {
+		if (!quote) return;
+	  
+		const dateCreated = new Date(quote.created_at).toLocaleDateString("fr-FR", {
+		  day: "numeric", month: "long", year: "numeric"
+		});
+	  
+		const dateValid = new Date(quote.valid_until).toLocaleDateString("fr-FR", {
+		  day: "numeric", month: "long", year: "numeric"
+		});
+	  
+		const rowsHtml = quote.items.map(item => {
+		  const qty = parseFloat(item.quantity) || 0;
+		  const puTTC = parseFloat(item.unitPrice) || 0;
+		  const totalTTC = qty * puTTC;
+		  const puHT = puTTC / 1.2;
+		  const totalHT = puHT * qty;
+		  const tva = totalTTC - totalHT;
+	  
+		  return `
+    <tr>
+      <td style="border: 1px solid #ccc; padding: 4px;">${item.description}</td>
+      <td style="border: 1px solid #ccc; padding: 4px;">${qty}</td>
+      <td style="border: 1px solid #ccc; padding: 4px;">${puHT.toFixed(2)} €</td>
+      <td style="border: 1px solid #ccc; padding: 4px;">${tva.toFixed(2)} €</td>
+      <td style="border: 1px solid #ccc; padding: 4px;">${totalTTC.toFixed(2)} €</td>
+    </tr>
+		  `;
+		}).join("");
+	  
+		const totalTTC = quote.items.reduce((sum, item) => {
+			const qty = parseFloat(item.quantity) || 0;
+			const unitTTC = parseFloat(item.unitPrice) || 0;
+			return sum + qty * unitTTC;
+		  }, 0);
+		  
+		  const totalHT = totalTTC / 1.2;
+		  const remise = (quote.discount / 100) * totalHT;
+		  const htAfterRemise = totalHT - remise;
+		  const tva = htAfterRemise * 0.2;
+		  const totalTTCApresRemise = htAfterRemise + tva;
+		  const acompte = parseFloat(quote.deposit || 0);
+		  const totalFinal = totalTTCApresRemise - acompte;
+		  
 
-    const rowsHtml = quote.items.map((item) => {
-      const qty = parseFloat(item.quantity) || 0;
-      const puTTC = parseFloat(item.unitPrice) || 0;
-      const totalTTC = qty * puTTC;
-      const puHT = puTTC / 1.2;
-      const totalHT = puHT * qty;
-      const tva = totalTTC - totalHT;
+		  const html = `
+		  <!DOCTYPE html>
+		  <html lang="fr">
+		  <head>
+			<meta charset="UTF-8" />
+			<style>
+			  body {
+				font-family: Arial, sans-serif;
+				font-size: 10px;
+				padding: 15px;
+				max-width: 595px;
+				margin: auto;
+			  }
+			  h2 {
+				text-align: center;
+				margin-bottom: 10px;
+			  }
+			  .header-logo {
+				text-align: center;
+				margin-bottom: 10px;
+			  }
+			  .header-logo img {
+				height: 40px;
+			  }
+			  .section {
+				margin-bottom: 12px;
+			  }
+			  table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 9px;
+				margin-top: 8px;
+			  }
+			  th, td {
+				border: 1px solid #ccc;
+				padding: 4px;
+				text-align: left;
+			  }
+			  th {
+				background-color: #f2f2f2;
+			  }
+			  .totaux {
+				margin-top: 10px;
+				font-size: 9px;
+			  }
+			  .totaux td {
+				padding: 3px 4px;
+			  }
+			  .mentions {
+				font-size: 8px;
+				color: #555;
+				margin-top: 15px;
+				text-align: justify;
+				line-height: 1.3;
+			  }
+			  .footer {
+				margin-top: 25px;
+				font-size: 8px;
+				text-align: center;
+			  }
+			  .signature {
+				margin-top: 30px;
+			  }
+			  .signature-line {
+				margin-top: 25px;
+				border-top: 1px solid #000;
+				width: 200px;
+			  }
+			</style>
+		  </head>
+		  <body>
+		  
+			<div class="header-logo">
+			  <img src="https://www.avenir-informatique.fr/logo.webp" alt="Logo" />
+			</div>
+		  
+			<h2>Devis - Assemblage PC</h2>
+		  
+			<div class="section">
+			  <strong>Client :</strong> ${quote.name}<br/>
+			  <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
+			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString("fr-FR")}<br/>
+			  <strong>Valide jusqu’au :</strong> ${new Date(quote.valid_until).toLocaleDateString("fr-FR")}<br/>
+			  <strong>N° Devis :</strong> ${quote.quote_number}
+			</div>
+		  
+			<table>
+			  <thead>
+				<tr>
+				  <th>Désignation</th>
+				  <th>Qté</th>
+				  <th>PU HT</th>
+				  <th>TVA</th>
+				  <th>Total TTC</th>
+				</tr>
+			  </thead>
+			  <tbody>
+				${rowsHtml}
+			  </tbody>
+			</table>
+		  
+			<table class="totaux">
+			  <tr><td><strong>Total TTC saisi :</strong> ${totalTTC.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total HT :</strong> ${totalHT.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>TVA (20%) :</strong> ${tva.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Acompte :</strong> -${acompte.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total à payer :</strong> ${totalFinal.toFixed(2)} €</td></tr>
+			</table>
+		  
+			<div class="mentions">
+			  <p><strong>Conditions :</strong> Ce devis est valable 30 jours à compter de sa date d’émission. Toute commande de matériel est considérée comme ferme et non remboursable une fois validée. Les composants listés sont soumis à disponibilité chez les fournisseurs. L’assemblage est effectué selon les standards professionnels. Le client reconnaît avoir été informé que les pièces bénéficient des garanties constructeur, et qu’un acompte peut être requis avant toute commande.</p>
+			  <p><strong>Acceptation :</strong> La signature du présent devis vaut bon pour accord sur les prestations listées ainsi que leurs conditions de réalisation.</p>
+			</div>
+		  
+			<div class="signature">
+			  <p><strong>Signature du client :</strong></p>
+			  <div class="signature-line"></div>
+			</div>
+		  
+        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+          <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
+          <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
+          <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
+			</div>
+		  
+		  </body>
+		  </html>
+		  `;
+		  
+		
 
-      return `
-        <tr>
-          <td>${item.description}</td>
-          <td style="text-align: center;">${qty}</td>
-          <td style="text-align: right;">${puHT.toFixed(2)} €</td>
-          <td style="text-align: right;">${tva.toFixed(2)} €</td>
-          <td style="text-align: right;">${totalTTC.toFixed(2)} €</td>
-        </tr>
-      `;
-    }).join("");
 
-    const totalTTC = quote.items.reduce((sum, item) => {
-      const qty = parseFloat(item.quantity) || 0;
-      const pu = parseFloat(item.unitPrice) || 0;
-      return sum + qty * pu;
-    }, 0);
+        await Print.printAsync({ html });
+		await supabase
+		.from("quotes")
+		.update({ deja_imprime: true })
+		.eq("id", quote.id);
+	  
+    };
 
-    const totalHT = totalTTC / 1.2;
-    const totalTVA = totalTTC - totalHT;
-    const remise = (quote.discount / 100) * totalHT;
-    const acompte = parseFloat(quote.deposit || 0);
-    const totalFinal = totalTTC - remise - acompte;
+    if (!quote)
+        return <Text style={{ padding: 20 }}>Chargement du devis...</Text>;
+	const handleDownloadPdf = async () => {
+		
+		try {
+		  console.log("📥 Bouton Télécharger cliqué");
+	  
+		  const dateCreated = new Date(quote.created_at).toLocaleDateString("fr-FR", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+		  });
+	  
+		  const dateValid = new Date(quote.valid_until).toLocaleDateString("fr-FR", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+		  });
+	  
+		  const rowsHtml = quote.items.map(item => {
+			const qty = parseFloat(item.quantity) || 0;
+			const puTTC = parseFloat(item.unitPrice) || 0;
+			const totalTTC = qty * puTTC;
+			const puHT = puTTC / 1.2;
+			const totalHT = puHT * qty;
+			const tva = totalTTC - totalHT;
+	  
+			return `
+			<tr>
+			  <td style="border: 1px solid #000; padding: 4px;">${item.description}</td>
+			  <td style="border: 1px solid #000; padding: 4px;">${qty}</td>
+			  <td style="border: 1px solid #000; padding: 4px;">${puHT.toFixed(2)} €</td>
+			  <td style="border: 1px solid #000; padding: 4px;">${tva.toFixed(2)} €</td>
+			  <td style="border: 1px solid #000; padding: 4px;">${totalTTC.toFixed(2)} €</td>
+			</tr>
+		  `;
+		  
+		}).join(""); // fin du map()
 
-	const html = `
-	<html>
-	<head>
-	  <style>
-		body {
-		  font-family: 'Helvetica', Arial, sans-serif;
-		  font-size: 12px;
-		  color: #222;
-		  padding: 20px;
+		const totalTTC = quote.items.reduce((sum, item) => {
+			const qty = parseFloat(item.quantity) || 0;
+			const unitTTC = parseFloat(item.unitPrice) || 0;
+			return sum + qty * unitTTC;
+		  }, 0);
+		  
+		  const totalHT = totalTTC / 1.2;
+		  const remise = (quote.discount / 100) * totalHT;
+		  const htAfterRemise = totalHT - remise;
+		  const tva = htAfterRemise * 0.2;
+		  const totalTTCApresRemise = htAfterRemise + tva;
+		  const acompte = parseFloat(quote.deposit || 0);
+		  const totalFinal = totalTTCApresRemise - acompte;
+		  
+
+		  const html = `
+		  <!DOCTYPE html>
+		  <html lang="fr">
+		  <head>
+			<meta charset="UTF-8" />
+			<style>
+			  body {
+				font-family: Arial, sans-serif;
+				font-size: 10px;
+				padding: 15px;
+				max-width: 595px;
+				margin: auto;
+			  }
+			  h2 {
+				text-align: center;
+				margin-bottom: 10px;
+			  }
+			  .header-logo {
+				text-align: center;
+				margin-bottom: 10px;
+			  }
+			  .header-logo img {
+				height: 40px;
+			  }
+			  .section {
+				margin-bottom: 12px;
+			  }
+			  table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 9px;
+				margin-top: 8px;
+			  }
+			  th, td {
+				border: 1px solid #ccc;
+				padding: 4px;
+				text-align: left;
+			  }
+			  th {
+				background-color: #f2f2f2;
+			  }
+			  .totaux {
+				margin-top: 10px;
+				font-size: 9px;
+			  }
+			  .totaux td {
+				padding: 3px 4px;
+			  }
+			  .mentions {
+				font-size: 8px;
+				color: #555;
+				margin-top: 15px;
+				text-align: justify;
+				line-height: 1.3;
+			  }
+			  .footer {
+				margin-top: 25px;
+				font-size: 8px;
+				text-align: center;
+			  }
+			  .signature {
+				margin-top: 30px;
+			  }
+			  .signature-line {
+				margin-top: 25px;
+				border-top: 1px solid #000;
+				width: 200px;
+			  }
+			</style>
+		  </head>
+		  <body>
+		  
+			<div class="header-logo">
+			  <img src="https://www.avenir-informatique.fr/logo.webp" alt="Logo" />
+			</div>
+		  
+			<h2>Devis - Assemblage PC</h2>
+		  
+			<div class="section">
+			  <strong>Client :</strong> ${quote.name}<br/>
+			  <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
+			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString("fr-FR")}<br/>
+			  <strong>Valide jusqu’au :</strong> ${new Date(quote.valid_until).toLocaleDateString("fr-FR")}<br/>
+			  <strong>N° Devis :</strong> ${quote.quote_number}
+			</div>
+		  
+			<table>
+			  <thead>
+				<tr>
+				  <th>Désignation</th>
+				  <th>Qté</th>
+				  <th>PU HT</th>
+				  <th>TVA</th>
+				  <th>Total TTC</th>
+				</tr>
+			  </thead>
+			  <tbody>
+				${rowsHtml}
+			  </tbody>
+			</table>
+		  
+			<table class="totaux">
+			  <tr><td><strong>Total TTC saisi :</strong> ${totalTTC.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total HT :</strong> ${totalHT.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>TVA (20%) :</strong> ${tva.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Acompte :</strong> -${acompte.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total à payer :</strong> ${totalFinal.toFixed(2)} €</td></tr>
+			</table>
+		  
+			<div class="mentions">
+			  <p><strong>Conditions :</strong> Ce devis est valable 30 jours à compter de sa date d’émission. Toute commande de matériel est considérée comme ferme et non remboursable une fois validée. Les composants listés sont soumis à disponibilité chez les fournisseurs. L’assemblage est effectué selon les standards professionnels. Le client reconnaît avoir été informé que les pièces bénéficient des garanties constructeur, et qu’un acompte peut être requis avant toute commande.</p>
+			  <p><strong>Acceptation :</strong> La signature du présent devis vaut bon pour accord sur les prestations listées ainsi que leurs conditions de réalisation.</p>
+			</div>
+		  
+			<div class="signature">
+			  <p><strong>Signature du client :</strong></p>
+			  <div class="signature-line"></div>
+			</div>
+		  
+        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+          <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
+          <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
+          <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
+			</div>
+		  
+		  </body>
+		  </html>
+		  `;
+		  
+
+		const { uri } = await Print.printToFileAsync({ html });
+		console.log("✅ PDF généré :", uri);
+
+		if (await Sharing.isAvailableAsync()) {
+			await Sharing.shareAsync(uri, {
+			  mimeType: "application/pdf",
+			  dialogTitle: "Partager ou enregistrer le devis",
+			});
+		  
+			// ⬇️ Mets à jour le statut
+			await supabase
+  .from("quotes")
+  .update({ deja_envoye: true })
+  .eq("id", quote.id);
+		  
+			Alert.alert("✅ Partage terminé", "Le devis a bien été partagé.");
+		} else {
+		  Alert.alert("✅ PDF prêt", "Fichier généré ici : " + uri);
 		}
-		  img {
-  display: block;
-}
-		h2 {
-		  text-align: center;
-		  color: #007bff;
-		  margin-bottom: 30px;
-		}
-		table {
-		  width: 100%;
-		  border-collapse: collapse;
-		  margin-top: 10px;
-		}
-		th, td {
-		  border: 1px solid #ccc;
-		  padding: 8px;
-		}
-		th {
-		  background-color: #f5f5f5;
-		  text-align: left;
-		}
-		td:last-child, th:last-child {
-		  text-align: right;
-		}
-		.totaux td {
-		  border: none;
-		  text-align: right;
-		  padding: 6px 0;
-		}
-		.signature {
-		  margin-top: 40px;
-		}
-		.remarks {
-		  margin-top: 20px;
-		  font-style: italic;
-		  color: #444;
-		}
-	  </style>
-	</head>
-	<body>
-<div style="text-align: center; margin-bottom: 10px;">
-  <img 
-    src="https://www.avenir-informatique.fr/logo.webp" 
-    style="height: 40px; display: block; margin: 0 auto;" 
-    alt="Logo Avenir Informatique"
-  />
-</div>
 
+	  } catch (error) {
+		console.error("❌ Erreur génération PDF :", error);
+		Alert.alert("Erreur", "Impossible de générer ou partager le PDF.");
+	  }
+	};
 
-</div>
-	  <h2>DEVIS N° ${quote.quote_number}</h2>
-	
-	  <p>
-		<strong>Client :</strong> ${quote.name}<br/>
-		<strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
-<strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString("fr-FR", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-})}<br/>
-<strong>Valide jusqu'au :</strong> ${new Date(quote.valid_until).toLocaleDateString("fr-FR", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-})}
+    return (
+        <ScrollView style={{ padding: 20 }}>
+            <Text
+                style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}
+            >
+                Aperçu du devis
+            </Text>
+            <Text>Client : {quote.name}</Text>
+            <Text>Téléphone : {quote.phone}</Text>
+            <Text>
+                Date :{" "}
+                {new Date(quote.created_at).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                })}
+            </Text>
 
-	  </p>
-	
-	  <table>
-		<thead>
-		  <tr>
-			<th>Désignation</th>
-			<th style="text-align:center;">Qté</th>
-			<th>PU HT</th>
-			<th>TVA</th>
-			<th>Total TTC</th>
-		  </tr>
-		</thead>
-		<tbody>
-		  ${rowsHtml}
-		</tbody>
-	  </table>
-	
-	  <table class="totaux">
-		<tr><td><strong>Total HT :</strong> ${totalHT.toFixed(2)} €</td></tr>
-		<tr><td><strong>TVA (20%) :</strong> ${totalTVA.toFixed(2)} €</td></tr>
-		<tr><td><strong>Total TTC :</strong> ${totalTTC.toFixed(2)} €</td></tr>
-		<tr><td><strong>Remise :</strong> -${remise.toFixed(2)} €</td></tr>
-		<tr><td><strong>Acompte versé :</strong> -${acompte.toFixed(2)} €</td></tr>
-		<tr><td><strong>Total à payer :</strong> ${totalFinal.toFixed(2)} €</td></tr>
-	  </table>
-	
-	  ${quote.remarks ? `<p class="remarks"><strong>Remarques :</strong><br/>${quote.remarks}</p>` : ""}
-	
-	  <div class="signature">
-		<p><strong>Signature du client :</strong></p>
-		${quote.signature
-		  ? `<img src="${quote.signature}" style="width: 250px; height: auto; margin-top: 10px;" />`
-		  : "<p>________________________</p>"}
-	  </div>
-	  <div style="margin-top: 50px; font-size: 11px; text-align: center; color: #555;">
-  <p>AVENIR INFORMATIQUE – 16, place de l’Hôtel de Ville – 93700 Drancy</p>
-  <p>Tel : 01 41 60 18 18 – contact@avenir-informatique.fr</p>
-</div>
-	</body>
-	</html>
-	`;
-	
+            <Text>
+                Valide jusqu'au :{" "}
+                {new Date(Date.parse(quote.valid_until)).toLocaleDateString(
+                    "fr-FR",
+                    {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                    }
+                )}
+            </Text>
 
-    await Print.printAsync({ html });
-  };
+            <Text style={{ marginTop: 10 }}>
+                Nombre de lignes : {quote.items.length}
+            </Text>
 
-  if (!quote) return <Text style={{ padding: 20 }}>Chargement du devis...</Text>;
+			<View style={{ flexDirection: "row", marginTop: 30, gap: 10 }}>
+  <TouchableOpacity
+    style={{
+      flex: 1,
+      backgroundColor: "#007bff",
+      padding: 12,
+      borderRadius: 8,
+      alignItems: "center",
+    }}
+    onPress={handlePrint}
+  >
+    <Text style={{ color: "#fff", fontWeight: "bold" }}>🖨️ Imprimer</Text>
+  </TouchableOpacity>
 
-  return (
-    <ScrollView style={{ padding: 20 }}>
-      <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>
-        Aperçu du devis
-      </Text>
-      <Text>Client : {quote.name}</Text>
-      <Text>Téléphone : {quote.phone}</Text>
-      <Text>
-  Date :{" "}
-  {new Date(quote.created_at).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })}
-</Text>
+  <TouchableOpacity
+    style={{
+      flex: 1,
+      backgroundColor: "#28a745",
+      padding: 12,
+      borderRadius: 8,
+      alignItems: "center",
+    }}
+    onPress={handleDownloadPdf}
+  >
+    <Text style={{ color: "#fff", fontWeight: "bold" }}>📥 Télécharger et Envoyer PDF</Text>
+  </TouchableOpacity>
+</View>
 
-<Text>
-  Valide jusqu'au :{" "}
-  {new Date(Date.parse(quote.valid_until)).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })}
-</Text>
-
-
-      <Text style={{ marginTop: 10 }}>Nombre de lignes : {quote.items.length}</Text>
-
-      <TouchableOpacity
-        style={{
-          marginTop: 30,
-          backgroundColor: "#007bff",
-          padding: 12,
-          borderRadius: 8,
-          alignItems: "center",
-        }}
-        onPress={handlePrint}
-      >
-        <Text style={{ color: "#fff", fontWeight: "bold" }}>🖨️ Imprimer le devis</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
+        </ScrollView>
+    );
 };
 
 export default QuotePrintPage;

@@ -25,8 +25,8 @@ const BillingPage = () => {
 	const expressData = route.params?.expressData || {};
 	const order_id = expressData.order_id || null; 
 	const express_id = expressData.express_id || null;
+	const [quoteNumber, setQuoteNumber] = useState(null);
 
-	console.log("✅ order_id reçu :", order_id);
     const [clientSuggestions, setClientSuggestions] = useState([]);
     const [focusedField, setFocusedField] = useState(null);
     const [clientname, setClientName] = useState("");
@@ -41,16 +41,41 @@ const BillingPage = () => {
         { designation: "", quantity: "1", price: "", serial: "" }
     ]);
     const [isSaved, setIsSaved] = useState(false);
-
 	useEffect(() => {
-
-		if (expressData?.invoicenumber) {
-		  setInvoiceNumber(expressData.invoicenumber);
-		} else {
-		  generateInvoiceNumber();
-		}
+		if (route.params?.fromQuote) {
+		  setQuoteNumber(route.params.quoteNumber || null);
+		  const {
+			name,
+			phone,
+			items,
+			remarks,
+			totalttc,
+		  } = route.params;
 	  
-		if (expressData) {
+		  console.log("✅ Facture depuis devis :", route.params);
+	  
+		  setClientName(name || "");
+		  setClientPhone(phone || "");
+	  
+		  setLines(
+			items.map((item) => ({
+			  designation: item.label
+				? `${item.label} — ${item.description}`
+				: item.description,
+			  quantity: item.quantity || "1",
+			  price: item.unitPrice || "",
+			  serial: "",
+			}))
+		  );
+	  
+		  generateInvoiceNumber(); // ✅ AJOUT ICI
+		} else if (expressData) {
+		  if (expressData?.invoicenumber) {
+			setInvoiceNumber(expressData.invoicenumber);
+		  } else {
+			generateInvoiceNumber();
+		  }
+	  
 		  setClientName(expressData.name || expressData.clientname || "");
 		  setClientPhone(expressData.phone || expressData.clientphone || "");
 		  setClientAddress(expressData.client_address || "");
@@ -69,19 +94,23 @@ const BillingPage = () => {
 			  : ""
 		  );
 		  setPaid(expressData.paid || false);
+		} else {
+		  generateInvoiceNumber();
 		}
 	  
-		setIsSaved(false); // 🔥 important pour éviter bouton vert à tort
+		setIsSaved(false);
 	  }, []);
+	  
+	  
 	  
 
     const generateInvoiceNumber = async () => {
+		
         const { data, error } = await supabase
             .from("billing")
             .select("invoicenumber")
             .order("created_at", { ascending: false })
             .limit(1);
-
         if (error) {
             console.error("Erreur de récupération du dernier numéro:", error);
             return;
@@ -194,6 +223,7 @@ const BillingPage = () => {
 	  
 				<div style="font-size: 9px; margin-bottom: 10px;">
 				  <p><strong>Facture N° :</strong> ${invoicenumber}<br/>
+				  ${quoteNumber ? `<p><strong>Devis d'origine :</strong> ${quoteNumber}</p>` : ""}
 				  <strong>Date :</strong> ${invoicedate}</p>
 				</div>
 	  
@@ -499,6 +529,11 @@ ${paid ? `
                     onBlur={() => setFocusedField(null)}
                 />
             </View>
+			{quoteNumber && (
+  <Text style={{ fontStyle: "italic", color: "#555", marginBottom: 10 }}>
+    📎 Issu du devis : {quoteNumber}
+  </Text>
+)}
 
             {/* Date */}
             <View style={{ marginBottom: 20 }}>

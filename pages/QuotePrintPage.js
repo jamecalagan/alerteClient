@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, View, Alert, TouchableOpacity } from "react-native";
-import { useRoute } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 import * as Sharing from "expo-sharing";
+
 const QuotePrintPage = () => {
+	const navigation = useNavigation();
     const route = useRoute();
     const { id } = route.params;
     const [quote, setQuote] = useState(null);
@@ -28,29 +30,40 @@ const QuotePrintPage = () => {
         }
     };
 
-	const handlePrint = async () => {
-		if (!quote) return;
-	  
-		const dateCreated = new Date(quote.created_at).toLocaleDateString("fr-FR", {
-		  day: "numeric", month: "long", year: "numeric"
-		});
-	  
-		const dateValid = new Date(quote.valid_until).toLocaleDateString("fr-FR", {
-		  day: "numeric", month: "long", year: "numeric"
-		});
-	  
-		const rowsHtml = quote.items.map((item) => {
-			const qty = parseFloat(item.quantity) || 0;
-			const puTTC = parseFloat(item.unitPrice) || 0;
-			const puHT = puTTC / 1.2;
-			const totalTTC = qty * puTTC;
-			const tva = totalTTC - (puHT * qty);
-		  
-			const designation = item.label
-			  ? `${item.label} — ${item.description}`
-			  : item.description;
-		  
-			return `
+    const handlePrint = async () => {
+        if (!quote) return;
+
+        const dateCreated = new Date(quote.created_at).toLocaleDateString(
+            "fr-FR",
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            }
+        );
+
+        const dateValid = new Date(quote.valid_until).toLocaleDateString(
+            "fr-FR",
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            }
+        );
+
+        const rowsHtml = quote.items
+            .map((item) => {
+                const qty = parseFloat(item.quantity) || 0;
+                const puTTC = parseFloat(item.unitPrice) || 0;
+                const puHT = puTTC / 1.2;
+                const totalTTC = qty * puTTC;
+                const tva = totalTTC - puHT * qty;
+
+                const designation = item.label
+                    ? `${item.label} — ${item.description}`
+                    : item.description;
+
+                return `
 			  <tr>
 				<td style="border: 1px solid #ccc; padding: 4px;">${designation}</td>
 				<td style="border: 1px solid #ccc; padding: 4px;">${qty}</td>
@@ -59,25 +72,24 @@ const QuotePrintPage = () => {
 				<td style="border: 1px solid #ccc; padding: 4px;">${totalTTC.toFixed(2)} €</td>
 			  </tr>
 			`;
-		  }).join("");
-		  
-	  
-		const totalTTC = quote.items.reduce((sum, item) => {
-			const qty = parseFloat(item.quantity) || 0;
-			const unitTTC = parseFloat(item.unitPrice) || 0;
-			return sum + qty * unitTTC;
-		  }, 0);
-		  
-		  const totalHT = totalTTC / 1.2;
-		  const remise = (quote.discount / 100) * totalHT;
-		  const htAfterRemise = totalHT - remise;
-		  const tva = htAfterRemise * 0.2;
-		  const totalTTCApresRemise = htAfterRemise + tva;
-		  const acompte = parseFloat(quote.deposit || 0);
-		  const totalFinal = totalTTCApresRemise - acompte;
-		  
+            })
+            .join("");
 
-		  const html = `
+        const totalTTC = quote.items.reduce((sum, item) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const unitTTC = parseFloat(item.unitPrice) || 0;
+            return sum + qty * unitTTC;
+        }, 0);
+
+        const totalHT = totalTTC / 1.2;
+        const remise = (quote.discount / 100) * totalHT;
+        const htAfterRemise = totalHT - remise;
+        const tva = htAfterRemise * 0.2;
+        const totalTTCApresRemise = htAfterRemise + tva;
+        const acompte = parseFloat(quote.deposit || 0);
+        const totalFinal = totalTTCApresRemise - acompte;
+
+        const html = `
 		  <!DOCTYPE html>
 		  <html lang="fr">
 		  <head>
@@ -158,8 +170,12 @@ const QuotePrintPage = () => {
 			<div class="section">
 			  <strong>Client :</strong> ${quote.name}<br/>
 			  <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
-			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString("fr-FR")}<br/>
-			  <strong>Valide jusqu’au :</strong> ${new Date(quote.valid_until).toLocaleDateString("fr-FR")}<br/>
+			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString(
+                  "fr-FR"
+              )}<br/>
+			  <strong>Valide jusqu’au :</strong> ${new Date(
+                  quote.valid_until
+              ).toLocaleDateString("fr-FR")}<br/>
 			  <strong>N° Devis :</strong> ${quote.quote_number}
 			</div>
 		  
@@ -181,9 +197,13 @@ const QuotePrintPage = () => {
 			<table class="totaux">
 			  <tr><td><strong>Total TTC saisi :</strong> ${totalTTC.toFixed(2)} €</td></tr>
 			  <tr><td><strong>Total HT :</strong> ${totalHT.toFixed(2)} €</td></tr>
-			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(
+            2
+        )} €</td></tr>
 			  <tr><td><strong>TVA (20%) :</strong> ${tva.toFixed(2)} €</td></tr>
-			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(
+                  2
+              )} €</td></tr>
 			  <tr><td><strong>Acompte :</strong> -${acompte.toFixed(2)} €</td></tr>
 			  <tr><td><strong>Total à payer :</strong> ${totalFinal.toFixed(2)} €</td></tr>
 			</table>
@@ -207,78 +227,83 @@ const QuotePrintPage = () => {
 		  </body>
 		  </html>
 		  `;
-		  
-		
-
 
         await Print.printAsync({ html });
-		await supabase
-		.from("quotes")
-		.update({ deja_imprime: true })
-		.eq("id", quote.id);
-	  
+        await supabase
+            .from("quotes")
+            .update({ deja_imprime: true })
+            .eq("id", quote.id);
     };
 
     if (!quote)
         return <Text style={{ padding: 20 }}>Chargement du devis...</Text>;
-	const handleDownloadPdf = async () => {
-		
-		try {
-		  console.log("📥 Bouton Télécharger cliqué");
-	  
-		  const dateCreated = new Date(quote.created_at).toLocaleDateString("fr-FR", {
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-		  });
-	  
-		  const dateValid = new Date(quote.valid_until).toLocaleDateString("fr-FR", {
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-		  });
-	  
-		  const rowsHtml = quote.items.map((item) => {
-			const qty = parseFloat(item.quantity) || 0;
-			const puTTC = parseFloat(item.unitPrice) || 0;
-			const puHT = puTTC / 1.2;
-			const totalTTC = qty * puTTC;
-			const tva = totalTTC - (puHT * qty);
-		  
-			const designation = item.label
-			  ? `${item.label} — ${item.description}`
-			  : item.description || "";
-		  
-			return `
+    const handleDownloadPdf = async () => {
+        try {
+            console.log("📥 Bouton Télécharger cliqué");
+
+            const dateCreated = new Date(quote.created_at).toLocaleDateString(
+                "fr-FR",
+                {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                }
+            );
+
+            const dateValid = new Date(quote.valid_until).toLocaleDateString(
+                "fr-FR",
+                {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                }
+            );
+
+            const rowsHtml = quote.items
+                .map((item) => {
+                    const qty = parseFloat(item.quantity) || 0;
+                    const puTTC = parseFloat(item.unitPrice) || 0;
+                    const puHT = puTTC / 1.2;
+                    const totalTTC = qty * puTTC;
+                    const tva = totalTTC - puHT * qty;
+
+                    const designation = item.label
+                        ? `${item.label} — ${item.description}`
+                        : item.description || "";
+
+                    return `
 			  <tr>
 				<td style="border: 1px solid #ccc; padding: 3px;">${designation}</td>
 				<td style="border: 1px solid #ccc; padding: 3px; text-align: center;">${qty}</td>
-				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${puHT.toFixed(2)} €</td>
-				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${tva.toFixed(2)} €</td>
-				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${totalTTC.toFixed(2)} €</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${puHT.toFixed(
+                    2
+                )} €</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${tva.toFixed(
+                    2
+                )} €</td>
+				<td style="border: 1px solid #ccc; padding: 3px; text-align: right;">${totalTTC.toFixed(
+                    2
+                )} €</td>
 			  </tr>
 			`;
-		  }).join("");
-		  
-		  
+                })
+                .join("");
 
+            const totalTTC = quote.items.reduce((sum, item) => {
+                const qty = parseFloat(item.quantity) || 0;
+                const unitTTC = parseFloat(item.unitPrice) || 0;
+                return sum + qty * unitTTC;
+            }, 0);
 
-		const totalTTC = quote.items.reduce((sum, item) => {
-			const qty = parseFloat(item.quantity) || 0;
-			const unitTTC = parseFloat(item.unitPrice) || 0;
-			return sum + qty * unitTTC;
-		  }, 0);
-		  
-		  const totalHT = totalTTC / 1.2;
-		  const remise = (quote.discount / 100) * totalHT;
-		  const htAfterRemise = totalHT - remise;
-		  const tva = htAfterRemise * 0.2;
-		  const totalTTCApresRemise = htAfterRemise + tva;
-		  const acompte = parseFloat(quote.deposit || 0);
-		  const totalFinal = totalTTCApresRemise - acompte;
-		  
+            const totalHT = totalTTC / 1.2;
+            const remise = (quote.discount / 100) * totalHT;
+            const htAfterRemise = totalHT - remise;
+            const tva = htAfterRemise * 0.2;
+            const totalTTCApresRemise = htAfterRemise + tva;
+            const acompte = parseFloat(quote.deposit || 0);
+            const totalFinal = totalTTCApresRemise - acompte;
 
-		  const html = `
+            const html = `
 		  <!DOCTYPE html>
 		  <html lang="fr">
 		  <head>
@@ -359,8 +384,12 @@ const QuotePrintPage = () => {
 			<div class="section">
 			  <strong>Client :</strong> ${quote.name}<br/>
 			  <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
-			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString("fr-FR")}<br/>
-			  <strong>Valide jusqu’au :</strong> ${new Date(quote.valid_until).toLocaleDateString("fr-FR")}<br/>
+			  <strong>Date :</strong> ${new Date(quote.created_at).toLocaleDateString(
+                  "fr-FR"
+              )}<br/>
+			  <strong>Valide jusqu’au :</strong> ${new Date(
+                  quote.valid_until
+              ).toLocaleDateString("fr-FR")}<br/>
 			  <strong>N° Devis :</strong> ${quote.quote_number}
 			</div>
 		  
@@ -382,9 +411,13 @@ const QuotePrintPage = () => {
 			<table class="totaux">
 			  <tr><td><strong>Total TTC saisi :</strong> ${totalTTC.toFixed(2)} €</td></tr>
 			  <tr><td><strong>Total HT :</strong> ${totalHT.toFixed(2)} €</td></tr>
-			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Remise (${quote.discount}%):</strong> -${remise.toFixed(
+                2
+            )} €</td></tr>
 			  <tr><td><strong>TVA (20%) :</strong> ${tva.toFixed(2)} €</td></tr>
-			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(2)} €</td></tr>
+			  <tr><td><strong>Total TTC après remise :</strong> ${totalTTCApresRemise.toFixed(
+                  2
+              )} €</td></tr>
 			  <tr><td><strong>Acompte :</strong> -${acompte.toFixed(2)} €</td></tr>
 			  <tr><td><strong>Total à payer :</strong> ${totalFinal.toFixed(2)} €</td></tr>
 			</table>
@@ -408,33 +441,34 @@ const QuotePrintPage = () => {
 		  </body>
 		  </html>
 		  `;
-		  
 
-		const { uri } = await Print.printToFileAsync({ html });
-		console.log("✅ PDF généré :", uri);
+            const { uri } = await Print.printToFileAsync({ html });
+            console.log("✅ PDF généré :", uri);
 
-		if (await Sharing.isAvailableAsync()) {
-			await Sharing.shareAsync(uri, {
-			  mimeType: "application/pdf",
-			  dialogTitle: "Partager ou enregistrer le devis",
-			});
-		  
-			// ⬇️ Mets à jour le statut
-			await supabase
-  .from("quotes")
-  .update({ deja_envoye: true })
-  .eq("id", quote.id);
-		  
-			Alert.alert("✅ Partage terminé", "Le devis a bien été partagé.");
-		} else {
-		  Alert.alert("✅ PDF prêt", "Fichier généré ici : " + uri);
-		}
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: "application/pdf",
+                    dialogTitle: "Partager ou enregistrer le devis",
+                });
 
-	  } catch (error) {
-		console.error("❌ Erreur génération PDF :", error);
-		Alert.alert("Erreur", "Impossible de générer ou partager le PDF.");
-	  }
-	};
+                // ⬇️ Mets à jour le statut
+                await supabase
+                    .from("quotes")
+                    .update({ deja_envoye: true })
+                    .eq("id", quote.id);
+
+                Alert.alert(
+                    "✅ Partage terminé",
+                    "Le devis a bien été partagé."
+                );
+            } else {
+                Alert.alert("✅ PDF prêt", "Fichier généré ici : " + uri);
+            }
+        } catch (error) {
+            console.error("❌ Erreur génération PDF :", error);
+            Alert.alert("Erreur", "Impossible de générer ou partager le PDF.");
+        }
+    };
 
     return (
         <ScrollView style={{ padding: 20 }}>
@@ -478,10 +512,13 @@ const QuotePrintPage = () => {
       padding: 12,
       borderRadius: 8,
       alignItems: "center",
+      justifyContent: "center",
     }}
     onPress={handlePrint}
   >
-    <Text style={{ color: "#fff", fontWeight: "bold" }}>🖨️ Imprimer</Text>
+    <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 12, textAlign: "center" }}>
+      🖨️ Imprimer
+    </Text>
   </TouchableOpacity>
 
   <TouchableOpacity
@@ -491,11 +528,41 @@ const QuotePrintPage = () => {
       padding: 12,
       borderRadius: 8,
       alignItems: "center",
+      justifyContent: "center",
     }}
     onPress={handleDownloadPdf}
   >
-    <Text style={{ color: "#fff", fontWeight: "bold" }}>📥 Télécharger et Envoyer PDF</Text>
+    <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 12, textAlign: "center" }}>
+      📥 Envoyer PDF
+    </Text>
   </TouchableOpacity>
+
+  <TouchableOpacity
+  style={{
+    flex: 1,
+    backgroundColor: "#ffc107",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+  onPress={() =>
+    navigation.navigate("BillingPage", {
+      fromQuote: true,
+	  quoteNumber: quote.quote_number,
+      name: quote.name,
+      phone: quote.phone,
+      items: quote.items,
+      totalttc: quote.total,
+      remarks: quote.remarks,
+    })
+  }
+>
+  <Text style={{ color: "#000", fontWeight: "bold", fontSize: 12 }}>
+    💳 Facturer ce devis
+  </Text>
+</TouchableOpacity>
+
 </View>
 
         </ScrollView>

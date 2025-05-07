@@ -20,47 +20,52 @@ export default function OrdersPage({ route, navigation, order }) {
     const [orders, setOrders] = useState([]);
     const [expandedOrders, setExpandedOrders] = useState([]);
 
-    const [newOrder, setNewOrder] = useState({
-        product: "",
-        brand: "",
-        model: "",
-        serial: "",
-        price: "",
-        deposit: "",
-        paid: false,
-        client_id: clientId,
-    });
-    useFocusEffect(
-        useCallback(() => {
-            loadOrders(); // ta fonction qui recharge les commandes
-        }, [])
-    );
+	const [newOrder, setNewOrder] = useState({
+		product: "",
+		brand: "",
+		model: "",
+		serial: "",
+		price: "",
+		deposit: "",
+		paid: false,
+		client_id: null,
+	  });
+	  useEffect(() => {
+		if (clientId) {
+		  setNewOrder((prev) => ({ ...prev, client_id: clientId }));
+		}
+	  }, [clientId]);
     useEffect(() => {
         loadOrders();
     }, [clientId]);
 
-    const loadOrders = async () => {
-        try {
-            const { data, error } = await supabase
-                .from("orders")
-                .select("*, billing(id)")
-                .eq("client_id", clientId)
-                .order("createdat", { ascending: false });
-
-            if (error) throw error;
-
-            // Ajout de originalSerial pour le suivi des changements
-            setOrders(
-                (data || []).map((order) => ({
-                    ...order,
-                    originalSerial: order.serial || "",
-                    billing: order.billing || null,
-                }))
-            );
-        } catch (error) {
-            console.error("❌ Erreur lors du chargement des commandes:", error);
-        }
-    };
+	const loadOrders = async () => {
+		if (!clientId) {
+			console.warn("⚠️ clientId est undefined, requête annulée.");
+			return;
+		}
+	
+		try {
+			const { data, error } = await supabase
+				.from("orders")
+				.select("*, billing(id)")
+				.eq("client_id", clientId)
+				.order("createdat", { ascending: false });
+	
+			if (error) throw error;
+	
+			setOrders(
+				(data || []).map((order) => ({
+					...order,
+					originalSerial: order.serial || "",
+					billing: order.billing || null,
+				}))
+			);
+		} catch (error) {
+			console.error("❌ Erreur lors du chargement des commandes:", error);
+		}
+	};
+	
 
     const handleCreateOrder = async () => {
         try {

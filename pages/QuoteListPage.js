@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -6,6 +6,7 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
+	Animated ,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -16,11 +17,29 @@ const QuoteListPage = () => {
     const navigation = useNavigation();
     const [showConfirm, setShowConfirm] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
-	const [email, setEmail] = useState("");
+	const [isSearchFocused, setIsSearchFocused] = useState(false);
+	const inputHeight = useRef(new Animated.Value(42)).current;
     useEffect(() => {
         fetchQuotes();
     }, []);
-
+	const handleFocus = () => {
+		setIsSearchFocused(true);
+		Animated.timing(inputHeight, {
+		  toValue: 55,
+		  duration: 150,
+		  useNativeDriver: false,
+		}).start();
+	  };
+	  
+	  const handleBlur = () => {
+		setIsSearchFocused(false);
+		Animated.timing(inputHeight, {
+		  toValue: 42,
+		  duration: 150,
+		  useNativeDriver: false,
+		}).start();
+	  };
+	  
     const fetchQuotes = async () => {
         const { data, error } = await supabase
             .from("quotes")
@@ -60,12 +79,44 @@ const QuoteListPage = () => {
         <View style={styles.container}>
             <Text style={styles.title}>📄 Liste des devis</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="🔍 Rechercher un client ou un n° de devis"
-                value={search}
-                onChangeText={setSearch}
-            />
+			<View style={{ marginBottom: 16, position: "relative" }}>
+  {/** Label flottant */}
+  <Text
+    style={[
+      styles.floatingLabel,
+      (isSearchFocused || search.length > 0) && styles.floatingLabelFocused,
+    ]}
+  >
+    🔍 Rechercher un client ou un n° de devis
+  </Text>
+
+  <View style={{ marginBottom: 16, position: "relative" }}>
+  <Text
+    style={[
+      styles.floatingLabel,
+      (isSearchFocused || search.length > 0) && styles.floatingLabelFocused,
+    ]}
+  >
+    🔍 Rechercher un client ou un n° de devis
+  </Text>
+
+  <Animated.View style={{ height: inputHeight }}>
+    <TextInput
+      style={[
+        styles.input,
+        { height: "100%" },
+        isSearchFocused && styles.inputFocused,
+      ]}
+      value={search}
+      onChangeText={setSearch}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+    />
+  </Animated.View>
+</View>
+
+</View>
+
 
             <FlatList
                 data={filteredQuotes}
@@ -367,6 +418,32 @@ buttonText: {
   fontWeight: "bold",
   fontSize: 14,
 },
+floatingLabel: {
+  position: "absolute",
+  top: 12,
+  left: 12,
+  fontSize: 14,
+  color: "#888",
+  zIndex: 1,
+},
+
+floatingLabelFocused: {
+  top: -10,
+  left: 10,
+  fontSize: 12,
+  color: "#007bff",
+  backgroundColor: "#f9f9f9",
+  paddingHorizontal: 4,
+  borderRadius: 4,
+},
+
+inputFocused: {
+  height: 50,
+  fontSize: 18,
+  borderColor: "#007bff",
+  backgroundColor: "#eef6ff",
+},
+
 
 });
 

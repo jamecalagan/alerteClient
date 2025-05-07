@@ -20,6 +20,8 @@ const ExpressListPage = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [totalPages, setTotalPages] = useState(1);
+  const [focusedField, setFocusedField] = useState(null);
+
   useFocusEffect(
 	useCallback(() => {
 	  fetchExpressList(page);
@@ -94,12 +96,29 @@ const ExpressListPage = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Fiches Dépannage Express</Text>
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Recherche nom ou téléphone"
-        value={searchText}
-        onChangeText={setSearchText}
-      />
+	  <View style={{ marginBottom: 16 }}>
+  <Text
+    style={[
+      styles.floatingLabel,
+      (focusedField === "search" || searchText) && styles.floatingLabelFocused,
+    ]}
+  >
+    Rechercher un client ou téléphone
+  </Text>
+
+  <TextInput
+    value={searchText}
+    onChangeText={setSearchText}
+    onFocus={() => setFocusedField("search")}
+    onBlur={() => setFocusedField(null)}
+    style={[
+      styles.searchInput,
+      focusedField === "search" && styles.searchInputFocused,
+    ]}
+    placeholder=""
+  />
+</View>
+
 
       <View style={styles.filterRow}>
         {["all", "reparation", "logiciel", "video"].map((type) => (
@@ -372,6 +391,32 @@ headerCell: {
     alignItems: "center",
     marginTop: 20,
   },
+  floatingLabel: {
+  position: "absolute",
+  left: 10,
+  top: 12,
+  fontSize: 14,
+  color: "#888",
+  zIndex: 1,
+},
+
+floatingLabelFocused: {
+  top: -10,
+  left: 8,
+  fontSize: 12,
+  color: "#007bff",
+  backgroundColor: "#eef6ff",
+  paddingHorizontal: 5,
+  borderRadius: 4,
+},
+
+searchInputFocused: {
+  height: 55,
+  fontSize: 18,
+  backgroundColor: "#eef6ff",
+  borderColor: "#007bff",
+},
+
 });
 
 export default ExpressListPage;

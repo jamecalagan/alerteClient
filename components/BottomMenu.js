@@ -80,26 +80,23 @@ export default function BottomMenu({
                     </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[
-                        styles.filterButtonDevis,
-                        { backgroundColor: getButtonColor("Devis en cours") },
-                        getButtonBorder("Devis en cours"),
-                    ]}
-                    onPress={() =>
-                        handlePress("Devis en cours", () =>
-                            filterByStatus("Devis en cours")
-                        )
-                    }
-                >
-                    <View style={styles.buttonContent}>
-                        <Image
-                            source={require("../assets/icons/devisEnCours.png")}
-                            style={styles.icon}
-                        />
-                        <Text style={styles.filterText}>Devis</Text>
-                    </View>
-                </TouchableOpacity>
+				<TouchableOpacity
+    style={[
+        styles.filterButtonDevis,
+        { backgroundColor: getButtonColor("Devis en cours") },
+        getButtonBorder("Devis en cours"),
+    ]}
+    onPress={() => navigation.navigate("QuoteEditPage")}
+>
+    <View style={styles.buttonContent}>
+        <Image
+            source={require("../assets/icons/devisEnCours.png")}
+            style={styles.icon}
+        />
+        <Text style={styles.filterText}>Devis</Text>
+    </View>
+</TouchableOpacity>
+
 				<TouchableOpacity
     style={[
         styles.filterButtonDevisOk,
@@ -173,9 +170,12 @@ export default function BottomMenu({
                         styles.filterButtonHome,
                         { backgroundColor: getButtonColor("Home") },
                     ]}
-                    onPress={() =>
-                        handlePress("Home", () => navigation.navigate("Home"))
-                    }
+					onPress={() =>
+  handlePress("Home", () =>
+    navigation.navigate("MainTabs", { screen: "HomePage" }) // ← adapte le nom ici
+  )
+}
+
                 >
                     <View style={styles.buttonContent}>
                         <Image

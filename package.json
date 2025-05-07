@@ -43,7 +43,8 @@
     "react-native-webview": "^13.12.5",
     "rimraf": "^6.0.1",
     "uuid": "^11.1.0",
-    "expo-sharing": "~13.0.1"
+    "expo-sharing": "~13.0.1",
+    "expo-mail-composer": "~14.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

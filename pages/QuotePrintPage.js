@@ -4,7 +4,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 import * as Sharing from "expo-sharing";
-
+import * as MailComposer from "expo-mail-composer";
 const QuotePrintPage = () => {
 	const navigation = useNavigation();
     const route = useRoute();
@@ -445,25 +445,34 @@ const QuotePrintPage = () => {
             const { uri } = await Print.printToFileAsync({ html });
             console.log("✅ PDF généré :", uri);
 
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(uri, {
-                    mimeType: "application/pdf",
-                    dialogTitle: "Partager ou enregistrer le devis",
-                });
-
-                // ⬇️ Mets à jour le statut
-                await supabase
-                    .from("quotes")
-                    .update({ deja_envoye: true })
-                    .eq("id", quote.id);
-
-                Alert.alert(
-                    "✅ Partage terminé",
-                    "Le devis a bien été partagé."
-                );
-            } else {
-                Alert.alert("✅ PDF prêt", "Fichier généré ici : " + uri);
-            }
+			if (quote.email) {
+				await MailComposer.composeAsync({
+				  recipients: [quote.email],
+				  subject: `Votre devis ${quote.quote_number || ""}`,
+				  body: "Veuillez trouver ci-joint votre devis au format PDF.",
+				  attachments: [uri],
+				});
+			  
+				await supabase
+				  .from("quotes")
+				  .update({ deja_envoye: true })
+				  .eq("id", quote.id);
+			  
+				Alert.alert("✅ E-mail prêt", `Le devis a été ouvert dans votre application mail.`);
+			  } else if (await Sharing.isAvailableAsync()) {
+				await Sharing.shareAsync(uri, {
+				  mimeType: "application/pdf",
+				  dialogTitle: "Partager ou enregistrer le devis",
+				});
+			  
+				await supabase
+				  .from("quotes")
+				  .update({ deja_envoye: true })
+				  .eq("id", quote.id);
+			  
+				Alert.alert("✅ Partage terminé", "Le devis a bien été partagé.");
+			  }
+			  
         } catch (error) {
             console.error("❌ Erreur génération PDF :", error);
             Alert.alert("Erreur", "Impossible de générer ou partager le PDF.");
@@ -479,6 +488,10 @@ const QuotePrintPage = () => {
             </Text>
             <Text>Client : {quote.name}</Text>
             <Text>Téléphone : {quote.phone}</Text>
+			{quote.email && (
+  <Text>Email : {quote.email}</Text>
+)}
+
             <Text>
                 Date :{" "}
                 {new Date(quote.created_at).toLocaleDateString("fr-FR", {

@@ -31,7 +31,7 @@ const QuoteEditPage = () => {
   const [clientSuggestions, setClientSuggestions] = useState([]);
   const route = useRoute();
   const editingId = route.params?.id || null;
-
+  const [email, setEmail] = useState("");
   useEffect(() => {
 	if (editingId) {
 	  loadQuoteForEdit(editingId);
@@ -105,13 +105,37 @@ const QuoteEditPage = () => {
   }, [name]);
 
   const searchClients = async (text) => {
-    const { data, error } = await supabase
-      .from("clients")
-      .select("name, phone")
-      .ilike("name", `${text}%`);
-
-    if (!error) setClientSuggestions(data || []);
+	setName(text);
+  
+	if (text.length < 2) {
+	  setClientSuggestions([]);
+	  return;
+	}
+  
+	const [clientsRes, quotesRes] = await Promise.all([
+	  supabase.from("clients").select("name, phone").ilike("name", `${text}%`),
+	  supabase.from("quotes").select("name, phone").ilike("name", `${text}%`)
+	]);
+  
+	const clients = clientsRes.data || [];
+	const quotes = quotesRes.data || [];
+  
+	// Fusionner les résultats et éliminer les doublons
+	const merged = [...clients, ...quotes];
+	const unique = [];
+	const seen = new Set();
+  
+	for (const item of merged) {
+	  const key = `${item.name}-${item.phone || ""}`;
+	  if (!seen.has(key)) {
+		unique.push(item);
+		seen.add(key);
+	  }
+	}
+  
+	setClientSuggestions(unique);
   };
+  
 
   const selectClient = (client) => {
     suppressRef.current = true;
@@ -188,6 +212,7 @@ const getTotalTTC = () => {
 	const quoteData = {
 	  name,
 	  phone,
+	  email,
 	  items,
 	  remarks,
 	  total: getTotalTTC().toFixed(2),
@@ -244,6 +269,7 @@ const getTotalTTC = () => {
 	if (!error && data) {
 	  setName(data.name);
 	  setPhone(data.phone || "");
+	  setEmail(data.email || "");
 	  setItems(data.items || []);
 	  setRemarks(data.remarks || "");
 	  setQuoteNumber(data.quote_number || "");
@@ -310,6 +336,17 @@ const getTotalTTC = () => {
         onFocus={() => setFocusedField("phone")}
         onBlur={() => setFocusedField(null)}
       />
+<Text style={styles.label}>Adresse e-mail</Text>
+<TextInput
+  style={[styles.input, focusedField === "email" && styles.inputFocused]}
+  value={email}
+  onChangeText={setEmail}
+  keyboardType="email-address"
+  autoCapitalize="none"
+  onFocus={() => setFocusedField("email")}
+  onBlur={() => setFocusedField(null)}
+  placeholder="exemple@client.com"
+/>
 
       <Text style={styles.subtitle}>Prestations / Produits :</Text>
 

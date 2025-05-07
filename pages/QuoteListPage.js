@@ -16,7 +16,7 @@ const QuoteListPage = () => {
     const navigation = useNavigation();
     const [showConfirm, setShowConfirm] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
-
+	const [email, setEmail] = useState("");
     useEffect(() => {
         fetchQuotes();
     }, []);
@@ -76,6 +76,12 @@ const QuoteListPage = () => {
                             🧾 {item.quote_number}
                         </Text>
                         <Text style={styles.client}>👤 {item.name}</Text>
+						{item.email && (
+  <Text style={{ fontSize: 13, color: "#555", marginBottom: 4 }}>
+    📧 {item.email}
+  </Text>
+)}
+
                         <Text style={styles.date}>
                             🗓️ {formatDate(item.created_at)} • Valide jusqu’au{" "}
                             {formatDate(item.valid_until)}

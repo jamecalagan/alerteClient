@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  Image,
 } from "react-native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -63,47 +64,65 @@ export default function FlyerListPage() {
     }
   };
 
-  const renderItem = ({ item }) => (
-	
-    <View style={styles.item}>
-      <TouchableOpacity
-        onPress={() =>
-			navigation.navigate("ProductFormScreen", { product: item })
-        }
-        style={{ flex: 1 }}
-      >
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.sub}>Prix : {item.price} €</Text>
-        <Text style={styles.sub}>
-          {item.brand} – {item.model}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => confirmDelete(item.id)}
-        style={styles.deleteButton}
-      >
-        <Text style={styles.deleteText}>🗑️</Text>
-      </TouchableOpacity>
-    </View>
-  );
+const renderItem = ({ item }) => (
+  <View style={styles.item}>
+    {/* 🖼️ Image du produit */}
+    {item.imageUrl ? (
+      <Image
+        source={{ uri: item.imageUrl }}
+        style={styles.thumbnail}
+        resizeMode="cover"
+      />
+    ) : (
+      <View style={[styles.thumbnail, { backgroundColor: "#ddd", justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: "#999" }}>—</Text>
+      </View>
+    )}
+
+    {/* 📝 Infos produit */}
+    <TouchableOpacity
+      onPress={() => navigation.navigate("ProductFormScreen", { product: item })}
+      style={{ flex: 1, marginLeft: 12 }}
+    >
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.sub}>Prix : {item.price} €</Text>
+      <Text style={styles.sub}>{item.brand} – {item.model}</Text>
+    </TouchableOpacity>
+
+    {/* 🧹 Bouton Supprimer */}
+    <TouchableOpacity
+      onPress={() => confirmDelete(item.id)}
+      style={styles.deleteButtonBox}
+    >
+      <Text style={styles.deleteButtonText}>Supprimer</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>📁 Affiches enregistrées</Text>
 
-      <FlatList
-        data={flyers}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadFlyers} />
-        }
-        ListEmptyComponent={
-          !loading && (
-            <Text style={styles.empty}>Aucune affiche enregistrée.</Text>
-          )
-        }
-      />
+<FlatList
+  data={flyers}
+  keyExtractor={(item) => item.id}
+  renderItem={({ item }) => (
+    <>
+      {renderItem({ item })}
+      <View style={styles.separator} />
+    </>
+  )}
+  refreshControl={
+    <RefreshControl refreshing={loading} onRefresh={loadFlyers} />
+  }
+  ListEmptyComponent={
+    !loading && (
+      <Text style={styles.empty}>Aucune affiche enregistrée.</Text>
+    )
+  }
+/>
 	  <View style={{ marginBottom: 16 }}>
 
 </View>
@@ -164,5 +183,31 @@ buttonText: {
   fontWeight: "bold",
   fontSize: 16,
 },
+thumbnail: {
+  width: 60,
+  height: 60,
+  borderRadius: 6,
+  backgroundColor: "#eee",
+},
+deleteButtonBox: {
+  backgroundColor: "#c40000",
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 6,
+  marginLeft: 10,
+},
+
+deleteButtonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 12,
+},
+separator: {
+  height: 1,
+  backgroundColor: "#ccc",
+  marginVertical: 6,
+},
+
+
 
 });

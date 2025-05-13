@@ -114,6 +114,20 @@ export default function ProductFlyerScreen({ route }) {
               color: #666;
               margin-top: 18px;
             }
+			  .extras {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.extras img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e7e7e7;
+}
+
           </style>
         </head>
         <body>
@@ -141,6 +155,14 @@ export default function ProductFlyerScreen({ route }) {
             <div class="section-title">Infos complémentaires</div>
             <div class="details">${product.extra}</div>
           ` : ""}
+${(product.image1 || product.image2 || product.image3) ? `
+  <div class="section-title">Photos supplémentaires</div>
+  <div class="extras">
+    ${product.image1 ? `<img src="${product.image1}" />` : ""}
+    ${product.image2 ? `<img src="${product.image2}" />` : ""}
+    ${product.image3 ? `<img src="${product.image3}" />` : ""}
+  </div>
+` : ""}
 
           <div class="footer">Produit d'occasion testé et garanti</div>
         </body>
@@ -189,4 +211,5 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 10,
   },
+  
 });

@@ -17,7 +17,7 @@ const ExpressClientPage = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const type = route.params?.type || "reparation";
-	const isQuote = type === "devis";
+    const isQuote = type === "devis";
     const [focusedField, setFocusedField] = useState(null);
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
@@ -118,254 +118,328 @@ const ExpressClientPage = () => {
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-<FlatList
-  ListHeaderComponent={
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        Fiche Express -{" "}
-        {type === "logiciel"
-          ? "Dépannage système"
-          : type === "video"
-          ? "Transfert vidéo"
-          : "Réparation matériel"}
-      </Text>
+            <FlatList
+                ListHeaderComponent={
+                    <View style={styles.container}>
+                        <Text style={styles.title}>
+                            Fiche Express -{" "}
+                            {type === "logiciel"
+                                ? "Dépannage système"
+                                : type === "video"
+                                ? "Transfert vidéo"
+                                : "Réparation matériel"}
+                        </Text>
 
-      {/* -- GESTION DU FOCUS -- */}
-      <TextInput
-        style={[
-          styles.input,
-          focusedField === "name" && styles.inputFocused,
-        ]}
-        placeholder="Nom"
-        value={name}
-        onChangeText={searchClients}
-        onFocus={() => setFocusedField("name")}
-        onBlur={() => setFocusedField(null)}
-      />
+                        {/* -- GESTION DU FOCUS -- */}
+                        <TextInput
+                            style={[
+                                styles.input,
+                                focusedField === "name" && styles.inputFocused,
+                            ]}
+                            placeholder="Nom"
+                            value={name}
+                            onChangeText={searchClients}
+                            onFocus={() => setFocusedField("name")}
+                            onBlur={() => setFocusedField(null)}
+                        />
 
-      {clientSuggestions.length > 0 &&
-        clientSuggestions.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => selectClient(item)}
-            style={styles.suggestion}
-          >
-            <Text>
-              {item.name} - {item.phone}
-            </Text>
-          </TouchableOpacity>
-        ))}
+                        {clientSuggestions.length > 0 &&
+                            clientSuggestions.map((item, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    onPress={() => selectClient(item)}
+                                    style={styles.suggestion}
+                                >
+                                    <Text>
+                                        {item.name} - {item.phone}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
 
-      <TextInput
-        style={[
-          styles.input,
-          focusedField === "phone" && styles.inputFocused,
-        ]}
-        placeholder="Téléphone"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        onFocus={() => setFocusedField("phone")}
-        onBlur={() => setFocusedField(null)}
-      />
+                        <TextInput
+                            style={[
+                                styles.input,
+                                focusedField === "phone" && styles.inputFocused,
+                            ]}
+                            placeholder="Téléphone"
+                            value={phone}
+                            onChangeText={setPhone}
+                            keyboardType="phone-pad"
+                            onFocus={() => setFocusedField("phone")}
+                            onBlur={() => setFocusedField(null)}
+                        />
 
-      {type === "reparation" && (
-        <>
-          <TextInput
-            style={[
-              styles.input,
-              focusedField === "device" && styles.inputFocused,
-            ]}
-            placeholder="Matériel"
-            value={device}
-            onChangeText={setDevice}
-            onFocus={() => setFocusedField("device")}
-            onBlur={() => setFocusedField(null)}
-          />
-          <TextInput
-            style={[
-              styles.textArea,
-              focusedField === "description" && styles.inputFocused,
-            ]}
-            placeholder="Description du problème"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            onFocus={() => setFocusedField("description")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </>
-      )}
+                        {type === "reparation" && (
+                            <>
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        focusedField === "device" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Matériel"
+                                    value={device}
+                                    onChangeText={setDevice}
+                                    onFocus={() => setFocusedField("device")}
+                                    onBlur={() => setFocusedField(null)}
+                                />
+                                <TextInput
+                                    style={[
+                                        styles.textArea,
+                                        focusedField === "description" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Description du problème"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    onFocus={() =>
+                                        setFocusedField("description")
+                                    }
+                                    onBlur={() => setFocusedField(null)}
+                                />
+                            </>
+                        )}
 
-      {type === "logiciel" && (
-        <>
-          <Text style={styles.label}>Type de dépannage :</Text>
+                        {type === "logiciel" && (
+                            <>
+                                <Text style={styles.label}>
+                                    Type de dépannage :
+                                </Text>
 
-          <TouchableOpacity
-            style={styles.radioOption}
-            onPress={() => setSoftwareType("Installation")}
-          >
-            <Text>
-              {softwaretype === "Installation" ? "🔘" : "⚪"} Installation Logiciel
-            </Text>
-          </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.radioOption}
+                                    onPress={() =>
+                                        setSoftwareType("Installation")
+                                    }
+                                >
+                                    <Text>
+                                        {softwaretype === "Installation"
+                                            ? "🔘"
+                                            : "⚪"}{" "}
+                                        Installation Logiciel
+                                    </Text>
+                                </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.radioOption}
-            onPress={() => setSoftwareType("Maintenance")}
-          >
-            <Text>
-              {softwaretype === "Maintenance" ? "🔘" : "⚪"} Maintenance Systeme
-            </Text>
-          </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.radioOption}
+                                    onPress={() =>
+                                        setSoftwareType("Maintenance")
+                                    }
+                                >
+                                    <Text>
+                                        {softwaretype === "Maintenance"
+                                            ? "🔘"
+                                            : "⚪"}{" "}
+                                        Maintenance Systeme
+                                    </Text>
+                                </TouchableOpacity>
 
-          <TextInput
-            style={[
-              styles.textArea,
-              focusedField === "description" && styles.inputFocused,
-            ]}
-            placeholder="Détails"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            onFocus={() => setFocusedField("description")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </>
-      )}
+                                <TextInput
+                                    style={[
+                                        styles.textArea,
+                                        focusedField === "description" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Détails"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    onFocus={() =>
+                                        setFocusedField("description")
+                                    }
+                                    onBlur={() => setFocusedField(null)}
+                                />
+                            </>
+                        )}
 
-      {type === "video" && (
-        <>
-          <TextInput
-            style={[
-              styles.textArea,
-              focusedField === "description" && styles.inputFocused,
-            ]}
-            placeholder="Prestation: Transfert vidéo d'anciennes cassettes"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            onFocus={() => setFocusedField("description")}
-            onBlur={() => setFocusedField(null)}
-          />
+                        {type === "video" && (
+                            <>
+                                <TextInput
+                                    style={[
+                                        styles.textArea,
+                                        focusedField === "description" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Prestation: Transfert vidéo d'anciennes cassettes"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    onFocus={() =>
+                                        setFocusedField("description")
+                                    }
+                                    onBlur={() => setFocusedField(null)}
+                                />
 
-          <TextInput
-            style={[
-              styles.input,
-              focusedField === "cassettecount" && styles.inputFocused,
-            ]}
-            placeholder="Nombre de cassettes"
-            value={cassettecount}
-            onChangeText={(text) => {
-              setCassetteCount(text);
-              if (unitprice) {
-                const total = parseFloat(text) * parseFloat(unitprice);
-                setPrice(total.toString());
-              }
-            }}
-            keyboardType="numeric"
-            onFocus={() => setFocusedField("cassettecount")}
-            onBlur={() => setFocusedField(null)}
-          />
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        focusedField === "cassettecount" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Nombre de cassettes"
+                                    value={cassettecount}
+                                    onChangeText={(text) => {
+                                        setCassetteCount(text);
+                                        if (unitprice) {
+                                            const total =
+                                                parseFloat(text) *
+                                                parseFloat(unitprice);
+                                            setPrice(total.toString());
+                                        }
+                                    }}
+                                    keyboardType="numeric"
+                                    onFocus={() =>
+                                        setFocusedField("cassettecount")
+                                    }
+                                    onBlur={() => setFocusedField(null)}
+                                />
 
-          <TextInput
-            style={[
-              styles.input,
-              focusedField === "unitprice" && styles.inputFocused,
-            ]}
-            placeholder="Prix unitaire (€)"
-            value={unitprice}
-            onChangeText={(text) => {
-              setUnitPrice(text);
-              if (cassettecount) {
-                const total = parseFloat(text) * parseFloat(cassettecount);
-                setPrice(total.toString());
-              }
-            }}
-            keyboardType="decimal-pad"
-            onFocus={() => setFocusedField("unitprice")}
-            onBlur={() => setFocusedField(null)}
-          />
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        focusedField === "unitprice" &&
+                                            styles.inputFocused,
+                                    ]}
+                                    placeholder="Prix unitaire (€)"
+                                    value={unitprice}
+                                    onChangeText={(text) => {
+                                        setUnitPrice(text);
+                                        if (cassettecount) {
+                                            const total =
+                                                parseFloat(text) *
+                                                parseFloat(cassettecount);
+                                            setPrice(total.toString());
+                                        }
+                                    }}
+                                    keyboardType="decimal-pad"
+                                    onFocus={() => setFocusedField("unitprice")}
+                                    onBlur={() => setFocusedField(null)}
+                                />
 
-          <Text style={styles.label}>Type de cassette :</Text>
-          <View style={styles.radioGroup}>
-            {["VHS", "Hi8", "DV"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.radioOption,
-                  { backgroundColor: cassettetype === type ? "#007bff" : "#f0f8ff" },
-                ]}
-                onPress={() => setCassetteType(type)}
-              >
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: cassettetype === type ? "white" : "#007bff",
-                  }}
-                >
-                  {cassettetype === type ? "🔘" : "⚪"} {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                                <Text style={styles.label}>
+                                    Type de cassette :
+                                </Text>
+                                <View style={styles.radioGroup}>
+                                    {["VHS", "Hi8", "DV"].map((type) => (
+                                        <TouchableOpacity
+                                            key={type}
+                                            style={[
+                                                styles.radioOption,
+                                                {
+                                                    backgroundColor:
+                                                        cassettetype === type
+                                                            ? "#007bff"
+                                                            : "#f0f8ff",
+                                                },
+                                            ]}
+                                            onPress={() =>
+                                                setCassetteType(type)
+                                            }
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 16,
+                                                    color:
+                                                        cassettetype === type
+                                                            ? "white"
+                                                            : "#007bff",
+                                                }}
+                                            >
+                                                {cassettetype === type
+                                                    ? "🔘"
+                                                    : "⚪"}{" "}
+                                                {type}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
 
-          <Text style={styles.label}>Support souhaité :</Text>
-          <View style={styles.radioGroup}>
-            {["Clé USB", "CD", "DVD", "Disque dur"].map((output) => (
-              <TouchableOpacity
-                key={output}
-                style={[
-                  styles.radioOption,
-                  { backgroundColor: outputtype === output ? "#007bff" : "#f0f8ff" },
-                ]}
-                onPress={() => setOutputType(output)}
-              >
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: outputtype === output ? "white" : "#007bff",
-                  }}
-                >
-                  {outputtype === output ? "🔘" : "⚪"} {output}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
+                                <Text style={styles.label}>
+                                    Support souhaité :
+                                </Text>
+                                <View style={styles.radioGroup}>
+                                    {["Clé USB", "CD", "DVD", "Disque dur"].map(
+                                        (output) => (
+                                            <TouchableOpacity
+                                                key={output}
+                                                style={[
+                                                    styles.radioOption,
+                                                    {
+                                                        backgroundColor:
+                                                            outputtype ===
+                                                            output
+                                                                ? "#007bff"
+                                                                : "#f0f8ff",
+                                                    },
+                                                ]}
+                                                onPress={() =>
+                                                    setOutputType(output)
+                                                }
+                                            >
+                                                <Text
+                                                    style={{
+                                                        fontSize: 16,
+                                                        color:
+                                                            outputtype ===
+                                                            output
+                                                                ? "white"
+                                                                : "#007bff",
+                                                    }}
+                                                >
+                                                    {outputtype === output
+                                                        ? "🔘"
+                                                        : "⚪"}{" "}
+                                                    {output}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )
+                                    )}
+                                </View>
+                            </>
+                        )}
 
-      <TextInput
-        style={[
-          styles.input,
-          focusedField === "price" && styles.inputFocused,
-        ]}
-        placeholder="Montant (€)"
-        value={price}
-        onChangeText={setPrice}
-        keyboardType="decimal-pad"
-        onFocus={() => setFocusedField("price")}
-        onBlur={() => setFocusedField(null)}
-      />
+                        <TextInput
+                            style={[
+                                styles.input,
+                                focusedField === "price" && styles.inputFocused,
+                            ]}
+                            placeholder="Montant (€)"
+                            value={price}
+                            onChangeText={setPrice}
+                            keyboardType="decimal-pad"
+                            onFocus={() => setFocusedField("price")}
+                            onBlur={() => setFocusedField(null)}
+                        />
 
-<TouchableOpacity
-  style={[
-    styles.customButton,
-    { backgroundColor: isQuote ? "#28a745" : "#007bff" },
-  ]}
-  onPress={handleSubmit}
->
-  <Text style={styles.buttonText}>
-    {isQuote ? "📝 Enregistrer le devis" : "🖋️ Faire signer la fiche"}
-  </Text>
-</TouchableOpacity>
-
-    </View>
-  }
-  data={[]}
-  renderItem={null}
-/>
-
+                        <TouchableOpacity
+                            style={[
+                                styles.customButton,
+                                {
+                                    backgroundColor: isQuote
+                                        ? "#28a745"
+                                        : "#007bff",
+                                },
+                            ]}
+                            onPress={handleSubmit}
+                        >
+                            <Text style={styles.buttonText}>
+                                {isQuote
+                                    ? "📝 Enregistrer le devis"
+                                    : "🖋️ Faire signer la fiche"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                }
+                data={[]}
+                renderItem={null}
+            />
+			    <TouchableOpacity
+        style={styles.returnButtonFixed}
+        onPress={() => navigation.goBack()}
+    >
+        <Text style={styles.buttonText}>⬅ Retour</Text>
+    </TouchableOpacity>
         </KeyboardAvoidingView>
     );
 };
@@ -434,11 +508,22 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "bold",
     },
-inputFocused: {
-  borderColor: "#007bff",
-  backgroundColor: "#eef6ff",
-  fontSize: 18,
-  height: 55,
+    inputFocused: {
+        borderColor: "#007bff",
+        backgroundColor: "#eef6ff",
+        fontSize: 18,
+        height: 55,
+    },
+	returnButtonFixed: {
+    position: "absolute",
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: "#6c757d",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    zIndex: 100,
 },
 });
 

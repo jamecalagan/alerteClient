@@ -38,7 +38,7 @@ export default function ImagesInterventions({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#e9e9e9',
     padding: 10,
   },
   title: {

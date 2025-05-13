@@ -404,10 +404,8 @@ ${paid ? `
     };
 
     return (
-        <ScrollView
-            style={styles.container}
-            keyboardShouldPersistTaps="handled"
-        >
+<View style={{ flex: 1 }}>
+	 <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 }]}>
             <Text style={styles.title}>Facture client</Text>
 
             {/* Nom du client */}
@@ -823,15 +821,17 @@ ${paid ? `
                     <Text style={styles.buttonText}>📄 Liste des Factures</Text>
                 </TouchableOpacity>
             </View>
-            <View style={{ alignItems: "center", marginTop: 20 }}>
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.buttonText}>⬅ Retour</Text>
-                </TouchableOpacity>
-            </View>
+
         </ScrollView>
+
+	<TouchableOpacity
+		style={styles.returnButtonFixed}
+		onPress={() => navigation.goBack()}
+	>
+		<Text style={styles.buttonText}>⬅ Retour</Text>
+	</TouchableOpacity>
+ 
+			</View>
     );
 };
 
@@ -1008,6 +1008,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
         borderRadius: 4,
     },
+	returnButtonFixed: {
+		position: "absolute",
+		bottom: 16,
+		left: 16,
+		right: 16,
+		backgroundColor: "#6c757d",
+		padding: 14,
+		borderRadius: 8,
+		alignItems: "center",
+		zIndex: 100,
+	},
 });
 
 export default BillingPage;

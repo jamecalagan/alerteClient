@@ -82,11 +82,7 @@ export default function RepairedInterventionsListPage({ navigation }) {
         );
     };
     return (
-        <ImageBackground
-            source={backgroundImage}
-            style={styles.backgroundImage}
-        >
-            <View style={styles.overlay}>
+			<View style={styles.container}>
                 <Text style={styles.title}>
                     Liste des Interventions Réparées
                 </Text>
@@ -144,7 +140,7 @@ export default function RepairedInterventionsListPage({ navigation }) {
                                             style={{
                                                 width: 30,
                                                 height: 30,
-                                                tintColor: "#00fd00",
+                                                tintColor: "#045e04",
                                                 marginLeft: "auto",
                                             }}
                                         />
@@ -171,43 +167,40 @@ export default function RepairedInterventionsListPage({ navigation }) {
                         </Animatable.View>
                     )}
                 />
-            </View>
+            
 
             <BottomNavigation
                 navigation={navigation}
                 currentRoute="RepairedInterventionsListPage"
             />
-        </ImageBackground>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    backgroundImage: {
+    container: {
         flex: 1,
-        resizeMode: "cover",
-    },
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        padding: 10,
+        padding: 20,
+        backgroundColor: "#e0e0e0",
     },
     title: {
         fontSize: 24,
         fontWeight: "bold",
         textAlign: "center",
-        color: "white",
+        color: "#242424",
         marginBottom: 20,
     },
     interventionItem: {
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#f0f0f0",
         borderRadius: 5,
         borderWidth: 1,
         borderColor: "#888787",
+		elevation: 2,
     },
     itemText: {
         fontSize: 16,
-        color: "#b6b4b4",
+        color: "#242424",
     },
 });

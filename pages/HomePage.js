@@ -13,7 +13,6 @@ import {
     Alert,
     Animated,
     TouchableWithoutFeedback,
-    StatusBar,
     Easing,
 } from "react-native";
 import { supabase } from "../supabaseClient";
@@ -21,9 +20,10 @@ import { useFocusEffect, CommonActions } from "@react-navigation/native";
 import RoundedButton from "../components/RoundedButton";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
-// Import de l'image depuis le dossier assets
+import { Linking } from "react-native";
+import * as Clipboard from "expo-clipboard";
 export default function HomePage({ navigation, route, setUser }) {
-    const backgroundImage = require("../assets/listing2.jpg");
+
     const flatListRef = useRef(null);
     const [clients, setClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
@@ -818,7 +818,8 @@ export default function HomePage({ navigation, route, setUser }) {
                                   text,
                                   10
                               )}, phone.ilike.%${text}%`
-                            : `name.ilike.%${text}%`
+                            : `name.ilike.${text}%`
+
                     );
 
                 if (error) {
@@ -1013,9 +1014,11 @@ export default function HomePage({ navigation, route, setUser }) {
         }
     };
 
-    const resetFilter = () => {
-        setFilteredClients(clients);
-    };
+const resetFilter = () => {
+    setSearchText("");
+    setFilteredClients(clients); // ou ta liste initiale
+    setCurrentPage(1);           // ← ajoute cette ligne
+};
 
     const formatPhoneNumber = (phoneNumber) => {
         if (!phoneNumber) return "";
@@ -1221,13 +1224,10 @@ export default function HomePage({ navigation, route, setUser }) {
 	};
 	
     return (
-        <ImageBackground
-            source={backgroundImage}
-            style={styles.backgroundImage}
-        >
+<View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
             <View style={styles.overlay}>
                 <TouchableWithoutFeedback onPress={closeMenu}>
-                    <View style={styles.container}>
+                    <View style={[styles.container, { paddingHorizontal: 15 }]}>
                         <TouchableOpacity
                             style={styles.menuButton}
                             onPress={toggleMenu}
@@ -1528,10 +1528,12 @@ export default function HomePage({ navigation, route, setUser }) {
 
                             <TouchableOpacity
                                 style={styles.drawerItem}
-                                onPress={() => {
-                                    toggleMenu(); // Ferme le menu
-                                    resetFilter(); // Réinitialise les filtres
-                                }}
+onPress={() => {
+    toggleMenu();
+    resetFilter();
+    setCurrentPage(1); // ← revient à la première page
+}}
+
                             >
                                 <Image
                                     source={require("../assets/icons/reload.png")} // Icône pour "Réinitialiser"
@@ -1560,15 +1562,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                             }
                                             style={styles.repairedCountButton}
                                         >
-                                            <Image
-                                                source={require("../assets/icons/warning.png")} // Chemin vers votre icône
-                                                style={{
-                                                    width: 20,
-                                                    height: 20,
-                                                    tintColor: "#fffc47",
-                                                    marginBottom: 10, // Espacement sous l'icône
-                                                }}
-                                            />
+
                                             <View
                                                 style={{
                                                     flexDirection: "column",
@@ -1641,10 +1635,11 @@ export default function HomePage({ navigation, route, setUser }) {
                                                 borderRadius: 2,
                                                 borderWidth: 1,
                                                 borderColor: "#888787",
-                                                backgroundColor: "#191f2f",
+                                                backgroundColor: "#cacaca",
+												elevation: 5,
                                             }}
                                         >
-                                            <Text style={{ color: "white" }}>
+                                            <Text style={{ color: "#242424" }}>
                                                 Accès à la Galerie Cloud
                                             </Text>
                                         </TouchableOpacity>
@@ -1670,26 +1665,41 @@ export default function HomePage({ navigation, route, setUser }) {
                                     Page {currentPage} / {totalPages}
                                 </Text>
                             </View>
-                            <View style={styles.searchContainer}>
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="Rechercher par nom, téléphone, ou statut"
-                                    placeholderTextColor="#888787"
-                                    value={searchText}
-                                    onChangeText={filterClients}
-                                />
-                                <Image
-                                    source={require("../assets/icons/search.png")} // Chemin vers votre image
-                                    style={[
-                                        styles.searchIcon,
-                                        {
-                                            width: 24,
-                                            height: 24,
-                                            tintColor: "#999",
-                                        },
-                                    ]} // Ajoutez la propriété tintColor pour la couleur
-                                />
-                            </View>
+<View style={{ marginBottom: 20 }}>
+    <View style={styles.searchContainer}>
+        <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher par nom, téléphone, ou statut"
+            placeholderTextColor="#2c2c2c"
+            value={searchText}
+            onChangeText={filterClients}
+        />
+        <Image
+            source={require("../assets/icons/search.png")}
+            style={[styles.searchIcon, { width: 24, height: 24, tintColor: "#2c2c2c" }]}
+        />
+    </View>
+
+    {searchText.length > 0 && filteredClients.length > 0 && (
+        <View style={styles.suggestionBox}>
+            {filteredClients.slice(0, 5).map((client) => (
+                <TouchableOpacity
+                    key={client.id}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                        setSearchText(client.name);
+                        setFilteredClients([client]);
+                    }}
+                >
+                    <Text style={styles.suggestionText}>
+                        {client.name} - {client.phone}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
+    )}
+</View>
+
                             <View style={styles.buttonContainer}>
                                 <TouchableOpacity
                                     style={styles.toggleButton}
@@ -2287,6 +2297,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                     </View>
                                                                     <TouchableOpacity
                                                                         style={{
+																			backgroundColor:"#575757",
                                                                             padding: 10,
                                                                             alignItems:
                                                                                 "center",
@@ -2295,7 +2306,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                 orderColor !==
                                                                                 "#888787"
                                                                                     ? 2
-                                                                                    : 1,
+                                                                                    : 2,
                                                                             borderColor:
                                                                                 orderColor,
                                                                             marginRight: 7,
@@ -2329,8 +2340,7 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                 style={{
                                                                                     width: 28,
                                                                                     height: 28,
-                                                                                    tintColor:
-                                                                                        orderColor,
+                                                                                    tintColor: orderColor,
                                                                                 }}
                                                                             />
                                                                         )}
@@ -2394,14 +2404,13 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                                     <View
                                                                                         style={{
                                                                                             borderWidth: 1,
-                                                                                            borderColor:
-                                                                                                "#888787",
+                                                                                            borderColor: "#242424",
                                                                                             paddingTop: 5,
                                                                                             width: 50,
                                                                                             height: 50,
                                                                                             borderRadius: 2,
-                                                                                            alignItems:
-                                                                                                "center",
+                                                                                            alignItems: "center",
+																							backgroundColor: "#fff",
                                                                                         }}
                                                                                     >
                                                                                         <TouchableOpacity
@@ -2569,274 +2578,281 @@ export default function HomePage({ navigation, route, setUser }) {
                                     )}
                                 </>
                             )}
-                            <Modal
-                                transparent={true}
-                                visible={notifyModalVisible}
-                                animationType="fade"
-                                onRequestClose={() =>
-                                    setNotifyModalVisible(false)
-                                }
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.alertBox}>
-                                        <Text style={styles.alertTitle}>
-                                            Notifier le client
-                                        </Text>
-                                        <View style={styles.modalButtonRow}>
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() => {
-                                                    console.log(
-                                                        "📢 Notification via SMS pour le client :",
-                                                        selectedClient
-                                                    );
-                                                    updateClientNotification(
-                                                        selectedClient,
-                                                        "SMS"
-                                                    );
-                                                }}
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    SMS
-                                                </Text>
-                                            </TouchableOpacity>
 
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() => {
-                                                    console.log(
-                                                        "📢 Notification via Téléphone pour le client :",
-                                                        selectedClient
-                                                    );
-                                                    updateClientNotification(
-                                                        selectedClient,
-                                                        "Téléphone"
-                                                    );
-                                                }}
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    Téléphone
-                                                </Text>
-                                            </TouchableOpacity>
+<Modal
+  transparent
+  visible={notifyModalVisible}
+  animationType="fade"
+  onRequestClose={() => setNotifyModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Text style={styles.alertTitle}>Notifier le client</Text>
 
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() =>
-                                                    setNotifyModalVisible(false)
-                                                }
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    Annuler
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                </View>
-                            </Modal>
+      <View style={styles.modalButtonRow}>
 
-                            <Modal
-                                transparent={true}
-                                visible={transportModalVisible}
-                                animationType="fade"
-                                onRequestClose={() =>
-                                    setTransportModalVisible(false)
-                                }
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.alertBox}>
-                                        <Text style={styles.alertTitle}>
-                                            Commande en cours
-                                        </Text>
-                                        {selectedCommande ? (
-                                            <>
-                                                <Text
-                                                    style={[
-                                                        styles.alertMessage,
-                                                        {
-                                                            fontWeight: "bold",
-                                                            fontSize: 25,
-                                                        },
-                                                    ]}
-                                                >
-                                                    {selectedCommande}
-                                                </Text>
-                                            </>
-                                        ) : (
-                                            <Text style={styles.alertMessage}>
-                                                Aucune commande en cours
-                                            </Text>
-                                        )}
-                                        <TouchableOpacity
-                                            style={styles.button}
-                                            onPress={() =>
-                                                setTransportModalVisible(false)
-                                            }
-                                        >
-                                            <Text style={styles.buttonText}>
-                                                Fermer
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </Modal>
-                            <Modal
-                                visible={isModalVisible}
-                                transparent={true}
-                                animationType="fade"
-                                onRequestClose={() => setIsModalVisible(false)}
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.alertBox}>
-                                        <Text style={styles.alertTitle}>
-                                            Détails du matériel
-                                        </Text>
-                                        {selectedDevice && (
-                                            <>
-                                                <Text style={styles.modalText}>
-                                                    Type :{" "}
-                                                    {selectedDevice.deviceType}
-                                                </Text>
-                                                <Text style={styles.modalText}>
-                                                    Marque :{" "}
-                                                    {selectedDevice.brand}
-                                                </Text>
-                                                <Text style={styles.modalText}>
-                                                    Modèle :{" "}
-                                                    {selectedDevice.model}
-                                                </Text>
-                                            </>
-                                        )}
-                                        <TouchableOpacity
-                                            style={styles.button}
-                                            onPress={() =>
-                                                setIsModalVisible(false)
-                                            }
-                                        >
-                                            <Text style={styles.buttonText}>
-                                                Fermer
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </Modal>
+        {/* 📋 Copier numéro + Messages Web */}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={async () => {
+            if (!selectedClient?.phone) {
+              Alert.alert("Erreur", "Numéro de téléphone manquant.");
+              return;
+            }
 
-                            <Modal
-                                transparent={true}
-                                visible={modalVisible}
-                                animationType="fade"
-                                onRequestClose={() => setModalVisible(false)}
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.alertBox}>
-                                        <Text style={styles.alertTitle}>
-                                            Confirmer la suppression
-                                        </Text>
-                                        <Text style={styles.alertMessage}>
-                                            Êtes-vous sûr de vouloir supprimer
-                                            cette fiche client ?
-                                        </Text>
-                                        <View style={styles.alertButtons}>
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={() =>
-                                                    setModalVisible(false)
-                                                }
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    Annuler
-                                                </Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.button}
-                                                onPress={handleDeleteClient}
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    Supprimer
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                </View>
-                            </Modal>
-                            <Modal
-                                transparent={true}
-                                visible={alertVisible}
-                                animationType="fade"
-                                onRequestClose={() => setAlertVisible(false)}
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.alertBox}>
-                                        <Text style={styles.alertTitle}>
-                                            Suppression impossible
-                                        </Text>
-                                        <Text style={styles.alertMessage}>
-                                            Ce client ne peut pas être supprimé
-                                            car il a des interventions
-                                            associées.
-                                        </Text>
-                                        <TouchableOpacity
-                                            style={styles.button}
-                                            onPress={() =>
-                                                setAlertVisible(false)
-                                            }
-                                        >
-                                            <Text style={styles.buttonText}>
-                                                OK
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </Modal>
-                            {cleanupModalVisible && (
-                                <Modal
-                                    transparent={true}
-                                    visible={cleanupModalVisible}
-                                    animationType="fade"
-                                    onRequestClose={() =>
-                                        setCleanupModalVisible(false)
-                                    }
-                                >
-                                    <View style={styles.modalOverlay}>
-                                        <View style={styles.alertBox}>
-                                            <Text style={styles.alertTitle}>
-                                                {alertTitle}
-                                            </Text>
-                                            <Text style={styles.alertMessage}>
-                                                {alertMessage}
-                                            </Text>
-                                            <View style={styles.modalButtons}>
-                                                <TouchableOpacity
-                                                    style={styles.modalButton}
-                                                    onPress={handlePhotoCleanup}
-                                                >
-                                                    <Text
-                                                        style={
-                                                            styles.modalButtonText
-                                                        }
-                                                    >
-                                                        Nettoyer
-                                                    </Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    style={styles.modalButton}
-                                                    onPress={() =>
-                                                        setCleanupModalVisible(
-                                                            false
-                                                        )
-                                                    }
-                                                >
-                                                    <Text
-                                                        style={
-                                                            styles.modalButtonText
-                                                        }
-                                                    >
-                                                        Annuler
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </Modal>
+            try {
+              await Clipboard.setStringAsync(selectedClient.phone);
+              await updateClientNotification(selectedClient, "SMS");
+              setNotifyModalVisible(false);
+              Alert.alert("📋 Numéro copié", "Collez le numéro dans Messages Web.");
+              Linking.openURL("https://messages.google.com/web");
+            } catch (err) {
+              console.error("Erreur Messages Web :", err);
+              Alert.alert("Erreur", "Impossible de notifier ce client.");
+            }
+          }}
+        >
+          <Text style={styles.modalButtonText}>📋 Copier numéro + Messages Web</Text>
+        </TouchableOpacity>
+
+        {/* 📩 Envoyer via SMS (avec SIM) */}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={async () => {
+            if (!selectedClient?.phone) {
+              Alert.alert("Erreur", "Numéro de téléphone manquant.");
+              return;
+            }
+
+            const smsUrl = `sms:${selectedClient.phone}`;
+
+            try {
+              const supported = await Linking.canOpenURL(smsUrl);
+              if (!supported) {
+                Alert.alert("Erreur", "L'envoi de SMS n'est pas pris en charge sur cet appareil.");
+                return;
+              }
+
+              await Linking.openURL(smsUrl);
+              await updateClientNotification(selectedClient, "SMS");
+              setNotifyModalVisible(false);
+            } catch (err) {
+              console.error("Erreur SMS SIM :", err);
+              Alert.alert("Erreur", "Impossible d’ouvrir l’app SMS.");
+            }
+          }}
+        >
+          <Text style={styles.modalButtonText}>📩 Envoyer via SMS (avec SIM)</Text>
+        </TouchableOpacity>
+
+        {/* 📞 Appeler */}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={async () => {
+            if (!selectedClient?.phone) {
+              Alert.alert("Erreur", "Numéro de téléphone manquant.");
+              return;
+            }
+
+            const telUrl = `tel:${selectedClient.phone}`;
+
+            try {
+              const supported = await Linking.canOpenURL(telUrl);
+              if (!supported) {
+                Alert.alert("Erreur", "L’appel n’est pas supporté sur cet appareil.");
+                return;
+              }
+
+              await Linking.openURL(telUrl);
+              await updateClientNotification(selectedClient, "Téléphone");
+              setNotifyModalVisible(false);
+            } catch (err) {
+              console.error("Erreur appel :", err);
+              Alert.alert("Erreur", "Impossible d’initier l’appel.");
+            }
+          }}
+        >
+          <Text style={styles.modalButtonText}>📞 Appeler</Text>
+        </TouchableOpacity>
+
+        {/* ❌ Annuler */}
+        <TouchableOpacity
+          style={[styles.modalButton, styles.modalButtonSecondary]}
+          onPress={() => setNotifyModalVisible(false)}
+        >
+          <Text style={styles.modalButtonTextSecondary}>❌ Annuler</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
+
+
+
+      {/* Commande en cours */}
+      <Modal
+        transparent
+        visible={transportModalVisible}
+        animationType="fade"
+        onRequestClose={() => setTransportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Commande en cours</Text>
+            <Text style={[styles.alertMessage, { fontWeight: "bold", fontSize: 25 }]}>
+              {selectedCommande || "Aucune commande en cours"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonSecondary]}
+              onPress={() => setTransportModalVisible(false)}
+            >
+              <Text style={styles.modalButtonTextSecondary}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+<Modal
+  transparent
+  visible={isModalVisible}
+  animationType="fade"
+  onRequestClose={() => setIsModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Text style={styles.alertTitle}>Détails du matériel</Text>
+
+      {selectedDevice && (
+        <>
+          <Text style={styles.modalText}>Type : {selectedDevice.deviceType}</Text>
+          <Text style={styles.modalText}>Marque : {selectedDevice.brand}</Text>
+          <Text style={styles.modalText}>Modèle : {selectedDevice.model}</Text>
+
+          {/* 🔍 Ligne de 3 boutons */}
+          <View style={styles.buttonRowG}>
+            <TouchableOpacity
+              style={[styles.modalButtonG, { backgroundColor: "#4285F4" }]}
+              onPress={() => {
+                const query = encodeURIComponent(`${selectedDevice.brand} ${selectedDevice.model}`);
+                Linking.openURL(`https://www.google.com/search?q=${query}+fiche+technique`);
+              }}
+            >
+              <Text style={styles.modalButtonTextG}>Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalButtonG, { backgroundColor: "#FF9900" }]}
+              onPress={() => {
+                const query = encodeURIComponent(`${selectedDevice.brand} ${selectedDevice.model}`);
+                Linking.openURL(`https://www.amazon.fr/s?k=${query}`);
+              }}
+            >
+              <Text style={styles.modalButtonTextG}>Amazon</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalButtonG, { backgroundColor: "#34A853" }]}
+              onPress={() => {
+                const query = encodeURIComponent(`${selectedDevice.brand} ${selectedDevice.model}`);
+                Linking.openURL(`https://www.google.com/search?tbm=isch&q=${query}`);
+              }}
+            >
+              <Text style={styles.modalButtonTextG}>Google images</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonSecondary]}
+        onPress={() => setIsModalVisible(false)}
+      >
+        <Text style={styles.modalButtonTextSecondary}>Fermer</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+
+
+      {/* Suppression client */}
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Confirmer la suppression</Text>
+            <Text style={styles.alertMessage}>
+              Êtes-vous sûr de vouloir supprimer cette fiche client ?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalButton} onPress={handleDeleteClient}>
+                <Text style={styles.modalButtonText}>Supprimer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Suppression impossible */}
+      <Modal
+        transparent
+        visible={alertVisible}
+        animationType="fade"
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Suppression impossible</Text>
+            <Text style={styles.alertMessage}>
+              Ce client ne peut pas être supprimé car il a des interventions associées.
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonSecondary]}
+              onPress={() => setAlertVisible(false)}
+            >
+              <Text style={styles.modalButtonTextSecondary}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Nettoyage photos */}
+      {cleanupModalVisible && (
+        <Modal
+          transparent
+          visible={cleanupModalVisible}
+          animationType="fade"
+          onRequestClose={() => setCleanupModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.alertBox}>
+              <Text style={styles.alertTitle}>{alertTitle}</Text>
+              <Text style={styles.alertMessage}>{alertMessage}</Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.modalButtonGoog} onPress={handlePhotoCleanup}>
+                  <Text style={styles.modalButtonText}>Nettoyer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonSecondary]}
+                  onPress={() => setCleanupModalVisible(false)}
+                >
+                  <Text style={styles.modalButtonTextSecondary}>Annuler</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
                             )}
                         </View>
                     </View>
@@ -2884,7 +2900,7 @@ export default function HomePage({ navigation, route, setUser }) {
                     resetFilter={resetFilter}
                 />
             </View>
-        </ImageBackground>
+        </View>
     );
 }
 const styles = StyleSheet.create({
@@ -2903,7 +2919,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderWidth: 1,
         borderRadius: 2,
         borderColor: "#888787",
@@ -2912,17 +2928,17 @@ const styles = StyleSheet.create({
     toggleText: {
         marginLeft: 10,
         fontSize: 16,
-        color: "#888787",
+        color: "#242424",
         fontWeight: "medium",
     },
     iconStyle: {
         width: 24, // Taille de l'icône
         height: 24, // Taille de l'icône
         marginRight: 10, // Espace entre l'icône et le texte
-        tintColor: "#7583a8", // Supprimez si vos images ont déjà une couleur
+        tintColor: "#242424", // Supprimez si vos images ont déjà une couleur
     },
     menuButton: {
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
 
         justifyContent: "center",
         alignItems: "center",
@@ -2935,7 +2951,7 @@ const styles = StyleSheet.create({
     menuIcon: {
         width: 40,
         height: 40,
-        tintColor: "#7583a8", // Supprimez si vos images ont déjà une couleur
+        tintColor: "#242424", // Supprimez si vos images ont déjà une couleur
     },
     drawer: {
         position: "absolute",
@@ -2943,7 +2959,7 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         width: 250,
-        backgroundColor: "#202020",
+        backgroundColor: "#3a3a3af1",
         padding: 20,
         shadowColor: "#000", // Couleur de l'ombre
         shadowOffset: { width: 5, height: 0 }, // Ombre vers la droite
@@ -2990,30 +3006,22 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: "bold",
     },
-    searchContainer: {
-        position: "relative", // Pour permettre le positionnement absolu de l'icône
-        borderColor: "#888787",
-    },
-    searchIcon: {
-        marginTop: 10,
-        position: "absolute",
-        right: 10, // Positionné à droite à 10px du bord
-        zIndex: 1, // Place l'icône au-dessus du TextInput
-    },
+
     repairedCountContainer: {
         padding: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
         marginTop: 15,
+		elevation: 2, // Ajoute une ombre pour un effet de profondeur
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
         alignItems: "center", // Pour centrer le texte à l'intérieur du bouton
     },
     repairedCountText: {
-        color: "#f5f5f5",
+        color: "#242424",
         fontWeight: "medium",
         textAlign: "center",
         fontSize: 16,
@@ -3040,7 +3048,7 @@ const styles = StyleSheet.create({
         marginRight: 20,
         marginTop: 80,
         fontSize: 20,
-        color: "#fff", // Assurez-vous que la couleur correspond à votre thème
+        color: "#242424", // Assurez-vous que la couleur correspond à votre thème
     },
     title: {
         fontSize: 24,
@@ -3049,24 +3057,15 @@ const styles = StyleSheet.create({
         textAlign: "center",
         color: "#fff",
     },
-    searchInput: {
-        borderWidth: 1,
-        borderColor: "#888787",
-        padding: 10,
-        marginBottom: 20,
-        borderRadius: 2,
-        backgroundColor: "#191f2f",
-        color: "#b6b4b4",
-        fontSize: 16,
-    },
+
     clientCard: {
         padding: 10,
         marginVertical: 5,
-        borderWidth: 3,
+        borderWidth: 1,
         borderTopColor: "#888787",
         borderRightColor: "#888787",
         borderBottomColor: "#888787",
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 2,
     },
     clientInfo: {
@@ -3079,12 +3078,12 @@ const styles = StyleSheet.create({
     },
     clientTextSoldeRestant: {
         fontSize: 20,
-        color: "#acacac", // Rouge orangé pour attirer l'attention
+        color: "#242424", // Rouge orangé pour attirer l'attention
         fontWeight: "medium",
     },
     expandedContent: {
         paddingTop: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         marginTop: 10,
         width: "100%",
     },
@@ -3099,7 +3098,7 @@ const styles = StyleSheet.create({
     ficheNumber: {
         fontSize: 16,
         fontWeight: "medium",
-        color: "#adabab",
+        color: "#242424",
         marginBottom: 5,
     },
     phoneContainer: {
@@ -3109,7 +3108,7 @@ const styles = StyleSheet.create({
     phoneNumber: {
         fontSize: 22,
         fontWeight: "bold",
-        color: "#adabab",
+        color: "#242424",
     },
     newIconContainer: {
         flex: 1,
@@ -3118,7 +3117,7 @@ const styles = StyleSheet.create({
     },
     clientText: {
         fontSize: 16,
-        color: "#adabab",
+        color: "#242424",
     },
     statusText: {
         fontSize: 20,
@@ -3141,38 +3140,39 @@ const styles = StyleSheet.create({
     photoButton: {
         padding: 10,
         borderRadius: 2,
-        borderColor: "#888787",
+        borderColor: "#242424",
         borderWidth: 1,
         marginRight: 10,
+		backgroundColor: "#575757", // Fond blanc
     },
     editButton: {
-        //backgroundColor: '#17a2b8',  // Bleu pour l'icône d'édition
+        backgroundColor: '#575757',  // Bleu pour l'icône d'édition
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#888787", // Couleur de la bordure (noire)
+        borderColor: "#242424", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     printButton: {
-        //backgroundColor: '#28a745',  // Vert pour l'icône d'impression
+        backgroundColor: '#575757',  // Vert pour l'icône d'impression
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#888787", // Couleur de la bordure (noire)
+        borderColor: "#242424", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     trashButton: {
-        //backgroundColor: '#dc3545',  // Rouge pour l'icône de poubelle
+        backgroundColor: '#575757',  // Rouge pour l'icône de poubelle
         padding: 10,
         borderRadius: 2,
-        borderColor: "#888787", // Couleur de la bordure (noire)
+        borderColor: "#242424", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     transportButton: {
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#888787", // Couleur de la bordure (noire)
+        borderColor: "#242424", // Couleur de la bordure (noire)
         borderWidth: 1, // Épaisseur de la bordure
     },
     rightSection: {
@@ -3183,12 +3183,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "light",
         fontStyle: "italic",
-        color: "#5e5e5e",
+        color: "#242424",
     },
     commandeText: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#ffffff",
+        color: "#242424",
     },
     noClientsText: {
         textAlign: "center",
@@ -3206,7 +3206,7 @@ const styles = StyleSheet.create({
     paginationText: {
         fontSize: 18,
         marginHorizontal: 10,
-        color: "#fff",
+        color: "#242424",
     },
     disabledPaginationText: {
         fontSize: 16,
@@ -3242,11 +3242,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
     },
-    modalButtonRow: {
-        flexDirection: "row", // Aligne les boutons en ligne
-        justifyContent: "space-between", // Ajoute de l'espace entre les boutons
-        marginTop: 20, // Espace au-dessus des boutons
-    },
+
     button: {
         backgroundColor: "#007BFF",
         padding: 10,
@@ -3294,8 +3290,9 @@ const styles = StyleSheet.create({
         padding: 10, // Padding pour l'icône
         borderWidth: 1, // Bordure de 2px
         borderRadius: 2, // Bords arrondis
-        borderColor: "#888787", // Couleur de la bordure en noir
+        borderColor: "#242424", // Couleur de la bordure en noir
         marginRight: 8,
+		backgroundColor: "#575757", // Fond blanc
     },
     interventionContainerRight: {
         marginTop: 70, // Espacement du haut
@@ -3312,7 +3309,7 @@ const styles = StyleSheet.create({
         borderWidth: 1, // Épaisseur de la bordure
         borderRadius: 2, // Bordures arrondies pour correspondre au style des autres icônes
         borderColor: "#888787", // Couleur de la bordure (vous pouvez l'adapter à vos besoins)
-        backgroundColor: "#888787", // Couleur de fond (adaptez-la si nécessaire)
+        backgroundColor: "#575757", // Couleur de fond (adaptez-la si nécessaire)
         shadowColor: "#000", // Ombre (si cela correspond au style des autres icônes)
         shadowOpacity: 0.2, // Légère opacité pour l'ombre
         shadowOffset: { width: 2, height: 2 },
@@ -3321,7 +3318,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "medium",
         marginLeft: 5, // Espace entre l'icône et le texte
-        color: "#888787", // Couleur du texte
+        color: "#ffffff", // Couleur du texte
     },
     interventionsEnCoursContainer: {
         flexDirection: "row",
@@ -3360,9 +3357,9 @@ const styles = StyleSheet.create({
         padding: 10, // Padding pour l'icône
         borderRadius: 2, // Bords arrondis
         borderWidth: 1, // Bordure de 2px
-        borderColor: "#888787", // Couleur de la bordure en noir
+        borderColor: "#242424", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
-        /*  backgroundColor: "#fff", // Fond blanc */
+        backgroundColor: "#575757", // Fond blanc */
     },
     icon: {
         marginRight: 5,
@@ -3395,43 +3392,79 @@ const styles = StyleSheet.create({
         fontSize: 16, // Taille du texte du nombre d'interventions
         color: "#888787",
     },
-    modalButtons: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        width: "100%",
-    },
-    modalButton: {
-        backgroundColor: "#ddd",
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-        marginHorizontal: 10,
-        alignItems: "center",
-    },
-    modalButtonText: {
-        color: "#000",
-        fontWeight: "bold",
-    },
-    acceptRiskText: {
-        fontSize: 16,
-        color: "red",
-    },
-    modalContent: {
-        width: "50%",
-        backgroundColor: "#fff",
-        padding: 20,
-        borderRadius: 5,
-        alignItems: "center",
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        marginBottom: 15,
-    },
-    modalText: {
-        fontSize: 16,
-        marginBottom: 10,
-    },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  alertBox: {
+    width: "85%",
+    maxWidth: 400,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#222",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  alertMessage: {
+    fontSize: 16,
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 8,
+  },
+  modalButtonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 16,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 16,
+    width: "100%",
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    marginHorizontal: 6,
+    backgroundColor: "#1976D2",
+  },
+  modalButtonSecondary: {
+    backgroundColor: "#E0E0E0",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  modalButtonTextSecondary: {
+    color: "#333",
+    fontWeight: "bold",
+    fontSize: 16,
+    textAlign: "center",
+  },
 
     statusContent: {
         flexDirection: "row", // Aligne l'icône et le texte côte à côte
@@ -3440,16 +3473,17 @@ const styles = StyleSheet.create({
     },
 
     statusText: {
-        color: "#888787", // Couleur du texte
+        color: "#242424", // Couleur du texte
         fontWeight: "bold",
         fontSize: 20,
     },
     iconCircle: {
+		backgroundColor: "#575757", // Couleur de fond gris
         width: 32, // Diamètre du cercle
         height: 32, // Diamètre du cercle
         borderWidth: 1, // Épaisseur de la bordure
         borderRadius: 2, // Moitié de la largeur/hauteur pour faire un cercle
-        borderColor: "#888787", // Couleur de fond gris
+        borderColor: "#242424", // Couleur de fond gris
         justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
         alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
         marginRight: 8, // Espace entre le cercle et le texte
@@ -3460,14 +3494,15 @@ const styles = StyleSheet.create({
         marginVertical: 8, // Espacement vertical optionnel
     },
     totalText: {
-        color: "white",
+        color: "#242424",
         marginTop: 11,
         marginRight: 40,
         padding: 8,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
+		elevation: 2, // Ajoute une ombre pour un effet de profondeur
     },
     images_numberText: {
         marginLeft: 40,
@@ -3480,19 +3515,19 @@ const styles = StyleSheet.create({
         borderRadius: 2, // Coins arrondis
         paddingVertical: 11, // Espacement intérieur haut/bas
         paddingHorizontal: 50, // Espacement intérieur gauche/droite
-        backgroundColor: "#191f2f", // Fond blanc pour le contraste
+        backgroundColor: "#cacaca", // Fond blanc pour le contraste
         alignSelf: "center", // Centrage du bloc
     },
     icon: {
         width: 20,
         height: 20,
-        tintColor: "#888787", // Couleur de l'icône
+        tintColor: "#242424", // Couleur de l'icône
         marginRight: 8, // Espacement entre l'icône et le texte
     },
     dateText: {
         fontSize: 16,
         fontWeight: "medium",
-        color: "#888787", // Texte en vert
+        color: "#242424", // Texte en vert
     },
     timeContainer: {
         flexDirection: "row", // Alignement horizontal
@@ -3502,17 +3537,17 @@ const styles = StyleSheet.create({
         borderRadius: 2, // Coins arrondis
         paddingVertical: 8, // Espacement intérieur haut/bas
         paddingHorizontal: 80, // Espacement intérieur gauche/droite
-        backgroundColor: "#191f2f", // Fond blanc
+        backgroundColor: "#cacaca", // Fond blanc
         alignSelf: "center", // Centrage horizontal
     },
     timeText: {
         fontSize: 20,
         fontWeight: "medium",
-        color: "#888787", // Couleur orange pour l'heure
+        color: "#242424", // Couleur orange pour l'heure
     },
     orderButton: {
         borderWidth: 1,
-        borderColor: "#888787",
+        borderColor: "#242424",
         width: 50,
         height: 50,
         borderRadius: 2,
@@ -3528,7 +3563,7 @@ const styles = StyleSheet.create({
     },
     orderButton: {
         borderWidth: 1,
-        borderColor: "#888787",
+        borderColor: "#242424",
         width: 50,
         height: 50,
         borderRadius: 2,
@@ -3543,6 +3578,110 @@ const styles = StyleSheet.create({
     amountText: {
         fontSize: 16,
         fontWeight: "medium",
-        color: "#888787", // Couleur orange pour l'heure
+        color: "#242424", // Couleur orange pour l'heure
     },
+
+
+suggestionBox: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    maxHeight: 180,
+    overflow: "hidden",
+},
+
+suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+},
+
+suggestionText: {
+    fontSize: 16,
+    color: "#333",
+},
+searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#fff",
+    marginBottom: 4,
+},
+
+searchInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+    color: "#000",
+},
+
+searchIcon: {
+    marginLeft: 8,
+},
+
+suggestionBox: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    maxHeight: 180,
+    overflow: "hidden",
+},
+
+suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+},
+
+suggestionText: {
+    fontSize: 16,
+    color: "#333",
+},
+acceptRiskText: {
+	fontSize: 16,
+	color: "#a10303",
+	marginTop: 10,
+},
+buttonRowG: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginTop: 12,
+  marginBlock: 10,
+},
+
+modalButtonG: {
+  flex: 1,
+  padding: 10,
+  marginHorizontal: 4,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+modalButtonTextG: {
+  color: "#fff",
+  fontSize: 18,
+  fontWeight: "medium",
+},
+
+modalButtonSecondaryG: {
+  backgroundColor: "#ccc",
+  marginTop: 16,
+},
+
+modalButtonTextSecondaryG: {
+  color: "#333",
+  textAlign: "center",
+  fontWeight: "bold",
+},
+
+
+
+
 });

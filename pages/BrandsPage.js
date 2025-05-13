@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 export default function BrandsPage({ route, navigation }) {
     const { articleId } = route.params;
     const [brands, setBrands] = useState([]);
-    const numColumns = 2; // Nombre de colonnes
+    const numColumns = 3; // Nombre de colonnes
 
     useEffect(() => {
         loadBrands();
@@ -69,7 +69,7 @@ export default function BrandsPage({ route, navigation }) {
                             style={styles.deleteButton} 
                             onPress={() => handleDeleteBrand(item.id)}
                         >
-                            <Icon name="trash" size={16} color="white" />
+                            <Icon name="trash" size={16} color="red" />
                         </TouchableOpacity>
                     </View>
                 )}
@@ -83,53 +83,52 @@ const styles = StyleSheet.create({
     container: { 
         flex: 1, 
         padding: 10, 
-        backgroundColor: '#191f2f' 
+        backgroundColor: '#e0e0e0' 
     },
     listContainer: {
         justifyContent: 'space-between',
     },
 	title: {
         fontSize: 24,
-        color: "#888787",
+        color: "#242424",
         fontWeight: "bold",
         marginBottom: 10,
         textAlign: "center",
     },
     itemContainer: {
         flex: 1,
-        backgroundColor: '#8e95a89c',
+        backgroundColor: '#a0a0a0',
         margin: 5,
         padding: 15,
-        borderRadius: 8,
+        borderRadius: 4,
         alignItems: 'center',
         justifyContent: 'space-between',
-        elevation: 2, // Ombre pour Android
-        shadowColor: '#000', // Ombre pour iOS
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+
+
     },
     brandButton: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: '#0c0f18', // Couleur de fond du bouton
-        borderRadius: 4,
+        backgroundColor: '#cacaca', // Couleur de fond du bouton
+        borderRadius: 8,
         width: '100%', // Prendre toute la largeur du conteneur
     },
     itemText: {
         fontSize: 16,
         fontWeight: 'medium',
-        color: '#888787', // Texte en blanc pour plus de contraste
+        color: '#242424', // Texte en blanc pour plus de contraste
         textAlign: 'center',
     },
     deleteButton: {
         marginTop: 10,
-        backgroundColor: 'red',
-        padding: 8,
+        backgroundColor: '#b9b8b8',
+        padding: 3,
         borderRadius: 5,
-        width: '100%',
+		borderWidth: 1,
+		borderColor: '#c20505',
+        width: '60%',
         alignItems: 'center',
     }
 });

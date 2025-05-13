@@ -104,17 +104,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
     },
     header: {
         fontSize: 24,
         fontWeight: "medium",
         marginBottom: 20,
-		color: "#888787",
+		color: "#242424",
         textAlign: "center",
     },
     card: {
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         padding: 15,
         marginBottom: 10,
 		borderRadius: 2,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     },
     clientText: {
         fontSize: 16,
-		color: "#888787",
+		color: "#242424",
         marginBottom: 5,
     },
     totalContainer: {

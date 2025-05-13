@@ -7,11 +7,10 @@ import {
     TouchableOpacity,
     Alert,
     TextInput,
-    Animated,
+    FlatList,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
-
 const pageSize = 5;
 
 export default function BillingListPage() {
@@ -24,9 +23,8 @@ export default function BillingListPage() {
     const [selectedIds, setSelectedIds] = useState([]);
     const [searchText, setSearchText] = useState("");
     const [filteredBills, setFilteredBills] = useState([]);
-    const searchWidth = useState(new Animated.Value(0))[0];
+
     const [isSearching, setIsSearching] = useState(false);
-    const [showSearchInput, setShowSearchInput] = useState(false);
 
     useEffect(() => {
         fetchBills();
@@ -114,300 +112,260 @@ export default function BillingListPage() {
         );
     };
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>📄 Liste des factures</Text>
-            {!showSearchInput && (
-                <TouchableOpacity
-                    style={[
-                        styles.button,
-                        { backgroundColor: "#17a2b8", marginBottom: 12 },
-                    ]}
-                    onPress={() => {
-                        setShowSearchInput(true);
-                        Animated.timing(searchWidth, {
-                            toValue: 1,
-                            duration: 200,
-                            useNativeDriver: false,
-                        }).start();
-                    }}
-                >
-                    <Text style={styles.buttonText}>🔍 Rechercher</Text>
-                </TouchableOpacity>
-            )}
+        <View style={{ flex: 1 }}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 120 }]}>
+        <Text style={styles.title}>📄 Liste des factures</Text>
 
-            {showSearchInput && (
-                <Animated.View
-                    style={[
-                        styles.searchContainer,
-                        {
-                            width: searchWidth.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ["80%", "100%"],
-                            }),
-                        },
-                    ]}
-                >
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="🔍 Rechercher facture ou client"
-                        value={searchText}
-                        onChangeText={handleSearch}
-                        autoFocus
-                        onBlur={() => {
-                            if (!searchText) {
-                                Animated.timing(searchWidth, {
-                                    toValue: 0,
-                                    duration: 200,
-                                    useNativeDriver: false,
-                                }).start(() => {
-                                    setShowSearchInput(false);
-                                });
-                            }
-                        }}
-                    />
-                </Animated.View>
-            )}
-
-            <View style={styles.toggleRow}>
-                <TouchableOpacity
-                    onPress={() => setShowDeleted(false)}
-                    style={[
-                        styles.toggleButton,
-                        !showDeleted && styles.toggleActive,
-                    ]}
-                >
-                    <Text style={styles.toggleText}>
-                        ✅ Actives ({activeCount})
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => setShowDeleted(true)}
-                    style={[
-                        styles.toggleButton,
-                        showDeleted && styles.toggleActive,
-                    ]}
-                >
-                    <Text style={styles.toggleText}>
-                        🗑️ Supprimées ({deletedCount})
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {(isSearching ? filteredBills : paginatedBills)
-                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-                .map((bill) => (
-					<TouchableOpacity
-  key={bill.id}
-  onPress={() => toggleSelection(bill.id)}
-  activeOpacity={0.8}
-  style={[
-    styles.card,
-    selectedIds.includes(bill.id) && styles.cardSelected,
-  ]}
->
-
-                        <TouchableOpacity
-                            onPress={() => toggleSelection(bill.id)}
-                            style={{
-                                alignSelf: "flex-end",
-                                marginBottom: 8,
-                                padding: 6,
-                            }}
-                        >
-                            <Text style={{ fontSize: 16 }}>
-                                {selectedIds.includes(bill.id) ? "✅" : "☐"}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <Text style={styles.label}>
-                            Client : {bill.clientname}
-                        </Text>
-                        <Text style={styles.label}>
-                            Facture N° : {bill.invoicenumber}
-                        </Text>
-                        <Text style={styles.label}>
-                            Date :{" "}
-                            {new Date(bill.invoicedate).toLocaleDateString()}
-                        </Text>
-                        <Text style={styles.label}>
-                            Total TTC : {parseFloat(bill.totalttc).toFixed(2)} €
-                        </Text>
-
-                        {showDeleted ? (
-                            <View style={styles.deletedButtonsRow}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        styles.restoreButton,
-                                    ]}
-                                    onPress={() => restoreBill(bill.id)}
-                                >
-                                    <Text style={styles.buttonText}>
-                                        ♻ Restaurer
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        styles.permanentDeleteButton,
-                                    ]}
-                                    onPress={() => {
-                                        Alert.alert(
-                                            "Suppression définitive",
-                                            "Cette action est irréversible. Supprimer définitivement cette facture ?",
-                                            [
-                                                {
-                                                    text: "Annuler",
-                                                    style: "cancel",
-                                                },
-                                                {
-                                                    text: "Supprimer",
-                                                    style: "destructive",
-                                                    onPress: async () => {
-                                                        const { error } =
-                                                            await supabase
-                                                                .from("billing")
-                                                                .delete()
-                                                                .eq(
-                                                                    "id",
-                                                                    bill.id
-                                                                );
-
-                                                        if (error) {
-                                                            console.error(
-                                                                "Erreur suppression définitive :",
-                                                                error
-                                                            );
-                                                            alert(
-                                                                "Erreur lors de la suppression !"
-                                                            );
-                                                        } else {
-                                                            alert(
-                                                                "✅ Facture supprimée définitivement"
-                                                            );
-                                                            fetchBills();
-                                                        }
-                                                    },
-                                                },
-                                            ]
-                                        );
-                                    }}
-                                >
-                                    <Text style={styles.buttonText}>
-                                        ❌ Supprimer
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
-                            <View style={styles.buttonRow}>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        { backgroundColor: "#6c757d" },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate("BillingEditPage", {
-                                            id: bill.id,
-                                        })
-                                    }
-                                >
-                                    <Text style={styles.buttonText}>
-                                        ✏️ Modifier / 🖨️ Imprimer
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.button,
-                                        { backgroundColor: "#dc3545" },
-                                    ]}
-                                    onPress={() => deleteBill(bill.id)}
-                                >
-                                    <Text style={styles.buttonText}>
-                                        🗑️ Supprimer
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-						</TouchableOpacity>
-                ))}
-
-            <View style={styles.pagination}>
-                <TouchableOpacity
-                    style={[
-                        styles.pageButton,
-                        currentPage === 1 && styles.disabled,
-                    ]}
-                    onPress={() =>
-                        setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                >
-                    <Text style={styles.pageText}>⏪ Précédent</Text>
-                </TouchableOpacity>
-                <Text style={styles.pageIndicator}>
-                    Page {currentPage}/{totalPages}
-                </Text>
-                <TouchableOpacity
-                    style={[
-                        styles.pageButton,
-                        currentPage === totalPages && styles.disabled,
-                    ]}
-                    onPress={() =>
-                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                >
-                    <Text style={styles.pageText}>Suivant ⏩</Text>
-                </TouchableOpacity>
-            </View>
-			{selectedIds.length > 0 && (
-  <TouchableOpacity
-    style={[styles.button, { backgroundColor: "#dc3545", marginBottom: 16 }]}
-    onPress={() => {
-      Alert.alert(
-        "Suppression groupée",
-        `Supprimer ${selectedIds.length} facture(s) ?`,
-        [
-          { text: "Annuler", style: "cancel" },
-          {
-            text: "Supprimer",
-            style: "destructive",
-            onPress: async () => {
-              const { error } = await supabase
-                .from("billing")
-                .update({ deleted: true })
-                .in("id", selectedIds);
-
-              if (error) {
-                console.error("Erreur suppression multiple :", error);
-                alert("Erreur lors de la suppression !");
-              } else {
-                alert("✅ Factures supprimées");
-                setSelectedIds([]);
-                fetchBills();
-              }
-            },
-          },
-        ]
-      );
-    }}
-  >
-    <Text style={styles.buttonText}>
-      🗑️ Supprimer sélection ({selectedIds.length})
-    </Text>
-  </TouchableOpacity>
-)}
-
-
-            <TouchableOpacity
-                style={styles.returnButton}
-                onPress={() => navigation.goBack()}
+        <View style={styles.searchWrapper}>
+            <Text
+                style={[
+                    styles.floatingLabel,
+                    isSearching && styles.floatingLabelActive,
+                ]}
             >
-                <Text style={styles.buttonText}>⬅ Retour</Text>
+                Rechercher facture ou client
+            </Text>
+            <View
+                style={[
+                    styles.inputContainer,
+                    isSearching && styles.inputContainerActive,
+                ]}
+            >
+                <TextInput
+                    style={styles.searchInputStyled}
+                    value={searchText}
+                    onChangeText={handleSearch}
+                    placeholder="Ex: Dupont, FAC-123"
+                    placeholderTextColor="#aaa"
+                    onFocus={() => setIsSearching(true)}
+                    onBlur={() => {
+                        if (!searchText) setIsSearching(false);
+                    }}
+                />
+            </View>
+        </View>
+
+        <View style={styles.toggleRow}>
+            <TouchableOpacity
+                onPress={() => setShowDeleted(false)}
+                style={[
+                    styles.toggleButton,
+                    !showDeleted && styles.toggleActive,
+                ]}
+            >
+                <Text style={styles.toggleText}>
+                    ✅ Actives ({activeCount})
+                </Text>
             </TouchableOpacity>
-        </ScrollView>
+            <TouchableOpacity
+                onPress={() => setShowDeleted(true)}
+                style={[
+                    styles.toggleButton,
+                    showDeleted && styles.toggleActive,
+                ]}
+            >
+                <Text style={styles.toggleText}>
+                    🗑️ Supprimées ({deletedCount})
+                </Text>
+            </TouchableOpacity>
+        </View>
+
+        {(isSearching ? filteredBills : paginatedBills)
+            .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+            .map((bill) => (
+                <TouchableOpacity
+                    key={bill.id}
+                    onPress={() => toggleSelection(bill.id)}
+                    activeOpacity={0.8}
+                    style={[
+                        styles.card,
+                        selectedIds.includes(bill.id) && styles.cardSelected,
+                    ]}
+                >
+                    <TouchableOpacity
+                        onPress={() => toggleSelection(bill.id)}
+                        style={{
+                            alignSelf: "flex-end",
+                            marginBottom: 8,
+                            padding: 6,
+                        }}
+                    >
+                        <Text style={{ fontSize: 16 }}>
+                            {selectedIds.includes(bill.id) ? "✅" : "☐"}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.label}>
+                        Client : {bill.clientname}
+                    </Text>
+                    <Text style={styles.label}>
+                        Facture N° : {bill.invoicenumber}
+                    </Text>
+                    <Text style={styles.label}>
+                        Date : {new Date(bill.invoicedate).toLocaleDateString()}
+                    </Text>
+                    <Text style={styles.label}>
+                        Total TTC : {parseFloat(bill.totalttc).toFixed(2)} €
+                    </Text>
+
+                    {showDeleted ? (
+                        <View style={styles.deletedButtonsRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.button,
+                                    styles.restoreButton,
+                                ]}
+                                onPress={() => restoreBill(bill.id)}
+                            >
+                                <Text style={styles.buttonText}>
+                                    ♻ Restaurer
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.button,
+                                    styles.permanentDeleteButton,
+                                ]}
+                                onPress={() => {
+                                    Alert.alert(
+                                        "Suppression définitive",
+                                        "Cette action est irréversible. Supprimer définitivement cette facture ?",
+                                        [
+                                            { text: "Annuler", style: "cancel" },
+                                            {
+                                                text: "Supprimer",
+                                                style: "destructive",
+                                                onPress: async () => {
+                                                    const { error } = await supabase
+                                                        .from("billing")
+                                                        .delete()
+                                                        .eq("id", bill.id);
+
+                                                    if (error) {
+                                                        console.error("Erreur suppression définitive :", error);
+                                                        alert("Erreur lors de la suppression !");
+                                                    } else {
+                                                        alert("✅ Facture supprimée définitivement");
+                                                        fetchBills();
+                                                    }
+                                                },
+                                            },
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Text style={styles.buttonText}>❌ Supprimer</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.buttonRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.button,
+                                    { backgroundColor: "#6c757d" },
+                                ]}
+                                onPress={() =>
+                                    navigation.navigate("BillingEditPage", {
+                                        id: bill.id,
+                                    })
+                                }
+                            >
+                                <Text style={styles.buttonText}>
+                                    ✏️ Modifier / 🖨️ Imprimer
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.button,
+                                    { backgroundColor: "#dc3545" },
+                                ]}
+                                onPress={() => deleteBill(bill.id)}
+                            >
+                                <Text style={styles.buttonText}>
+                                    🗑️ Supprimer
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            ))}
+
+        <View style={styles.pagination}>
+            <TouchableOpacity
+                style={[styles.pageButton, currentPage === 1 && styles.disabled]}
+                onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+            >
+                <Text style={styles.pageText}>⏪ Précédent</Text>
+            </TouchableOpacity>
+            <Text style={styles.pageIndicator}>
+                Page {currentPage}/{totalPages}
+            </Text>
+            <TouchableOpacity
+                style={[
+                    styles.pageButton,
+                    currentPage === totalPages && styles.disabled,
+                ]}
+                onPress={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+            >
+                <Text style={styles.pageText}>Suivant ⏩</Text>
+            </TouchableOpacity>
+        </View>
+
+        {selectedIds.length > 0 && (
+            <TouchableOpacity
+                style={[
+                    styles.button,
+                    { backgroundColor: "#dc3545", marginTop: 16 },
+                ]}
+                onPress={() => {
+                    Alert.alert(
+                        "Suppression groupée",
+                        `Supprimer ${selectedIds.length} facture(s) ?`,
+                        [
+                            { text: "Annuler", style: "cancel" },
+                            {
+                                text: "Supprimer",
+                                style: "destructive",
+                                onPress: async () => {
+                                    const { error } = await supabase
+                                        .from("billing")
+                                        .update({ deleted: true })
+                                        .in("id", selectedIds);
+
+                                    if (error) {
+                                        console.error("Erreur suppression multiple :", error);
+                                        alert("Erreur lors de la suppression !");
+                                    } else {
+                                        alert("✅ Factures supprimées");
+                                        setSelectedIds([]);
+                                        fetchBills();
+                                    }
+                                },
+                            },
+                        ]
+                    );
+                }}
+            >
+                <Text style={styles.buttonText}>
+                    🗑️ Supprimer sélection ({selectedIds.length})
+                </Text>
+            </TouchableOpacity>
+        )}
+    </ScrollView>
+
+    <TouchableOpacity
+        style={styles.returnButtonFixed}
+        onPress={() => navigation.goBack()}
+    >
+        <Text style={styles.buttonText}>⬅ Retour</Text>
+    </TouchableOpacity>
+</View>
+
     );
 }
 
@@ -514,7 +472,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     buttonBack: {
-        backgroundColor: "#3e4c69",
+        backgroundColor: "#68693e",
         padding: 14,
         borderRadius: 8,
         marginTop: 30,
@@ -543,21 +501,62 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: "center",
     },
-    searchContainer: {
-        alignSelf: "center",
-        marginBottom: 16,
+
+    cardSelected: {
+        borderWidth: 3,
+        borderColor: "#ff5252", // rouge vif
     },
-    searchInput: {
-        backgroundColor: "#d8d5d5",
+    searchWrapper: {
+        marginBottom: 20,
+        paddingHorizontal: 4,
+        position: "relative",
+    },
+
+    floatingLabel: {
+        position: "absolute",
+        top: -10,
+        left: 16,
+        backgroundColor: "#fff",
+        paddingHorizontal: 4,
+        fontSize: 14,
+        color: "#777",
+        zIndex: 2,
+    },
+
+    floatingLabelActive: {
+        color: "#007bff",
+        fontWeight: "bold",
+    },
+
+    inputContainer: {
+        borderWidth: 1,
+        borderColor: "#ccc",
         borderRadius: 8,
+        backgroundColor: "#fff",
         paddingHorizontal: 12,
-        paddingVertical: 8,
-        fontSize: 20,
-        width: "100%",
+        paddingVertical: 4,
     },
-	cardSelected: {
-  borderWidth: 3,
-  borderColor: "#ff5252", // rouge vif
+
+    inputContainerActive: {
+        borderColor: "#007bff",
+        borderWidth: 2,
+    },
+
+    searchInputStyled: {
+        fontSize: 16,
+        paddingVertical: 8,
+        color: "#333",
+    },
+	returnButtonFixed: {
+    position: "absolute",
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: "#6c757d",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    zIndex: 100,
 },
 
 });

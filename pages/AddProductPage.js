@@ -230,15 +230,15 @@ const AddProductPage = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: "#191f2f" },
-    header: { fontSize: 20, fontWeight: "medium", color: "#888787", textAlign: "center", marginBottom: 15 },
-    sectionTitle: { fontSize: 16, fontWeight: "medium",color: "#888787", marginTop: 15, marginBottom: 10 },
-    input: { borderWidth: 1, padding: 10, borderRadius: 2, borderColor:"#888787", marginBottom: 10, color: "#888787", fontWeight: "bold" },
-    addButton: { backgroundColor: "#0c0f18", padding: 10, borderRadius: 5, alignItems: "center", marginBottom: 10 },
+    container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
+    header: { fontSize: 20, fontWeight: "medium", color: "#242424", textAlign: "center", marginBottom: 15 },
+    sectionTitle: { fontSize: 16, fontWeight: "medium",color: "#242424", marginTop: 15, marginBottom: 10 },
+    input: { borderWidth: 1, padding: 10, borderRadius: 2, borderColor:"#cacaca", marginBottom: 10, color: "#888787", fontWeight: "bold" },
+    addButton: { backgroundColor: "#191f2f", padding: 10, borderRadius: 5, alignItems: "center", marginBottom: 10 },
     buttonText: { color: "#888787", fontWeight: "bold" },
-    box: { flex: 1, padding: 15, margin: 5, borderWidth: 1, borderRadius: 2, borderColor:"#888787", alignItems: "center", justifyContent: "center", backgroundColor: "#0c0f18" },
+    box: { flex: 1, padding: 15, margin: 5, borderWidth: 1, borderRadius: 2, borderColor:"#888787", alignItems: "center", justifyContent: "center", backgroundColor: "#cacaca" },
     selectedBox: { backgroundColor: "#28a745", borderColor: "#28a745" },
-    boxText: { fontWeight: "medium", color: "#888787", },
+    boxText: { fontWeight: "medium", color: "#242424", },
 });
 
 export default AddProductPage;

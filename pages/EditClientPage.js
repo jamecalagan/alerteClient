@@ -507,7 +507,7 @@ export default function EditClientPage({ route, navigation }) {
                                                 styles.commandeRecuButtonText
                                             }
                                         >
-                                            Commande reçue
+                                            Commande reçue ?
                                         </Text>
                                     </TouchableOpacity>
                                 </>
@@ -542,7 +542,7 @@ export default function EditClientPage({ route, navigation }) {
                                         style={{
                                             width: 28,
                                             height: 28,
-                                            tintColor: "#888787",
+                                            tintColor: "#ffffff",
                                         }}
                                     />
                                 )}
@@ -551,7 +551,7 @@ export default function EditClientPage({ route, navigation }) {
                     )}
                 />
             ) : (
-                <Text style={styles.buttonText}>
+                <Text style={styles.buttonTextNo}>
                     Aucune intervention trouvée.
                 </Text>
             )}
@@ -615,153 +615,163 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
     },
     title: {
-        fontSize: 24,
-        fontWeight: "medium",
+        fontSize: 28,
+        fontWeight: "bold",
         marginBottom: 20,
         textAlign: "center",
-        color: "#888787",
-        marginTop: 5,
+        color: "#2c3e50",
     },
     input: {
-        borderWidth: 1,
-        borderColor: "#888787",
-        padding: 10,
-        marginBottom: 20,
-        borderRadius: 2,
-        backgroundColor: "#191f2f",
-        fontSize: 16,
-        color: "#888787",
-    },
+     flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#585858",
+    borderRadius: 8,
+    backgroundColor: "#cacaca",
+    paddingHorizontal: 10,
+    marginBottom: 15,
+    height: 45,
+	        fontSize: 18,
+        color: "#333",
+},
     interventionCard: {
-        padding: 15,
-        marginBottom: 10,
-        borderRadius: 4,
-        backgroundColor: "#191f2f", // Fond blanc
-        borderWidth: 1, // Épaisseur de la bordure
-    },
-    interventionInfo: {
-        flex: 1,
+        padding: 18,
+        marginBottom: 14,
+        borderRadius: 14,
+        backgroundColor: "#ffffff",
+        borderWidth: 1,
+        borderColor: "#e0e0e0",
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 6,
+        elevation: 3,
     },
     interventionText: {
-        fontSize: 16,
-        color: "#888787",
-        marginBottom: 5, // Ajoute un espacement entre les lignes
+        fontSize: 17,
+        color: "#2c2c2c",
+        marginBottom: 6,
     },
     interventionTextReste: {
-        fontSize: 16,
-        color: "#888787",
-        marginBottom: 5, // Ajoute un espacement entre les lignes
+        fontSize: 17,
+        color: "#c0392b",
+        marginBottom: 6,
     },
     addButton: {
-        backgroundColor: "#191f2f",
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 20,
-    },
+    backgroundColor: "#0c0f18",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#4a90e2",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+    marginVertical: 5,
+},
     addButtonText: {
-        color: "#888787",
-        fontSize: 16,
-        fontWeight: "medium",
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
     },
     saveButton: {
-        backgroundColor: "#0c0f18",
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
+        backgroundColor: "#28a745",
+        paddingVertical: 16,
+        paddingHorizontal: 22,
+        borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
     },
     saveButtonText: {
-        color: "#888787",
-        fontSize: 16,
-        fontWeight: "medium",
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
     },
     trashButton: {
-        //backgroundColor: '#dc3545',
-        width: 40,
-        height: 40,
-        borderRadius: 2,
-        justifyContent: "center",
+        width: 44,
+        height: 44,
+        borderRadius: 10,        justifyContent: "center",
         alignItems: "center",
         position: "absolute",
         top: 10,
         right: 10,
-        borderColor: "#888787", // Couleur de la bordure (noire)
-        borderWidth: 1, // Épaisseur de la bordure
+        backgroundColor: "#f8d7da",
+        borderWidth: 1,
+        borderColor: "#dc3545",
     },
     printButton: {
-        width: 70,
-        height: 70,
-        borderWidth: 4,
-        borderColor: "#07a252",
+        width: 60,
+        height: 60,
+        borderWidth: 2,
+        borderColor: "#28a745",
         position: "absolute",
-        bottom: 20, // En bas de la page
-        right: 20, // À droite de la page
-        backgroundColor: "#191f2f",
-        padding: 15,
-        borderRadius: 5, // Rond pour l'icône
+        bottom: 24,
+        right: 24,
+        backgroundColor: "#075304",
+        padding: 12,
+        borderRadius: 5,
         alignItems: "center",
         justifyContent: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 6,
+        elevation: 4,
     },
     buttonContainer: {
-        flexDirection: "row", // Positionne les boutons côte à côte
-        justifyContent: "space-between", // Espace entre les boutons
-        marginTop: 20,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 30,
     },
     iconButton: {
-        flexDirection: "row", // Positionne l'icône et le texte côte à côte
+        flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#191f2f",
+        backgroundColor: "#007bff",
         borderWidth: 1,
-        paddingVertical: 10,
+        paddingVertical: 14,
         paddingHorizontal: 20,
-        borderRadius: 2,
-        borderColor: "#888787",
+        borderRadius: 12,
+        borderColor: "#007bff",
         justifyContent: "center",
-        flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
-        marginHorizontal: 5, // Un petit espace entre les deux boutons
-    },
-    addButton: {
-        backgroundColor: "#0c0f18", // Vert pour le bouton "Ajouter"
-    },
-    buttonIcon: {
-        marginRight: 10, // Espace entre l'icône et le texte
+        flex: 1,
+        marginHorizontal: 6,
     },
     buttonText: {
-        color: "#888787",
-        fontSize: 16,
-        fontWeight: "medium",
+        color: "#fff",
+        fontSize: 17,
+        fontWeight: "bold",
     },
+	buttonTextNo: {
+		fontSize: 17,
+		color: "#888787",
+		fontWeight: "bold",
+		textAlign: "center",
+		marginTop: 20,
+	},		
     commandeRecuButton: {
-        backgroundColor: "#39466b", // Vert pour indiquer que la commande est reçue
-        padding: 10,
-        borderRadius: 5,
+        backgroundColor: "#e8f5e9",
+        padding: 12,
+        borderRadius: 8,
         marginTop: 10,
+        borderWidth: 1,
+        borderColor: "#07a252",
     },
     commandeRecuButtonText: {
-        color: "#888787",
-        fontWeight: "medium",
+        color: "#07a252",
+        fontWeight: "600",
         textAlign: "center",
-    },
-    editButton: {
-        backgroundColor: "#191f2f", // Bleu pour l'icône d'édition
-        padding: 10,
-        borderRadius: 2,
-        marginRight: 10,
+        fontSize: 16,
     },
     acceptText: {
-        fontSize: 16,
-        color: "#ff4500", // Rouge orangé pour attirer l'attention
-        fontWeight: "bmedium",
+        fontSize: 17,
+        color: "#e67e22",
+        fontWeight: "bold",
     },
 });

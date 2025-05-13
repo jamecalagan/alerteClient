@@ -979,17 +979,17 @@ export default function OrdersPage({ route, navigation, order }) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: "#191f2f" },
+    container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
     header: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         marginBottom: 10,
     },
     orderCard: {
         padding: 20,
         marginBottom: 20,
-        backgroundColor: "#2a2f45",
+        backgroundColor: "#cacaca",
         borderRadius: 10,
         borderWidth: 1,
         borderColor: "#3e4c69",
@@ -998,16 +998,16 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: "bold",
         marginBottom: 10,
-        color: "#fff",
+        color: "#242424",
     },
     cardText: {
         fontSize: 16,
         marginBottom: 5,
-        color: "#ccc",
+        color: "#242424",
     },
     cardValue: {
         fontWeight: "bold",
-        color: "#eee",
+        color: "#242424",
     },
     input: {
         borderWidth: 1,
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 20,
         borderRadius: 5,
-        backgroundColor: "#808080",
+        backgroundColor: "#cacaca",
         width: "90%",
         alignSelf: "center",
     },
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
         marginTop: 10,
         fontSize: 18,
         fontWeight: "medium",
-        color: "#888787",
+        color: "#cacaca",
     },
     buttonSave: {
         flexDirection: "row",

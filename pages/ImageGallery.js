@@ -180,15 +180,16 @@ export default function ImageGallery({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-
+	marginTop: 20,
+	padding: 20,	
 	width: "100%",
 	justifyContent: "center",
-    backgroundColor: '#191f2f',
+    backgroundColor: '#e9e9e9',
   },
   title: {
     fontSize: 24,
     fontWeight: 'medium',
-	color: "#888787",
+	color: "#242424",
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   interventionTitle: {
     fontSize: 18,
     fontWeight: 'medium',
-	color: "#888787",
+	color: "#242424",
     marginBottom: 10,
   },
   imageRow: {

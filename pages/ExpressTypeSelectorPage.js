@@ -42,7 +42,7 @@ const ExpressTypeSelectorPage = () => {
   style={[styles.squareButton, { backgroundColor: "#351f32" }]}
   onPress={() => navigation.navigate("QuoteEditPage")}
 >
-  <Text style={styles.buttonIcon}>🎬</Text>
+  <Text style={styles.buttonIcon}>🧾</Text>
   <Text style={styles.buttonLabel}>Devis</Text>
 </TouchableOpacity>
 <TouchableOpacity
@@ -90,6 +90,22 @@ const ExpressTypeSelectorPage = () => {
 >
   
   <Text style={styles.optionText}>📄 Liste des devis</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+   style={[styles.optionButton, { backgroundColor: "#690759" }]}
+   onPress={() => {
+  navigation.navigate("ProductFormScreen");
+}}
+
+	>
+	  <Text style={styles.buttonText}>🖨️ Créer l'affiche</Text>
+	</TouchableOpacity>
+	<TouchableOpacity
+  style={[styles.optionButton, { backgroundColor: "#34568B" }]}
+  onPress={() => navigation.navigate("FlyerList")}
+>
+  <Text style={styles.buttonText}>📁 Mes affiches</Text>
 </TouchableOpacity>
 </View>
 

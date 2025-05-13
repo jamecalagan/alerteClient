@@ -73,17 +73,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
     },
     title: {
         fontSize: 20,
         fontWeight: "medium",
-		color: "#888787",
+		color: "#242424",
         marginBottom: 10,
     },
     item: {
         padding: 15,
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#cacaca",
         borderRadius: 8,
         marginBottom: 10,
         borderWidth: 1,
@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
     },
     itemText: {
         fontSize: 16,
-		color: "#888787",
+		color: "#242424",
         fontWeight: "medium",
     },
     itemDate: {
         fontSize: 14,
-        color: "#888787",
+        color: "#242424",
     },
 });
 

@@ -317,7 +317,7 @@ inputContainer: {
     height: 45,
 },
 inputFocused: {
-    borderColor: "#007bff",
+    borderColor: "#242424",
     backgroundColor: "#ffffff",
     height: 60,
 },
@@ -333,12 +333,12 @@ input: {
         marginRight: 10,
     },
 button: {
-    backgroundColor: "#2e3a59",
+    backgroundColor: "#0c0f18",
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#4a90e2",
+    borderColor: "#242424",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",

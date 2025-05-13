@@ -334,40 +334,41 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
     },
     title: {
         fontSize: 24,
-        color: "#888787",
+        color: "#242424",
         fontWeight: "bold",
         marginBottom: 20,
         textAlign: "center",
     },
     searchBar: {
+		backgroundColor: "#c7c5c5",
         height: 40,
-        borderColor: "#888787",
+        borderColor: "#777676",
         borderWidth: 1,
         borderWidth: 1,
         paddingLeft: 8,
         marginBottom: 20,
-        borderRadius: 5,
+        borderRadius: 20,
         fontSize: 16,
-        color: "#888787",
+        color: "#242424",
     },
     clientCard: {
         padding: 10,
         marginBottom: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 5,
         borderWidth: 1,
         borderColor: "#888787",
         fontSize: 16,
-        color: "#888787",
+        color: "#242424",
     },
     clientInfo: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         marginBottom: 10,
     },
     interventionCard: {
@@ -375,7 +376,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 10,
         borderWidth: 1,
         borderColor: "#888787",
@@ -385,8 +386,8 @@ const styles = StyleSheet.create({
         borderWidth: 2,
     },
     updatedAt: {
-        fontWeight: "bold", // Texte en gras pour la date de récupération
-        color: "#888787",
+        fontWeight: "medium", // Texte en gras pour la date de récupération
+        color: "#242424",
     },
     interventionDetails: {
         flex: 3, // Plus d'espace pour les détails de l'intervention
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
     referenceText: {
         fontSize: 14,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         textAlign: "center",
     },
     modalBackground: {
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#fd0000", // Rouge pour suppression
         paddingVertical: 10,
         paddingHorizontal: 15,
-        borderRadius: 2,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: "#888787",
     },

@@ -247,7 +247,7 @@ const [selectedImageUri, setSelectedImageUri] = useState(null);
             <TextInput
                 style={styles.input}
                 placeholder="Rechercher par nom, téléphone ou numéro de fiche..."
-				placeholderTextColor="#888787"
+				placeholderTextColor="#3d3d3d"
                 value={searchTerm}
                 onChangeText={(text) => {
                     setSelectedStatus(null);
@@ -490,28 +490,28 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
     },
     title: {
         fontSize: 20,
         fontWeight: "medium",
-		color: "#888787",
+		color: "#242424",
         marginBottom: 10,
     },
 	clientText: {
 		fontSize: 16,
-		color: "#888787",
+		color: "#242424",
 	},
     input: {
         borderWidth: 1,
         borderColor: "#888787",
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#b9b9b9",
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 50,
 		borderColor: "#888787",
         marginBottom: 10,
 		fontSize: 16,
-		color: "#888787",
+		color: "#242424",
     },
     resetButton: {
         backgroundColor: "#dc3545",
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     dropdownButton: {
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#cacaca",
         padding: 10,
         borderWidth: 1,
         borderColor: "#888787",
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     },
     dropdownButtonText: {
         fontSize: 16,
-        color: "#888787",
+        color: "#242424",
     },
     dropdown: {
         backgroundColor: "#fff",
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     clientCard: {
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         padding: 10,
         borderRadius: 2,
 		borderWidth: 1,
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
         borderColor: "#06f369",
     },
     interventionCard: {
-        backgroundColor: "#29324d",
+        backgroundColor: "#e0e0e0",
         padding: 10,
         marginTop: 10,
         borderRadius: 2,
@@ -613,14 +613,14 @@ const styles = StyleSheet.create({
 		borderColor: "#888787",
     },
     interventionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: "medium",
-		color: "#888787",
+		color: "#242424",
         marginBottom: 5,
     },
     interventionText: {
         fontSize: 14,
-		color: "#888787",
+		color: "#242424",
     },
     paginationContainer: {
         flexDirection: "row",
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     },
     phone: {
         fontSize: 14,
-        color: "gray",
+        color: "black",
     },
     noResult: {
         textAlign: "center",

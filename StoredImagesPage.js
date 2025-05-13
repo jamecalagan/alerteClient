@@ -51,11 +51,6 @@ import AllOrdersPage from "./pages/AllOrdersPage";
 import QuoteEditPage from "./pages/QuoteEditPage";
 import QuotePrintPage from "./pages/QuotePrintPage"; // à créer ensuite
 import QuoteListPage from "./pages/QuoteListPage";
-import ProductViewerScreen from "./pages/ProductViewerScreen";
-import ProductFlyerScreen from "./pages/ProductFlyerScreen";
-import ProductFormScreen from "./pages/ProductFormScreen";
-import ImageSearchScreen from "./pages/ImageSearchScreen";
-import FlyerListPage from "./pages/FlyerListPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -270,11 +265,6 @@ function MainStack({ setUser }) {
 		<Stack.Screen name="QuoteEditPage" component={QuoteEditPage} options={{ title: "Nouveau devis" }} />
 		<Stack.Screen name="QuotePrintPage" component={QuotePrintPage} options={{ title: "Impression devis" }} />
 		<Stack.Screen name="QuoteListPage" component={QuoteListPage} options={{ title: "Devis enregistrés" }} />
-		<Stack.Screen name="ProductViewer" component={ProductViewerScreen} options={{ title: "Fiche produit" }} />
-				<Stack.Screen name="ProductFormScreen" component={ProductFormScreen} options={{ title: "Créer une affiche" }} />
-				<Stack.Screen name="ProductFlyer" component={ProductFlyerScreen} options={{ title: "Affiche produit" }} />
-				<Stack.Screen  name="ImageSearch"  component={ImageSearchScreen}  options={{ title: "Recherche d'image" }} />
-				<Stack.Screen  name="FlyerList" component={FlyerListPage}  options={{ title: "Mes affiches" }} />
 		</Stack.Navigator>
     );
 }

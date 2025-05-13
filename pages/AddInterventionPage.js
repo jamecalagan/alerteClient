@@ -515,7 +515,7 @@ export default function AddInterventionPage({ route, navigation }) {
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.container}
-            keyboardVerticalOffset={80}
+
         >
             {clientName && (
                 <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>
@@ -527,6 +527,7 @@ export default function AddInterventionPage({ route, navigation }) {
                 }}
             >
                 <Text style={styles.label}>Type de produit</Text>
+                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
                 <View style={styles.buttonGroup}>
                     {products
                         .sort((a, b) => a.nom.localeCompare(b.nom))
@@ -567,17 +568,8 @@ export default function AddInterventionPage({ route, navigation }) {
                     />
                 )}
 
-                {deviceType === "Autre" && (
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Entrez le type de produit"
-                        placeholderTextColor="#191f2f"
-                        value={customDeviceType}
-                        onChangeText={setCustomDeviceType}
-                    />
-                )}
-
                 <Text style={styles.label}>Marque</Text>
+                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
                 <View style={styles.buttonGroup}>
                     {brands
                         .sort((a, b) => a.nom.localeCompare(b.nom))
@@ -618,6 +610,7 @@ export default function AddInterventionPage({ route, navigation }) {
                 )}
 
                 <Text style={styles.label}>Modèle</Text>
+                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
                 <View style={styles.buttonGroup}>
                     {models
                         .sort((a, b) => a.nom.localeCompare(b.nom))
@@ -654,7 +647,13 @@ export default function AddInterventionPage({ route, navigation }) {
                         onChangeText={setCustomModel}
                     />
                 )}
-
+                <View
+                    style={{
+                        height: 2,
+                        backgroundColor: "#cacaca",
+                        marginVertical: 8,
+                    }}
+                />
                 <View style={styles.referenceContainer}>
                     <TextInput
                         style={styles.referenceInput}
@@ -663,7 +662,7 @@ export default function AddInterventionPage({ route, navigation }) {
                             setReference(text.toUpperCase())
                         }
                         autoCapitalize="characters"
-                        placeholderTextColor="#888787"
+                        placeholderTextColor="#242424"
                         placeholder="Référence du produit / Numéro de série / photo étiquette"
                     />
 
@@ -724,100 +723,112 @@ export default function AddInterventionPage({ route, navigation }) {
                 />
 
                 <View>
-<View>
-  {/* Ligne distincte pour l'acceptation */}
-  <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
-	<TouchableOpacity
-	  onPress={() => setAcceptScreenRisk((prev) => !prev)}
-	  style={styles.checkboxRow}
-	>
-	  <View style={styles.checkbox}>
-		{acceptScreenRisk && (
-		  <Image
-			source={require('../assets/icons/checked.png')}
-			style={{
-			  width: 20,
-			  height: 20,
-			  tintColor: '#007bff', // 🔵 bleu pour acceptScreenRisk
-			}}
-			resizeMode="contain"
-		  />
-		)}
-	  </View>
-	  <Text style={styles.checkboxLabel}>
-		J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
-	  </Text>
-	</TouchableOpacity>
-  </View>
+                    <View>
+                        {/* Ligne distincte pour l'acceptation */}
+                        <View
+                            style={[
+                                styles.checkboxContainer,
+                                { marginBottom: 20 },
+                            ]}
+                        >
+                            <TouchableOpacity
+                                onPress={() =>
+                                    setAcceptScreenRisk((prev) => !prev)
+                                }
+                                style={styles.checkboxRow}
+                            >
+                                <View style={styles.checkbox}>
+                                    {acceptScreenRisk && (
+                                        <Image
+                                            source={require("../assets/icons/checked.png")}
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                tintColor: "#007bff", // 🔵 bleu pour acceptScreenRisk
+                                            }}
+                                            resizeMode="contain"
+                                        />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>
+                                    J'accepte le démontage de l'écran de mon
+                                    produit malgré le risque de casse.
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
 
-  {/* Groupe pour les autres cases */}
-  <View style={styles.checkboxContainer}>
+                        {/* Groupe pour les autres cases */}
+                        <View style={styles.checkboxContainer}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setPaymentStatus("non_regle");
+                                    setPartialPayment("");
+                                }}
+                                style={styles.checkboxRow}
+                            >
+                                <View style={styles.checkbox}>
+                                    {paymentStatus === "non_regle" && (
+                                        <Image
+                                            source={require("../assets/icons/checked.png")}
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                tintColor: "#fc0707", // 🔴 rouge
+                                            }}
+                                            resizeMode="contain"
+                                        />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>
+                                    Non réglé
+                                </Text>
+                            </TouchableOpacity>
 
-	<TouchableOpacity
-	  onPress={() => {
-		setPaymentStatus('non_regle');
-		setPartialPayment('');
-	  }}
-	  style={styles.checkboxRow}
-	>
-	  <View style={styles.checkbox}>
-		{paymentStatus === 'non_regle' && (
-		  <Image
-			source={require('../assets/icons/checked.png')}
-			style={{
-			  width: 20,
-			  height: 20,
-			  tintColor: '#fc0707', // 🔴 rouge
-			}}
-			resizeMode="contain"
-		  />
-		)}
-	  </View>
-	  <Text style={styles.checkboxLabel}>Non réglé</Text>
-	</TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() =>
+                                    setPaymentStatus("reglement_partiel")
+                                }
+                                style={styles.checkboxRow}
+                            >
+                                <View style={styles.checkbox}>
+                                    {paymentStatus === "reglement_partiel" && (
+                                        <Image
+                                            source={require("../assets/icons/checked.png")}
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                tintColor: "#e4a907", // 🟠 orange
+                                            }}
+                                            resizeMode="contain"
+                                        />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>
+                                    Règlement partiel
+                                </Text>
+                            </TouchableOpacity>
 
-	<TouchableOpacity
-	  onPress={() => setPaymentStatus('reglement_partiel')}
-	  style={styles.checkboxRow}
-	>
-	  <View style={styles.checkbox}>
-		{paymentStatus === 'reglement_partiel' && (
-		  <Image
-			source={require('../assets/icons/checked.png')}
-			style={{
-			  width: 20,
-			  height: 20,
-			  tintColor: '#e4a907', // 🟠 orange
-			}}
-			resizeMode="contain"
-		  />
-		)}
-	  </View>
-	  <Text style={styles.checkboxLabel}>Règlement partiel</Text>
-	</TouchableOpacity>
-
-	<TouchableOpacity
-	  onPress={() => setPaymentStatus('solde')}
-	  style={styles.checkboxRow}
-	>
-	  <View style={styles.checkbox}>
-		{paymentStatus === 'solde' && (
-		  <Image
-			source={require('../assets/icons/checked.png')}
-			style={{
-			  width: 20,
-			  height: 20,
-			  tintColor: '#4CAF50', // 🟢 vert
-			}}
-			resizeMode="contain"
-		  />
-		)}
-	  </View>
-	  <Text style={styles.checkboxLabel}>Soldé</Text>
-	</TouchableOpacity>
-
-  </View>
-</View>
+                            <TouchableOpacity
+                                onPress={() => setPaymentStatus("solde")}
+                                style={styles.checkboxRow}
+                            >
+                                <View style={styles.checkbox}>
+                                    {paymentStatus === "solde" && (
+                                        <Image
+                                            source={require("../assets/icons/checked.png")}
+                                            style={{
+                                                width: 20,
+                                                height: 20,
+                                                tintColor: "#4CAF50", // 🟢 vert
+                                            }}
+                                            resizeMode="contain"
+                                        />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>Soldé</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                     {paymentStatus === "reglement_partiel" && (
                         <View>
                             <Text style={styles.label}>
@@ -1073,7 +1084,7 @@ export default function AddInterventionPage({ route, navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#e0e0e0",
         paddingHorizontal: 20,
     },
     clientName: {
@@ -1081,27 +1092,28 @@ const styles = StyleSheet.create({
         fontWeight: "medium",
         textAlign: "center",
         marginVertical: 10,
-        color: "#888787",
+        color: "#242424",
     },
 
     input: {
         borderWidth: 1,
-        borderColor: "#53669b",
+        borderColor: "#585858",
         padding: 10,
         marginBottom: 20,
         borderRadius: 2,
-        backgroundColor: "#808080",
+        backgroundColor: "#cacaca",
         width: "90%",
         alignSelf: "center",
         fontSize: 16,
         fontWeight: "medium",
         color: "#191f2f",
+        height: 50,
     },
     label: {
         fontSize: 16,
         fontWeight: "bold",
         marginBottom: 5,
-        color: "#888787",
+        color: "#242424",
         width: "90%",
         alignSelf: "center",
     },
@@ -1118,8 +1130,8 @@ const styles = StyleSheet.create({
     referenceContainer: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
-        width: "90%",
+        justifyContent: "center",
+        width: "100%",
         alignSelf: "center",
     },
     referenceInput: {
@@ -1127,8 +1139,8 @@ const styles = StyleSheet.create({
         borderColor: "#888787",
         padding: 10,
         borderRadius: 2,
-        backgroundColor: "#191f2f",
-        width: "84%",
+        backgroundColor: "#cacaca",
+        width: "90%",
         fontSize: 16,
         fontWeight: "medium",
         marginBottom: 5,
@@ -1162,7 +1174,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     buttonText: {
-        color: "#888787",
+        color: "#fff",
         fontWeight: "medium",
     },
     saveButton: {
@@ -1294,43 +1306,42 @@ const styles = StyleSheet.create({
         marginRight: 10,
         marginLeft: 40,
     },
-checkboxContainer: {
-	flexDirection: 'row',
-    marginVertical: 10,
-},
-checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-	marginRight: 10,
-	marginLeft: 40,
-},
-checkbox: {
-  width: 28,
-  height: 28,
-  borderWidth: 2,
-  borderColor: '#ccc',
-  borderRadius: 5,
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginRight: 10,
-  backgroundColor: '#fff',
-}
-,
-checkboxIndicator: {
-    width: 12,
-    height: 12,
-    backgroundColor: '191f2f', // Couleur de l'indicateur
-},
-checkboxLabel: {
-    color: "#888787",
-    fontSize: 16,
-    fontWeight: "medium",
-},
-checkboxCheckedBlue: {
-	borderColor: 'blue',
-	backgroundColor: 'blue',
-},
+    checkboxContainer: {
+        flexDirection: "row",
+        marginVertical: 10,
+    },
+    checkboxRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 5,
+        marginRight: 10,
+        marginLeft: 40,
+    },
+    checkbox: {
+        width: 28,
+        height: 28,
+        borderWidth: 2,
+        borderColor: "#ccc",
+        borderRadius: 5,
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 10,
+        backgroundColor: "#fff",
+    },
+    checkboxIndicator: {
+        width: 12,
+        height: 12,
+        backgroundColor: "191f2f", // Couleur de l'indicateur
+    },
+    checkboxLabel: {
+        color: "#242424",
+        fontSize: 16,
+        fontWeight: "medium",
+    },
+    checkboxCheckedBlue: {
+        borderColor: "blue",
+        backgroundColor: "blue",
+    },
     checkboxCheckedBlue: {
         borderColor: "blue",
         backgroundColor: "blue",
@@ -1359,6 +1370,11 @@ checkboxCheckedBlue: {
         borderRadius: 4,
         backgroundColor: "#191f2f",
         margin: 5,
+        width: 150,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        alignSelf: "center",
     },
 
     selectedButton: {

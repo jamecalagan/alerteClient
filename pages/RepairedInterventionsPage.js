@@ -14,7 +14,7 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
     ScrollView,
-	Alert,
+    Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
@@ -42,7 +42,7 @@ export default function RepairedInterventionsPage({ navigation }) {
 
     const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
     const [noPhotoRequired, setNoPhotoRequired] = useState({});
-	const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -141,37 +141,43 @@ export default function RepairedInterventionsPage({ navigation }) {
 
             // 2. Supprimer du bucket
             if (imageUrl && imageUrl.includes("/storage/v1/object/public/")) {
-				const pathToDelete = imageUrl.replace(
-					'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
-					''
-				  );
-				  setRepairedInterventions((prevState) =>
-					prevState.map((intervention) => {
-					  if (intervention.id === interventionId) {
-						return {
-						  ...intervention,
-						  intervention_images: intervention.intervention_images.filter(
-							(img) => img.id !== imageId
-						  ),
-						};
-					  }
-					  return intervention;
-					})
-				  );
-				   
+                const pathToDelete = imageUrl.replace(
+                    "https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/",
+                    ""
+                );
+                setRepairedInterventions((prevState) =>
+                    prevState.map((intervention) => {
+                        if (intervention.id === interventionId) {
+                            return {
+                                ...intervention,
+                                intervention_images:
+                                    intervention.intervention_images.filter(
+                                        (img) => img.id !== imageId
+                                    ),
+                            };
+                        }
+                        return intervention;
+                    })
+                );
+
                 console.log("📂 Chemin à supprimer :", pathToDelete);
 
-				const { data, error: storageError } = await supabase
-				.storage
-				.from('images')
-				.remove([pathToDelete]);
-			  
-			  if (storageError) {
-				console.error("❌ Erreur suppression BUCKET :", storageError);
-			  } else {
-				console.log("✅ Tentative de suppression effectuée. Résultat :", data);
-				console.log("➡️ Chemin tenté :", pathToDelete);
-			  }
+                const { data, error: storageError } = await supabase.storage
+                    .from("images")
+                    .remove([pathToDelete]);
+
+                if (storageError) {
+                    console.error(
+                        "❌ Erreur suppression BUCKET :",
+                        storageError
+                    );
+                } else {
+                    console.log(
+                        "✅ Tentative de suppression effectuée. Résultat :",
+                        data
+                    );
+                    console.log("➡️ Chemin tenté :", pathToDelete);
+                }
             } else {
                 console.warn(
                     "⚠️ URL non reconnue pour suppression dans le bucket."
@@ -424,16 +430,13 @@ export default function RepairedInterventionsPage({ navigation }) {
     };
 
     return (
-        <ImageBackground
-            source={backgroundImage}
-            style={styles.backgroundImage}
-        >
+		 <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
             <View style={styles.overlay}>
                 <Text style={styles.title}>Interventions terminées</Text>
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>
                         Montant total des interventions Réparées :{" "}
-                        {repairedTotal.toFixed(2)} €
+                        {repairedTotal.toFixed(2)} €		
                     </Text>
                 </View>
                 <FlatList
@@ -454,7 +457,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     styles.interventionCard,
                                     item.status === "Non réparable"
                                         ? {
-                                              backgroundColor: "#191f2f", // Couleur de fond pour "Non réparable"
+                                              backgroundColor: "#dad8d8", // Couleur de fond pour "Non réparable"
                                               borderWidth: 1, // Épaisseur de la bordure
                                               borderColor: "red", // Couleur rouge pour la bordure
                                           }
@@ -780,8 +783,6 @@ export default function RepairedInterventionsPage({ navigation }) {
                                                                     </TouchableOpacity>
                                                                 )
                                                             )}
-
-
                                                         </View>
                                                     )
                                                 )}
@@ -813,66 +814,90 @@ export default function RepairedInterventionsPage({ navigation }) {
                 navigation={navigation}
                 currentRoute={route.name}
             />
-<Modal
-  visible={isModalVisible}
-  transparent={true}
-  animationType="fade"
-  onRequestClose={closeImageModal}
->
-  <View style={styles.modalOverlay}>
-    <TouchableOpacity style={styles.closeButton} onPress={closeImageModal}>
-      <Ionicons name="close-circle" size={40} color="white" />
-    </TouchableOpacity>
+            <Modal
+                visible={isModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={closeImageModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={closeImageModal}
+                    >
+                        <Ionicons name="close-circle" size={40} color="white" />
+                    </TouchableOpacity>
 
-    {selectedImage?.uri && (
-      <View style={{ justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }}>
-        <Image
-          source={{
-            uri: selectedImage.uri.startsWith('http')
-              ? selectedImage.uri
-              : `data:image/jpeg;base64,${selectedImage.uri}`,
-          }}
-          style={{ width: '90%', height: '70%', resizeMode: 'contain' }}
-        />
+                    {selectedImage?.uri && (
+                        <View
+                            style={{
+                                justifyContent: "center",
+                                alignItems: "center",
+                                width: "100%",
+                                height: "100%",
+                            }}
+                        >
+                            <Image
+                                source={{
+                                    uri: selectedImage.uri.startsWith("http")
+                                        ? selectedImage.uri
+                                        : `data:image/jpeg;base64,${selectedImage.uri}`,
+                                }}
+                                style={{
+                                    width: "90%",
+                                    height: "70%",
+                                    resizeMode: "contain",
+                                }}
+                            />
 
-        <TouchableOpacity
-          style={[styles.deleteButton, { position: 'absolute', bottom: 40 }]}
-          onPress={() => {
-            Alert.alert(
-              "Confirmer la suppression",
-              "Es-tu sûr de vouloir supprimer cette image ?",
-              [
-                { text: "Annuler", style: "cancel" },
-                {
-                  text: "Supprimer",
-                  style: "destructive",
-                  onPress: async () => {
-                    setIsDeleting(true);
-                    await deleteImage(
-                      selectedImage.id,
-                      selectedImage.intervention_id,
-                      selectedImage.uri
-                    );
-                    setIsDeleting(false);
-                    closeImageModal();
-                    await loadRepairedInterventions(); // recharge les données sans l'image supprimée
-                  },
-                },
-              ]
-            );
-          }}
-        >
-          <Ionicons name="trash" size={30} color="white" />
-          <Text style={styles.deleteButtonText}>
-            {isDeleting ? "Suppression..." : "Supprimer"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    )}
-  </View>
-</Modal>
-
-
+                            <TouchableOpacity
+                                style={[
+                                    styles.deleteButton,
+                                    { position: "absolute", bottom: 40 },
+                                ]}
+                                onPress={() => {
+                                    Alert.alert(
+                                        "Confirmer la suppression",
+                                        "Es-tu sûr de vouloir supprimer cette image ?",
+                                        [
+                                            {
+                                                text: "Annuler",
+                                                style: "cancel",
+                                            },
+                                            {
+                                                text: "Supprimer",
+                                                style: "destructive",
+                                                onPress: async () => {
+                                                    setIsDeleting(true);
+                                                    await deleteImage(
+                                                        selectedImage.id,
+                                                        selectedImage.intervention_id,
+                                                        selectedImage.uri
+                                                    );
+                                                    setIsDeleting(false);
+                                                    closeImageModal();
+                                                    await loadRepairedInterventions(); // recharge les données sans l'image supprimée
+                                                },
+                                            },
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Ionicons
+                                    name="trash"
+                                    size={30}
+                                    color="white"
+                                />
+                                <Text style={styles.deleteButtonText}>
+                                    {isDeleting
+                                        ? "Suppression..."
+                                        : "Supprimer"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </Modal>
 
             <Modal
                 transparent={true}
@@ -1000,7 +1025,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                     onClose={closeAlert}
                 />
             )}
-        </ImageBackground>
+        </View>
     );
 }
 
@@ -1009,22 +1034,17 @@ const styles = StyleSheet.create({
         flex: 1,
         resizeMode: "cover",
     },
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.199)",
-        padding: 5,
-    },
     title: {
         fontSize: 24,
         fontWeight: "bold",
         marginBottom: 20,
         textAlign: "center",
-        color: "#888787",
+        color: "#242424",
     },
     interventionCard: {
         padding: 15,
         marginBottom: 10,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
@@ -1043,8 +1063,8 @@ const styles = StyleSheet.create({
         padding: 10,
         borderWidth: 1,
         borderRadius: 2,
-        borderColor: "#888787",
-        backgroundColor: "#191f2f",
+        borderColor: "#242424",
+        backgroundColor: "#8a8a8a",
         marginHorizontal: 5,
     },
     infoContainer: {
@@ -1052,24 +1072,24 @@ const styles = StyleSheet.create({
     },
     interventionText: {
         fontSize: 18,
-        color: "#888787",
+        color: "#242424",
         marginBottom: 5,
     },
     interventionTextBold: {
         fontSize: 18,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         marginBottom: 5,
     },
     interventionTextNon: {
         fontSize: 16,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         marginBottom: 5,
     },
     interventionTextReste: {
         fontSize: 20,
-        color: "#888787",
+        color: "#242424",
         marginBottom: 5, // Ajoute un espacement entre les lignes
     },
     detailInput: {
@@ -1077,9 +1097,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         padding: 10,
         borderRadius: 2,
-        backgroundColor: "#191f2f",
+        backgroundColor: "#f1f1f1",
         marginBottom: 10,
-        color: "#b6b4b4",
+        color: "#242424",
         fontSize: 16,
     },
     buttonContainer: {
@@ -1122,7 +1142,7 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     buttonText: {
-        color: "#888787",
+        color: "#cacaca",
         textAlign: "center",
         fontWeight: "medium",
     },
@@ -1199,7 +1219,7 @@ const styles = StyleSheet.create({
     interventionTextSolde: {
         fontSize: 20,
         fontWeight: "bold",
-        color: "#888787",
+        color: "#242424",
         marginBottom: 5,
     },
     fullscreenImage: {
@@ -1275,10 +1295,10 @@ const styles = StyleSheet.create({
     },
     itemSubtitle: {
         fontSize: 14,
-        color: "#555555",
+        color: "#201c1c",
     },
     totalContainer: {
-        backgroundColor: "#191f2f",
+        backgroundColor: "#cacaca",
         padding: 10,
         marginBottom: 10,
         borderWidth: 1,
@@ -1289,7 +1309,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "medium",
         textAlign: "center",
-        color: "#999898",
+        color: "#242424",
     },
     paginationContainer: {
         flexDirection: "row",
@@ -1328,7 +1348,7 @@ const styles = StyleSheet.create({
     modernBackButton: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#2b3550",
+        backgroundColor: "#565961",
         justifyContent: "center",
         paddingVertical: 12,
         paddingHorizontal: 20,

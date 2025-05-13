@@ -271,7 +271,7 @@ export default function ImageCleanupPage() {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#e9e9e9',
   },
   title: {
     fontSize: 20,

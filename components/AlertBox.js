@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',  // Arrière-plan semi-transparent
   },
   alertBox: {
-    width: 300,
+    width: 600,
     padding: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',  // Couleur de fond légèrement transparente
     borderRadius: 20,  // Bords arrondis

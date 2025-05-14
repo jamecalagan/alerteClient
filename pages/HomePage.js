@@ -3514,7 +3514,7 @@ const styles = StyleSheet.create({
         borderColor: "#888787", // Couleur du contour
         borderRadius: 2, // Coins arrondis
         paddingVertical: 11, // Espacement intérieur haut/bas
-        paddingHorizontal: 50, // Espacement intérieur gauche/droite
+        paddingHorizontal: 30, // Espacement intérieur gauche/droite
         backgroundColor: "#cacaca", // Fond blanc pour le contraste
         alignSelf: "center", // Centrage du bloc
     },

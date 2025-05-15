@@ -143,7 +143,6 @@ const notifyClient = async (client, method) => {
   const newValue = method === "sms" ? "SMS" : "Téléphone";
   const timestamp = new Date().toISOString();
 
-  // ✅ Crée un objet propre pour l'update Supabase uniquement
   const updateFields = {
     notifiedBy: newValue,
     notifiedat: timestamp,
@@ -155,7 +154,6 @@ const notifyClient = async (client, method) => {
     .eq("id", client.intervention_id);
 
   if (!error) {
-    // ✅ Utilisé uniquement en local (React) – on peut y mettre clientId
     const updatedClient = {
       ...client,
       ...updateFields,
@@ -170,22 +168,47 @@ const notifyClient = async (client, method) => {
       )
     );
 
-setLastNotified((prev) => {
-  const merged = [updatedClient, ...prev];
+    setLastNotified((prev) => {
+      const merged = [updatedClient, ...prev];
+      const map = new Map();
+      for (const c of merged) {
+        map.set(c.clientId, c);
+      }
 
-  // Supprimer doublons par clientId
-  const map = new Map();
-  for (const c of merged) {
-    map.set(c.clientId, c); // remplace les doublons, garde le plus récent
-  }
+      const uniqueSorted = Array.from(map.values()).sort(
+        (a, b) => new Date(b.notifiedat) - new Date(a.notifiedat)
+      );
 
-  // Convertir en tableau trié par notifiedat DESC
-  const uniqueSorted = Array.from(map.values()).sort((a, b) =>
-    new Date(b.notifiedat) - new Date(a.notifiedat)
-  );
+      return uniqueSorted.slice(0, 3);
+    });
 
-  return uniqueSorted.slice(0, 3);
-});
+    // ✅ Alerte : matériel non récupéré
+    if (client.status !== "Récupéré") {
+      Alert.alert(
+        "📦 Matériel non récupéré",
+        `${client.name} a été notifié mais n'a pas encore récupéré son matériel.`,
+        [{ text: "OK" }]
+      );
+    }
+
+    // ✅ Alerte : notifié depuis plus de 10 jours + date lisible
+    if (
+      (client.status === "Réparé" || client.status === "Non réparable") &&
+      client.notifiedat
+    ) {
+      const dateNotif = new Date(client.notifiedat);
+      const now = new Date();
+      const diffJours = (now - dateNotif) / (1000 * 60 * 60 * 24);
+
+      if (diffJours > 10) {
+        const dateFr = dateNotif.toLocaleDateString("fr-FR");
+        Alert.alert(
+          "🔔 Client à relancer",
+          `${client.name} a été notifié le ${dateFr} et n'a toujours pas récupéré son matériel.`,
+          [{ text: "OK" }]
+        );
+      }
+    }
   } else {
     console.log("Erreur Supabase : ", error.message);
     Alert.alert("Erreur", error.message);
@@ -193,40 +216,41 @@ setLastNotified((prev) => {
 };
 
 
- const fetchLastNotified = async () => {
-  const { data, error } = await supabase
-    .from("interventions")
-    .select("id, notifiedBy, notifiedat, client:client_id (id, name, phone)")
-    .not("notifiedat", "is", null)
-    .order("notifiedat", { ascending: false }) // 🔥 tri par date descendante
-    .limit(20); // on en récupère assez pour filtrer
+    const fetchLastNotified = async () => {
+        const { data, error } = await supabase
+            .from("interventions")
+            .select(
+                "id, notifiedBy, notifiedat, client:client_id (id, name, phone)"
+            )
+            .not("notifiedat", "is", null)
+            .order("notifiedat", { ascending: false }) // 🔥 tri par date descendante
+            .limit(20); // on en récupère assez pour filtrer
 
-  if (!error && data) {
-    const seen = new Set();
-    const uniqueClients = [];
+        if (!error && data) {
+            const seen = new Set();
+            const uniqueClients = [];
 
-    for (const item of data) {
-      const clientId = item.client?.id;
-      if (!clientId || seen.has(clientId)) continue;
+            for (const item of data) {
+                const clientId = item.client?.id;
+                if (!clientId || seen.has(clientId)) continue;
 
-      seen.add(clientId);
-      uniqueClients.push({
-        intervention_id: item.id,
-        notifiedBy: item.notifiedBy,
-        notifiedat: item.notifiedat,
-        name: item.client.name,
-        clientId: clientId,
-      });
+                seen.add(clientId);
+                uniqueClients.push({
+                    intervention_id: item.id,
+                    notifiedBy: item.notifiedBy,
+                    notifiedat: item.notifiedat,
+                    name: item.client.name,
+                    clientId: clientId,
+                });
 
-      if (uniqueClients.length >= 3) break;
-    }
+                if (uniqueClients.length >= 3) break;
+            }
 
-    setLastNotified(uniqueClients);
-  } else {
-    console.error("Erreur fetchLastNotified:", error);
-  }
-};
-
+            setLastNotified(uniqueClients);
+        } else {
+            console.error("Erreur fetchLastNotified:", error);
+        }
+    };
 
     const renderItem = ({ item }) => {
         const rawMessage = messageMap[item.id] || templates[0];
@@ -394,24 +418,23 @@ setLastNotified((prev) => {
             <Text style={styles.title}>📢 Notifications Clients</Text>
 
             {lastNotified.length > 0 && (
-<View style={styles.bannerRow}>
-  {lastNotified.map((c, index) => (
-    <TouchableOpacity
-      key={c.clientId}
-      onPress={() =>
-        navigation.navigate("ClientNotificationsPage", {
-          clientId: c.clientId,
-        })
-      }
-    >
-      <Text style={styles.bannerText}>
-        {c.notifiedBy === "SMS" ? "📩" : "📞"} {c.name}
-        {index < lastNotified.length - 1 ? "  |  " : ""}
-      </Text>
-    </TouchableOpacity>
-  ))}
-</View>
-
+                <View style={styles.bannerRow}>
+                    {lastNotified.map((c, index) => (
+                        <TouchableOpacity
+                            key={c.clientId}
+                            onPress={() =>
+                                navigation.navigate("ClientNotificationsPage", {
+                                    clientId: c.clientId,
+                                })
+                            }
+                        >
+                            <Text style={styles.bannerText}>
+                                {c.notifiedBy === "SMS" ? "📩" : "📞"} {c.name}
+                                {index < lastNotified.length - 1 ? "  |  " : ""}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             )}
             <TextInput
                 style={styles.searchInput}
@@ -421,7 +444,7 @@ setLastNotified((prev) => {
             />
 
             <View style={styles.filterRow}>
-                {["all", "sms", "telephone"].map((type) => (
+                {["all", "sms", "telephone", "relance"].map((type) => (
                     <TouchableOpacity
                         key={type}
                         style={[
@@ -430,12 +453,52 @@ setLastNotified((prev) => {
                         ]}
                         onPress={() => setFilterType(type)}
                     >
-                        <Text style={styles.filterText}>
-                            {type === "all" ? "Tous" : type.toUpperCase()}
-                        </Text>
+<Text style={styles.filterText}>
+  {type === "all"
+    ? "Tous"
+    : type === "sms"
+    ? "SMS"
+    : type === "telephone"
+    ? "Téléphone"
+    : "📤 Relance"}
+</Text>
+
                     </TouchableOpacity>
+					
                 ))}
+{/* 				<TouchableOpacity
+  style={[styles.filterButton, { backgroundColor: "#f39c12" }]}
+  onPress={() => {
+    const now = new Date();
+    const clientsARelancer = notifications.filter((n) => {
+      const d = new Date(n.notifiedat);
+      const days = (now - d) / (1000 * 60 * 60 * 24);
+      return (
+        (n.status === "Réparé" || n.status === "Non réparable") &&
+        days > 10
+      );
+    });
+
+    if (clientsARelancer.length > 0) {
+      Alert.alert(
+        "📤 Clients à relancer",
+        `${clientsARelancer.length} client(s) ont été notifiés il y a plus de 10 jours sans retrait.`,
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert(
+        "👍 Aucun client à relancer",
+        "Tous les clients ont été notifiés récemment ou ont récupéré leur matériel.",
+        [{ text: "OK" }]
+      );
+    }
+  }}
+>
+  <Text style={styles.filterText}>📤 Relance</Text>
+</TouchableOpacity> */}
+
             </View>
+
             {selectedClientId && (
                 <TouchableOpacity
                     onPress={() => setSelectedClientId(null)}

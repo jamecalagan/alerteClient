@@ -2065,74 +2065,52 @@ onPress={() => {
                                                                                 />
                                                                             </TouchableOpacity>
                                                                         )}
-                                                                    <TouchableOpacity
-                                                                        style={[
-                                                                            styles.iconButton,
-                                                                            styles.notificationIconContainer,
-                                                                        ]}
-                                                                        onPress={() => {
-                                                                            setSelectedClient(
-                                                                                item
-                                                                            ); // ✅ Stocke le client sélectionné
-                                                                            setSelectedInterventionId(
-                                                                                item
-                                                                                    .latestIntervention
-                                                                                    ?.id ||
-                                                                                    null
-                                                                            );
-                                                                            setNotifyModalVisible(
-                                                                                true
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        {latestIntervention?.notifiedBy ===
-                                                                            "SMS" ||
-                                                                        item?.orders?.some(
-                                                                            (
-                                                                                order
-                                                                            ) =>
-                                                                                order.notified ===
-                                                                                "SMS"
-                                                                        ) ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/sms.png")}
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#00fd00", // ✅ Vert pour SMS
-                                                                                }}
-                                                                            />
-                                                                        ) : latestIntervention?.notifiedBy ===
-                                                                              "Téléphone" ||
-                                                                          item?.orders?.some(
-                                                                              (
-                                                                                  order
-                                                                              ) =>
-                                                                                  order.notified ===
-                                                                                  "Téléphone"
-                                                                          ) ? (
-                                                                            <Image
-                                                                                source={require("../assets/icons/call.png")}
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#3c92f5", // ✅ Bleu pour Téléphone
-                                                                                }}
-                                                                            />
-                                                                        ) : (
-                                                                            <Image
-                                                                                source={require("../assets/icons/notifications_off.png")}
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        "#888787", // ✅ Gris si aucune notification
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                    </TouchableOpacity>
+<View style={{ position: "relative" }}>
+  <TouchableOpacity
+    style={[styles.iconButton, styles.notificationIconContainer]}
+onPress={() => {
+  navigation.navigate("ClientNotificationsPage", {
+  clientId: item.id, // ou item.id selon ton objet
+});
+}}
+
+  >
+    {latestIntervention?.notifiedBy === "SMS" ||
+    item?.orders?.some((order) => order.notified === "SMS") ? (
+      <Image
+        source={require("../assets/icons/sms.png")}
+        style={{ width: 28, height: 28, tintColor: "#00fd00" }}
+      />
+    ) : latestIntervention?.notifiedBy === "Téléphone" ||
+      item?.orders?.some((order) => order.notified === "Téléphone") ? (
+      <Image
+        source={require("../assets/icons/call.png")}
+        style={{ width: 28, height: 28, tintColor: "#3c92f5" }}
+      />
+    ) : (
+      <Image
+        source={require("../assets/icons/notifications_off.png")}
+        style={{ width: 28, height: 28, tintColor: "#888787" }}
+      />
+    )}
+  </TouchableOpacity>
+
+  {(!latestIntervention?.notifiedBy &&
+    !item?.orders?.some((order) => order.notified)) && (
+    <View
+      style={{
+        position: "absolute",
+        top: 2,
+        right: 2,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#ff3b30", // 🔴 rouge
+      }}
+    />
+  )}
+</View>
+
 
                                                                     <TouchableOpacity
                                                                         style={[

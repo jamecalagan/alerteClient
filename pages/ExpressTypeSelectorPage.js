@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 const ExpressTypeSelectorPage = () => {
@@ -8,133 +8,214 @@ const ExpressTypeSelectorPage = () => {
     const goToExpress = (type) => {
         navigation.navigate("ExpressClientPage", { type });
     };
+const animationValues = useRef(
+    Array(8)
+        .fill()
+        .map(() => new Animated.Value(0))
+).current;
+const topButtonAnimations = useRef(
+    Array(5)
+        .fill()
+        .map(() => new Animated.Value(0))
+).current;
+
+useEffect(() => {
+const topAnimations = topButtonAnimations.map((anim, index) =>
+    Animated.spring(anim, {
+        toValue: 1,
+        delay: index * 120,
+        friction: 6,
+        tension: 100,
+        useNativeDriver: true,
+    })
+);
+
+    Animated.stagger(80, topAnimations).start();
+}, []);
+
+useEffect(() => {
+const animations = animationValues.map((anim, index) =>
+    Animated.spring(anim, {
+        toValue: 1,
+        delay: index * 150,
+        friction: 6,
+        tension: 100,
+        useNativeDriver: true,
+    })
+);
+
+    Animated.stagger(100, animations).start();
+}, []);
 
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Choisir un type de fiche express</Text>
 
             <View style={styles.creationRow}>
-                <TouchableOpacity
-                    style={[
-                        styles.squareButton,
-                        { backgroundColor: "#007bff" },
-                    ]}
-                    onPress={() => goToExpress("logiciel")}
-                >
-                    <Text style={styles.buttonIcon}>🖥</Text>
-                    <Text style={styles.buttonLabel}>Dépannage</Text>
-                </TouchableOpacity>
+    {["logiciel", "reparation", "video", "devis", "pc"].map((type, index) => {
+        const isQuote = type === "devis" || type === "pc";
+        const buttonProps = {
+            logiciel: {
+                icon: "🖥",
+                label: "Dépannage",
+                color: "#007bff",
+            },
+            reparation: {
+                icon: "🛠",
+                label: "Réparation",
+                color: "#28a745",
+            },
+            video: {
+                icon: "🎬",
+                label: "Vidéo",
+                color: "#ffc107",
+            },
+            devis: {
+                icon: "🧾",
+                label: "Devis",
+                color: "#351f32",
+            },
+            pc: {
+                icon: "🖥️",
+                label: "Devis PC",
+                color: "#1b2a41",
+            },
+        }[type];
 
+        return (
+            <Animated.View
+                key={type}
+                style={{
+                    opacity: topButtonAnimations[index],
+                    transform: [
+                        {
+                            translateX: topButtonAnimations[index].interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-30, 0],
+                            }),
+                        },
+                    ],
+                }}
+            >
                 <TouchableOpacity
                     style={[
                         styles.squareButton,
-                        { backgroundColor: "#28a745" },
-                    ]}
-                    onPress={() => goToExpress("reparation")}
-                >
-                    <Text style={styles.buttonIcon}>🛠</Text>
-                    <Text style={styles.buttonLabel}>Réparation</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[
-                        styles.squareButton,
-                        { backgroundColor: "#ffc107" },
-                    ]}
-                    onPress={() => goToExpress("video")}
-                >
-                    <Text style={styles.buttonIcon}>🎬</Text>
-                    <Text style={styles.buttonLabel}>Vidéo</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[
-                        styles.squareButton,
-                        { backgroundColor: "#351f32" },
-                    ]}
-                    onPress={() => navigation.navigate("QuoteEditPage")}
-                >
-                    <Text style={styles.buttonIcon}>🧾</Text>
-                    <Text style={styles.buttonLabel}>Devis</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.squareButton,
-                        { backgroundColor: "#1b2a41" },
+                        { backgroundColor: buttonProps.color },
                     ]}
                     onPress={() =>
-                        navigation.navigate("QuoteEditPage", { preset: "pc" })
+                        isQuote
+                            ? navigation.navigate("QuoteEditPage", type === "pc" ? { preset: "pc" } : undefined)
+                            : navigation.navigate("ExpressClientPage", { type })
                     }
                 >
-                    <Text style={styles.buttonIcon}>🖥️</Text>
-                    <Text style={styles.buttonLabel}>Devis PC</Text>
+                    <Text style={styles.buttonIcon}>{buttonProps.icon}</Text>
+                    <Text style={styles.buttonLabel}>{buttonProps.label}</Text>
                 </TouchableOpacity>
-            </View>
+            </Animated.View>
+        );
+    })}
+</View>
+
 
             <View style={styles.separator} />
 
             <View style={styles.otherGroup}>
-                <TouchableOpacity
-                    style={[styles.longButton, styles.shadowBox, { backgroundColor: "#f3ae54" }]}
-                    onPress={() => navigation.navigate("ExpressListPage")}
-                >
-                    <Text style={styles.buttonTextFiche}>
-                        Voir les fiches enregistrées
-                    </Text>
-                </TouchableOpacity>
+    <Animated.View style={{
+        opacity: animationValues[0],
+        transform: [{ translateY: animationValues[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.longButton, styles.shadowBox, { backgroundColor: "#f3ae54" }]}
+            onPress={() => navigation.navigate("ExpressListPage")}
+        >
+            <Text style={styles.buttonTextFiche}>Voir les fiches enregistrées</Text>
+        </TouchableOpacity>
+    </Animated.View>
 
-                <TouchableOpacity
-                    style={[styles.longButton, styles.shadowBox, { backgroundColor: "#3a8f56" }]}
-                    onPress={() => navigation.navigate("BillingPage")}
-                >
-                    <Text style={styles.buttonText}>Créer une facture</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#3f48be" }]}
-                    onPress={() => navigation.navigate("BillingListPage")}
-                >
-                    <Text style={styles.buttonText}>Liste des Factures</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#555" }]}
-                    onPress={() => navigation.navigate("AllOrdersPage")}
-                >
-                    <Text style={styles.optionText}>
-                        Voir toutes les commandes
-                    </Text>
-                </TouchableOpacity>
+    <Animated.View style={{
+        opacity: animationValues[1],
+        transform: [{ translateY: animationValues[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.longButton, styles.shadowBox, { backgroundColor: "#3a8f56" }]}
+            onPress={() => navigation.navigate("BillingPage")}
+        >
+            <Text style={styles.buttonText}>Créer une facture</Text>
+        </TouchableOpacity>
+    </Animated.View>
 
-                <TouchableOpacity
-                    style={[
-                        styles.optionButton, styles.shadowBox,
-                        { backgroundColor: "#09a4ca" },
-                    ]}
-                    onPress={() => navigation.navigate("QuoteListPage")}
-                >
-                    <Text style={styles.optionText}>Liste des devis</Text>
-                </TouchableOpacity>
+    <Animated.View style={{
+        opacity: animationValues[2],
+        transform: [{ translateY: animationValues[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#3f48be" }]}
+            onPress={() => navigation.navigate("BillingListPage")}
+        >
+            <Text style={styles.buttonText}>Liste des Factures</Text>
+        </TouchableOpacity>
+    </Animated.View>
 
-                <TouchableOpacity
-                    style={[
-                        styles.optionButton, styles.shadowBox,
-                        { backgroundColor: "#690759", },
-                    ]}
-                    onPress={() => {
-                        navigation.navigate("ProductFormScreen");
-                    }}
-                >
-                    <Text style={styles.buttonText}>Créer une affiche</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.optionButton, styles.shadowBox,
-                        { backgroundColor: "#34568B" },
-                    ]}
-                    onPress={() => navigation.navigate("FlyerList")}
-                >
-                    <Text style={styles.buttonText}>Liste des affiches</Text>
-                </TouchableOpacity>
-            </View>
+    <Animated.View style={{
+        opacity: animationValues[3],
+        transform: [{ translateY: animationValues[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#555" }]}
+            onPress={() => navigation.navigate("AllOrdersPage")}
+        >
+            <Text style={styles.optionText}>Voir toutes les commandes</Text>
+        </TouchableOpacity>
+    </Animated.View>
+
+    <Animated.View style={{
+        opacity: animationValues[4],
+        transform: [{ translateY: animationValues[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#09a4ca" }]}
+            onPress={() => navigation.navigate("QuoteListPage")}
+        >
+            <Text style={styles.optionText}>Liste des devis</Text>
+        </TouchableOpacity>
+    </Animated.View>
+
+    <Animated.View style={{
+        opacity: animationValues[5],
+        transform: [{ translateY: animationValues[5].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#690759" }]}
+            onPress={() => navigation.navigate("ProductFormScreen")}
+        >
+            <Text style={styles.buttonText}>Créer une affiche</Text>
+        </TouchableOpacity>
+    </Animated.View>
+
+    <Animated.View style={{
+        opacity: animationValues[6],
+        transform: [{ translateY: animationValues[6].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+        <TouchableOpacity
+            style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#34568B" }]}
+            onPress={() => navigation.navigate("FlyerList")}
+        >
+            <Text style={styles.buttonText}>Liste des affiches</Text>
+        </TouchableOpacity>
+		</Animated.View>
+		    <Animated.View style={{
+        opacity: animationValues[7],
+        transform: [{ translateY: animationValues[7].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+    }}>
+		<TouchableOpacity
+			style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#129b00" }]}
+			onPress={() => navigation.navigate("ClientNotificationsPage")}
+>
+  <Text style={styles.buttonText}>Liste des clients Notifiés</Text>
+</TouchableOpacity>
+    </Animated.View>
+</View>
+
         </View>
     );
 };
@@ -248,7 +329,6 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
         backgroundColor: "#3e4c69",
         borderRadius: 50,
-
         alignItems: "center",
     },
     optionText: {

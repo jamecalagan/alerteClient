@@ -45,7 +45,7 @@ export default function ProductFlyerScreen({ route }) {
   const getHtmlContent = (product, format = "A5") => {
     const baseStyle = {
       h1: format === "A4" ? 26 : 20,
-      price: format === "A4" ? 40 : 26,
+      price: format === "A4" ? 70 : 46,
       detail: format === "A4" ? 16 : 13,
       maxImageHeight: format === "A4" ? 300 : 180,
       padding: format === "A4" ? 30 : 15,

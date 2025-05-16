@@ -34,14 +34,16 @@ export default function ClientNotificationsPage() {
     const [newTemplate, setNewTemplate] = useState("");
     const route = useRoute();
     const [selectedClientId, setSelectedClientId] = useState(null);
+const [filteredItems, setFilteredItems] = useState([]);
 
     const navigation = useNavigation();
 
-    const defaultTemplates = [
-        "Bonjour, votre matériel est prêt.",
-        "Merci de nous rappeler concernant votre dépannage.",
-        "Votre commande est disponible en magasin.",
-    ];
+const defaultTemplates = [
+  "Bonjour, votre {type} est prêt(e).",
+  "Merci de nous rappeler concernant votre {type}.",
+  "Votre {type} est disponible en boutique.",
+];
+
 
     const templates = [...defaultTemplates, ...customTemplates];
     useEffect(() => {
@@ -74,7 +76,7 @@ export default function ClientNotificationsPage() {
         const { data, error } = await supabase
             .from("interventions")
             .select(
-                "id, notifiedBy, notifiedat, client_id, client:client_id (id, name, phone)"
+                "id, notifiedBy, notifiedat, client_id, deviceType, client:client_id(id, name, phone)"
             )
             .order("created_at", { ascending: false });
 
@@ -96,6 +98,7 @@ export default function ClientNotificationsPage() {
                         notifiedBy: intervention.notifiedBy,
                         notifiedat: intervention.notifiedat, // ✅ ici !
                         intervention_id: intervention.id,
+						deviceType: intervention.deviceType,
                     });
                 }
             });
@@ -108,36 +111,46 @@ export default function ClientNotificationsPage() {
         }
     };
 
-    const applyFilters = () => {
-        let results = [...notifications];
+const applyFilters = () => {
+  let results = [...notifications];
 
-        if (filterType !== "all") {
-            results = results.filter((item) => {
-                const n = item.notifiedBy || "";
-                const normalized = n
-                    .toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/\s/g, "");
-                return normalized.includes(filterType);
-            });
-        }
+  if (filterType !== "all") {
+    results = results.filter((item) => {
+      const n = item.notifiedBy || "";
+      const normalized = n
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s/g, "");
+      return normalized.includes(filterType);
+    });
+  }
 
-        if (selectedClientId) {
-            results = results.filter((c) => c.id === selectedClientId);
-        } else if (searchText.trim() !== "") {
-            const lower = searchText.toLowerCase();
-            results = results.filter(
-                (item) =>
-                    item.name?.toLowerCase().includes(lower) ||
-                    item.phone?.toLowerCase().includes(lower)
-            );
-        }
+  if (selectedClientId) {
+    results = results.filter((c) => c.id === selectedClientId);
+  } else if (searchText.trim() !== "") {
+    const lower = searchText.toLowerCase();
+    results = results.filter(
+      (item) =>
+        item.name?.toLowerCase().includes(lower) ||
+        item.phone?.toLowerCase().includes(lower) ||
+		item.deviceType?.toLowerCase().includes(lower) 
+    );
+  }
 
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const paginated = results.slice(startIndex, startIndex + itemsPerPage);
-        setFiltered(paginated);
-    };
+  // ✅ Tri par date de notification DESC (les plus récents d'abord)
+  results.sort((a, b) => new Date(b.notifiedat) - new Date(a.notifiedat));
+
+  // Stockage complet pour le calcul du nombre total de pages
+  setFilteredItems(results);
+
+  // Pagination réelle
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginated = results.slice(startIndex, startIndex + itemsPerPage);
+  setFiltered(paginated);
+};
+
+
 
 const notifyClient = async (client, method) => {
   const newValue = method === "sms" ? "SMS" : "Téléphone";
@@ -253,9 +266,10 @@ const notifyClient = async (client, method) => {
     };
 
     const renderItem = ({ item }) => {
-        const rawMessage = messageMap[item.id] || templates[0];
-        const message = `${rawMessage}\n\nAVENIR INFORMATIQUE`;
-        const isNotified = !!item.notifiedBy;
+		const raw = messageMap[item.id] || templates[0];
+		const type = item.deviceType || "appareil";
+		const message = `${raw.replace("{type}", type)}\n\nAVENIR INFORMATIQUE`;
+		const isNotified = !!item.notifiedBy;
 
         return (
             <View style={styles.card}>
@@ -263,6 +277,7 @@ const notifyClient = async (client, method) => {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.name}>{item.name}</Text>
                         <Text style={styles.phone}>{item.phone}</Text>
+						<Text style={styles.deviceType}>{item.deviceType}</Text>
                         {isNotified ? (
                             <View style={styles.methodRow}>
                                 {item.notifiedBy
@@ -322,13 +337,12 @@ const notifyClient = async (client, method) => {
                                     "fr-FR"
                                 )}{" "}
                                 à{" "}
-                                {new Date(item.notifiedat).toLocaleTimeString(
-                                    "fr-FR",
-                                    {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    }
-                                )}
+								{new Date(item.notifiedat).toLocaleTimeString("fr-FR", {
+								hour: "2-digit",
+								minute: "2-digit",
+								timeZone: "Europe/Paris", // ✅ Fuseau horaire forcé
+								})}
+
                             </Text>
                         )}
 
@@ -366,17 +380,17 @@ const notifyClient = async (client, method) => {
                             ))}
                         </View>
 
-                        <TextInput
-                            style={styles.messageInput}
-                            placeholder="✏️ Message à envoyer par SMS"
-                            value={rawMessage}
-                            onChangeText={(text) =>
-                                setMessageMap((prev) => ({
-                                    ...prev,
-                                    [item.id]: text,
-                                }))
-                            }
-                        />
+							<TextInput
+							style={styles.messageInput}
+							placeholder="✏️ Message à envoyer par SMS"
+							value={raw}
+							onChangeText={(text) =>
+								setMessageMap((prev) => ({
+								...prev,
+								[item.id]: text,
+								}))
+							}
+							/>
                     </View>
 
                     <View style={styles.actionsColumn}>
@@ -415,7 +429,7 @@ const notifyClient = async (client, method) => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>📢 Notifications Clients</Text>
+            <Text style={styles.title}>Notifications Clients</Text>
 
             {lastNotified.length > 0 && (
                 <View style={styles.bannerRow}>
@@ -552,7 +566,9 @@ const notifyClient = async (client, method) => {
                 >
                     <Text style={styles.pageButtonText}>⏮ Précédent</Text>
                 </TouchableOpacity>
-                <Text style={styles.pageIndicator}>Page {currentPage}</Text>
+<Text style={styles.pageIndicator}>
+  Page {currentPage} / {Math.max(1, Math.ceil(filteredItems.length / itemsPerPage))}
+</Text>
                 <TouchableOpacity
                     style={[
                         styles.pageButton,

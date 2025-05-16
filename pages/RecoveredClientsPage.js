@@ -545,6 +545,32 @@ export default function RecoveredClientsPage({ navigation, route }) {
                                                         Imprimer
                                                     </Text>
                                                 </TouchableOpacity>
+<TouchableOpacity
+    style={{
+        backgroundColor: "#5a3c99",
+        padding: 10,
+        borderRadius: 5,
+        alignItems: "center",
+        flex: 1,
+        flexDirection: "row",
+        justifyContent: "center",
+    }}
+    onPress={() =>
+        navigation.navigate("EditIntervention", {
+            interventionId: item.id,
+        })
+    }
+>
+    <Icon
+        name="edit"
+        size={18}
+        color="white"
+        style={{ marginRight: 8 }}
+    />
+    <Text style={{ color: "white", fontWeight: "bold", textAlign: "center" }}>
+        Modifier
+    </Text>
+</TouchableOpacity>
 
                                                 <TouchableOpacity
                                                     style={{

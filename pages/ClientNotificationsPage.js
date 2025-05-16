@@ -1,13 +1,3 @@
-// Nouvelle version complète de ClientNotificationsPage.js
-// Inclut :
-// - Clients notifiés ET non notifiés
-// - Possibilité d’envoyer notification depuis la fiche
-// - Enregistrement dans Supabase du champ notifiedBy
-// - Signature automatique
-// - Modèles rapides (ajout/suppression dynamiques)
-// - Pagination
-// - Recherche et filtres
-
 import React, { useEffect, useState } from "react";
 import {
     View,
@@ -34,16 +24,16 @@ export default function ClientNotificationsPage() {
     const [newTemplate, setNewTemplate] = useState("");
     const route = useRoute();
     const [selectedClientId, setSelectedClientId] = useState(null);
-const [filteredItems, setFilteredItems] = useState([]);
+    const [filteredItems, setFilteredItems] = useState([]);
 
     const navigation = useNavigation();
 
-const defaultTemplates = [
-  "Bonjour, votre {type} est prêt(e).",
-  "Merci de nous rappeler concernant votre {type}.",
-  "Votre {type} est disponible en boutique.",
-];
-
+    const defaultTemplates = [
+        "Bonjour, votre {type} est prêt(e).",
+        "Merci de nous rappeler concernant votre {type}.",
+        "Votre {type} est disponible en boutique.",
+        "⚠️ Bonjour, votre matériel est prêt depuis plus de 30 jours. Sans récupération rapide, des frais de stockage seront appliqués. Passé ce délai, il sera considéré comme abandonné et pourra faire l’objet d’une destruction.",
+    ];
 
     const templates = [...defaultTemplates, ...customTemplates];
     useEffect(() => {
@@ -55,7 +45,30 @@ const defaultTemplates = [
     }, [notifications, selectedClientId]);
 
     useEffect(() => {
-        fetchNotifications();
+        fetchNotifications().then(() => {
+            setTimeout(() => {
+                const now = new Date();
+                const urgents = notifications.filter((item) => {
+                    if (!item.notifiedat) return false;
+                    const d = new Date(item.notifiedat);
+                    const days = (now - d) / (1000 * 60 * 60 * 24);
+                    return (
+                        (item.status === "Réparé" || item.status === "Non réparable") &&
+                        days > 30
+                    );
+                });
+                if (urgents.length > 0) {
+                    Alert.alert(
+                        "⛔️ Urgences détectées",
+                        `${urgents.length} client(s) ont été notifiés depuis plus de 30 jours sans récupération.`,
+                        [
+                            { text: "Voir", onPress: () => setFilterType("urgence") },
+                            { text: "OK" },
+                        ]
+                    );
+                }
+            }, 1000);
+        });
         fetchLastNotified();
     }, []);
     useEffect(() => {
@@ -98,7 +111,7 @@ const defaultTemplates = [
                         notifiedBy: intervention.notifiedBy,
                         notifiedat: intervention.notifiedat, // ✅ ici !
                         intervention_id: intervention.id,
-						deviceType: intervention.deviceType,
+                        deviceType: intervention.deviceType,
                     });
                 }
             });
@@ -108,126 +121,142 @@ const defaultTemplates = [
             );
 
             setNotifications(sorted);
+/* 			uniqueClients.push({
+    id: 999,
+    name: "Client Test URGENT",
+    phone: "0600000000",
+    notifiedBy: "SMS",
+    notifiedat: "2024-03-01T10:00:00Z",
+    intervention_id: "test-id",
+    deviceType: "PC",
+    status: "Réparé"
+}) */
         }
     };
 
 const applyFilters = () => {
-  let results = [...notifications];
+    let results = [...notifications];
+    const now = new Date();
 
-  if (filterType !== "all") {
-    results = results.filter((item) => {
-      const n = item.notifiedBy || "";
-      const normalized = n
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s/g, "");
-      return normalized.includes(filterType);
-    });
-  }
-
-  if (selectedClientId) {
-    results = results.filter((c) => c.id === selectedClientId);
-  } else if (searchText.trim() !== "") {
-    const lower = searchText.toLowerCase();
-    results = results.filter(
-      (item) =>
-        item.name?.toLowerCase().includes(lower) ||
-        item.phone?.toLowerCase().includes(lower) ||
-		item.deviceType?.toLowerCase().includes(lower) 
-    );
-  }
-
-  // ✅ Tri par date de notification DESC (les plus récents d'abord)
-  results.sort((a, b) => new Date(b.notifiedat) - new Date(a.notifiedat));
-
-  // Stockage complet pour le calcul du nombre total de pages
-  setFilteredItems(results);
-
-  // Pagination réelle
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginated = results.slice(startIndex, startIndex + itemsPerPage);
-  setFiltered(paginated);
-};
-
-
-
-const notifyClient = async (client, method) => {
-  const newValue = method === "sms" ? "SMS" : "Téléphone";
-  const timestamp = new Date().toISOString();
-
-  const updateFields = {
-    notifiedBy: newValue,
-    notifiedat: timestamp,
-  };
-
-  const { error } = await supabase
-    .from("interventions")
-    .update(updateFields)
-    .eq("id", client.intervention_id);
-
-  if (!error) {
-    const updatedClient = {
-      ...client,
-      ...updateFields,
-      clientId: client.clientId || client.id,
-    };
-
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.intervention_id === client.intervention_id
-          ? updatedClient
-          : n
-      )
-    );
-
-    setLastNotified((prev) => {
-      const merged = [updatedClient, ...prev];
-      const map = new Map();
-      for (const c of merged) {
-        map.set(c.clientId, c);
-      }
-
-      const uniqueSorted = Array.from(map.values()).sort(
-        (a, b) => new Date(b.notifiedat) - new Date(a.notifiedat)
-      );
-
-      return uniqueSorted.slice(0, 3);
-    });
-
-    // ✅ Alerte : matériel non récupéré
-    if (client.status !== "Récupéré") {
-      Alert.alert(
-        "📦 Matériel non récupéré",
-        `${client.name} a été notifié mais n'a pas encore récupéré son matériel.`,
-        [{ text: "OK" }]
-      );
+    if (filterType === "urgence") {
+        results = results.filter((item) => {
+            if (!item.notifiedat) return false;
+            const d = new Date(item.notifiedat);
+            const days = (now - d) / (1000 * 60 * 60 * 24);
+            return (
+                (item.status === "Réparé" || item.status === "Non réparable") &&
+                days > 30
+            );
+        });
+    } else if (filterType !== "all") {
+        results = results.filter((item) => {
+            const n = item.notifiedBy || "";
+            const normalized = n
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s/g, "");
+            return normalized.includes(filterType);
+        });
     }
 
-    // ✅ Alerte : notifié depuis plus de 10 jours + date lisible
-    if (
-      (client.status === "Réparé" || client.status === "Non réparable") &&
-      client.notifiedat
-    ) {
-      const dateNotif = new Date(client.notifiedat);
-      const now = new Date();
-      const diffJours = (now - dateNotif) / (1000 * 60 * 60 * 24);
-
-      if (diffJours > 10) {
-        const dateFr = dateNotif.toLocaleDateString("fr-FR");
-        Alert.alert(
-          "🔔 Client à relancer",
-          `${client.name} a été notifié le ${dateFr} et n'a toujours pas récupéré son matériel.`,
-          [{ text: "OK" }]
+    if (selectedClientId) {
+        results = results.filter((c) => c.id === selectedClientId);
+    } else if (searchText.trim() !== "") {
+        const lower = searchText.toLowerCase();
+        results = results.filter(
+            (item) =>
+                item.name?.toLowerCase().includes(lower) ||
+                item.phone?.toLowerCase().includes(lower) ||
+                item.deviceType?.toLowerCase().includes(lower)
         );
-      }
     }
-  } else {
-    console.log("Erreur Supabase : ", error.message);
-    Alert.alert("Erreur", error.message);
-  }
+
+    results.sort((a, b) => new Date(b.notifiedat) - new Date(a.notifiedat));
+    setFilteredItems(results);
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginated = results.slice(startIndex, startIndex + itemsPerPage);
+    setFiltered(paginated);
 };
 
+
+    const notifyClient = async (client, method) => {
+        const newValue = method === "sms" ? "SMS" : "Téléphone";
+        const timestamp = new Date().toISOString();
+
+        const updateFields = {
+            notifiedBy: newValue,
+            notifiedat: timestamp,
+        };
+
+        const { error } = await supabase
+            .from("interventions")
+            .update(updateFields)
+            .eq("id", client.intervention_id);
+
+        if (!error) {
+            const updatedClient = {
+                ...client,
+                ...updateFields,
+                clientId: client.clientId || client.id,
+            };
+
+            setNotifications((prev) =>
+                prev.map((n) =>
+                    n.intervention_id === client.intervention_id
+                        ? updatedClient
+                        : n
+                )
+            );
+
+            setLastNotified((prev) => {
+                const merged = [updatedClient, ...prev];
+                const map = new Map();
+                for (const c of merged) {
+                    map.set(c.clientId, c);
+                }
+
+                const uniqueSorted = Array.from(map.values()).sort(
+                    (a, b) => new Date(b.notifiedat) - new Date(a.notifiedat)
+                );
+
+                return uniqueSorted.slice(0, 3);
+            });
+
+            // ✅ Alerte : matériel non récupéré
+            if (client.status !== "Récupéré") {
+                Alert.alert(
+                    "📦 Matériel non récupéré",
+                    `${client.name} a été notifié mais n'a pas encore récupéré son matériel.`,
+                    [{ text: "OK" }]
+                );
+            }
+
+            // ✅ Alerte : notifié depuis plus de 10 jours + date lisible
+            if (
+                (client.status === "Réparé" ||
+                    client.status === "Non réparable") &&
+                client.notifiedat
+            ) {
+                const dateNotif = new Date(client.notifiedat);
+                const now = new Date();
+                const diffJours = (now - dateNotif) / (1000 * 60 * 60 * 24);
+
+                if (diffJours > 10) {
+                    const dateFr = dateNotif.toLocaleDateString("fr-FR");
+                    Alert.alert(
+                        "🔔 Client à relancer",
+                        `${client.name} a été notifié le ${dateFr} et n'a toujours pas récupéré son matériel.`,
+                        [{ text: "OK" }]
+                    );
+                }
+            }
+        } else {
+            console.log("Erreur Supabase : ", error.message);
+            Alert.alert("Erreur", error.message);
+        }
+    };
 
     const fetchLastNotified = async () => {
         const { data, error } = await supabase
@@ -266,10 +295,10 @@ const notifyClient = async (client, method) => {
     };
 
     const renderItem = ({ item }) => {
-		const raw = messageMap[item.id] || templates[0];
-		const type = item.deviceType || "appareil";
-		const message = `${raw.replace("{type}", type)}\n\nAVENIR INFORMATIQUE`;
-		const isNotified = !!item.notifiedBy;
+        const raw = messageMap[item.id] || templates[0];
+        const type = item.deviceType || "appareil";
+        const message = `${raw.replace("{type}", type)}\n\nAVENIR INFORMATIQUE`;
+        const isNotified = !!item.notifiedBy;
 
         return (
             <View style={styles.card}>
@@ -277,7 +306,12 @@ const notifyClient = async (client, method) => {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.name}>{item.name}</Text>
                         <Text style={styles.phone}>{item.phone}</Text>
-						<Text style={styles.deviceType}>{item.deviceType}</Text>
+                        <Text style={styles.deviceType}>{item.deviceType}</Text>
+						                        {item.notifiedat &&
+                            (item.status === "Réparé" || item.status === "Non réparable") &&
+                            (new Date() - new Date(item.notifiedat)) / (1000 * 60 * 60 * 24) > 30 && (
+                                <Text style={styles.urgentBadge}>⚠️ URGENT</Text>
+                            )}
                         {isNotified ? (
                             <View style={styles.methodRow}>
                                 {item.notifiedBy
@@ -337,12 +371,14 @@ const notifyClient = async (client, method) => {
                                     "fr-FR"
                                 )}{" "}
                                 à{" "}
-								{new Date(item.notifiedat).toLocaleTimeString("fr-FR", {
-								hour: "2-digit",
-								minute: "2-digit",
-								timeZone: "Europe/Paris", // ✅ Fuseau horaire forcé
-								})}
-
+                                {new Date(item.notifiedat).toLocaleTimeString(
+                                    "fr-FR",
+                                    {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        timeZone: "Europe/Paris", // ✅ Fuseau horaire forcé
+                                    }
+                                )}
                             </Text>
                         )}
 
@@ -376,21 +412,36 @@ const notifyClient = async (client, method) => {
                                             ? tpl.slice(0, 35) + "…"
                                             : tpl}
                                     </Text>
+{/*                                     {item.notifiedat &&
+                                        (new Date() -
+                                            new Date(item.notifiedat)) /
+                                            (1000 * 60 * 60 * 24) >
+                                            30 && (
+                                            <Text
+                                                style={{
+                                                    color: "red",
+                                                    fontWeight: "bold",
+                                                    marginTop: 4,
+                                                }}
+                                            >
+                                                ⛔ En attente depuis +30 jours
+                                            </Text>
+                                        )} */}
                                 </TouchableOpacity>
                             ))}
                         </View>
 
-							<TextInput
-							style={styles.messageInput}
-							placeholder="✏️ Message à envoyer par SMS"
-							value={raw}
-							onChangeText={(text) =>
-								setMessageMap((prev) => ({
-								...prev,
-								[item.id]: text,
-								}))
-							}
-							/>
+                        <TextInput
+                            style={styles.messageInput}
+                            placeholder="✏️ Message à envoyer par SMS"
+                            value={raw}
+                            onChangeText={(text) =>
+                                setMessageMap((prev) => ({
+                                    ...prev,
+                                    [item.id]: text,
+                                }))
+                            }
+                        />
                     </View>
 
                     <View style={styles.actionsColumn}>
@@ -458,59 +509,30 @@ const notifyClient = async (client, method) => {
             />
 
             <View style={styles.filterRow}>
-                {["all", "sms", "telephone", "relance"].map((type) => (
-                    <TouchableOpacity
-                        key={type}
-                        style={[
-                            styles.filterButton,
-                            filterType === type && styles.activeFilter,
-                        ]}
-                        onPress={() => setFilterType(type)}
-                    >
-<Text style={styles.filterText}>
-  {type === "all"
-    ? "Tous"
-    : type === "sms"
-    ? "SMS"
-    : type === "telephone"
-    ? "Téléphone"
-    : "📤 Relance"}
-</Text>
-
-                    </TouchableOpacity>
-					
-                ))}
-{/* 				<TouchableOpacity
-  style={[styles.filterButton, { backgroundColor: "#f39c12" }]}
-  onPress={() => {
-    const now = new Date();
-    const clientsARelancer = notifications.filter((n) => {
-      const d = new Date(n.notifiedat);
-      const days = (now - d) / (1000 * 60 * 60 * 24);
-      return (
-        (n.status === "Réparé" || n.status === "Non réparable") &&
-        days > 10
-      );
-    });
-
-    if (clientsARelancer.length > 0) {
-      Alert.alert(
-        "📤 Clients à relancer",
-        `${clientsARelancer.length} client(s) ont été notifiés il y a plus de 10 jours sans retrait.`,
-        [{ text: "OK" }]
-      );
-    } else {
-      Alert.alert(
-        "👍 Aucun client à relancer",
-        "Tous les clients ont été notifiés récemment ou ont récupéré leur matériel.",
-        [{ text: "OK" }]
-      );
-    }
-  }}
->
-  <Text style={styles.filterText}>📤 Relance</Text>
-</TouchableOpacity> */}
-
+                {["all", "sms", "telephone", "relance", "urgence"].map(
+                    (type) => (
+                        <TouchableOpacity
+                            key={type}
+                            style={[
+                                styles.filterButton,
+                                filterType === type && styles.activeFilter,
+                            ]}
+                            onPress={() => setFilterType(type)}
+                        >
+                            <Text style={styles.filterText}>
+                                {type === "all"
+                                    ? "Tous"
+                                    : type === "sms"
+                                    ? "SMS"
+                                    : type === "telephone"
+                                    ? "Téléphone"
+                                    : type === "relance"
+                                    ? "📤 Relance"
+                                    : "⛔ Urgence"}
+                            </Text>
+                        </TouchableOpacity>
+                    )
+                )}
             </View>
 
             {selectedClientId && (
@@ -566,9 +588,13 @@ const notifyClient = async (client, method) => {
                 >
                     <Text style={styles.pageButtonText}>⏮ Précédent</Text>
                 </TouchableOpacity>
-<Text style={styles.pageIndicator}>
-  Page {currentPage} / {Math.max(1, Math.ceil(filteredItems.length / itemsPerPage))}
-</Text>
+                <Text style={styles.pageIndicator}>
+                    Page {currentPage} /{" "}
+                    {Math.max(
+                        1,
+                        Math.ceil(filteredItems.length / itemsPerPage)
+                    )}
+                </Text>
                 <TouchableOpacity
                     style={[
                         styles.pageButton,
@@ -748,5 +774,16 @@ const styles = StyleSheet.create({
         color: "#000",
         fontWeight: "bold",
         fontSize: 14,
+    },
+	    urgentBadge: {
+        backgroundColor: "#dc3545",
+        color: "#fff",
+        alignSelf: "flex-start",
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 10,
+        fontWeight: "bold",
+        marginTop: 6,
+        fontSize: 13,
     },
 });

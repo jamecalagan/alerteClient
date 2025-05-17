@@ -1159,8 +1159,8 @@ export default function HomePage({ navigation, route, setUser }) {
             // 1. Récupère les commandes non réglées
             const { data: unpaidOrders, error: orderError } = await supabase
                 .from("orders")
-                .select("id, client_id, paid, saved")
-                .eq("paid", false);
+                .select("id, client_id, paid, saved, price, deposit")
+                .or("paid.eq.false,saved.eq.false");
 
             // 2. Récupère les interventions actives avec une commande
             const { data: interventions, error: interventionError } =
@@ -1215,26 +1215,39 @@ export default function HomePage({ navigation, route, setUser }) {
             }
 
             // 5. Fusionne les infos avec commandes et interventions
-            const enrichedClients = clients.map((client) => {
-                const clientOrders = unpaidOrders.filter(
-                    (o) => o.client_id === client.id
-                );
-                const clientInterventions = interventions.filter(
-                    (i) => i.client_id === client.id
-                );
+const enrichedClients = clients.map((client) => {
+    const clientOrders = unpaidOrders.filter(
+        (o) => o.client_id === client.id
+    );
+    const clientInterventions = interventions.filter(
+        (i) => i.client_id === client.id
+    );
 
-                // Récupère la dernière intervention (si plusieurs)
-                const latestIntervention = clientInterventions.sort(
-                    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-                )[0];
+    const latestIntervention = clientInterventions.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    )[0];
 
-                return {
-                    ...client,
-                    orders: clientOrders,
-                    interventions: clientInterventions,
-                    latestIntervention,
-                };
-            });
+    const totalOrderAmount = clientOrders.reduce(
+        (sum, o) => sum + (parseFloat(o.price) || 0),
+        0
+    );
+    const totalOrderDeposit = clientOrders.reduce(
+        (sum, o) => sum + (parseFloat(o.deposit) || 0),
+        0
+    );
+    const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
+
+    return {
+        ...client,
+        orders: clientOrders,
+        interventions: clientInterventions,
+        latestIntervention,
+        totalOrderAmount,
+        totalOrderDeposit,
+        totalOrderRemaining,
+    };
+});
+
 
             setFilteredClients(enrichedClients);
         } catch (err) {

@@ -20,52 +20,51 @@ export default function OrdersPage({ route, navigation, order }) {
     const [orders, setOrders] = useState([]);
     const [expandedOrders, setExpandedOrders] = useState([]);
 
-	const [newOrder, setNewOrder] = useState({
-		product: "",
-		brand: "",
-		model: "",
-		serial: "",
-		price: "",
-		deposit: "",
-		paid: false,
-		client_id: null,
-	  });
-	  useEffect(() => {
-		if (clientId) {
-		  setNewOrder((prev) => ({ ...prev, client_id: clientId }));
-		}
-	  }, [clientId]);
+    const [newOrder, setNewOrder] = useState({
+        product: "",
+        brand: "",
+        model: "",
+        serial: "",
+        price: "",
+        deposit: "",
+        paid: false,
+        client_id: null,
+    });
+    useEffect(() => {
+        if (clientId) {
+            setNewOrder((prev) => ({ ...prev, client_id: clientId }));
+        }
+    }, [clientId]);
     useEffect(() => {
         loadOrders();
     }, [clientId]);
 
-	const loadOrders = async () => {
-		if (!clientId) {
-			console.warn("⚠️ clientId est undefined, requête annulée.");
-			return;
-		}
-	
-		try {
-			const { data, error } = await supabase
-				.from("orders")
-				.select("*, billing(id)")
-				.eq("client_id", clientId)
-				.order("createdat", { ascending: false });
-	
-			if (error) throw error;
-	
-			setOrders(
-				(data || []).map((order) => ({
-					...order,
-					originalSerial: order.serial || "",
-					billing: order.billing || null,
-				}))
-			);
-		} catch (error) {
-			console.error("❌ Erreur lors du chargement des commandes:", error);
-		}
-	};
-	
+    const loadOrders = async () => {
+        if (!clientId) {
+            console.warn("⚠️ clientId est undefined, requête annulée.");
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from("orders")
+                .select("*, billing(id)")
+                .eq("client_id", clientId)
+                .order("createdat", { ascending: false });
+
+            if (error) throw error;
+
+            setOrders(
+                (data || []).map((order) => ({
+                    ...order,
+                    originalSerial: order.serial || "",
+                    billing: order.billing || null,
+                }))
+            );
+        } catch (error) {
+            console.error("❌ Erreur lors du chargement des commandes:", error);
+        }
+    };
 
     const handleCreateOrder = async () => {
         try {
@@ -184,10 +183,10 @@ export default function OrdersPage({ route, navigation, order }) {
     };
 
     const handleSaveOrder = async (order) => {
-        if (!order.paid) {
+        if (!order.paid || !order.recovered) {
             Alert.alert(
                 "Erreur",
-                "Vous devez d'abord marquer la commande comme payée avant de sauvegarder."
+                "Vous devez d'abord marquer la commande comme payée et récupérée avant de la sauvegarder."
             );
             return;
         }
@@ -232,14 +231,6 @@ export default function OrdersPage({ route, navigation, order }) {
         }
     };
     const handleMarkAsRecovered = async (order) => {
-        if (!order.saved) {
-            Alert.alert(
-                "Commande non sauvegardée",
-                "Vous devez d'abord sauvegarder cette commande."
-            );
-            return;
-        }
-
         Alert.alert(
             "Commande récupérée",
             "Confirmez-vous que le client a récupéré cette commande ?",
@@ -268,6 +259,7 @@ export default function OrdersPage({ route, navigation, order }) {
             ]
         );
     };
+
     const handleMarkAsOrdered = (order) => {
         Alert.alert(
             "Commande passée",
@@ -403,8 +395,7 @@ export default function OrdersPage({ route, navigation, order }) {
 
                     return (
                         <View style={styles.orderCard}>
-                            {/* Titre + bouton expand */}
-                            {/* Informations de base */}
+
                             <Text style={styles.cardText}>
                                 💾 Commande sauvegardée
                             </Text>
@@ -522,7 +513,22 @@ export default function OrdersPage({ route, navigation, order }) {
                                     </Text>
                                 </Text>
                             )}
-
+							
+							{item.saved && !isExpanded && (
+							<TouchableOpacity
+								style={{
+								alignSelf: "flex-end",
+								marginTop: 10,
+								backgroundColor: "#444",
+								paddingVertical: 6,
+								paddingHorizontal: 12,
+								borderRadius: 4,
+								}}
+								onPress={() => toggleExpand(item.id)}
+							>
+								<Text style={{ color: "#fff", fontWeight: "bold" }}> Ouvrir</Text>
+							</TouchableOpacity>
+							)}
                             {/* Affichage étendu */}
                             {(!item.saved || isExpanded) && (
                                 <>
@@ -721,6 +727,7 @@ export default function OrdersPage({ route, navigation, order }) {
                                             flexWrap: "wrap",
                                             justifyContent: "space-between",
                                             marginTop: 10,
+
                                         }}
                                     >
                                         {/* Ligne 3 : Bouton Imprimer */}
@@ -903,20 +910,6 @@ export default function OrdersPage({ route, navigation, order }) {
                                                 </Text>
                                             </View>
                                         )}
-
-                                        <TouchableOpacity
-                                            style={[styles.squareButton]}
-                                            onPress={() =>
-                                                handleSaveOrder(item)
-                                            }
-                                        >
-                                            <Text
-                                                style={styles.squareButtonText}
-                                            >
-                                                💾 Sauvegarder
-                                            </Text>
-                                        </TouchableOpacity>
-
                                         <TouchableOpacity
                                             style={[
                                                 styles.squareButton,
@@ -943,6 +936,33 @@ export default function OrdersPage({ route, navigation, order }) {
                                                     : "📦 Commande récupérée"}
                                             </Text>
                                         </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.squareButton,
+                                                item.saved && {
+                                                    backgroundColor: "#ccc",
+                                                },
+                                            ]}
+                                            disabled={item.saved}
+                                            onPress={() =>
+                                                handleSaveOrder(item)
+                                            }
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.squareButtonText,
+                                                    item.saved && {
+                                                        color: "#666",
+                                                    },
+                                                ]}
+                                            >
+                                                {item.saved
+                                                    ? "✅ Sauvegardée"
+                                                    : "💾 Sauvegarder"}
+                                            </Text>
+                                        </TouchableOpacity>
+
+
 
                                         <TouchableOpacity
                                             style={[styles.squareButton]}
@@ -988,7 +1008,7 @@ const styles = StyleSheet.create({
     },
     orderCard: {
         padding: 20,
-        marginBottom: 20,
+		paddingBottom: 10,
         backgroundColor: "#cacaca",
         borderRadius: 10,
         borderWidth: 1,
@@ -1118,8 +1138,8 @@ const styles = StyleSheet.create({
         color: "#888787",
     },
     squareButton: {
-        width: "30%", // pour avoir 3 par ligne
-        aspectRatio: 2, // carré
+width: "30%",
+		paddingVertical: 10,
         backgroundColor: "#191f2f",
         borderWidth: 1,
         borderColor: "#888787",
@@ -1139,8 +1159,8 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     squareButtonDisabled: {
-        width: "30%", // pour avoir 3 par ligne
-        aspectRatio: 2, // carré
+
+width: "30%",
         backgroundColor: "#636262",
         borderWidth: 1,
         borderColor: "#888787",

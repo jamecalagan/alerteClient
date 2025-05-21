@@ -1215,39 +1215,39 @@ export default function HomePage({ navigation, route, setUser }) {
             }
 
             // 5. Fusionne les infos avec commandes et interventions
-const enrichedClients = clients.map((client) => {
-    const clientOrders = unpaidOrders.filter(
-        (o) => o.client_id === client.id
-    );
-    const clientInterventions = interventions.filter(
-        (i) => i.client_id === client.id
-    );
+            const enrichedClients = clients.map((client) => {
+                const clientOrders = unpaidOrders.filter(
+                    (o) => o.client_id === client.id
+                );
+                const clientInterventions = interventions.filter(
+                    (i) => i.client_id === client.id
+                );
 
-    const latestIntervention = clientInterventions.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    )[0];
+                const latestIntervention = clientInterventions.sort(
+                    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+                )[0];
 
-    const totalOrderAmount = clientOrders.reduce(
-        (sum, o) => sum + (parseFloat(o.price) || 0),
-        0
-    );
-    const totalOrderDeposit = clientOrders.reduce(
-        (sum, o) => sum + (parseFloat(o.deposit) || 0),
-        0
-    );
-    const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
+                const totalOrderAmount = clientOrders.reduce(
+                    (sum, o) => sum + (parseFloat(o.price) || 0),
+                    0
+                );
+                const totalOrderDeposit = clientOrders.reduce(
+                    (sum, o) => sum + (parseFloat(o.deposit) || 0),
+                    0
+                );
+                const totalOrderRemaining =
+                    totalOrderAmount - totalOrderDeposit;
 
-    return {
-        ...client,
-        orders: clientOrders,
-        interventions: clientInterventions,
-        latestIntervention,
-        totalOrderAmount,
-        totalOrderDeposit,
-        totalOrderRemaining,
-    };
-});
-
+                return {
+                    ...client,
+                    orders: clientOrders,
+                    interventions: clientInterventions,
+                    latestIntervention,
+                    totalOrderAmount,
+                    totalOrderDeposit,
+                    totalOrderRemaining,
+                };
+            });
 
             setFilteredClients(enrichedClients);
         } catch (err) {
@@ -1809,6 +1809,10 @@ const enrichedClients = clients.map((client) => {
                                                 index,
                                             })}
                                             renderItem={({ item, index }) => {
+												const isNotified =
+    item.latestIntervention?.notifiedBy ||
+    (item.orders || []).some((order) => order.notified);
+
                                                 const isEven = index % 2 === 0;
                                                 const backgroundColor = isEven
                                                     ? "#f9f9f9"
@@ -2116,98 +2120,50 @@ const enrichedClients = clients.map((client) => {
                                                                                 />
                                                                             </TouchableOpacity>
                                                                         )}
-                                                                    <View
-                                                                        style={{
-                                                                            position:
-                                                                                "relative",
-                                                                        }}
-                                                                    >
-                                                                        <TouchableOpacity
-                                                                            style={[
-                                                                                styles.iconButton,
-                                                                                styles.notificationIconContainer,
-                                                                            ]}
-                                                                            onPress={() => {
-                                                                                navigation.navigate(
-                                                                                    "ClientNotificationsPage",
-                                                                                    {
-                                                                                        clientId:
-                                                                                            item.id, // ou item.id selon ton objet
-                                                                                    }
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            {latestIntervention?.notifiedBy ===
-                                                                                "SMS" ||
-                                                                            item?.orders?.some(
-                                                                                (
-                                                                                    order
-                                                                                ) =>
-                                                                                    order.notified ===
-                                                                                    "SMS"
-                                                                            ) ? (
-                                                                                <Image
-                                                                                    source={require("../assets/icons/sms.png")}
-                                                                                    style={{
-                                                                                        width: 28,
-                                                                                        height: 28,
-                                                                                        tintColor:
-                                                                                            "#00fd00",
-                                                                                    }}
-                                                                                />
-                                                                            ) : latestIntervention?.notifiedBy ===
-                                                                                  "Téléphone" ||
-                                                                              item?.orders?.some(
-                                                                                  (
-                                                                                      order
-                                                                                  ) =>
-                                                                                      order.notified ===
-                                                                                      "Téléphone"
-                                                                              ) ? (
-                                                                                <Image
-                                                                                    source={require("../assets/icons/call.png")}
-                                                                                    style={{
-                                                                                        width: 28,
-                                                                                        height: 28,
-                                                                                        tintColor:
-                                                                                            "#3c92f5",
-                                                                                    }}
-                                                                                />
-                                                                            ) : (
-                                                                                <Image
-                                                                                    source={require("../assets/icons/notifications_off.png")}
-                                                                                    style={{
-                                                                                        width: 28,
-                                                                                        height: 28,
-                                                                                        tintColor:
-                                                                                            "#888787",
-                                                                                    }}
-                                                                                />
-                                                                            )}
-                                                                        </TouchableOpacity>
+<View
+    style={{
+        position: "relative",
+    }}
+>
+    <TouchableOpacity
+        style={[styles.iconButton, styles.notificationIconContainer]}
+        onPress={() => {
+            navigation.navigate("ClientNotificationsPage", {
+                clientId: item.id,
+            });
+        }}
+    >
+        <Image
+            source={require("../assets/icons/sms.png")}
+            style={{
+                width: 28,
+                height: 28,
+                tintColor:
+                    item.latestIntervention?.notifiedBy ||
+                    (item.orders || []).some((order) => order.notified)
+                        ? "#00fd00"
+                        : "#888787",
+            }}
+        />
+        {!(
+            item.latestIntervention?.notifiedBy ||
+            (item.orders || []).some((order) => order.notified)
+        ) && (
+            <View
+                style={{
+                    position: "absolute",
+                    top: 2,
+                    right: 2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: "#ff3b30",
+                }}
+            />
+        )}
+    </TouchableOpacity>
+</View>
 
-                                                                        {!latestIntervention?.notifiedBy &&
-                                                                            !item?.orders?.some(
-                                                                                (
-                                                                                    order
-                                                                                ) =>
-                                                                                    order.notified
-                                                                            ) && (
-                                                                                <View
-                                                                                    style={{
-                                                                                        position:
-                                                                                            "absolute",
-                                                                                        top: 2,
-                                                                                        right: 2,
-                                                                                        width: 10,
-                                                                                        height: 10,
-                                                                                        borderRadius: 5,
-                                                                                        backgroundColor:
-                                                                                            "#ff3b30", // 🔴 rouge
-                                                                                    }}
-                                                                                />
-                                                                            )}
-                                                                    </View>
 
                                                                     <TouchableOpacity
                                                                         style={[
@@ -3728,9 +3684,9 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 10,
     },
-	    buttonContainerMasquer: {
+    buttonContainerMasquer: {
         flexDirection: "row",
-		marginRight: 10,
+        marginRight: 10,
 
         gap: 5,
     },

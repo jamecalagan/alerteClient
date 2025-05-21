@@ -57,6 +57,7 @@ import ProductFormScreen from "./pages/ProductFormScreen";
 import ImageSearchScreen from "./pages/ImageSearchScreen";
 import FlyerListPage from "./pages/FlyerListPage";
 import ClientNotificationsPage from './pages/ClientNotificationsPage';
+import QuickLabelPrintPage from "./pages/QuickLabelPrintPage"; 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -277,6 +278,8 @@ function MainStack({ setUser }) {
 				<Stack.Screen  name="ImageSearch"  component={ImageSearchScreen}  options={{ title: "Recherche d'image" }} />
 				<Stack.Screen  name="FlyerList" component={FlyerListPage}  options={{ title: "Mes affiches" }} />
 				<Stack.Screen name="ClientNotificationsPage" component={ClientNotificationsPage} />
+				
+        		<Stack.Screen  name="QuickLabelPrintPage"  component={QuickLabelPrintPage}  options={{ title: "Impression Étiquette" }} />
 		</Stack.Navigator>
     );
 }

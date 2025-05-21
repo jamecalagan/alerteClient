@@ -85,53 +85,65 @@ export default function ClientNotificationsPage() {
         applyFilters();
     }, [notifications, searchText, filterType, currentPage]);
 
-    const fetchNotifications = async () => {
-        const { data, error } = await supabase
+const fetchNotifications = async () => {
+        const { data: interventions, error: error1 } = await supabase
             .from("interventions")
-            .select(
-                "id, notifiedBy, notifiedat, client_id, deviceType, client:client_id(id, name, phone)"
-            )
+            .select("id, notifiedBy, notifiedat, client_id, deviceType, status, client:client_id(id, name, phone)")
             .order("created_at", { ascending: false });
 
-        if (error) {
-            console.error("Erreur fetch:", error);
-        } else {
-            const seen = new Set();
-            const uniqueClients = [];
+        const { data: orders, error: error2 } = await supabase
+            .from("orders")
+            .select("id, client_id, notified, client:client_id(id, name, phone)")
+            .order("createdat", { ascending: false });
 
-            data.forEach((intervention) => {
-                if (!intervention.client) return;
-                const key = `${intervention.client.id}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueClients.push({
-                        id: intervention.client.id,
-                        name: intervention.client.name,
-                        phone: intervention.client.phone,
-                        notifiedBy: intervention.notifiedBy,
-                        notifiedat: intervention.notifiedat, // ✅ ici !
-                        intervention_id: intervention.id,
-                        deviceType: intervention.deviceType,
-                    });
-                }
-            });
-
-            const sorted = uniqueClients.sort((a, b) =>
-                a.name?.localeCompare(b.name)
-            );
-
-            setNotifications(sorted);
-/* 			uniqueClients.push({
-    id: 999,
-    name: "Client Test URGENT",
-    phone: "0600000000",
-    notifiedBy: "SMS",
-    notifiedat: "2024-03-01T10:00:00Z",
-    intervention_id: "test-id",
-    deviceType: "PC",
-    status: "Réparé"
-}) */
+        if (error1 || error2) {
+            console.error("Erreur fetch:", error1 || error2);
+            return;
         }
+
+        const seen = new Set();
+        const combined = [];
+
+        // Ajout des clients depuis interventions
+        interventions.forEach((inter) => {
+            if (!inter.client) return;
+            const key = `${inter.client.id}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                combined.push({
+                    id: inter.client.id,
+                    name: inter.client.name,
+                    phone: inter.client.phone,
+                    notifiedBy: inter.notifiedBy,
+                    notifiedat: inter.notifiedat,
+                    intervention_id: inter.id,
+                    deviceType: inter.deviceType,
+                    status: inter.status || "Intervention",
+                });
+            }
+        });
+
+        // Ajout des clients avec commandes uniquement
+        orders.forEach((order) => {
+            if (!order.client) return;
+            const key = `${order.client.id}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                combined.push({
+                    id: order.client.id,
+                    name: order.client.name,
+                    phone: order.client.phone,
+                    notifiedBy: order.notified ? "SMS" : null,
+                    notifiedat: null,
+                    intervention_id: null,
+                    deviceType: "Commande",
+                    status: "Commande",
+                });
+            }
+        });
+
+        const sorted = combined.sort((a, b) => a.name?.localeCompare(b.name));
+        setNotifications(sorted);
     };
 
 const applyFilters = () => {
@@ -181,82 +193,64 @@ const applyFilters = () => {
 };
 
 
-    const notifyClient = async (client, method) => {
-        const newValue = method === "sms" ? "SMS" : "Téléphone";
-        const timestamp = new Date().toISOString();
+const notifyClient = async (client, method) => {
+    const timestamp = new Date().toISOString();
+    const updateFields = {
+        notifiedBy: method === "sms" ? "SMS" : "Téléphone",
+        notifiedat: timestamp,
+    };
 
-        const updateFields = {
-            notifiedBy: newValue,
-            notifiedat: timestamp,
-        };
+    let updateResult;
 
-        const { error } = await supabase
+    if (client.intervention_id) {
+        // ✅ Si intervention → mise à jour dans interventions
+        updateResult = await supabase
             .from("interventions")
             .update(updateFields)
             .eq("id", client.intervention_id);
+    } else {
+        // ✅ Si commande uniquement → mise à jour dans orders (colonne "notified" booléenne)
+        updateResult = await supabase
+            .from("orders")
+            .update({ notified: true }) // uniquement ça
+            .eq("client_id", client.id);
+    }
 
-        if (!error) {
-            const updatedClient = {
-                ...client,
-                ...updateFields,
-                clientId: client.clientId || client.id,
-            };
+    const { error } = updateResult;
 
-            setNotifications((prev) =>
-                prev.map((n) =>
-                    n.intervention_id === client.intervention_id
-                        ? updatedClient
-                        : n
-                )
-            );
+    if (!error) {
+        const updatedClient = {
+            ...client,
+            ...updateFields,
+            clientId: client.clientId || client.id,
+        };
 
-            setLastNotified((prev) => {
-                const merged = [updatedClient, ...prev];
-                const map = new Map();
-                for (const c of merged) {
-                    map.set(c.clientId, c);
-                }
+        setNotifications((prev) =>
+            prev.map((n) =>
+                n.id === client.id ? updatedClient : n
+            )
+        );
 
-                const uniqueSorted = Array.from(map.values()).sort(
-                    (a, b) => new Date(b.notifiedat) - new Date(a.notifiedat)
-                );
-
-                return uniqueSorted.slice(0, 3);
-            });
-
-            // ✅ Alerte : matériel non récupéré
-            if (client.status !== "Récupéré") {
-                Alert.alert(
-                    "📦 Matériel non récupéré",
-                    `${client.name} a été notifié mais n'a pas encore récupéré son matériel.`,
-                    [{ text: "OK" }]
-                );
+        setLastNotified((prev) => {
+            const merged = [updatedClient, ...prev];
+            const map = new Map();
+            for (const c of merged) {
+                map.set(c.clientId, c);
             }
+            return Array.from(map.values()).slice(0, 3);
+        });
 
-            // ✅ Alerte : notifié depuis plus de 10 jours + date lisible
-            if (
-                (client.status === "Réparé" ||
-                    client.status === "Non réparable") &&
-                client.notifiedat
-            ) {
-                const dateNotif = new Date(client.notifiedat);
-                const now = new Date();
-                const diffJours = (now - dateNotif) / (1000 * 60 * 60 * 24);
+        Alert.alert(
+            "✅ Notification envoyée",
+            `${client.name} a été notifié.`,
+            [{ text: "OK" }]
+        );
+    } else {
+        console.error("Erreur Supabase :", error.message);
+        Alert.alert("Erreur", error.message);
+    }
+};
 
-                if (diffJours > 10) {
-                    const dateFr = dateNotif.toLocaleDateString("fr-FR");
-                    Alert.alert(
-                        "🔔 Client à relancer",
-                        `${client.name} a été notifié le ${dateFr} et n'a toujours pas récupéré son matériel.`,
-                        [{ text: "OK" }]
-                    );
-                }
-            }
-        } else {
-            console.log("Erreur Supabase : ", error.message);
-            Alert.alert("Erreur", error.message);
-        }
-    };
 
     const fetchLastNotified = async () => {
         const { data, error } = await supabase

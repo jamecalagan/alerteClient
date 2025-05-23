@@ -7,6 +7,7 @@ import {
     TextInput,
     TouchableOpacity,
     Alert,
+	Linking,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -90,11 +91,41 @@ const ExpressListPage = () => {
     const goToPrint = (item) => {
         navigation.navigate("PrintExpressPage", { ...item });
     };
+const handleNotify = async (client) => {
+  if (!client?.phone || !client?.product) {
+    Alert.alert("Erreur", "Téléphone ou produit manquant.");
+    return;
+  }
+
+  const message = `Bonjour, votre ${client.product} est prêt. AVENIR INFORMATIQUE`;
+  const url = `sms:${client.phone}?body=${encodeURIComponent(message)}`;
+
+  try {
+    await Linking.openURL(url);
+
+    // ✅ Marquer comme notifié
+    await supabase
+      .from("express")
+      .update({
+        notified: true,
+        notified_at: new Date().toISOString(),
+      })
+      .eq("id", client.id);
+
+    fetchExpressList(); // recharge après update
+  } catch (err) {
+    Alert.alert("Erreur", "Impossible d’ouvrir la messagerie.");
+    console.error("SMS error:", err);
+  }
+};
+
 
     const goToInvoice = (item) => {
         navigation.navigate("BillingPage", { expressData: item });
     };
-
+const goToEdit = (item) => {
+  navigation.navigate("EditExpressPage", { expressData: item });
+};
     return (
 		<View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1 }]}>
@@ -156,6 +187,8 @@ const ExpressListPage = () => {
                     Type
                 </Text>
                 <Text style={styles.headerCell}>Prix</Text>
+				<Text style={styles.headerCell}>Notif.</Text>
+
             </View>
             <View style={styles.headerSeparator} />
             {/* Lignes tableau */}
@@ -175,6 +208,11 @@ const ExpressListPage = () => {
                     </Text>
                     <Text style={styles.cell}>{item.type}</Text>
                     <Text style={styles.cell}>{item.price} €</Text>
+					{item.notified && (
+<Text style={[styles.cell, { color: "#28a745", fontWeight: "bold" }]}>
+  Notifié
+</Text>
+)}
                 </TouchableOpacity>
             ))}
 
@@ -237,6 +275,18 @@ const ExpressListPage = () => {
                             <Text style={styles.buttonText}>🧾 Facturer</Text>
                         </TouchableOpacity>
                     )}
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: "#ffc107" }]}
+  onPress={() => goToEdit(selectedItem)}
+>
+  <Text style={styles.buttonText}>✏️ Modifier</Text>
+</TouchableOpacity>
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: "#17a2b8" }]}
+  onPress={() => handleNotify(selectedItem)}
+>
+  <Text style={styles.buttonText}>📲 Notifier</Text>
+</TouchableOpacity>
 
                     <TouchableOpacity
                         style={[

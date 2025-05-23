@@ -7,6 +7,7 @@ import {
     Button,
     StyleSheet,
     TouchableOpacity,
+    line,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -16,6 +17,7 @@ const BillingEditPage = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const { id } = route.params || {};
+    const [designationHeights, setDesignationHeights] = useState({});
 
     const [invoice, setInvoice] = useState(null);
     const [isSaved, setIsSaved] = useState(false);
@@ -23,20 +25,38 @@ const BillingEditPage = () => {
         if (id) fetchInvoice();
     }, [id]);
 
-    const fetchInvoice = async () => {
-        const { data, error } = await supabase
-            .from("billing")
-            .select("*")
-            .eq("id", id)
-            .single();
+const fetchInvoice = async () => {
+    const { data, error } = await supabase
+        .from("billing")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-        if (error) {
-            alert("Erreur de chargement");
-        } else {
-            setInvoice(data);
-            setIsSaved(true);
-        }
-    };
+    if (error) {
+        alert("Erreur de chargement");
+    } else {
+        // 🔐 Sécurité sur les lignes
+        const safeLines = Array.isArray(data.lines)
+            ? data.lines.map((line) => ({
+                  designation: line?.designation || "",
+                  quantity: line?.quantity?.toString() || "1",
+                  price: line?.price?.toString() || "",
+                  serial: line?.serial || "",
+              }))
+            : [
+                  {
+                      designation: "",
+                      quantity: "1",
+                      price: "",
+                      serial: "",
+                  },
+              ];
+
+        setInvoice({ ...data, lines: safeLines });
+        setIsSaved(true);
+    }
+};
+
 
     const recalculateTotals = (updatedLines) => {
         const totalttc = updatedLines.reduce(
@@ -51,46 +71,49 @@ const BillingEditPage = () => {
         return { totalttc, totalht, totaltva };
     };
 
-	const updateInvoice = async () => {
-		const { error } = await supabase
-			.from("billing")
-			.update(invoice)
-			.eq("id", id);
-	
-		if (error) {
-			alert("Erreur de sauvegarde");
-		} else {
-			alert("✅ Facture mise à jour");
-			setIsSaved(true);
-	
-			// 🔁 Mettre à jour l'acompte dans la commande liée si serial et client_id sont connus
-			const serial = invoice.lines?.[0]?.serial;
-			const clientname = invoice.clientname;
-	
-			if (serial && clientname) {
-				const { data: clientData, error: clientError } = await supabase
-					.from("clients")
-					.select("id")
-					.eq("name", clientname)
-					.single();
-	
-				if (clientData?.id) {
-					const { error: orderUpdateError } = await supabase
-						.from("orders")
-						.update({ deposit: parseFloat(invoice.acompte || 0) })
-						.eq("client_id", clientData.id)
-						.eq("serial", serial);
-	
-					if (orderUpdateError) {
-						console.warn("⚠️ Erreur mise à jour acompte commande :", orderUpdateError);
-					} else {
-						console.log("🔄 Acompte mis à jour dans orders");
-					}
-				}
-			}
-		}
-	};
-	
+    const updateInvoice = async () => {
+        const { error } = await supabase
+            .from("billing")
+            .update(invoice)
+            .eq("id", id);
+
+        if (error) {
+            alert("Erreur de sauvegarde");
+        } else {
+            alert("✅ Facture mise à jour");
+            setIsSaved(true);
+
+            // 🔁 Mettre à jour l'acompte dans la commande liée si serial et client_id sont connus
+            const serial = invoice.lines?.[0]?.serial;
+            const clientname = invoice.clientname;
+
+            if (serial && clientname) {
+                const { data: clientData, error: clientError } = await supabase
+                    .from("clients")
+                    .select("id")
+                    .eq("name", clientname)
+                    .single();
+
+                if (clientData?.id) {
+                    const { error: orderUpdateError } = await supabase
+                        .from("orders")
+                        .update({ deposit: parseFloat(invoice.acompte || 0) })
+                        .eq("client_id", clientData.id)
+                        .eq("serial", serial);
+
+                    if (orderUpdateError) {
+                        console.warn(
+                            "⚠️ Erreur mise à jour acompte commande :",
+                            orderUpdateError
+                        );
+                    } else {
+                        console.log("🔄 Acompte mis à jour dans orders");
+                    }
+                }
+            }
+        }
+    };
+
     const handlePrint = async () => {
         if (!invoice) return;
 
@@ -98,14 +121,18 @@ const BillingEditPage = () => {
             .map(
                 (line) => `
   <tr>
-    <td style="border: 1px solid #000; padding: 6px;">${line.designation}${line.serial ? ` (SN: ${line.serial})` : ""}</td>
-    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${line.quantity}</td>
+    <td style="border: 1px solid #000; padding: 6px;">${line.designation}${
+                    line.serial ? ` (SN: ${line.serial})` : ""
+                }</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${
+        line.quantity
+    }</td>
     <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-                    parseFloat(line.price) / 1.2
-                ).toFixed(2)} €</td>
+        parseFloat(line.price) / 1.2
+    ).toFixed(2)} €</td>
     <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-                    parseFloat(line.price) * parseFloat(line.quantity)
-                ).toFixed(2)} €</td>
+        parseFloat(line.price) * parseFloat(line.quantity)
+    ).toFixed(2)} €</td>
   </tr>
 `
             )
@@ -128,7 +155,9 @@ const BillingEditPage = () => {
           <div style="font-size: 9px; margin-bottom: 8px;">
             <p><strong>Client :</strong> ${invoice.clientname}<br/>
             <strong>Téléphone :</strong> ${invoice.clientphone}<br/>
-            <strong>Adresse :</strong> ${invoice.client_address || "Non renseignée"}</p>
+            <strong>Adresse :</strong> ${
+                invoice.client_address || "Non renseignée"
+            }</p>
           </div>
 
           <div style="font-size: 9px; margin-bottom: 10px;">
@@ -153,7 +182,9 @@ const BillingEditPage = () => {
           <div style="font-size: 9px; margin-top: 15px;">
             <p style="text-align: right;">TVA (20%) : ${tva.toFixed(2)} €</p>
             <p style="text-align: right;">Total TTC : ${ttc.toFixed(2)} €</p>
-            <p style="text-align: right;">Acompte versé : ${acompte.toFixed(2)} €</p>
+            <p style="text-align: right;">Acompte versé : ${acompte.toFixed(
+                2
+            )} €</p>
           </div>
 
           <div style="background: #e0f7fa; padding: 8px; border-radius: 6px; margin-top: 10px;">
@@ -163,7 +194,9 @@ const BillingEditPage = () => {
           </div>
 
           <p style="text-align: right; margin-top: 8px; font-size: 9px;">
-            <strong>Mode de paiement :</strong> ${invoice.paymentmethod || "....................................."}
+            <strong>Mode de paiement :</strong> ${
+                invoice.paymentmethod || "....................................."
+            }
           </p>
         </div>
 
@@ -187,79 +220,132 @@ const BillingEditPage = () => {
     if (!invoice) return <Text style={{ padding: 20 }}>Chargement...</Text>;
 
     return (
-<ScrollView style={styles.container}>
-  <Text style={styles.title}>Modifier la facture</Text>
+        <ScrollView style={styles.container}>
+            <Text style={styles.title}>Modifier la facture</Text>
 
-  <View style={{ position: "relative", marginBottom: 20 }}>
-    <Text style={[styles.floatingLabel, invoice.clientname && styles.floatingLabelFocused]}>Nom du client</Text>
-    <TextInput
-      style={styles.input}
-      value={invoice.clientname}
-      onChangeText={(text) => {
-        setInvoice({ ...invoice, clientname: text });
-        setIsSaved(false);
-      }}
-    />
-  </View>
+            <View style={{ position: "relative", marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        invoice.clientname && styles.floatingLabelFocused,
+                    ]}
+                >
+                    Nom du client
+                </Text>
+                <TextInput
+                    style={styles.input}
+                    value={invoice.clientname}
+                    onChangeText={(text) => {
+                        setInvoice({ ...invoice, clientname: text });
+                        setIsSaved(false);
+                    }}
+                />
+            </View>
 
-  <View style={{ position: "relative", marginBottom: 20 }}>
-    <Text style={[styles.floatingLabel, invoice.clientphone && styles.floatingLabelFocused]}>Téléphone</Text>
-    <TextInput
-      style={styles.input}
-      value={invoice.clientphone}
-      onChangeText={(text) => {
-        setInvoice({ ...invoice, clientphone: text });
-        setIsSaved(false);
-      }}
-    />
-  </View>
+            <View style={{ position: "relative", marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        invoice.clientphone && styles.floatingLabelFocused,
+                    ]}
+                >
+                    Téléphone
+                </Text>
+                <TextInput
+                    style={styles.input}
+                    value={invoice.clientphone}
+                    onChangeText={(text) => {
+                        setInvoice({ ...invoice, clientphone: text });
+                        setIsSaved(false);
+                    }}
+                />
+            </View>
 
-  <View style={{ position: "relative", marginBottom: 20 }}>
-    <Text style={[styles.floatingLabel, invoice.client_address && styles.floatingLabelFocused]}>Adresse</Text>
-    <TextInput
-      style={styles.input}
-      value={invoice.client_address}
-      onChangeText={(text) => {
-        setInvoice({ ...invoice, client_address: text });
-        setIsSaved(false);
-      }}
-    />
-  </View>
+            <View style={{ position: "relative", marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        invoice.client_address && styles.floatingLabelFocused,
+                    ]}
+                >
+                    Adresse
+                </Text>
+                <TextInput
+                    style={styles.input}
+                    value={invoice.client_address}
+                    onChangeText={(text) => {
+                        setInvoice({ ...invoice, client_address: text });
+                        setIsSaved(false);
+                    }}
+                />
+            </View>
 
-  <View style={{ position: "relative", marginBottom: 20 }}>
-    <Text style={[styles.floatingLabel, invoice.acompte && styles.floatingLabelFocused]}>Acompte</Text>
-    <TextInput
-      style={styles.input}
-      keyboardType="numeric"
-      value={invoice.acompte?.toString() || ""}
-      onChangeText={(text) => {
-        setInvoice({ ...invoice, acompte: text });
-        setIsSaved(false);
-      }}
-    />
-  </View>
+            <View style={{ position: "relative", marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        invoice.acompte && styles.floatingLabelFocused,
+                    ]}
+                >
+                    Acompte
+                </Text>
+                <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={invoice.acompte?.toString() || ""}
+                    onChangeText={(text) => {
+                        setInvoice({ ...invoice, acompte: text });
+                        setIsSaved(false);
+                    }}
+                />
+            </View>
 
-  <View style={{ position: "relative", marginBottom: 20 }}>
-    <Text style={[styles.floatingLabel, invoice.paymentmethod && styles.floatingLabelFocused]}>Mode de paiement</Text>
-    <TextInput
-      style={styles.input}
-      value={invoice.paymentmethod}
-      onChangeText={(text) => {
-        setInvoice({ ...invoice, paymentmethod: text });
-        setIsSaved(false);
-      }}
-    />
-  </View>
+            <View style={{ position: "relative", marginBottom: 20 }}>
+                <Text
+                    style={[
+                        styles.floatingLabel,
+                        invoice.paymentmethod && styles.floatingLabelFocused,
+                    ]}
+                >
+                    Mode de paiement
+                </Text>
+                <TextInput
+                    style={styles.input}
+                    value={invoice.paymentmethod}
+                    onChangeText={(text) => {
+                        setInvoice({ ...invoice, paymentmethod: text });
+                        setIsSaved(false);
+                    }}
+                />
+            </View>
 
-  <Text style={styles.subtitle}>Prestations :</Text>
+            <Text style={styles.subtitle}>Prestations :</Text>
 
-  {invoice.lines.map((line, index) => (
-    <View key={index} style={styles.lineRow}>
-      <View style={{ flex: 2, position: "relative" }}>
-        <Text style={[styles.floatingLabel, line.designation && styles.floatingLabelFocused]}>Désignation</Text>
+            {invoice?.lines?.map((line, index) => {
+  if (!line) return null;
+
+  return (
+    <View key={index} style={{ marginBottom: 20 }}>
+      {/* Champ Désignation */}
+      <View style={{ position: "relative", marginBottom: 10 }}>
+        <Text style={[styles.floatingLabel, line.designation && styles.floatingLabelFocused]}>
+          Désignation
+        </Text>
         <TextInput
-          style={styles.input}
+          multiline
           value={line.designation}
+          onContentSizeChange={(e) => {
+            const height = e.nativeEvent.contentSize.height;
+            setDesignationHeights((prev) => ({ ...prev, [index]: height }));
+          }}
+          style={[
+            styles.input,
+            {
+              textAlignVertical: "top",
+              minHeight: 48,
+              height: designationHeights[index] || 48,
+            },
+          ]}
           onChangeText={(text) => {
             const newLines = [...invoice.lines];
             newLines[index].designation = text;
@@ -269,86 +355,102 @@ const BillingEditPage = () => {
           }}
         />
       </View>
-      <View style={{ flex: 1, position: "relative" }}>
-        <Text style={[styles.floatingLabel, line.quantity && styles.floatingLabelFocused]}>Qté</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={line.quantity}
-          onChangeText={(text) => {
-            const newLines = [...invoice.lines];
-            newLines[index].quantity = text;
-            const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
-            setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
-            setIsSaved(false);
-          }}
-        />
-      </View>
-      <View style={{ flex: 1, position: "relative" }}>
-        <Text style={[styles.floatingLabel, line.price && styles.floatingLabelFocused]}>P.U. TTC</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={line.price}
-          onChangeText={(text) => {
-            const newLines = [...invoice.lines];
-            newLines[index].price = text;
-            const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
-            setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
-            setIsSaved(false);
-          }}
-        />
-      </View>
-      <View style={{ flex: 2, position: "relative" }}>
-        <Text style={[styles.floatingLabel, line.serial && styles.floatingLabelFocused]}>N° de série</Text>
-        <TextInput
-          style={styles.input}
-          value={line.serial || ""}
-          onChangeText={(text) => {
-            const newLines = [...invoice.lines];
-            newLines[index].serial = text;
-            setInvoice({ ...invoice, lines: newLines });
-            setIsSaved(false);
-          }}
-        />
+
+      {/* Ligne avec Qté / P.U. / N° série */}
+      <View style={styles.lineRow}>
+        <View style={{ flex: 1, position: "relative" }}>
+          <Text style={[styles.floatingLabel, line.quantity && styles.floatingLabelFocused]}>Qté</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={line.quantity}
+            onChangeText={(text) => {
+              const newLines = [...invoice.lines];
+              newLines[index].quantity = text;
+              const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
+              setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
+              setIsSaved(false);
+            }}
+          />
+        </View>
+
+        <View style={{ flex: 1, position: "relative" }}>
+          <Text style={[styles.floatingLabel, line.price && styles.floatingLabelFocused]}>P.U. TTC</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={line.price}
+            onChangeText={(text) => {
+              const newLines = [...invoice.lines];
+              newLines[index].price = text;
+              const { totalttc, totalht, totaltva } = recalculateTotals(newLines);
+              setInvoice({ ...invoice, lines: newLines, totalttc, totalht, totaltva });
+              setIsSaved(false);
+            }}
+          />
+        </View>
+
+        <View style={{ flex: 2, position: "relative" }}>
+          <Text style={[styles.floatingLabel, line.serial && styles.floatingLabelFocused]}>N° de série</Text>
+          <TextInput
+            style={styles.input}
+            value={line.serial || ""}
+            onChangeText={(text) => {
+              const newLines = [...invoice.lines];
+              newLines[index].serial = text;
+              setInvoice({ ...invoice, lines: newLines });
+              setIsSaved(false);
+            }}
+          />
+        </View>
       </View>
     </View>
-  ))}
-
-  <Button
-    title="+ Ajouter une ligne"
-    onPress={() => {
-      setInvoice({
-        ...invoice,
-        lines: [...invoice.lines, { designation: "", quantity: "1", price: "", serial: "" }],
-      });
-      setIsSaved(false);
-    }}
-  />
-
-  <View style={styles.buttonRow}>
-    <TouchableOpacity
-      style={[styles.button, { backgroundColor: "#007bff" }]}
-      onPress={() => {
-        updateInvoice();
-        setIsSaved(true);
-      }}
-    >
-      <Text style={styles.buttonText}>💾 Sauvegarder</Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={[styles.button, { backgroundColor: isSaved ? "#03990b" : "#cccccc" }]}
-      disabled={!isSaved}
-      onPress={handlePrint}
-    >
-      <Text style={styles.buttonText}>🖨️ Réimprimer</Text>
-    </TouchableOpacity>
-  </View>
-</ScrollView>
+  );
+})}
 
 
-	  
+            <Button
+                title="+ Ajouter une ligne"
+                onPress={() => {
+                    setInvoice({
+                        ...invoice,
+                        lines: [
+                            ...invoice.lines,
+                            {
+                                designation: "",
+                                quantity: "1",
+                                price: "",
+                                serial: "",
+                            },
+                        ],
+                    });
+                    setIsSaved(false);
+                }}
+            />
+
+            <View style={styles.buttonRow}>
+                <TouchableOpacity
+                    style={[styles.button, { backgroundColor: "#007bff" }]}
+                    onPress={() => {
+                        updateInvoice();
+                        setIsSaved(true);
+                    }}
+                >
+                    <Text style={styles.buttonText}>💾 Sauvegarder</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.button,
+                        { backgroundColor: isSaved ? "#03990b" : "#cccccc" },
+                    ]}
+                    disabled={!isSaved}
+                    onPress={handlePrint}
+                >
+                    <Text style={styles.buttonText}>🖨️ Réimprimer</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     );
 };
 
@@ -390,31 +492,30 @@ const styles = StyleSheet.create({
         color: "white",
         fontWeight: "bold",
     },
-	label: {
-  fontWeight: "bold",
-  fontSize: 13,
-  marginBottom: 4,
-  marginTop: 10,
-},
-floatingLabel: {
-	position: "absolute",
-	left: 10,
-	top: 12,
-	fontSize: 14,
-	color: "#888",
-	zIndex: 1,
-},
+    label: {
+        fontWeight: "bold",
+        fontSize: 13,
+        marginBottom: 4,
+        marginTop: 10,
+    },
+    floatingLabel: {
+        position: "absolute",
+        left: 10,
+        top: 12,
+        fontSize: 14,
+        color: "#888",
+        zIndex: 1,
+    },
 
-floatingLabelFocused: {
-	top: -10,
-	left: 8,
-	fontSize: 12,
-	color: "#007bff",
-	backgroundColor: "#eef6ff",
-	paddingHorizontal: 5,
-	borderRadius: 4,
-},
-
+    floatingLabelFocused: {
+        top: -10,
+        left: 8,
+        fontSize: 12,
+        color: "#007bff",
+        backgroundColor: "#eef6ff",
+        paddingHorizontal: 5,
+        borderRadius: 4,
+    },
 });
 
 export default BillingEditPage;

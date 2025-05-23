@@ -430,13 +430,13 @@ export default function RepairedInterventionsPage({ navigation }) {
     };
 
     return (
-		 <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
+        <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
             <View style={styles.overlay}>
                 <Text style={styles.title}>Interventions terminées</Text>
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>
                         Montant total des interventions Réparées :{" "}
-                        {repairedTotal.toFixed(2)} €		
+                        {repairedTotal.toFixed(2)} €
                     </Text>
                 </View>
                 <FlatList
@@ -618,116 +618,101 @@ export default function RepairedInterventionsPage({ navigation }) {
                                             })
                                         }
                                     />
+<View style={styles.buttonContainer}>
+    <TouchableOpacity
+        style={[
+            styles.saveButton,
+            {
+                borderWidth: 1,
+                borderColor: editingDetail[item.id] && editingDetail[item.id].trim() !== "" ? "#28a745" : "#888787",
+                borderRadius: 2,
+                padding: 10,
+                width: "24%", // <-- ajusté pour tenir à 4 boutons
+            },
+        ]}
+        onPress={() => saveDetailIntervention(item.id)}
+    >
+        <Image
+            source={require("../assets/icons/save.png")}
+            style={[styles.buttonIcon, { width: 20, height: 20, tintColor: "#888787" }]}
+        />
+        <Text style={styles.buttonText}>Sauvegarder</Text>
+    </TouchableOpacity>
 
-                                    <View style={styles.buttonContainer}>
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.saveButton,
-                                                {
-                                                    borderWidth: 1, // Ajout d'une bordure
-                                                    borderColor:
-                                                        editingDetail[
-                                                            item.id
-                                                        ] &&
-                                                        editingDetail[
-                                                            item.id
-                                                        ].trim() !== ""
-                                                            ? "#28a745" // Vert si du texte est présent
-                                                            : "#888787", // Gris sinon
-                                                    borderRadius: 2, // Coins arrondis pour un meilleur rendu
-                                                    padding: 10, // Ajout d'un padding pour un meilleur affichage
-                                                },
-                                            ]}
-                                            onPress={() =>
-                                                saveDetailIntervention(item.id)
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/save.png")} // Chemin vers l'image "save"
-                                                style={[
-                                                    styles.buttonIcon,
-                                                    {
-                                                        width: 20,
-                                                        height: 20,
-                                                        tintColor: "#888787",
-                                                    },
-                                                ]}
-                                            />
+    <TouchableOpacity
+        style={[
+            styles.restitutionButton,
+            !isSaved[item.id] || (!editingDetail[item.id] && !item.detailIntervention) || item.paymentStatus === "non_regle"
+                ? styles.disabledButton
+                : null,
+            { width: "24%" }, // <-- même largeur
+        ]}
+        onPress={() => handleRestitution(item)}
+        disabled={
+            !isSaved[item.id] ||
+            (!editingDetail[item.id] && !item.detailIntervention) ||
+            item.paymentStatus === "non_regle"
+        }
+    >
+        <Image
+            source={require("../assets/icons/ok.png")}
+            style={[styles.buttonIcon, { width: 20, height: 20, tintColor: "#888787" }]}
+        />
+        <Text style={styles.buttonText}>Restitution</Text>
+    </TouchableOpacity>
 
-                                            <Text style={styles.buttonText}>
-                                                Sauvegarder les détails
-                                            </Text>
-                                        </TouchableOpacity>
+    <TouchableOpacity
+        style={[styles.editButton, { width: "24%" }]} // <-- même largeur
+        onPress={() =>
+            navigation.navigate("EditIntervention", {
+                interventionId: item.id,
+                clientId: item.client_id,
+            })
+        }
+    >
+        <Image
+            source={require("../assets/icons/edit.png")}
+            style={[styles.buttonIcon, { width: 20, height: 20, tintColor: "#888787" }]}
+        />
+        <Text style={styles.buttonText}>Éditer</Text>
+    </TouchableOpacity>
 
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.restitutionButton,
-                                                !isSaved[item.id] ||
-                                                (!editingDetail[item.id] &&
-                                                    !item.detailIntervention) ||
-                                                item.paymentStatus ===
-                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
-                                                    ? styles.disabledButton
-                                                    : null,
-                                            ]}
-                                            onPress={() =>
-                                                handleRestitution(item)
-                                            }
-                                            disabled={
-                                                !isSaved[item.id] ||
-                                                (!editingDetail[item.id] &&
-                                                    !item.detailIntervention) ||
-                                                item.paymentStatus ===
-                                                    "non_regle" // Désactiver si le paiement n'est pas réglé
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/ok.png")} // Chemin vers l'image "save"
-                                                style={[
-                                                    styles.buttonIcon, // Styles existants
-                                                    {
-                                                        width: 20, // Largeur de l'image
-                                                        height: 20, // Hauteur de l'image
-                                                        tintColor: "#888787", // Couleur de l'image (noir foncé ici)
-                                                    },
-                                                ]}
-                                            />
+<TouchableOpacity
+    style={[
+        styles.editButton,
+        {
+            backgroundColor: "#0066cc",
+            borderColor: "#004a99",
+            width: "24%",
+        },
+    ]}
+    onPress={() =>
+        navigation.navigate("BillingPage", {
+            expressData: {
+                name: item.clients?.name || "",
+                phone: item.clients?.phone || "",
+                client_address: "",
+                description: `${item.detailIntervention?.trim() || item.description || ""}\n${item.deviceType || "Appareil"} — ${item.brand || "Marque inconnue"} — ${item.model || "Modèle inconnu"}`,
+                quantity: "1",
+                price: item.cost?.toString() || "0",
+                serial: item.serial_number || "",
+                paymentmethod: "",
+                acompte: item.partialPayment?.toString() || "",
+                paid: item.paymentStatus === "solde",
+                express_id: item.id,
+            },
+        })
+    }
+>
+    <Image
+        source={require("../assets/icons/invoice.png")}
+        style={{ width: 20, height: 20, tintColor: "#fff", marginRight: 8 }}
+    />
+    <Text style={styles.buttonText}>Créer facture</Text>
+</TouchableOpacity>
 
-                                            <Text style={styles.buttonText}>
-                                                Restitution
-                                            </Text>
-                                        </TouchableOpacity>
+</View>
 
-                                        <TouchableOpacity
-                                            style={styles.editButton}
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "EditIntervention",
-                                                    {
-                                                        interventionId: item.id,
-                                                        clientId:
-                                                            item.client_id,
-                                                    }
-                                                )
-                                            }
-                                        >
-                                            <Image
-                                                source={require("../assets/icons/edit.png")} // Chemin vers l'image "save"
-                                                style={[
-                                                    styles.buttonIcon, // Styles existants
-                                                    {
-                                                        width: 20, // Largeur de l'image
-                                                        height: 20, // Hauteur de l'image
-                                                        tintColor: "#888787", // Couleur de l'image (noir foncé ici)
-                                                    },
-                                                ]}
-                                            />
-
-                                            <Text style={styles.buttonText}>
-                                                Éditer la fiche
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
 
                                     {item.intervention_images &&
                                         item.intervention_images.length > 0 && (

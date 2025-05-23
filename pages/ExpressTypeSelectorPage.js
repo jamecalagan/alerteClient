@@ -5,6 +5,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     Animated,
+    Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
@@ -15,7 +16,7 @@ const ExpressTypeSelectorPage = () => {
         navigation.navigate("ExpressClientPage", { type });
     };
     const animationValues = useRef(
-        Array(9)
+        Array(10)
             .fill()
             .map(() => new Animated.Value(0))
     ).current;
@@ -185,18 +186,24 @@ const ExpressTypeSelectorPage = () => {
                         },
 
                         {
+                            bg: "#f84903",
+                            text: "Créer une étiquette client",
+                            route: "QuickLabelPrintPage",
+                        },
+                        {
                             bg: "#129b00",
                             text: "Liste des clients Notifiés",
                             route: "ClientNotificationsPage",
                         },
+
                         {
-                            bg: "#f84903",
-                            text: "Créer un étiquette client",
-                            route: "QuickLabelPrintPage",
+                            bg: "#2b8a3e",
+                            text: "Messagerie SMS",
+                            action: () => Linking.openURL("sms:"), // 👈 au lieu de "route"
                         },
                     ];
 
-                    const { bg, text, route, optionText } =
+                    const { bg, text, route, optionText, action } =
                         buttonConfigs[index];
 
                     return (
@@ -223,7 +230,10 @@ const ExpressTypeSelectorPage = () => {
                                     styles.shadowBox,
                                     { backgroundColor: bg },
                                 ]}
-                                onPress={() => navigation.navigate(route)}
+                                onPress={() => {
+                                    if (action) action();
+                                    else navigation.navigate(route);
+                                }}
                             >
                                 <Text
                                     style={
@@ -240,19 +250,18 @@ const ExpressTypeSelectorPage = () => {
                 })}
             </View>
 
-<View style={{ alignItems: "center", marginTop: 16 }}>
-  <TouchableOpacity
-    style={[
-      styles.optionButton,
-      styles.shadowBox,
-      { backgroundColor: "#a7a7a7", width: "60%" }, // Largeur fixe pour centrage
-    ]}
-    onPress={() => navigation.goBack()}
-  >
-    <Text style={styles.buttonText}>⬅ Retour</Text>
-  </TouchableOpacity>
-</View>
-
+            <View style={{ alignItems: "center", marginTop: 16 }}>
+                <TouchableOpacity
+                    style={[
+                        styles.optionButton,
+                        styles.shadowBox,
+                        { backgroundColor: "#a7a7a7", width: "60%" }, // Largeur fixe pour centrage
+                    ]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.buttonText}>⬅ Retour</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };

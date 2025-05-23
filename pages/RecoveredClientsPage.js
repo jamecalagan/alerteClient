@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     },
     receiverText: {
         fontSize: 18,
-        color: "#fbff00",
+        color: "#ff9100",
         marginTop: 5,
     },
     labelImage: {

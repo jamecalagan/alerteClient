@@ -22,6 +22,8 @@ export default function QuickLabelPrintPage({ navigation }) {
         note: "",
     };
     const [form, setForm] = useState(emptyForm);
+	const [allClients, setAllClients] = useState([]);
+	const [showSuggestions, setShowSuggestions] = useState(false);
 
     // --- liste et état d’édition ------------------------
     const [labels, setLabels] = useState([]);
@@ -29,9 +31,42 @@ export default function QuickLabelPrintPage({ navigation }) {
     const isEditing = editingId !== null;
 
     // ----------------------------------------------------
-    useEffect(() => {
-        fetchLabels();
-    }, []);
+useEffect(() => {
+    fetchLabels();
+    fetchClients(); // 👈 nouveau
+}, []);
+
+const fetchClients = async () => {
+  const results = [];
+
+  const tables = ["clients", "intervention", "orders", "express"]; // adapte à tes tables
+
+  for (const table of tables) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("name, phone");
+
+    if (!error && data) {
+      results.push(...data.filter((c) => c.name && c.phone));
+    }
+  }
+
+  // Supprimer les doublons (même nom + téléphone)
+  const unique = [];
+  const seen = new Set();
+
+  results.forEach((c) => {
+    const key = `${c.name}_${c.phone}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(c);
+    }
+  });
+
+  setAllClients(unique);
+};
+
+
 
     const fetchLabels = async () => {
         const { data, error } = await supabase
@@ -232,12 +267,41 @@ export default function QuickLabelPrintPage({ navigation }) {
             <Text style={styles.title}>🎫 Étiquette rapide</Text>
 
             {/* ---------- formulaire ------------------------ */}
-            <TextInput
-                style={styles.input}
-                placeholder="Nom"
-                value={form.name}
-                onChangeText={(t) => handleInputChange("name", t)}
-            />
+<TextInput
+    style={styles.input}
+    placeholder="Nom"
+    value={form.name}
+    onChangeText={(t) => {
+        setForm({ ...form, name: t });
+        setShowSuggestions(true);
+    }}
+/>
+
+{showSuggestions && form.name.length >= 2 && (
+<View style={styles.suggestionBox}>
+  {allClients
+    .filter((c) =>
+      c.name.toLowerCase().includes(form.name.toLowerCase())
+    )
+    .map((client) => (
+      <TouchableOpacity
+        key={`${client.name}_${client.phone}`} // ✅ clé unique sûre
+        onPress={() => {
+          setForm({
+            ...form,
+            name: client.name,
+            phone: client.phone,
+          });
+          setShowSuggestions(false);
+        }}
+      >
+        <Text style={styles.suggestionItem}>{client.name}</Text>
+      </TouchableOpacity>
+    ))}
+</View>
+
+)}
+
             <TextInput
                 style={styles.input}
                 placeholder="Téléphone"
@@ -479,5 +543,22 @@ buttonText: {
   color: "#fff",
   fontSize: 16,
 },
+suggestionBox: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    maxHeight: 150,
+    marginBottom: 10,
+    elevation: 4,
+},
+
+suggestionItem: {
+    paddingVertical: 10,
+    borderBottomColor: "#ccc",
+    borderBottomWidth: 1,
+    color: "#222",
+},
+
 
 });

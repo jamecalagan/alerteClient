@@ -32,6 +32,8 @@ const ExpressClientPage = () => {
     const [softwaretype, setSoftwareType] = useState("");
     const [clientSuggestions, setClientSuggestions] = useState([]);
     const [unitprice, setUnitPrice] = useState("");
+	const [licence, setLicence] = useState("");
+
     const searchClients = async (text) => {
         setName(text);
 
@@ -85,6 +87,7 @@ const ExpressClientPage = () => {
                     cassettetype,
                     outputtype,
                     softwaretype,
+					licence,
                     created_at: new Date(),
                 },
             ])
@@ -169,6 +172,7 @@ const ExpressClientPage = () => {
                             onBlur={() => setFocusedField(null)}
                         />
 
+
                         {type === "reparation" && (
                             <>
                                 <TextInput
@@ -220,6 +224,19 @@ const ExpressClientPage = () => {
                                         Installation Logiciel
                                     </Text>
                                 </TouchableOpacity>
+{type === "logiciel" && (
+  <TextInput
+    style={[
+      styles.input,
+      focusedField === "licence" && styles.inputFocused,
+    ]}
+    placeholder="Licence (optionnelle)"
+    value={licence}
+    onChangeText={setLicence}
+    onFocus={() => setFocusedField("licence")}
+    onBlur={() => setFocusedField(null)}
+  />
+)}
 
                                 <TouchableOpacity
                                     style={styles.radioOption}

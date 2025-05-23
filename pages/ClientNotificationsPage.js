@@ -29,7 +29,7 @@ export default function ClientNotificationsPage() {
     const navigation = useNavigation();
 
     const defaultTemplates = [
-        "Bonjour, votre {type} est prêt(e).",
+        "Bonjour, votre {type} est prêt(e). N'oubliez pas le bon de restitution, merci",
         "Merci de nous rappeler concernant votre {type}.",
         "Votre {type} est disponible en boutique.",
         "⚠️ Bonjour, votre matériel est prêt depuis plus de 30 jours. Sans récupération rapide, des frais de stockage seront appliqués. Passé ce délai, il sera considéré comme abandonné et pourra faire l’objet d’une destruction.",

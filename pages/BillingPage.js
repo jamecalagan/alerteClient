@@ -79,20 +79,28 @@ const BillingPage = () => {
 		  setClientName(expressData.name || expressData.clientname || "");
 		  setClientPhone(expressData.phone || expressData.clientphone || "");
 		  setClientAddress(expressData.client_address || "");
-		  setLines([
-			{
-			  designation: expressData.description?.trim() || "Prestation",
-			  quantity: expressData.quantity ? expressData.quantity.toString() : "1",
-			  price: expressData.price ? expressData.price.toString() : "0",
-			  serial: expressData.serial || "",
-			},
-		  ]);
+// découpage propre si la description contient <br/> (venant de RepairedInterventionsPage)
+const rawDescription = expressData.description || "";
+const descriptionParts = rawDescription.split("<br/>");
+const formattedDesignation = descriptionParts.join("\n");
+
+setLines([
+  {
+    designation: formattedDesignation,
+    quantity: expressData.quantity != null ? String(expressData.quantity) : "1",
+    price: expressData.price != null ? String(expressData.price) : "0",
+    serial: expressData.serial || "",
+  },
+]);
+
+
 		  setPaymentMethod(expressData.paymentmethod || "");
-		  setAcompte(
-			expressData.acompte !== undefined && !isNaN(expressData.acompte)
-			  ? expressData.acompte.toString()
-			  : ""
-		  );
+setAcompte(
+  expressData.acompte != null && !isNaN(expressData.acompte)
+    ? String(expressData.acompte)
+    : ""
+);
+
 		  setPaid(expressData.paid || false);
 		} else {
 		  generateInvoiceNumber();
@@ -346,7 +354,8 @@ ${paid ? `
             created_at: new Date(),
             paid,
             order_id: order_id || null,
-			express_id: express_id || null,
+			express_id: null,
+
         };
 
         let saveError;
@@ -629,23 +638,21 @@ ${paid ? `
                             gap: 10,
                         }}
                     >
-                        <TextInput
-                            placeholder="Désignation"
-                            value={line.designation}
-                            onChangeText={(text) =>
-                                updateLine(index, "designation", text)
-                            }
-                            style={[
-                                styles.input,
-                                { flex: 2 },
-                                focusedField === `designation-${index}` &&
-                                    styles.inputFocused,
-                            ]}
-                            onFocus={() =>
-                                setFocusedField(`designation-${index}`)
-                            }
-                            onBlur={() => setFocusedField(null)}
-                        />
+<TextInput
+    placeholder="Désignation"
+    value={line.designation}
+    onChangeText={(text) => updateLine(index, "designation", text)}
+    multiline
+    numberOfLines={2}
+    style={[
+        styles.input,
+        { flex: 2, minHeight: 50, textAlignVertical: "top" }, // minHeight pour voir les 2 lignes
+        focusedField === `designation-${index}` && styles.inputFocused,
+    ]}
+    onFocus={() => setFocusedField(`designation-${index}`)}
+    onBlur={() => setFocusedField(null)}
+/>
+
                         <TextInput
                             placeholder="Qté"
                             value={line.quantity}

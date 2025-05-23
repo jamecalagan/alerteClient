@@ -113,153 +113,96 @@ export default function ClientPreviewPage() {
             clientInfo.name
         )}%20`;
 
-        const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px;  margin: 0; }
-            .section-title { font-size: 18px; font-weight: bold; margin-top: 5px; margin-bottom: 5px; color: #2C3E50; }
-            .info { margin-bottom: 8px; font-size: 16px; font-weight: bold; }
-			.info-recup { margin-bottom: 8px; font-size: 16px; font-weight: bold; color: red; }
-            .cost { font-size: 10px; color: black; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
-			.costAcompte { font-size: 18px; color: green; font-weight: bold; text-align: right; margin-top: 10px; margin-right: 10px; }
-            .header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
-            .logo { width: 180px; }
-            .signature { width: 300px; height: 80px; margin-top: 20px; }
-            .company-details { text-align: center; }
-            .single-line-details { text-align: center; font-size: 14px; color: #333; }
-            .border-box { border: 2px solid #494848; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
-            .terms-section { margin-top: 10px; padding: 5px;  border-radius: 10px; }
-            .terms-text { font-size: 10px; color: #333; margin-bottom: 10px; }
-			.terms-text-bottom { font-size: 10px; color: #333; margin-bottom: 30px; }
-			.accept-risk { font-size: 16px; color: green; font-weight: bold; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <img src="https://www.avenir-informatique.fr/logo.webp" class="logo" alt="Logo de la société"/>
-          </div>
-          <div class="company-details">
-            <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy,<br> Téléphone : 01 41 60 18 18</p>
-          </div>
-          
-          <div class="border-box">
-            <div class="info"><strong>Numéro de client:</strong> ${
-                clientInfo.ficheNumber
-            }</div>
-            <div class="info"><strong>Date de création:</strong> ${new Date(
-                clientInfo.createdAt
-            ).toLocaleDateString("fr-FR")}</div>
-          </div>
-          
-          <div class="section-title">Informations du Client</div>
-          <div class="border-box">
-            <div class="info"><strong>Nom:</strong> ${clientInfo.name}</div>
-            <div class="info"><strong>Téléphone:</strong> ${formatPhoneNumber(
-                clientInfo.phone
-            )}</div>
-          </div>
-  
-          <div class="section-title">Détails du Matériel</div>
-          <div class="border-box">
-            <div class="info"><strong>Type d'appareil:</strong> ${
-                clientInfo.latestIntervention.deviceType
-            }</div>
-            <div class="info"><strong>Marque:</strong> ${
-                clientInfo.latestIntervention.brand
-            }</div>
-			<div class="info"><strong>Modèle:</strong> ${
-                clientInfo.latestIntervention.model
-            }</div>
-            <div class="info"><strong>Numéro de série:</strong> ${
-                clientInfo.latestIntervention.reference
-            }</div>
-            <div class="info"><strong>Mot de passe:</strong> ${
-                clientInfo.latestIntervention.password
-            }</div>
-            <div class="info"><strong>Chargeur:</strong> ${
-                clientInfo.latestIntervention.chargeur ? "Oui" : "Non"
-            }</div>
-          </div>
-  
-          <div class="section-title">Détail du problème</div>
-          <div class="border-box">
-            <div class="info"><strong>--></strong> ${
-                clientInfo.latestIntervention.description
-            }</div>
-            
-          </div>
-  			<div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
-			<div class="cost">Acompte: ${
-                clientInfo.latestIntervention.partialPayment
-            } €</div>
-			<div class="costAcompte">Montant restant dû: ${
-                clientInfo.latestIntervention.solderestant
-            } €</div>
+ const htmlContent = `
+<html>
+  <head>
+    <style>
+      @page { size: A5; margin: 10mm; }
+      body { font-family: Arial, sans-serif; padding: 10px; margin: 0; font-size: 11px; }
+      .section-title { font-size: 15px; font-weight: bold; margin-top: 4px; margin-bottom: 4px; color: #2C3E50; }
+      .info { margin-bottom: 5px; font-size: 12px; font-weight: bold; }
+      .info-recup { margin-bottom: 5px; font-size: 12px; font-weight: bold; color: red; }
+      .cost { font-size: 10px; color: black; font-weight: bold; text-align: right; margin-top: 5px; margin-right: 5px; }
+      .costAcompte { font-size: 12px; color: green; font-weight: bold; text-align: right; margin-top: 5px; margin-right: 5px; }
+      .header { display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
+      .logo { width: 140px; }
+      .signature { width: 220px; height: 60px; margin-top: 10px; }
+      .company-details { text-align: center; }
+      .single-line-details { text-align: center; font-size: 12px; color: #333; }
+      .terms-section { margin-top: 8px; padding: 4px; border-radius: 8px; }
+      .terms-text, .terms-text-bottom { font-size: 9px; color: #333; margin-bottom: 6px; }
+      .accept-risk { font-size: 12px; color: green; font-weight: bold; margin-top: 6px; }
+      .flex-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+      .box { flex: 1; border: 1px solid #494848; padding: 8px; border-radius: 8px; }
+	  .boxClient { background-color: #dfdfdf; flex: 1; border: 1px solid #494848; padding: 8px; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <img src="https://www.avenir-informatique.fr/logo.webp" class="logo" alt="Logo de la société"/>
+    </div>
+    <div class="company-details">
+      <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy,<br> Téléphone : 01 41 60 18 18</p>
+    </div>
 
-          <div class="terms-section">
-            <p class="terms-text-bottom">
-              Je soussigné(e), M.${
-                  clientInfo.name || "________________________"
-              } , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
-			</p>
-						            <p class="terms-text">
-             ------------------------------------------------------
-			 ------------------------------------------------------
-            </p>
-            <p class="terms-text">
-              AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.
-            </p>
 
-            <p class="terms-text">
-              Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction.
-            </p>
-            <p class="terms-text">
-              Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel.
-            </p>
-            <p class="terms-text">
-              En signant ce document, vous acceptez les conditions ci-dessus.
-            </p>
-            <p class="terms-text">
-              Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.
-            </p>
-						          ${
-                                      clientInfo.latestIntervention
-                                          .accept_screen_risk
-                                          ? `
-          <div class="accept-risk">
-            J'accepte le risque de casse de l'ecran tactile ou lcd. Produit concerné  ${clientInfo.latestIntervention.deviceType}.
-          </div>
-		  `
-                                          : ""
-                                  }
-			<p class="info-recup">
-              <strong>Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</strong>
-            </p>
-          </div>
-  
-          <div class="section-title">Signature du Client</div>
-          ${
-              clientInfo.latestIntervention.signatureIntervention
-                  ? `<img src="${clientInfo.latestIntervention.signatureIntervention}" class="signature" alt="Signature du client"/>`
-                  : "<p>Aucune signature fournie</p>"
-          }
-<div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
-  <div style="margin-right: 80px;">
-    <h3 style="text-align: center;">QR Infos</h3>
-    <img src="${qrCodeUrl}" alt="QR Code" style="width: 100px; height: 100px;" />
-  </div>
-  <div>
-    
-    <img src="${barcodeUrl}" alt="Code-barres" style="width: 150px; height: 60px;" />
-  </div>
+    <div class="flex-row">
+      <div class="boxClient">
+        <div class="info"><strong>Nom:</strong> ${clientInfo.name}</div>
+        <div class="info"><strong>Téléphone:</strong> ${formatPhoneNumber(clientInfo.phone)}</div>
+        <div class="info"><strong>Numéro de client:</strong> ${clientInfo.ficheNumber}</div>
+        <div class="info"><strong>Date de création:</strong> ${new Date(clientInfo.createdAt).toLocaleDateString("fr-FR")}</div>
+      </div>
+      <div class="box">
+        <div class="info"><strong>Type:</strong> ${clientInfo.latestIntervention.deviceType}</div>
+        <div class="info"><strong>Marque:</strong> ${clientInfo.latestIntervention.brand}</div>
+        <div class="info"><strong>Modèle:</strong> ${clientInfo.latestIntervention.model}</div>
+        <div class="info"><strong>N° Série:</strong> ${clientInfo.latestIntervention.reference}</div>
+        <div class="info"><strong>Mot de passe:</strong> ${clientInfo.latestIntervention.password}</div>
+        <div class="info"><strong>Chargeur:</strong> ${clientInfo.latestIntervention.chargeur ? "Oui" : "Non"}</div>
+      </div>
+    </div>
+
+    <div class="section-title">Détail du problème</div>
+    <div class="box">
+      <div class="info"><strong>--></strong> ${clientInfo.latestIntervention.description}</div>
+    </div>
+
+    <div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
+    <div class="cost">Acompte: ${clientInfo.latestIntervention.partialPayment} €</div>
+    <div class="costAcompte">Montant restant dû: ${clientInfo.latestIntervention.solderestant} €</div>
+
+    <div class="terms-section">
+      <p class="terms-text-bottom">
+        Je soussigné(e), M.${clientInfo.name || "________________________"} , certifie avoir pris connaissance que le matériel, qu'il soit réparé ou jugé non réparable, devra être récupéré dans un délai maximum de 30 jours. Au-delà de ce délai, le matériel sera considéré comme abandonné et pourra être détruit ou jeté sans recours possible.
+      </p>
+      <p class="terms-text">AVENIR INFORMATIQUE ne peut être tenu responsable de la perte de données sur disque dur ou tout autre support. Aucune réclamation ne sera prise en compte après le règlement de la facture.</p>
+      <p class="terms-text">Les anciens supports sont systématiquement restitués. Si le client ne souhaite pas récupérer son ancien support, celui-ci sera archivé avec le numéro de la fiche correspondant pour une durée de 3 mois avant destruction.</p>
+      <p class="terms-text">Nos forfaits varient en fonction des problèmes à résoudre, hors remplacement de matériel.</p>
+      <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
+      <p class="terms-text">Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.</p>
+      ${
+        clientInfo.latestIntervention.accept_screen_risk
+          ? `<div class="accept-risk">J'accepte le risque de casse de l'ecran tactile ou lcd. Produit concerné  ${clientInfo.latestIntervention.deviceType}.</div>`
+          : ""
+      }
+      <p class="info-recup"><strong>Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</strong></p>
+    </div>
+
+<div class="section-title">Signature du Client</div>
+<div style="display: flex; justify-content: center; align-items: center; margin-top: 10px; gap: 30px;">
+  ${
+    clientInfo.latestIntervention.signatureIntervention
+      ? `<img src="${clientInfo.latestIntervention.signatureIntervention}" class="signature" alt="Signature du client"/>`
+      : "<p style='margin: 0;'>Aucune signature fournie</p>"
+  }
+  <img src="${barcodeUrl}" alt="Code-barres" style="width: 120px; height: 50px;" />
 </div>
 
+  </body>
+</html>
+`;
 
-          </div>
-        </body>
-      </html>
-    `;
 
         try {
             await Print.printAsync({ html: htmlContent });

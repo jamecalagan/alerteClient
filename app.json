@@ -4,7 +4,7 @@
     "name": "AlerteClient",
     "slug": "AlerteClient",
 
-    "version": "3.0.0",
+    "version": "4.0.0",
 
     "orientation": "default",
     "icon": "./assets/icon.png",

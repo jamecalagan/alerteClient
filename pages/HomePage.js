@@ -150,7 +150,7 @@ export default function HomePage({ navigation, route, setUser }) {
             const { data: interventions, error: interventionError } =
                 await supabase
                     .from("interventions")
-                    .select("id, photos")
+                    .select("id, photos, commande_effectuee")
                     .eq("status", "Récupéré")
                     .lte("updatedAt", dateLimite);
 
@@ -457,6 +457,7 @@ export default function HomePage({ navigation, route, setUser }) {
 						createdAt,
 						"updatedAt",
 						commande,
+						commande_effectuee,
 						photos,
 						notifiedBy,
 						accept_screen_risk,
@@ -917,7 +918,7 @@ export default function HomePage({ navigation, route, setUser }) {
             case "Non réparable":
                 return { borderLeftColor: "#ff0000", borderLeftWidth: 3 };
             default:
-                return { borderLeftColor: "#e0e0e0", borderLeftWidth: 3 };
+                return { borderLeftColor: "#868585", borderLeftWidth: 3 };
         }
     };
     const deviceIcons = {
@@ -945,6 +946,7 @@ export default function HomePage({ navigation, route, setUser }) {
         Commande: require("../assets/icons/shipping_box.png"),
         "Carte graphique": require("../assets/icons/Vga_card.png"),
         Manette: require("../assets/icons/controller.png"),
+		Enceinte: require("../assets/icons/speaker.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -2092,34 +2094,31 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                             "row",
                                                                     }}
                                                                 >
-                                                                    {status ===
-                                                                        "En attente de pièces" &&
-                                                                        commande && (
-                                                                            <TouchableOpacity
-                                                                                style={[
-                                                                                    styles.iconButton,
-                                                                                    styles.editButton,
-                                                                                ]}
-                                                                                onPress={() => {
-                                                                                    setSelectedCommande(
-                                                                                        commande
-                                                                                    );
-                                                                                    setTransportModalVisible(
-                                                                                        true
-                                                                                    );
-                                                                                }}
-                                                                            >
-                                                                                <Image
-                                                                                    source={require("../assets/icons/shipping.png")} // Chemin vers votre icône poubelle
-                                                                                    style={{
-                                                                                        width: 28,
-                                                                                        height: 28,
-                                                                                        tintColor:
-                                                                                            "#a073f3", // Couleur de l'icône (ici noir)
-                                                                                    }}
-                                                                                />
-                                                                            </TouchableOpacity>
-                                                                        )}
+                                                                  {status === "En attente de pièces" && commande && (
+  <TouchableOpacity
+    style={[styles.iconButton, styles.editButton]}
+    onPress={() => {
+      setSelectedCommande(commande);
+      setTransportModalVisible(true);
+    }}
+  >
+    <Image
+      source={
+        latestIntervention?.commande_effectuee
+          ? require("../assets/icons/shipping_fast.png") // ✅ nouvelle icône si commande faite
+          : require("../assets/icons/shipping.png")      // 🛒 icône par défaut
+      }
+      style={{
+        width: 28,
+        height: 28,
+        tintColor: latestIntervention?.commande_effectuee
+          ? "#00fd00" // vert si commandé
+          : "#a073f3", // violet sinon
+      }}
+    />
+  </TouchableOpacity>
+)}
+
 <View
     style={{
         position: "relative",
@@ -3207,9 +3206,10 @@ export default function HomePage({ navigation, route, setUser }) {
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
+        backgroundColor: "rgba(7, 7, 7, 0)",
         width: "100%",
         justifyContent: "center",
-        backgroundColor: "rgba(39, 39, 39, 0.308)",
+        
     },
     container: {
         flex: 1,
@@ -3245,7 +3245,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
         top: 18, // Distance depuis le haut
-        right: 72, // Distance depuis la droite (remplacez `left`)
+        right: 15, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
         borderRadius: 2, // Bords arrondis pour un style plus moderne
     },
@@ -3298,17 +3298,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "#f1f1f1",
     },
-    content: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
     contentText: {
         fontSize: 20,
         fontWeight: "bold",
     },
-
-    repairedCountContainer: {
+		repairedCountContainer: {
         padding: 10,
         backgroundColor: "#cacaca",
         borderRadius: 2,
@@ -3334,12 +3328,7 @@ const styles = StyleSheet.create({
         flex: 1,
         resizeMode: "cover", // L'image couvre toute la page
     },
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(7, 7, 7, 0)",
-    },
-
-    headerContainer: {
+		headerContainer: {
         flexDirection: "row",
         justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
         alignItems: "center",
@@ -3373,10 +3362,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingRight: 10,
     },
-    ficheNumber: {
-        fontSize: 18,
-        fontWeight: "bold",
-    },
+
     clientTextSoldeRestant: {
         fontSize: 20,
         color: "#242424", // Rouge orangé pour attirer l'attention
@@ -3393,9 +3379,6 @@ const styles = StyleSheet.create({
         bottom: 10,
         right: 10,
     },
-    clientInfo: {
-        flex: 1,
-    },
     ficheNumber: {
         fontSize: 16,
         fontWeight: "medium",
@@ -3411,11 +3394,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         color: "#242424",
     },
-    newIconContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
     clientText: {
         fontSize: 16,
         color: "#242424",
@@ -3425,12 +3403,7 @@ const styles = StyleSheet.create({
         fontStyle: "normal",
         fontWeight: "bold",
         marginBottom: 10,
-        color: "#802d07",
-    },
-    stateText: {
-        fontSize: 18,
-        marginBottom: 5,
-        color: "#4c09f6",
+        color: "#414141",
     },
     topRightButtons: {
         position: "absolute",
@@ -3520,30 +3493,13 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
     },
-    alertBox: {
-        width: 300,
-        padding: 20,
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        borderRadius: 2,
-        alignItems: "center",
-    },
-    alertTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        marginBottom: 10,
-        color: "#333",
-    },
+
     alertMessage: {
         fontSize: 16,
         color: "#666",
         textAlign: "center",
         marginBottom: 20,
     },
-    alertButtons: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-    },
-
     button: {
         backgroundColor: "#007BFF",
         padding: 10,
@@ -3555,35 +3511,6 @@ const styles = StyleSheet.create({
     buttonText: {
         color: "#fff",
         fontWeight: "bold",
-    },
-    legendWrapper: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingVertical: 10,
-        // borderTopWidth: 1,
-    },
-    legendContainer: {
-        marginTop: 20,
-        flexDirection: "row",
-        justifyContent: "space-around",
-        alignItems: "center",
-    },
-    legendItem: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    legendColor: {
-        width: 15,
-        height: 15,
-        borderRadius: 2,
-        marginRight: 10,
-    },
-    legendText: {
-        fontSize: 14,
-        color: "#fff",
-        marginLeft: 3,
     },
     interventionContainer: {
         flexDirection: "row", // Aligne l'icône et le texte côte à côte
@@ -3662,23 +3589,6 @@ const styles = StyleSheet.create({
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
         backgroundColor: "#575757", // Fond blanc */
     },
-    icon: {
-        marginRight: 5,
-    },
-    sortButtonContainer: {
-        flexDirection: "row", // Aligne les boutons côte à côte
-        justifyContent: "space-between", // Espace entre les boutons
-        paddingHorizontal: 10, // Espacement de chaque côté du conteneur
-    },
-    buttonWrapper: {
-        flex: 1,
-        width: "38%",
-    },
-    repairedCountButton: {
-        flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
-        alignItems: "center", // Pour centrer verticalement l'icône et le texte
-        // Autres styles selon vos besoins
-    },
     buttonContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -3687,25 +3597,9 @@ const styles = StyleSheet.create({
     buttonContainerMasquer: {
         flexDirection: "row",
         marginRight: 10,
-
-        gap: 5,
+		gap: 5,
     },
-    buttonContent: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    buttonTextTrier: {
-        marginLeft: 8,
-        fontSize: 16, // Taille du texte du nombre d'interventions
-        color: "#888787",
-    },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-    },
-    alertBox: {
+     alertBox: {
         width: "85%",
         maxWidth: 400,
         backgroundColor: "#fff",
@@ -3777,12 +3671,6 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Aligne l'icône et le texte côte à côte
         alignItems: "center", // Centrage vertical
         marginBottom: 10,
-    },
-
-    statusText: {
-        color: "#242424", // Couleur du texte
-        fontWeight: "bold",
-        fontSize: 20,
     },
     iconCircle: {
         backgroundColor: "#575757", // Couleur de fond gris
@@ -3868,20 +3756,7 @@ const styles = StyleSheet.create({
         height: 30,
         tintColor: "orange",
     },
-    orderButton: {
-        borderWidth: 1,
-        borderColor: "#242424",
-        width: 50,
-        height: 50,
-        borderRadius: 2,
-        alignItems: "center",
-        justifyContent: "center",
-        marginLeft: 5,
-    },
-    orderIcon: {
-        width: 30,
-        height: 30,
-    },
+
     amountText: {
         fontSize: 16,
         fontWeight: "medium",
@@ -3906,7 +3781,7 @@ const styles = StyleSheet.create({
 
     suggestionText: {
         fontSize: 16,
-        color: "#333",
+        color: "#333333",
     },
     searchContainer: {
         flexDirection: "row",
@@ -3930,15 +3805,6 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
 
-    suggestionBox: {
-        backgroundColor: "#fff",
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        maxHeight: 180,
-        overflow: "hidden",
-    },
-
     suggestionItem: {
         paddingVertical: 10,
         paddingHorizontal: 12,
@@ -3946,10 +3812,6 @@ const styles = StyleSheet.create({
         borderBottomColor: "#eee",
     },
 
-    suggestionText: {
-        fontSize: 16,
-        color: "#333",
-    },
     acceptRiskText: {
         fontSize: 16,
         color: "#a10303",

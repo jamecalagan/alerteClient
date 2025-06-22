@@ -53,7 +53,8 @@ export default function ClientNotificationsPage() {
                     const d = new Date(item.notifiedat);
                     const days = (now - d) / (1000 * 60 * 60 * 24);
                     return (
-                        (item.status === "Réparé" || item.status === "Non réparable") &&
+                        (item.status === "Réparé" ||
+                            item.status === "Non réparable") &&
                         days > 30
                     );
                 });
@@ -62,7 +63,10 @@ export default function ClientNotificationsPage() {
                         "⛔️ Urgences détectées",
                         `${urgents.length} client(s) ont été notifiés depuis plus de 30 jours sans récupération.`,
                         [
-                            { text: "Voir", onPress: () => setFilterType("urgence") },
+                            {
+                                text: "Voir",
+                                onPress: () => setFilterType("urgence"),
+                            },
                             { text: "OK" },
                         ]
                     );
@@ -85,15 +89,18 @@ export default function ClientNotificationsPage() {
         applyFilters();
     }, [notifications, searchText, filterType, currentPage]);
 
-const fetchNotifications = async () => {
+    const fetchNotifications = async () => {
         const { data: interventions, error: error1 } = await supabase
             .from("interventions")
-            .select("id, notifiedBy, notifiedat, client_id, deviceType, status, client:client_id(id, name, phone)")
+            .select("id, notifiedBy, notifiedat, review_requested, client_id, deviceType, status, client:client_id(id, name, phone)")
+
             .order("created_at", { ascending: false });
 
         const { data: orders, error: error2 } = await supabase
             .from("orders")
-            .select("id, client_id, notified, client:client_id(id, name, phone)")
+            .select(
+                "id, client_id, notified, client:client_id(id, name, phone)"
+            )
             .order("createdat", { ascending: false });
 
         if (error1 || error2) {
@@ -116,6 +123,7 @@ const fetchNotifications = async () => {
                     phone: inter.client.phone,
                     notifiedBy: inter.notifiedBy,
                     notifiedat: inter.notifiedat,
+					review_requested: inter.review_requested,
                     intervention_id: inter.id,
                     deviceType: inter.deviceType,
                     status: inter.status || "Intervention",
@@ -146,111 +154,113 @@ const fetchNotifications = async () => {
         setNotifications(sorted);
     };
 
-const applyFilters = () => {
-    let results = [...notifications];
-    const now = new Date();
+    const applyFilters = () => {
+        let results = [...notifications];
+        const now = new Date();
 
-    if (filterType === "urgence") {
-        results = results.filter((item) => {
-            if (!item.notifiedat) return false;
-            const d = new Date(item.notifiedat);
-            const days = (now - d) / (1000 * 60 * 60 * 24);
-            return (
-                (item.status === "Réparé" || item.status === "Non réparable") &&
-                days > 30
+        if (filterType === "urgence") {
+            results = results.filter((item) => {
+                if (!item.notifiedat) return false;
+                const d = new Date(item.notifiedat);
+                const days = (now - d) / (1000 * 60 * 60 * 24);
+                return (
+                    (item.status === "Réparé" ||
+                        item.status === "Non réparable") &&
+                    days > 30
+                );
+            });
+        } else if (filterType === "avis") {
+            results = results.filter((item) => {
+               
+                return item.review_requested;
+            });
+        } else if (filterType !== "all") {
+            results = results.filter((item) => {
+                const n = item.notifiedBy || "";
+                const normalized = n
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/\s/g, "");
+                return normalized.includes(filterType);
+            });
+        }
+
+        if (selectedClientId) {
+            results = results.filter((c) => c.id === selectedClientId);
+        } else if (searchText.trim() !== "") {
+            const lower = searchText.toLowerCase();
+            results = results.filter(
+                (item) =>
+                    item.name?.toLowerCase().includes(lower) ||
+                    item.phone?.toLowerCase().includes(lower) ||
+                    item.deviceType?.toLowerCase().includes(lower)
             );
-        });
-    } else if (filterType !== "all") {
-        results = results.filter((item) => {
-            const n = item.notifiedBy || "";
-            const normalized = n
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/\s/g, "");
-            return normalized.includes(filterType);
-        });
-    }
+        }
 
-    if (selectedClientId) {
-        results = results.filter((c) => c.id === selectedClientId);
-    } else if (searchText.trim() !== "") {
-        const lower = searchText.toLowerCase();
-        results = results.filter(
-            (item) =>
-                item.name?.toLowerCase().includes(lower) ||
-                item.phone?.toLowerCase().includes(lower) ||
-                item.deviceType?.toLowerCase().includes(lower)
-        );
-    }
+        results.sort((a, b) => new Date(b.notifiedat) - new Date(a.notifiedat));
+        setFilteredItems(results);
 
-    results.sort((a, b) => new Date(b.notifiedat) - new Date(a.notifiedat));
-    setFilteredItems(results);
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginated = results.slice(startIndex, startIndex + itemsPerPage);
-    setFiltered(paginated);
-};
-
-
-const notifyClient = async (client, method) => {
-    const timestamp = new Date().toISOString();
-    const updateFields = {
-        notifiedBy: method === "sms" ? "SMS" : "Téléphone",
-        notifiedat: timestamp,
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const paginated = results.slice(startIndex, startIndex + itemsPerPage);
+        setFiltered(paginated);
     };
 
-    let updateResult;
-
-    if (client.intervention_id) {
-        // ✅ Si intervention → mise à jour dans interventions
-        updateResult = await supabase
-            .from("interventions")
-            .update(updateFields)
-            .eq("id", client.intervention_id);
-    } else {
-        // ✅ Si commande uniquement → mise à jour dans orders (colonne "notified" booléenne)
-        updateResult = await supabase
-            .from("orders")
-            .update({ notified: true }) // uniquement ça
-            .eq("client_id", client.id);
-    }
-
-    const { error } = updateResult;
-
-    if (!error) {
-        const updatedClient = {
-            ...client,
-            ...updateFields,
-            clientId: client.clientId || client.id,
+    const notifyClient = async (client, method) => {
+        const timestamp = new Date().toISOString();
+        const updateFields = {
+            notifiedBy: method === "sms" ? "SMS" : "Téléphone",
+            notifiedat: timestamp,
         };
 
-        setNotifications((prev) =>
-            prev.map((n) =>
-                n.id === client.id ? updatedClient : n
-            )
-        );
+        let updateResult;
 
-        setLastNotified((prev) => {
-            const merged = [updatedClient, ...prev];
-            const map = new Map();
-            for (const c of merged) {
-                map.set(c.clientId, c);
-            }
-            return Array.from(map.values()).slice(0, 3);
-        });
+        if (client.intervention_id) {
+            // ✅ Si intervention → mise à jour dans interventions
+            updateResult = await supabase
+                .from("interventions")
+                .update(updateFields)
+                .eq("id", client.intervention_id);
+        } else {
+            // ✅ Si commande uniquement → mise à jour dans orders (colonne "notified" booléenne)
+            updateResult = await supabase
+                .from("orders")
+                .update({ notified: true }) // uniquement ça
+                .eq("client_id", client.id);
+        }
 
-        Alert.alert(
-            "✅ Notification envoyée",
-            `${client.name} a été notifié.`,
-            [{ text: "OK" }]
-        );
-    } else {
-        console.error("Erreur Supabase :", error.message);
-        Alert.alert("Erreur", error.message);
-    }
-};
+        const { error } = updateResult;
 
+        if (!error) {
+            const updatedClient = {
+                ...client,
+                ...updateFields,
+                clientId: client.clientId || client.id,
+            };
+
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === client.id ? updatedClient : n))
+            );
+
+            setLastNotified((prev) => {
+                const merged = [updatedClient, ...prev];
+                const map = new Map();
+                for (const c of merged) {
+                    map.set(c.clientId, c);
+                }
+                return Array.from(map.values()).slice(0, 3);
+            });
+
+            Alert.alert(
+                "✅ Notification envoyée",
+                `${client.name} a été notifié.`,
+                [{ text: "OK" }]
+            );
+        } else {
+            console.error("Erreur Supabase :", error.message);
+            Alert.alert("Erreur", error.message);
+        }
+    };
 
     const fetchLastNotified = async () => {
         const { data, error } = await supabase
@@ -301,13 +311,76 @@ const notifyClient = async (client, method) => {
                         <Text style={styles.name}>{item.name}</Text>
                         <Text style={styles.phone}>{item.phone}</Text>
                         <Text style={styles.deviceType}>{item.deviceType}</Text>
-						                        {item.notifiedat &&
-                            (item.status === "Réparé" || item.status === "Non réparable") &&
-                            (new Date() - new Date(item.notifiedat)) / (1000 * 60 * 60 * 24) > 30 && (
-                                <Text style={styles.urgentBadge}>⚠️ URGENT</Text>
+                        {item.notifiedat &&
+                            (item.status === "Réparé" ||
+                                item.status === "Non réparable") &&
+                            (new Date() - new Date(item.notifiedat)) /
+                                (1000 * 60 * 60 * 24) >
+                                30 && (
+                                <Text style={styles.urgentBadge}>
+                                    ⚠️ URGENT
+                                </Text>
                             )}
                         {isNotified ? (
                             <View style={styles.methodRow}>
+                                {item.review_requested && (
+                                    <Text
+                                        style={[
+                                            styles.badge,
+                                            {
+                                                backgroundColor: "#fff3cd",
+                                                color: "#856404",
+                                            },
+                                        ]}
+                                    >
+                                        ⭐ Avis
+                                    </Text>
+                                )}
+{item.review_requested && (
+  <TouchableOpacity
+    onPress={() => {
+      if (!item.review_responded) {
+        Alert.alert(
+          "Avis reçu et répondu ?",
+          "Confirme que tu as bien reçu un avis et que tu y as répondu.",
+          [
+            { text: "Annuler", style: "cancel" },
+            {
+              text: "Oui, confirmé",
+              onPress: async () => {
+                await supabase
+                  .from("interventions")
+                  .update({ review_responded: true })
+                  .eq("id", item.intervention_id);
+
+                const updatedClient = {
+                  ...item,
+                  review_responded: true,
+                };
+                setNotifications((prev) =>
+                  prev.map((n) => (n.id === item.id ? updatedClient : n))
+                );
+              },
+            },
+          ]
+        );
+      }
+    }}
+  >
+    <Text
+      style={[
+        styles.badge,
+        item.review_responded
+          ? { backgroundColor: "#d4edda", color: "#155724" } // vert
+          : { backgroundColor: "#eeeeee", color: "#888" }, // gris
+      ]}
+    >
+      🌟
+    </Text>
+  </TouchableOpacity>
+)}
+
+
                                 {item.notifiedBy
                                     ?.toLowerCase()
                                     .includes("sms") && (
@@ -406,21 +479,6 @@ const notifyClient = async (client, method) => {
                                             ? tpl.slice(0, 35) + "…"
                                             : tpl}
                                     </Text>
-{/*                                     {item.notifiedat &&
-                                        (new Date() -
-                                            new Date(item.notifiedat)) /
-                                            (1000 * 60 * 60 * 24) >
-                                            30 && (
-                                            <Text
-                                                style={{
-                                                    color: "red",
-                                                    fontWeight: "bold",
-                                                    marginTop: 4,
-                                                }}
-                                            >
-                                                ⛔ En attente depuis +30 jours
-                                            </Text>
-                                        )} */}
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -466,6 +524,48 @@ const notifyClient = async (client, method) => {
                         >
                             <Text style={styles.actionText}>📩 Envoyer</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.actionButton,
+                                { backgroundColor: "#ff9900" },
+                            ]}
+                            onPress={async () => {
+                                const avisMessage =
+                                    "Bonjour, merci pour votre passage en boutique ! 😊\n" +
+                                    "Votre avis nous est précieux. Si vous avez un moment, vous pouvez le partager ici :\n" +
+                                    "👉 https://g.page/r/CW8DQ11bfVKeEAE/review\nMerci beaucoup et à bientôt !";
+
+                                const encoded = encodeURIComponent(avisMessage);
+
+                                await supabase
+                                    .from("interventions")
+                                    .update({
+                                        review_requested: true,
+                                        notifiedat: new Date().toISOString(),
+                                    })
+                                    .eq("id", item.intervention_id);
+
+                                const updatedClient = {
+                                    ...item,
+                                    review_requested: true,
+                                    notifiedat: new Date().toISOString(),
+                                };
+
+                                setNotifications((prev) =>
+                                    prev.map((n) =>
+                                        n.id === item.id ? updatedClient : n
+                                    )
+                                );
+
+                                Linking.openURL(
+                                    `sms:${item.phone}?body=${encoded}`
+                                );
+                            }}
+                        >
+                            <Text style={styles.actionText}>
+                                ⭐ Avis Google
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>
@@ -503,7 +603,7 @@ const notifyClient = async (client, method) => {
             />
 
             <View style={styles.filterRow}>
-                {["all", "sms", "telephone", "relance", "urgence"].map(
+                {["all", "sms", "telephone", "relance", "urgence", "avis"].map(
                     (type) => (
                         <TouchableOpacity
                             key={type}
@@ -522,6 +622,8 @@ const notifyClient = async (client, method) => {
                                     ? "Téléphone"
                                     : type === "relance"
                                     ? "📤 Relance"
+                                    : type === "avis"
+                                    ? "⭐ Avis"
                                     : "⛔ Urgence"}
                             </Text>
                         </TouchableOpacity>
@@ -769,7 +871,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 14,
     },
-	    urgentBadge: {
+    urgentBadge: {
         backgroundColor: "#dc3545",
         color: "#fff",
         alignSelf: "flex-start",
@@ -779,5 +881,11 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginTop: 6,
         fontSize: 13,
+    },
+    actionButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 20,
+        marginBottom: 6,
     },
 });

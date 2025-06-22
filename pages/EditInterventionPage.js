@@ -353,24 +353,36 @@ export default function EditInterventionPage({ route, navigation }) {
                 ? parseFloat(devisCost)
                 : null;
         // Vérifie le coût seulement si le statut n'est pas "Devis en cours"
-        if (status !== "Devis en cours" && !cost) {
-            Alert.alert(
-                "Erreur",
-                "Veuillez indiquer le coût de la réparation."
-            );
-            return;
-        }
-        // Validation de l'acompte
-        if (
-            paymentStatus === "reglement_partiel" &&
-            (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))
-        ) {
-            Alert.alert(
-                "Erreur",
-                "Veuillez indiquer un acompte valide qui ne dépasse pas le montant total."
-            );
-            return;
-        }
+const errors = [];
+
+if (!reference) errors.push("Référence");
+if (!brand || brand === "default" || brand === "") errors.push("Marque");
+if (!model || model === "default" || model === "") errors.push("Modèle");
+if (!description) errors.push("Description");
+if (!deviceType || deviceType === "default" || deviceType === "") errors.push("Type de produit");
+if (!status || status === "default") errors.push("Statut");
+
+if (status !== "Devis en cours" && !cost) {
+    errors.push("Coût de la réparation");
+}
+
+if (!labelPhoto) {
+    errors.push("Photo d’étiquette");
+}
+
+if (
+    paymentStatus === "reglement_partiel" &&
+    (!partialPayment || parseFloat(partialPayment) > parseFloat(cost || 0))
+) {
+    errors.push("Acompte valide");
+}
+
+if (errors.length > 0) {
+    const message = "Champs manquants ou incorrects :\n\n" + errors.join("\n");
+    Alert.alert("Erreur", message);
+    return;
+}
+
         // Calcul du solde restant
         const solderestant =
             paymentStatus === "reglement_partiel"

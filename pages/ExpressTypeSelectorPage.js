@@ -30,7 +30,7 @@ const ExpressTypeSelectorPage = () => {
         const topAnimations = topButtonAnimations.map((anim, index) =>
             Animated.spring(anim, {
                 toValue: 1,
-                delay: index * 120,
+                delay: index * 80,
                 friction: 6,
                 tension: 100,
                 useNativeDriver: true,
@@ -44,7 +44,7 @@ const ExpressTypeSelectorPage = () => {
         const animations = animationValues.map((anim, index) =>
             Animated.spring(anim, {
                 toValue: 1,
-                delay: index * 100,
+                delay: index * 80,
                 friction: 6,
                 tension: 100,
                 useNativeDriver: true,
@@ -66,7 +66,7 @@ const ExpressTypeSelectorPage = () => {
                             logiciel: {
                                 icon: "🖥",
                                 label: "Dépannage",
-                                color: "#007bff",
+                                color: "#405f80",
                             },
                             reparation: {
                                 icon: "🛠",
@@ -394,16 +394,22 @@ const styles = StyleSheet.create({
         alignItems: "center",
         margin: 16,
     },
-    gridContainer: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "center", // ✅ centrer horizontalement
-        paddingBottom: 20,
-    },
+gridContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 20,
+    alignSelf: "center", // 👈 assure le centrage global
+    width: "100%",       // 👈 ou fixe à une valeur en px si tu veux 2 colonnes fixes
+},
 
     gridItem: {
         width: "45%", // ✅ Deux colonnes avec un peu d'espace
-        margin: 8,
+        marginBottom: 8,
+		marginTop: 8,
+		marginHorizontal: 5, // Pour l'espacement horizontal
+		alignItems: "center",
     },
 });
 

@@ -92,18 +92,40 @@ const ExpressListPage = () => {
         navigation.navigate("PrintExpressPage", { ...item });
     };
 const handleNotify = async (client) => {
-  if (!client?.phone || !client?.product) {
-    Alert.alert("Erreur", "Téléphone ou produit manquant.");
+  if (!client?.phone) {
+    Alert.alert("Erreur", "Numéro de téléphone manquant.");
     return;
   }
 
-  const message = `Bonjour, votre ${client.product} est prêt. AVENIR INFORMATIQUE`;
+  let message = "";
+
+  switch (client.type) {
+    case "video":
+      message = `Bonjour, vos cassettes sont prêtes. AVENIR INFORMATIQUE`;
+      break;
+
+    case "reparation":
+      if (!client?.device) {
+        Alert.alert("Erreur", "Matériel manquant pour une réparation.");
+        return;
+      }
+      message = `Bonjour, votre ${client.device} est prêt. AVENIR INFORMATIQUE`;
+      break;
+
+    case "logiciel":
+      message = `Bonjour, votre système est prêt. AVENIR INFORMATIQUE`;
+      break;
+
+    default:
+      Alert.alert("Erreur", "Type de fiche inconnu.");
+      return;
+  }
+
   const url = `sms:${client.phone}?body=${encodeURIComponent(message)}`;
 
   try {
     await Linking.openURL(url);
 
-    // ✅ Marquer comme notifié
     await supabase
       .from("express")
       .update({
@@ -112,7 +134,7 @@ const handleNotify = async (client) => {
       })
       .eq("id", client.id);
 
-    fetchExpressList(); // recharge après update
+    fetchExpressList();
   } catch (err) {
     Alert.alert("Erreur", "Impossible d’ouvrir la messagerie.");
     console.error("SMS error:", err);

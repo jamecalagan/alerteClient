@@ -153,6 +153,8 @@ const ImageBackupPage = () => {
 
             Alert.alert("✅ Sauvegarde terminée");
             await listSavedImages();
+			+ await AsyncStorage.setItem("lastImageBackupReminder", Date.now().toString());
+			+ await getLastBackupDate(); // met à jour l'affichage
         } catch (e) {
             console.error(e);
             Alert.alert("❌ Erreur pendant la sauvegarde");
@@ -329,26 +331,27 @@ const ImageBackupPage = () => {
             console.error("Erreur suppression :", e);
         }
     };
-    const checkWeeklyReminder = async () => {
-        try {
-            const last = await AsyncStorage.getItem("lastImageBackupReminder");
-            const now = new Date().getTime();
+const checkWeeklyReminder = async () => {
+    try {
+        const last = await AsyncStorage.getItem("lastImageBackupReminder");
+        const now = Date.now();
 
-            if (!last || now - parseInt(last, 10) > 7 * 24 * 60 * 60 * 1000) {
-                Alert.alert(
-                    "🕒 Rappel",
-                    "Pense à sauvegarder les images cette semaine !"
-                );
-                await AsyncStorage.setItem(
-                    "lastImageBackupReminder",
-                    Date.now().toString()
-                );
-                await getLastBackupDate(); // pour actualiser après sauvegarde
-            }
-        } catch (e) {
-            console.error("Erreur rappel hebdo :", e);
+        if (!last || now - parseInt(last, 10) > 7 * 24 * 60 * 60 * 1000) {
+            Alert.alert(
+                "🕒 Rappel",
+                "Pense à sauvegarder les images cette semaine !"
+            );
+
+            // ❌ SUPPRIME cette ligne, car elle fausse la vraie date :
+            // await AsyncStorage.setItem("lastImageBackupReminder", Date.now().toString());
+
+            await getLastBackupDate(); // on lit sans écraser
         }
-    };
+    } catch (e) {
+        console.error("Erreur rappel hebdo :", e);
+    }
+};
+
 
     const listSavedImages = async () => {
         try {

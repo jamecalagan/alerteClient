@@ -22,8 +22,8 @@ export default function QuickLabelPrintPage({ navigation }) {
         note: "",
     };
     const [form, setForm] = useState(emptyForm);
-	const [allClients, setAllClients] = useState([]);
-	const [showSuggestions, setShowSuggestions] = useState(false);
+    const [allClients, setAllClients] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     // --- liste et état d’édition ------------------------
     const [labels, setLabels] = useState([]);
@@ -31,42 +31,40 @@ export default function QuickLabelPrintPage({ navigation }) {
     const isEditing = editingId !== null;
 
     // ----------------------------------------------------
-useEffect(() => {
-    fetchLabels();
-    fetchClients(); // 👈 nouveau
-}, []);
+    useEffect(() => {
+        fetchLabels();
+        fetchClients(); // 👈 nouveau
+    }, []);
 
-const fetchClients = async () => {
-  const results = [];
+    const fetchClients = async () => {
+        const results = [];
 
-  const tables = ["clients", "intervention", "orders", "express"]; // adapte à tes tables
+        const tables = ["clients", "intervention", "orders", "express"]; // adapte à tes tables
 
-  for (const table of tables) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("name, phone");
+        for (const table of tables) {
+            const { data, error } = await supabase
+                .from(table)
+                .select("name, phone");
 
-    if (!error && data) {
-      results.push(...data.filter((c) => c.name && c.phone));
-    }
-  }
+            if (!error && data) {
+                results.push(...data.filter((c) => c.name && c.phone));
+            }
+        }
 
-  // Supprimer les doublons (même nom + téléphone)
-  const unique = [];
-  const seen = new Set();
+        // Supprimer les doublons (même nom + téléphone)
+        const unique = [];
+        const seen = new Set();
 
-  results.forEach((c) => {
-    const key = `${c.name}_${c.phone}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      unique.push(c);
-    }
-  });
+        results.forEach((c) => {
+            const key = `${c.name}_${c.phone}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(c);
+            }
+        });
 
-  setAllClients(unique);
-};
-
-
+        setAllClients(unique);
+    };
 
     const fetchLabels = async () => {
         const { data, error } = await supabase
@@ -267,40 +265,43 @@ const fetchClients = async () => {
             <Text style={styles.title}>🎫 Étiquette rapide</Text>
 
             {/* ---------- formulaire ------------------------ */}
-<TextInput
-    style={styles.input}
-    placeholder="Nom"
-    value={form.name}
-    onChangeText={(t) => {
-        setForm({ ...form, name: t });
-        setShowSuggestions(true);
-    }}
-/>
+            <TextInput
+                style={styles.input}
+                placeholder="Nom"
+                value={form.name}
+                onChangeText={(t) => {
+                    setForm({ ...form, name: t });
+                    setShowSuggestions(true);
+                }}
+            />
 
-{showSuggestions && form.name.length >= 2 && (
-<View style={styles.suggestionBox}>
-  {allClients
-    .filter((c) =>
-      c.name.toLowerCase().includes(form.name.toLowerCase())
-    )
-    .map((client) => (
-      <TouchableOpacity
-        key={`${client.name}_${client.phone}`} // ✅ clé unique sûre
-        onPress={() => {
-          setForm({
-            ...form,
-            name: client.name,
-            phone: client.phone,
-          });
-          setShowSuggestions(false);
-        }}
-      >
-        <Text style={styles.suggestionItem}>{client.name}</Text>
-      </TouchableOpacity>
-    ))}
-</View>
-
-)}
+            {showSuggestions && form.name.length >= 2 && (
+                <View style={styles.suggestionBox}>
+                    {allClients
+                        .filter((c) =>
+                            c.name
+                                .toLowerCase()
+                                .includes(form.name.toLowerCase())
+                        )
+                        .map((client) => (
+                            <TouchableOpacity
+                                key={`${client.name}_${client.phone}`} // ✅ clé unique sûre
+                                onPress={() => {
+                                    setForm({
+                                        ...form,
+                                        name: client.name,
+                                        phone: client.phone,
+                                    });
+                                    setShowSuggestions(false);
+                                }}
+                            >
+                                <Text style={styles.suggestionItem}>
+                                    {client.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                </View>
+            )}
 
             <TextInput
                 style={styles.input}
@@ -428,21 +429,19 @@ const fetchClients = async () => {
                     </View>
                 </View>
             ))}
-			<View style={{ alignItems: "center", marginTop: 20, marginBottom: 40 }}>
-  <TouchableOpacity
-    style={[
-      styles.optionButton,
-      styles.shadowBox,
-      { backgroundColor: "#a7a7a7", width: "60%" },
-    ]}
-    onPress={() => navigation.goBack()}
-  >
-    <Text style={styles.buttonText}>⬅ Retour</Text>
-  </TouchableOpacity>
-</View>
-
+			<View style={{ alignItems: "center", marginTop: 16 }}>
+				<TouchableOpacity
+					style={[
+						styles.optionButton,
+						styles.shadowBox,
+						{ backgroundColor: "#a7a7a7", width: "60%" }, // Largeur fixe pour centrage
+					]}
+					onPress={() => navigation.goBack()}
+				>
+					<Text style={styles.buttonText}>⬅ Retour</Text>
+				</TouchableOpacity>
+			</View>
         </ScrollView>
-		
     );
 }
 
@@ -523,42 +522,52 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
     smallTxt: { color: "#ffffff", fontSize: 16 },
-	optionButton: {
-  padding: 12,
-  borderRadius: 8,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 10,
-},
+    optionButton: {
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 10,
+    },
 
-shadowBox: {
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4,
-  elevation: 3,
-},
+    shadowBox: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
 
-buttonText: {
-  color: "#fff",
-  fontSize: 16,
-},
-suggestionBox: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    maxHeight: 150,
-    marginBottom: 10,
-    elevation: 4,
-},
+    buttonText: {
+        color: "#fff",
+        fontSize: 16,
+    },
+    suggestionBox: {
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        maxHeight: 150,
+        marginBottom: 10,
+        elevation: 4,
+    },
 
-suggestionItem: {
-    paddingVertical: 10,
-    borderBottomColor: "#ccc",
-    borderBottomWidth: 1,
-    color: "#222",
-},
-
-
+    suggestionItem: {
+        paddingVertical: 10,
+        borderBottomColor: "#ccc",
+        borderBottomWidth: 1,
+        color: "#222",
+    },
+	    optionButton: {
+        width: 310,
+        paddingVertical: 15,
+        backgroundColor: "#3e4c69",
+        borderRadius: 50,
+        alignItems: "center",
+        marginTop: 20,
+    },
+    optionText: {
+        fontSize: 18,
+        color: "#ffffff",
+    },
 });

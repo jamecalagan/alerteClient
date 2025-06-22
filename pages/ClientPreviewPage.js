@@ -49,6 +49,7 @@ export default function ClientPreviewPage() {
             chargeur, 
             signatureIntervention,
 			accept_screen_risk,
+			remarks,
             createdAt
           )
         `
@@ -121,7 +122,7 @@ export default function ClientPreviewPage() {
       body { font-family: Arial, sans-serif; padding: 10px; margin: 0; font-size: 11px; }
       .section-title { font-size: 15px; font-weight: bold; margin-top: 4px; margin-bottom: 4px; color: #2C3E50; }
       .info { margin-bottom: 5px; font-size: 12px; font-weight: bold; }
-      .info-recup { margin-bottom: 5px; font-size: 12px; font-weight: bold; color: red; }
+      .info-recup { margin-bottom: 5px; font-size: 12px; font-weight: medium; color: red; }
       .cost { font-size: 10px; color: black; font-weight: bold; text-align: right; margin-top: 5px; margin-right: 5px; }
       .costAcompte { font-size: 12px; color: green; font-weight: bold; text-align: right; margin-top: 5px; margin-right: 5px; }
       .header { display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
@@ -130,11 +131,12 @@ export default function ClientPreviewPage() {
       .company-details { text-align: center; }
       .single-line-details { text-align: center; font-size: 12px; color: #333; }
       .terms-section { margin-top: 8px; padding: 4px; border-radius: 8px; }
-      .terms-text, .terms-text-bottom { font-size: 9px; color: #333; margin-bottom: 6px; }
+      .terms-text, .terms-text-bottom { font-size: 7px; color: #333; margin-bottom: 4px; }
       .accept-risk { font-size: 12px; color: green; font-weight: bold; margin-top: 6px; }
       .flex-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
       .box { flex: 1; border: 1px solid #494848; padding: 8px; border-radius: 8px; }
 	  .boxClient { background-color: #dfdfdf; flex: 1; border: 1px solid #494848; padding: 8px; border-radius: 8px; }
+	  .alert { color: red; font-weight: bold; font-size: 10px; margin-bottom: 4px; }
     </style>
   </head>
   <body>
@@ -165,7 +167,7 @@ export default function ClientPreviewPage() {
 
     <div class="section-title">Détail du problème</div>
     <div class="box">
-      <div class="info"><strong>--></strong> ${clientInfo.latestIntervention.description}</div>
+      <div class="terms-text-bottom"> ${clientInfo.latestIntervention.description}</div>
     </div>
 
     <div class="cost">Total TTC: ${clientInfo.latestIntervention.cost} €</div>
@@ -186,7 +188,17 @@ export default function ClientPreviewPage() {
           ? `<div class="accept-risk">J'accepte le risque de casse de l'ecran tactile ou lcd. Produit concerné  ${clientInfo.latestIntervention.deviceType}.</div>`
           : ""
       }
-      <p class="info-recup"><strong>Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</strong></p>
+		  ${
+  clientInfo.latestIntervention.remarks
+    ? `
+	<div class="box">
+	<div class="alert">Remarque du technicien</div>
+	
+       <div><div class="terms-text-bottom"> ${clientInfo.latestIntervention.remarks}</div></div></div>`
+    : ""
+}
+
+      <p class="info-recup">Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.</p>
     </div>
 
 <div class="section-title">Signature du Client</div>
@@ -334,6 +346,12 @@ export default function ClientPreviewPage() {
                     une sauvegarde récente ou ancienne de ses données sur un
                     autre support.
                 </Text>
+				{clientInfo.latestIntervention.remarks ? (
+  <View style={styles.remarqueSection}>
+    <Text style={styles.sectionTitle}>Remarque du technicien</Text>
+    <Text>{clientInfo.latestIntervention.remarks}</Text>
+  </View>
+) : null}
                 <Text style={styles.termsText}>
                     Toute intervention effectuée par le personnel d'AVENIR
                     INFORMATIQUE se fait sous l’entière responsabilité du
@@ -557,4 +575,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginBottom: 5,
     },
+	remarqueSection: {
+  marginBottom: 20,
+},
 });

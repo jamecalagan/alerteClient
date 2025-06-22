@@ -82,6 +82,10 @@ export default function AddInterventionPage({ route, navigation }) {
     const [remarks, setRemarks] = useState(""); // État pour les remarques
     const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
     const [clientName, setClientName] = useState("");
+    const [showDeviceTypes, setShowDeviceTypes] = useState(true);
+    const [showBrands, setShowBrands] = useState(true);
+    const [showModels, setShowModels] = useState(true);
+
     const [partialPayment, setPartialPayment] = useState(""); // Montant de l'acompte
     useEffect(() => {
         loadProducts();
@@ -221,14 +225,10 @@ export default function AddInterventionPage({ route, navigation }) {
     const handleDeviceTypeChange = async (value) => {
         setDeviceType(value);
         setCustomDeviceType("");
-        const selectedProduct = products.find(
-            (product) => product.nom === value
-        );
-        if (selectedProduct) {
-            await loadBrands(selectedProduct.id);
-        } else {
-            setBrands([]);
-        }
+        setShowDeviceTypes(false); // on referme la liste
+        const selectedProduct = products.find((p) => p.nom === value);
+        if (selectedProduct) await loadBrands(selectedProduct.id);
+        setShowBrands(true); // on ouvre la liste suivante
     };
 
     const [selectedBrandName, setSelectedBrandName] = useState(""); // Nouvel état pour stocker le nom
@@ -236,13 +236,12 @@ export default function AddInterventionPage({ route, navigation }) {
     const handleBrandChange = async (value) => {
         setBrand(value);
         setCustomBrand("");
+        setShowBrands(false); // on referme la liste
         const selectedBrand = brands.find((b) => b.id === value);
-        if (selectedBrand) {
-            await loadModels(selectedBrand.id);
-        } else {
-            setModels([]);
-        }
+        if (selectedBrand) await loadModels(selectedBrand.id);
+        setShowModels(true); // on ouvre la suivante
     };
+
     const addArticleIfNeeded = async () => {
         console.log("📥 addArticleIfNeeded appelée");
 
@@ -326,20 +325,33 @@ export default function AddInterventionPage({ route, navigation }) {
     };
 
     const handleSaveIntervention = async () => {
-        if (
-            !reference ||
-            !brand ||
-            !model ||
-            !description ||
-            deviceType === "default" ||
-            status === "default"
-        ) {
-            Alert.alert(
-                "Erreur",
-                "Tous les champs doivent être remplis et une option doit être sélectionnée."
-            );
-            return;
-        }
+const errors = [];
+
+if (!reference) errors.push("Référence");
+if (!brand || brand === "default") errors.push("Marque");
+if (!model || model === "default") errors.push("Modèle");
+if (!description) errors.push("Description");
+if (deviceType === "default") errors.push("Type de produit");
+if (status === "default") errors.push("Statut");
+
+if (status !== "Devis en cours" && !cost) {
+    errors.push("Coût de la réparation");
+}
+
+if (!labelPhoto) {
+    errors.push("Photo d’étiquette");
+}
+
+if (paymentStatus === "reglement_partiel" && (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))) {
+    errors.push("Acompte valide");
+}
+
+if (errors.length > 0) {
+    const errorMsg = "Champs manquants ou incorrects :\n\n" + errors.join("\n");
+    Alert.alert("Erreur", errorMsg);
+    return;
+}
+
 
         // Vérification du coût sauf si le statut est "Devis en cours"
         if (status !== "Devis en cours" && !cost) {
@@ -515,7 +527,6 @@ export default function AddInterventionPage({ route, navigation }) {
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.container}
-
         >
             {clientName && (
                 <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>
@@ -526,119 +537,182 @@ export default function AddInterventionPage({ route, navigation }) {
                     flexGrow: 1,
                 }}
             >
-                <Text style={styles.label}>Type de produit</Text>
-                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
-                <View style={styles.buttonGroup}>
-                    {products
-                        .sort((a, b) => a.nom.localeCompare(b.nom))
-                        .map((product) => (
+                <View>
+                    <Text style={styles.label}>Type de produit</Text>
+                    {showDeviceTypes ? (
+                        <View style={styles.buttonGroup}>
+                            {products
+                                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
+                                .map((p) => (
+                                    <TouchableOpacity
+                                        key={p.id}
+                                        style={[
+                                            styles.selectionButton,
+                                            deviceType === p.nom &&
+                                                styles.selectedButton,
+                                        ]}
+                                        onPress={() =>
+                                            handleDeviceTypeChange(p.nom)
+                                        }
+                                    >
+                                        <Text style={styles.selectionText}>
+                                            {p.nom}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
                             <TouchableOpacity
-                                key={product.id}
                                 style={[
                                     styles.selectionButton,
-                                    deviceType === product.nom &&
+                                    deviceType === "Autre" &&
                                         styles.selectedButton,
                                 ]}
-                                onPress={() =>
-                                    handleDeviceTypeChange(product.nom)
-                                }
+                                onPress={() => handleDeviceTypeChange("Autre")}
                             >
-                                <Text style={styles.selectionText}>
-                                    {product.nom}
-                                </Text>
+                                <Text style={styles.selectionText}>Autre</Text>
                             </TouchableOpacity>
-                        ))}
-                    <TouchableOpacity
-                        style={[
-                            styles.selectionButton,
-                            deviceType === "Autre" && styles.selectedButton,
-                        ]}
-                        onPress={() => handleDeviceTypeChange("Autre")}
-                    >
-                        <Text style={styles.selectionText}>Autre</Text>
-                    </TouchableOpacity>
-                </View>
-                {deviceType === "Autre" && (
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Entrez le type de produit"
-                        placeholderTextColor="#191f2f"
-                        value={customDeviceType}
-                        onChangeText={setCustomDeviceType}
-                    />
-                )}
+                        </View>
+                    ) : (
+                        <>
+                            <Text style={styles.selectedInfo}>
+                                Produit : {deviceType}
+                            </Text>
+                            {deviceType === "Autre" && (
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Entrez le type de produit"
+                                    value={customDeviceType}
+                                    onChangeText={setCustomDeviceType}
+                                />
+                            )}
+                            <View style={styles.reopenContainer}>
+                                <TouchableOpacity
+                                    style={styles.reopenButton}
+                                    onPress={() => setShowDeviceTypes(true)}
+                                >
+                                    <Text style={styles.reopenButtonText}>
+                                        Modifier le produit
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
 
-                <Text style={styles.label}>Marque</Text>
-                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
-                <View style={styles.buttonGroup}>
-                    {brands
-                        .sort((a, b) => a.nom.localeCompare(b.nom))
-                        .map((brandOption) => (
+                    <Text style={styles.label}>Marque</Text>
+                    {showBrands ? (
+                        <View style={styles.buttonGroup}>
+                            {brands
+                                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
+                                .map((b) => (
+                                    <TouchableOpacity
+                                        key={b.id}
+                                        style={[
+                                            styles.selectionButton,
+                                            brand === b.id &&
+                                                styles.selectedButton,
+                                        ]}
+                                        onPress={() => handleBrandChange(b.id)}
+                                    >
+                                        <Text style={styles.selectionText}>
+                                            {b.nom}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
                             <TouchableOpacity
-                                key={brandOption.id}
                                 style={[
                                     styles.selectionButton,
-                                    brand === brandOption.id &&
-                                        styles.selectedButton,
+                                    brand === "Autre" && styles.selectedButton,
                                 ]}
-                                onPress={() =>
-                                    handleBrandChange(brandOption.id)
-                                }
+                                onPress={() => handleBrandChange("Autre")}
                             >
-                                <Text style={styles.selectionText}>
-                                    {brandOption.nom}
+                                <Text style={styles.selectionText}>Autre</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <Text style={styles.selectedInfo}>
+                                Marque :{" "}
+                                {customBrand ||
+                                    brands.find((b) => b.id === brand)?.nom}
+                            </Text>
+                            {brand === "Autre" && (
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Entrez la marque"
+                                    value={customBrand}
+                                    onChangeText={setCustomBrand}
+                                />
+                            )}
+                            <TouchableOpacity
+                                style={styles.reopenButton}
+                                onPress={() => setShowBrands(true)}
+                            >
+                                <Text style={styles.reopenButtonText}>
+                                    Modifier la marque
                                 </Text>
                             </TouchableOpacity>
-                        ))}
-                    <TouchableOpacity
-                        style={[
-                            styles.selectionButton,
-                            brand === "Autre" && styles.selectedButton,
-                        ]}
-                        onPress={() => handleBrandChange("Autre")}
-                    >
-                        <Text style={styles.selectionText}>Autre</Text>
-                    </TouchableOpacity>
-                </View>
-                {brand === "Autre" && (
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Entrez la marque"
-                        value={customBrand}
-                        onChangeText={setCustomBrand}
-                    />
-                )}
+                        </>
+                    )}
 
-                <Text style={styles.label}>Modèle</Text>
-                <View style={{ height: 2, backgroundColor: "#cacaca" }} />
-                <View style={styles.buttonGroup}>
-                    {models
-                        .sort((a, b) => a.nom.localeCompare(b.nom))
-                        .map((modelOption) => (
+                    <Text style={styles.label}>Modèle</Text>
+                    {showModels ? (
+                        <View style={styles.buttonGroup}>
+                            {models
+                                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
+                                .map((m) => (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        style={[
+                                            styles.selectionButton,
+                                            model === m.id &&
+                                                styles.selectedButton,
+                                        ]}
+                                        onPress={() => {
+                                            setModel(m.id);
+                                            setShowModels(false);
+                                        }}
+                                    >
+                                        <Text style={styles.selectionText}>
+                                            {m.nom}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
                             <TouchableOpacity
-                                key={modelOption.id}
                                 style={[
                                     styles.selectionButton,
-                                    model === modelOption.id &&
-                                        styles.selectedButton,
+                                    model === "Autre" && styles.selectedButton,
                                 ]}
-                                onPress={() => setModel(modelOption.id)}
+                                onPress={() => setModel("Autre")}
                             >
-                                <Text style={styles.selectionText}>
-                                    {modelOption.nom}
+                                <Text style={styles.selectionText}>Autre</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <Text style={styles.selectedInfo}>
+                                Modèle :{" "}
+                                {customModel ||
+                                    models.find((m) => m.id === model)?.nom}
+                            </Text>
+                            {model === "Autre" && (
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Entrez le modèle"
+                                    value={customModel}
+                                    onChangeText={setCustomModel}
+                                />
+                            )}
+                            <TouchableOpacity
+                                style={styles.reopenButton}
+                                onPress={() => setShowBrands(true)}
+                            >
+                                <Text style={styles.reopenButtonText}>
+                                    Modifier le modèle
                                 </Text>
                             </TouchableOpacity>
-                        ))}
-                    <TouchableOpacity
-                        style={[
-                            styles.selectionButton,
-                            model === "Autre" && styles.selectedButton,
-                        ]}
-                        onPress={() => setModel("Autre")}
-                    >
-                        <Text style={styles.selectionText}>Autre</Text>
-                    </TouchableOpacity>
+                        </>
+                    )}
                 </View>
+
                 {model === "Autre" && (
                     <TextInput
                         style={styles.input}
@@ -1387,5 +1461,33 @@ const styles = StyleSheet.create({
         color: "#ffffff",
         fontWeight: "bold",
         fontSize: 14,
+    },
+    selectedInfo: {
+        fontSize: 18,
+        color: "#2c3e50",
+        fontStyle: "italic",
+        textAlign: "center",
+        marginBottom: 10,
+    },
+
+    reopenButton: {
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    reopenText: {
+        color: "#007bff",
+        fontSize: 14,
+        textDecorationLine: "underline",
+    },
+    reopenButton: {
+        backgroundColor: "#007bff",
+        padding: 10,
+        borderRadius: 4,
+        marginBottom: 15,
+    },
+    reopenButtonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        textAlign: "center",
     },
 });

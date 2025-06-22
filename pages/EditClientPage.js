@@ -111,7 +111,8 @@ export default function EditClientPage({ route, navigation }) {
 		  devis_cost,
 		  remarks,
 		  imprimee,
-		  print_etiquette
+		  print_etiquette,
+commande_effectuee
 		)
 	  `
             )
@@ -439,6 +440,49 @@ export default function EditClientPage({ route, navigation }) {
                                     <Text style={styles.interventionText}>
                                         Produit en commande: {item.commande || "Non précisé"}
                                     </Text>
+<TouchableOpacity
+    style={{
+        backgroundColor: item.commande_effectuee ? "#d6d6d6" : "#fffde7",
+        borderWidth: 1,
+        borderColor: item.commande_effectuee ? "#999" : "#f9a825",
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 8,
+        opacity: item.commande_effectuee ? 0.6 : 1,
+    }}
+    disabled={item.commande_effectuee}
+    onPress={() => {
+        const newValue = true;
+        showAlert(
+            "Confirmer",
+            "Marquer ce produit comme commandé ?",
+            async () => {
+                const { error } = await supabase
+                    .from("interventions")
+                    .update({ commande_effectuee: newValue })
+                    .eq("id", item.id);
+                if (!error) {
+                    const updatedInterventions = interventions.map((i) =>
+                        i.id === item.id ? { ...i, commande_effectuee: newValue } : i
+                    );
+                    setInterventions(updatedInterventions);
+                }
+            }
+        );
+    }}
+>
+    <Text
+        style={{
+            textAlign: "center",
+            color: item.commande_effectuee ? "#666" : "#f57f17",
+            fontWeight: "bold",
+        }}
+    >
+        {item.commande_effectuee ? "✅ Produit commandé" : "Produit commandé ?"}
+    </Text>
+</TouchableOpacity>
+
+
                                     <TouchableOpacity
                                         style={styles.commandeRecuButton}
                                         onPress={() => {

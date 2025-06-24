@@ -16,7 +16,7 @@ const ExpressTypeSelectorPage = () => {
         navigation.navigate("ExpressClientPage", { type });
     };
     const animationValues = useRef(
-        Array(10)
+        Array(11)
             .fill()
             .map(() => new Animated.Value(0))
     ).current;
@@ -44,14 +44,14 @@ const ExpressTypeSelectorPage = () => {
         const animations = animationValues.map((anim, index) =>
             Animated.spring(anim, {
                 toValue: 1,
-                delay: index * 80,
+                delay: index * 40,
                 friction: 6,
                 tension: 100,
                 useNativeDriver: true,
             })
         );
 
-        Animated.stagger(100, animations).start();
+        Animated.stagger(40, animations).start();
     }, []);
 
     return (
@@ -200,6 +200,11 @@ const ExpressTypeSelectorPage = () => {
                             bg: "#2b8a3e",
                             text: "Messagerie SMS",
                             action: () => Linking.openURL("sms:"), // 👈 au lieu de "route"
+                        },
+						                        {
+                            bg: "#7f0883",
+                            text: "Liste des Fiches de Contrôle",
+                            route: "CheckupListPage",
                         },
                     ];
 

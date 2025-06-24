@@ -134,17 +134,19 @@ const ExpressClientPage = () => {
                         </Text>
 
                         {/* -- GESTION DU FOCUS -- */}
-                        <TextInput
-                            style={[
-                                styles.input,
-                                focusedField === "name" && styles.inputFocused,
-                            ]}
-                            placeholder="Nom"
-                            value={name}
-                            onChangeText={searchClients}
-                            onFocus={() => setFocusedField("name")}
-                            onBlur={() => setFocusedField(null)}
-                        />
+<TextInput
+  style={[
+    styles.input,
+    focusedField === "name" && styles.inputFocused,
+  ]}
+  placeholder="Nom"
+  value={name}
+  onChangeText={(text) => searchClients(text.toUpperCase())}
+  onFocus={() => setFocusedField("name")}
+  onBlur={() => setFocusedField(null)}
+  autoCapitalize="characters"
+/>
+
 
                         {clientSuggestions.length > 0 &&
                             clientSuggestions.map((item, index) => (

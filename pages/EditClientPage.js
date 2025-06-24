@@ -9,6 +9,7 @@ import {
     Image,
     Animated,
     Easing,
+	Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient"; // Import du client Supabase
 
@@ -17,6 +18,22 @@ import AlertBox from "../components/AlertBox"; // Import du composant AlertBox
 import * as Print from "expo-print"; // Pour l'impression
 export default function EditClientPage({ route, navigation }) {
     const { client } = route.params;
+	const [checkupExists, setCheckupExists] = useState(false);
+
+useEffect(() => {
+  const checkIfCheckupExists = async () => {
+    const { data, error } = await supabase
+      .from("checkup_reports")
+      .select("id")
+      .eq("client_phone", client.phone)
+      .limit(1);
+
+    setCheckupExists(data && data.length > 0);
+  };
+
+  checkIfCheckupExists();
+}, []);
+
     // États pour gérer les informations du client
     const [name, setName] = useState(client.name || "");
     const [phone, setPhone] = useState(client.phone || "");
@@ -571,6 +588,45 @@ commande_effectuee
                                     }}
                                 />
                             </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    styles.printButton,
+    {
+      right: 90,
+      backgroundColor: checkupExists ? "#aaa" : "#6c5ce7",
+    },
+  ]}
+onPress={() => {
+  if (checkupExists) {
+    Alert.alert("Fiche déjà créée", "Une fiche de contrôle existe déjà pour ce client.");
+    return;
+  }
+
+  const currentIntervention =
+    Array.isArray(interventions) && interventions.length > 0
+      ? interventions[0]
+      : null;
+
+  console.log("Type de produit envoyé :", currentIntervention?.deviceType);
+
+  navigation.navigate("CheckupPage", {
+    clientName: client.name,
+    clientPhone: client.phone,
+    clientDate: new Date().toLocaleDateString("fr-FR"),
+    deviceType: currentIntervention?.deviceType || "PC Portable",
+  });
+}}
+
+>
+  <Image
+    source={require("../assets/icons/checklist.png")}
+    style={{
+      width: 28,
+      height: 28,
+      tintColor: "#ffffff",
+    }}
+  />
+</TouchableOpacity>
 
                             <TouchableOpacity
                                 style={styles.printButton}

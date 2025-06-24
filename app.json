@@ -1,11 +1,9 @@
 {
   "expo": {
-	"newArchEnabled": true,
+    "newArchEnabled": true,
     "name": "AlerteClient",
     "slug": "AlerteClient",
-
     "version": "4.0.0",
-
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -39,6 +37,9 @@
       "eas": {
         "projectId": "d74e966a-4769-402f-a4b0-761ead626c27"
       }
-    }
+    },
+    "plugins": [
+      "expo-mail-composer"
+    ]
   }
 }

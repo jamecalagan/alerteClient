@@ -53,6 +53,8 @@ export default function EditInterventionPage({ route, navigation }) {
     const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
     const [clientName, setClientName] = useState("");
     const [partialPayment, setPartialPayment] = useState("");
+	const [noCostButRestitution, setNoCostButRestitution] = useState(false);
+
     const [solderestant, setSolderestant] = useState("");
     useEffect(() => {
         loadIntervention();
@@ -362,9 +364,10 @@ if (!description) errors.push("Description");
 if (!deviceType || deviceType === "default" || deviceType === "") errors.push("Type de produit");
 if (!status || status === "default") errors.push("Statut");
 
-if (status !== "Devis en cours" && !cost) {
+if (status !== "Devis en cours" && !cost && !noCostButRestitution) {
     errors.push("Coût de la réparation");
 }
+
 
 if (!labelPhoto) {
     errors.push("Photo d’étiquette");
@@ -427,6 +430,7 @@ if (errors.length > 0) {
             cost: costValue,
             solderestant: solderestantValue || 0,
             partialPayment: partialPaymentValue || null,
+			no_cost_but_restitution: noCostButRestitution,
             status,
             password,
             serial_number,
@@ -695,6 +699,8 @@ if (errors.length > 0) {
                             onPress={() => {
                                 setPaymentStatus("non_regle");
                                 setPartialPayment("");
+								setNoCostButRestitution(false);
+
                             }}
                             style={styles.checkboxRow}
                         >
@@ -715,9 +721,11 @@ if (errors.length > 0) {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() =>
-                                setPaymentStatus("reglement_partiel")
-                            }
+                            onPress={() =>{
+                                setPaymentStatus("reglement_partiel");
+								setNoCostButRestitution(false);
+
+                            }}
                             style={styles.checkboxRow}
                         >
                             <View style={styles.checkbox}>
@@ -739,7 +747,9 @@ if (errors.length > 0) {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() => setPaymentStatus("solde")}
+                            onPress={() => { setPaymentStatus("solde");
+							setNoCostButRestitution(false);
+							}}
                             style={styles.checkboxRow}
                         >
                             <View style={styles.checkbox}>
@@ -757,6 +767,36 @@ if (errors.length > 0) {
                             </View>
                             <Text style={styles.checkboxLabel}>Soldé</Text>
                         </TouchableOpacity>
+<TouchableOpacity
+    onPress={() => {
+        const newValue = !noCostButRestitution;
+        setNoCostButRestitution(newValue);
+        if (newValue) {
+            setPaymentStatus(""); // on vide le statut de paiement
+            setPartialPayment(""); // on vide l'acompte aussi par sécurité
+        }
+    }}
+    style={styles.checkboxRow}
+>
+    <View style={styles.checkbox}>
+        {noCostButRestitution && (
+            <Image
+                source={require("../assets/icons/checked.png")}
+                style={{
+                    width: 20,
+                    height: 20,
+                    tintColor: "#6a1b9a", // violet
+                }}
+                resizeMode="contain"
+            />
+        )}
+    </View>
+    <Text style={styles.checkboxLabel}>
+        rien à payer
+    </Text>
+</TouchableOpacity>
+
+
                     </View>
                 </View>
 

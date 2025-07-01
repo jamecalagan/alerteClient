@@ -9,6 +9,7 @@ import {
   TextInput,
   Image,
   Dimensions,
+  KeyboardAvoidingView,
 } from "react-native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
@@ -20,7 +21,7 @@ export default function CheckupPage() {
   const route = useRoute();
   const navigation = useNavigation();
   const sigRef = useRef(null);
-
+const [isSigning, setIsSigning] = useState(false);
   const isEdit = route.params?.isEdit || false;
   const editData = route.params?.checkup || null;
 
@@ -268,8 +269,9 @@ useEffect(() => {
     await Print.printAsync({ html });
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
+return (
+  <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+    <ScrollView contentContainerStyle={styles.container} scrollEnabled={!isSigning}>
       <Text style={styles.title}>Fiche de contrôle</Text>
 
       <View style={styles.infoBox}>
@@ -280,45 +282,34 @@ useEffect(() => {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorContainer}>
-{nonMacProducts.map((type) => {
-  const knownTypes = Object.keys(productComponents);
-  const isTypeKnown = knownTypes.includes(selectedProduct);
-  const isAutre = type === "Autre";
-
-  // Si c'est "Autre" ET que le type sélectionné est inconnu => on affiche le vrai nom
-  const label = isAutre && !isTypeKnown ? selectedProduct : type;
-
-  // Le bouton est sélectionné si :
-  // - c’est un type connu et il est sélectionné
-  // - ou c’est "Autre" et le type sélectionné est inconnu
-  const isSelected =
-    (isTypeKnown && selectedProduct === type) ||
-    (!isTypeKnown && isAutre);
-
-  return (
-    <TouchableOpacity
-      key={type}
-      style={[styles.selector, isSelected && styles.selected]}
-      onPress={() => {
-        if (isTypeKnown || !isAutre) {
-          setSelectedProduct(type);
-        }
-      }}
-    >
-      <Text
-        style={[
-          styles.selectorText,
-          isSelected && { color: "#fff" },
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-})}
-
-
+        {nonMacProducts.map((type) => {
+          const knownTypes = Object.keys(productComponents);
+          const isTypeKnown = knownTypes.includes(selectedProduct);
+          const isAutre = type === "Autre";
+          const label = isAutre && !isTypeKnown ? selectedProduct : type;
+          const isSelected =
+            (isTypeKnown && selectedProduct === type) ||
+            (!isTypeKnown && isAutre);
+          return (
+            <TouchableOpacity
+              key={type}
+              style={[styles.selector, isSelected && styles.selected]}
+              onPress={() => {
+                if (isTypeKnown || !isAutre) {
+                  setSelectedProduct(type);
+                }
+              }}
+            >
+              <Text
+                style={[styles.selectorText, isSelected && { color: "#fff" }]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorContainer}>
         {macProducts.map((type) => (
           <TouchableOpacity
@@ -333,8 +324,6 @@ useEffect(() => {
 
       <Text style={styles.subtitle}>État des composants :</Text>
       {(productComponents[selectedProduct] || productComponents["Autre"]).map((name) => (
-
-
         <View key={name} style={styles.componentRow}>
           <Text style={{ flex: 1 }}>{name}</Text>
           {["Bon", "Moyen", "Mauvais", "Absent"].map((state) => {
@@ -387,7 +376,11 @@ useEffect(() => {
           clearText="Effacer"
           confirmText="Valider"
           webStyle=".m-signature-pad--footer {display:none;}"
-          onEnd={() => sigRef.current?.readSignature()}
+          onEnd={() => {
+            sigRef.current?.readSignature();
+            setIsSigning(false);
+          }}
+          onBegin={() => setIsSigning(true)}
         />
         <TouchableOpacity onPress={handleClearSig} style={styles.clearButton}>
           <Text style={{ color: "red", textAlign: "center" }}>❌ Effacer la signature</Text>
@@ -408,7 +401,9 @@ useEffect(() => {
         )}
       </View>
     </ScrollView>
-  );
+  </KeyboardAvoidingView>
+);
+
 }
 
 const styles = StyleSheet.create({

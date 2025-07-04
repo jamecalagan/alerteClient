@@ -29,7 +29,7 @@ export default function AdminPage({ navigation, route }) {
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
-    const backgroundImage = require("../assets/listing2.jpg");
+
     const [clients, setClients] = useState({
         all: [],
     });
@@ -88,44 +88,61 @@ export default function AdminPage({ navigation, route }) {
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-             <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
+            <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <View style={styles.container}>
-<View style={styles.row}>
-    <TouchableOpacity
-        style={[styles.actionButton]}
-        onPress={() => navigation.navigate("SearchClientsPage")}
-    >
-        <Image
-            source={require("../assets/icons/search.png")}
-            style={styles.iconSearch}
-        />
-        <Text style={styles.buttonText}>Recherche multi-critères</Text>
-    </TouchableOpacity>
+                        {/* -------------------- Barre de boutons actions -------------------- */}
+                        <View style={styles.row}>
+                            {/* Recherche multi-critères */}
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => navigation.navigate("SearchClientsPage")}
+                            >
+                                <Image
+                                    source={require("../assets/icons/search.png")}
+                                    style={styles.iconSearch}
+                                />
+                                <Text style={styles.buttonText}>Recherche multi-critères</Text>
+                            </TouchableOpacity>
 
-    <TouchableOpacity
-        style={[styles.actionButton]}
-        onPress={() => navigation.navigate("ArticlesPage")}
-    >
-        <Image
-            source={require("../assets/icons/list.png")}
-            style={styles.iconSearch}
-        />
-        <Text style={styles.buttonText}>Gérer Produits, Marques et Modèles</Text>
-    </TouchableOpacity>
+                            {/* Gestion produits, marques, modèles */}
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => navigation.navigate("ArticlesPage")}
+                            >
+                                <Image
+                                    source={require("../assets/icons/list.png")}
+                                    style={styles.iconSearch}
+                                />
+                                <Text style={styles.buttonText}>Gérer Produits, Marques et Modèles</Text>
+                            </TouchableOpacity>
 
-    <TouchableOpacity
-        style={[styles.actionButton]}
-        onPress={() => navigation.navigate("AddProductPage")}
-    >
-        <Image
-            source={require("../assets/icons/add_product.png")}
-            style={styles.iconSearch}
-        />
-        <Text style={styles.buttonText}> Ajouter un produit</Text>
-    </TouchableOpacity>
-</View>
+                            {/* Ajouter un produit */}
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => navigation.navigate("AddProductPage")}
+                            >
+                                <Image
+                                    source={require("../assets/icons/add_product.png")}
+                                    style={styles.iconSearch}
+                                />
+                                <Text style={styles.buttonText}>Ajouter un produit</Text>
+                            </TouchableOpacity>
 
+                            {/* ➕ Nouveau bouton Barème des réparations */}
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => navigation.navigate("RepairPrices")}
+                            >
+                                <Image
+                                    source={require("../assets/icons/tools.png")}
+                                    style={styles.iconSearch}
+                                />
+                                <Text style={styles.buttonText}>Barème réparations</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* -------------------- Recherche + Liste clients -------------------- */}
                         <Text style={styles.sectionTitle}>
                             Recherche dans la liste complète des clients
                         </Text>
@@ -133,12 +150,10 @@ export default function AdminPage({ navigation, route }) {
                             <TextInput
                                 style={styles.searchInput}
                                 placeholder="RECHERCHER PAR NOM OU TÉLÉPHONE"
-                                placeholderTextColor="#575757" // Change la couleur du placeholder ici
+                                placeholderTextColor="#575757"
                                 value={searchText}
                                 autoCapitalize="characters"
-                                onChangeText={(text) =>
-                                    setSearchText(text.toUpperCase())
-                                }
+                                onChangeText={(text) => setSearchText(text.toUpperCase())}
                             />
                             <MaterialIcons
                                 name="search"
@@ -148,9 +163,7 @@ export default function AdminPage({ navigation, route }) {
                             />
                         </View>
 
-                        <Text style={styles.sectionTitle}>
-                            Liste complète des clients
-                        </Text>
+                        <Text style={styles.sectionTitle}>Liste complète des clients</Text>
                         {currentData.length > 0 ? (
                             <FlatList
                                 data={currentData || []}
@@ -159,91 +172,63 @@ export default function AdminPage({ navigation, route }) {
                                     <TouchableOpacity
                                         onPress={() => {
                                             if (item?.id) {
-                                                navigation.navigate(
-                                                    "ClientInterventionsPage",
-                                                    { clientId: item.id }
-                                                );
+                                                navigation.navigate("ClientInterventionsPage", {
+                                                    clientId: item.id,
+                                                });
                                             }
                                         }}
                                         style={[
                                             styles.clientItem,
                                             {
-                                                backgroundColor:
-                                                    index % 2 === 0
-                                                        ? "#d3d3d3"
-                                                        : "#b1b1b1",
+                                                backgroundColor: index % 2 === 0 ? "#d3d3d3" : "#b1b1b1",
                                             },
                                         ]}
                                     >
                                         <Text style={styles.clientText}>
-                                            Fiche client N°:{" "}
-                                            {item?.ficheNumber ||
-                                                "Non disponible"}
+                                            Fiche client N°: {item?.ficheNumber || "Non disponible"}
                                         </Text>
                                         <Text style={styles.clientText}>
-                                            Nom :{" "}
-                                            {item?.name || "Non disponible"}
+                                            Nom : {item?.name || "Non disponible"}
                                         </Text>
                                         <Text style={styles.clientText}>
-                                            Téléphone :{" "}
-                                            {item?.phone
-                                                ? item.phone.replace(
-                                                      /(\d{2})(?=\d)/g,
-                                                      "$1 "
-                                                  )
-                                                : "Non disponible"}
+                                            Téléphone : {item?.phone ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ") : "Non disponible"}
                                         </Text>
                                     </TouchableOpacity>
                                 )}
                             />
                         ) : (
-                            <Text style={styles.noDataText}>
-                                Aucun client à afficher.
-                            </Text>
+                            <Text style={styles.noDataText}>Aucun client à afficher.</Text>
                         )}
+
+                        {/* -------------------- Boutons actions bas de page -------------------- */}
                         <TouchableOpacity
                             onPress={() => navigation.navigate("ImageBackup")}
-                            style={{
-                                backgroundColor: "#24435c",
-                                padding: 12,
-                                marginVertical: 10,
-                                borderRadius: 8,
-                                borderWidth: 1,
-                                borderColor: "#888787",
-                                alignItems: "center",
-                            }}
+                            style={styles.backupButton}
                         >
-                            <Text
-                                style={{ color: "#888787", fontWeight: "bold" }}
-                            >
+                            <Text style={{ color: "#888787", fontWeight: "bold" }}>
                                 SAUVEGARDER LES IMAGES
                             </Text>
                         </TouchableOpacity>
-						<TouchableOpacity
-  style={{ backgroundColor: "#007bff", padding: 10, borderRadius: 8, marginTop: 20 }}
-  onPress={() => navigation.navigate("ProductViewer")}
->
-  <Text style={{ color: "#fff", textAlign: "center" }}>🔍 Recherche de produit sur le web</Text>
-</TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.webSearchButton}
+                            onPress={() => navigation.navigate("ProductViewer")}
+                        >
+                            <Text style={{ color: "#fff", textAlign: "center" }}>
+                                🔍 Recherche de produit sur le web
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Pagination */}
                         <View style={styles.paginationContainer}>
                             <TouchableOpacity
-                                onPress={() =>
-                                    handlePageChange(currentPage - 1)
-                                }
+                                onPress={() => handlePageChange(currentPage - 1)}
                                 disabled={currentPage === 1}
                                 style={styles.chevronButton}
                             >
                                 <Image
                                     source={require("../assets/icons/chevrong.png")}
-                                    style={[
-                                        styles.chevronIcon,
-                                        {
-                                            tintColor:
-                                                currentPage === 1
-                                                    ? "gray"
-                                                    : "white",
-                                        },
-                                    ]}
+                                    style={[styles.chevronIcon, { tintColor: currentPage === 1 ? "gray" : "white" }]}
                                 />
                             </TouchableOpacity>
 
@@ -252,58 +237,60 @@ export default function AdminPage({ navigation, route }) {
                             </Text>
 
                             <TouchableOpacity
-                                onPress={() =>
-                                    handlePageChange(currentPage + 1)
-                                }
+                                onPress={() => handlePageChange(currentPage + 1)}
                                 disabled={currentPage === totalPages}
                                 style={styles.chevronButton}
                             >
                                 <Image
                                     source={require("../assets/icons/chevrond.png")}
-                                    style={[
-                                        styles.chevronIcon,
-                                        {
-                                            tintColor:
-                                                currentPage === totalPages
-                                                    ? "gray"
-                                                    : "white",
-                                        },
-                                    ]}
+                                    style={[styles.chevronIcon, { tintColor: currentPage === totalPages ? "gray" : "white" }]}
                                 />
                             </TouchableOpacity>
                         </View>
                     </View>
                 </TouchableWithoutFeedback>
-                <View>
-                    <BottomNavigation
-                        navigation={navigation}
-                        currentRoute={route.name}
-                    />
-                </View>
+
+                {/* Bottom navigation */}
+                <BottomNavigation navigation={navigation} currentRoute={route.name} />
             </View>
         </KeyboardAvoidingView>
     );
 }
 
+// -------------------- Styles --------------------
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
     },
-
-    input: {
-        borderWidth: 1,
-        borderColor: "#888787",
-        padding: 10,
-        marginVertical: 10,
-        borderRadius: 5,
-		elevation: 2,
+    row: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 15,
     },
-    picker: {
-        marginVertical: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        borderRadius: 5,
+    actionButton: {
+        flex: 1,
+        backgroundColor: "#191f2f",
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        marginHorizontal: 5,
+        height: 100,
+    },
+    iconSearch: {
+        width: 24,
+        height: 24,
+        tintColor: "#fff",
+        marginBottom: 8,
+    },
+    buttonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 12,
+        textAlign: "center",
     },
     sectionTitle: {
         fontSize: 18,
@@ -311,61 +298,25 @@ const styles = StyleSheet.create({
         color: "#242424",
         marginVertical: 10,
     },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#888787",
-        marginBottom: 20,
-        textAlign: "center",
-    },
-    addButton: {
-        backgroundColor: "#cacaca",
-        paddingVertical: 12,
-        borderRadius: 5,
-        alignItems: "center",
-        marginVertical: 10,
-        elevation: 2,
-    },
-    button: {
+    searchContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#cacaca",
-        padding: 15,
         borderWidth: 1,
-        borderRadius: 5,
-        borderColor: "#242424",
-        marginBottom: 20,
-		elevation: 5,
-    },
-buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
-    textAlign: "center",
-},
-    toggleButton: {
-        flexDirection: "row",
-        backgroundColor: "#191f2f",
-        paddingVertical: 12,
-        borderWidth: 1,
-        borderRadius: 5,
         borderColor: "#888787",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 5,
-        elevation: 5,
-    },
-    toggleButtonCreer: {
-        flexDirection: "row",
-        backgroundColor: "#191f2f",
-        paddingVertical: 12,
-        borderWidth: 1,
         borderRadius: 5,
-        borderColor: "#888787",
-        alignItems: "center",
-        justifyContent: "center",
+        paddingHorizontal: 10,
         marginBottom: 15,
-        elevation: 5,
+        backgroundColor: "#cacaca",
+    },
+    searchInput: {
+        flex: 1,
+        height: 40,
+        fontSize: 16,
+        color: "#242424",
+        paddingHorizontal: 10,
+    },
+    searchIcon: {
+        marginLeft: 10,
     },
     clientItem: {
         padding: 15,
@@ -380,96 +331,44 @@ buttonText: {
         fontSize: 16,
         color: "#242424",
     },
-    navigateButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
-        backgroundColor: "#191f2f",
-        padding: 15,
-        borderRadius: 5,
-        marginBottom: 20,
-        borderColor: "#888787",
-		elevation: 5,
+    noDataText: {
+        textAlign: "center",
+        color: "#888888",
+        marginTop: 20,
     },
-    icon: {
-        marginRight: 10,
-    },
-iconSearch: {
-    width: 24,
-    height: 24,
-    tintColor: "#fff",
-    marginBottom: 8,
-},
-    pickerContainer: {
-        backgroundColor: "#cacaca",
-        borderRadius: 5,
-        padding: 5,
+    backupButton: {
+        backgroundColor: "#24435c",
+        padding: 12,
         marginVertical: 10,
-
-        // Ombre pour iOS
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-
-        // Ombre pour Android
-        elevation: 2,
-    },
-    buttonTextGestion: {
-        color: "#888787",
-        fontSize: 16,
-        fontWeight: "medium",
-    },
-    searchContainer: {
-        flexDirection: "row",
-        alignItems: "center",
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: "#888787",
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        marginBottom: 15,
-        backgroundColor: "#cacaca",
-        fontSize: 16,
-        color: "#242424",
-    },
-    searchInput: {
-        flex: 1, // Occupe tout l'espace restant
-        height: 40,
-        fontSize: 16,
-        color: "#242424",
-        paddingHorizontal: 10,
-    },
-    searchIcon: {
-        marginLeft: 10, // Espacement entre le champ et l'icône
-    },
-    pickerButton: {
-        padding: 10,
-        borderWidth: 1,
-        borderRadius: 5,
-        backgroundColor: "#cacaca",
-        marginBottom: 10,
         alignItems: "center",
-        justifyContent: "center",
     },
-    noDataText: { textAlign: "center", color: "#888888", marginTop: 20 },
+    webSearchButton: {
+        backgroundColor: "#007bff",
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 20,
+    },
     paginationContainer: {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginVertical: 10, // Ajuste l'espacement vertical
+        marginVertical: 10,
         marginBottom: 70,
     },
     chevronButton: {
-        padding: 5, // Réduit l'espace cliquable autour des chevrons
+        padding: 5,
     },
     chevronIcon: {
-        width: 22, // Réduit la largeur du chevron
-        height: 22, // Réduit la hauteur du chevron
+        width: 22,
+        height: 22,
     },
     paginationText: {
-        marginHorizontal: 10, // Espace entre le texte et les chevrons
+        marginHorizontal: 10,
         color: "#242424",
-        fontSize: 20, // Ajuste la taille du texte
+        fontSize: 20,
     },
 	row: {
     flexDirection: "row",

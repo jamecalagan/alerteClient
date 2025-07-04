@@ -8,6 +8,7 @@ import {
     Alert,
     StyleSheet,
     Image,
+	Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -39,32 +40,35 @@ export default function OrdersPage({ route, navigation, order }) {
         loadOrders();
     }, [clientId]);
 
-    const loadOrders = async () => {
-        if (!clientId) {
-            console.warn("⚠️ clientId est undefined, requête annulée.");
-            return;
-        }
+const loadOrders = async () => {
+  if (!clientId) return;
 
-        try {
-            const { data, error } = await supabase
-                .from("orders")
-                .select("*, billing(id)")
-                .eq("client_id", clientId)
-                .order("createdat", { ascending: false });
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, billing(id)")
+    .eq("client_id", clientId)
+    .order("createdat", { ascending: false });
 
-            if (error) throw error;
+  if (error) throw error;
 
-            setOrders(
-                (data || []).map((order) => ({
-                    ...order,
-                    originalSerial: order.serial || "",
-                    billing: order.billing || null,
-                }))
-            );
-        } catch (error) {
-            console.error("❌ Erreur lors du chargement des commandes:", error);
-        }
-    };
+  // 🔑  ICI : force toutes les valeurs suspectes en vrai booléen
+  const toBool = (v) => v === true || v === "true" || v === 1;
+
+  setOrders(
+    (data || []).map((order) => ({
+      ...order,
+      originalSerial: order.serial || "",
+      billing: order.billing || null,
+      notified: toBool(order.notified),
+      received: toBool(order.received),
+      paid: toBool(order.paid),
+      ordered: toBool(order.ordered),
+      recovered: toBool(order.recovered),
+      saved: toBool(order.saved),
+    }))
+  );
+};
+
 
     const handleCreateOrder = async () => {
         try {
@@ -319,6 +323,72 @@ export default function OrdersPage({ route, navigation, order }) {
             { cancelable: true }
         );
     };
+const notifyClientBySMS = async () => {
+    if (!clientId || !clientPhone) {
+        Alert.alert("Erreur", "Client non identifié ou numéro manquant.");
+        return;
+    }
+
+    const message = `Bonjour, votre commande est disponible. N'oubliez pas le bon de restitution, merci\n\nAVENIR INFORMATIQUE`;
+    const encoded = encodeURIComponent(message);
+
+    Alert.alert(
+        "Notifier par SMS",
+        `Envoyer un SMS à ${clientName} ?`,
+        [
+            { text: "Annuler", style: "cancel" },
+            {
+                text: "Envoyer",
+                onPress: async () => {
+                    try {
+                        const { error } = await supabase
+                            .from("orders")
+                            .update({ notified: true })
+                            .eq("client_id", clientId)
+                            .order("createdat", { ascending: false })
+                            .limit(1);
+
+                        if (error) throw error;
+
+                        Linking.openURL(`sms:${clientPhone}?body=${encoded}`);
+
+                        Alert.alert("✅ Notification enregistrée !");
+                    } catch (err) {
+                        console.error("Erreur notification :", err);
+                        Alert.alert("Erreur", "Échec de l'enregistrement.");
+                    }
+                },
+            },
+        ]
+    );
+};
+const notifyOrderBySMS = async (order) => {
+  if (!clientPhone) {
+    Alert.alert("Erreur", "Numéro de téléphone manquant.");
+    return;
+  }
+
+  const message = `Bonjour, votre commande ${order.product} est prête. Merci et à bientôt.\n\nAVENIR INFORMATIQUE`;
+  const encoded = encodeURIComponent(message);
+
+  try {
+    // ➜ enregistre la notification en BD
+    const { error } = await supabase
+      .from("orders")
+      .update({ notified: true })
+      .eq("id", order.id);
+
+    if (error) throw error;
+
+    // ➜ ouvre l’app SMS
+    Linking.openURL(`sms:${clientPhone}?body=${encoded}`);
+    Alert.alert("✅ Notification envoyée !");
+    loadOrders();        // rafraîchit la liste
+  } catch (err) {
+    console.error("Erreur notification :", err);
+    Alert.alert("Erreur", "Impossible d’enregistrer la notification.");
+  }
+};
 
     return (
         <View style={styles.container}>
@@ -976,6 +1046,27 @@ export default function OrdersPage({ route, navigation, order }) {
                                                 🗑 Supprimer
                                             </Text>
                                         </TouchableOpacity>
+{/* 📩 Notifier */}
+<TouchableOpacity
+  style={[
+    styles.squareButton,
+    // gris & inactif si la commande n’est pas reçue OU déjà notifiée
+    (!item.received || item.notified) && { backgroundColor: "#ccc" },
+  ]}
+  disabled={!item.received || item.notified}
+  onPress={() => notifyOrderBySMS(item)}
+>
+  <Text
+    style={[
+      styles.squareButtonText,
+      (!item.received || item.notified) && { color: "#666666" },
+    ]}
+  >
+    {item.notified ? "✅ Notifié" : "📩 Notifier"}
+  </Text>
+</TouchableOpacity>
+
+
 
                                         <TouchableOpacity
                                             style={[styles.squareButton]}

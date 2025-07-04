@@ -41,6 +41,8 @@ export default function HomePage({ navigation, route, setUser }) {
     const [notifyModalVisible, setNotifyModalVisible] = useState(false); // Gérer la visibilité de la modal de notification
     const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
+	const toBool = (v) => v === true || v === "true" || v === 1 || v === "1";
+
     const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
         useState(0);
     const hasPendingOrder =
@@ -489,6 +491,7 @@ export default function HomePage({ navigation, route, setUser }) {
             const ordersByClient = {};
 
             ordersData.forEach((order) => {
+				order.notified = toBool(order.notified);   // ✅ conversion
                 const clientId = String(order.client_id);
                 if (!ordersByClient[clientId]) {
                     ordersByClient[clientId] = {
@@ -1256,6 +1259,9 @@ export default function HomePage({ navigation, route, setUser }) {
             console.error("❌ Erreur inattendue :", err.message);
         }
     };
+// ✅ VRAI si AU MOINS UNE commande du client est notifiée
+const isOrderNotified = (client) =>
+  client.orders?.some((o) => o.notified === true) || false;
 
     return (
         <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
@@ -2358,24 +2364,24 @@ export default function HomePage({ navigation, route, setUser }) {
                                                                             )
                                                                         }
                                                                     >
-                                                                        {shouldBlink ? (
-                                                                            <BlinkingIcon
-                                                                                source={require("../assets/icons/order.png")}
-                                                                                tintColor={
-                                                                                    orderColor
-                                                                                }
-                                                                            />
-                                                                        ) : (
-                                                                            <Image
-                                                                                source={require("../assets/icons/order.png")}
-                                                                                style={{
-                                                                                    width: 28,
-                                                                                    height: 28,
-                                                                                    tintColor:
-                                                                                        orderColor,
-                                                                                }}
-                                                                            />
-                                                                        )}
+{isOrderNotified(item) ? (
+  <Image
+    source={require("../assets/icons/Notification.png")} // icône cloche
+    style={{ width: 28, height: 28, tintColor: "#28a745" }}  // cloche verte
+  />
+) : shouldBlink ? (
+  <BlinkingIcon
+    source={require("../assets/icons/order.png")}             // icône commande
+    tintColor={orderColor}
+  />
+) : (
+  <Image
+    source={require("../assets/icons/order.png")}
+    style={{ width: 28, height: 28, tintColor: orderColor }}
+  />
+)}
+
+
                                                                     </TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[

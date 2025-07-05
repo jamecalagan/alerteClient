@@ -82,45 +82,116 @@ export default function EditInterventionPage({ route, navigation }) {
             fetchClientName();
         }
     }, [clientId]);
-    // Charger les données de l'intervention en cours
-    const loadIntervention = async () => {
-        const { data, error } = await supabase
+// tout en haut du fichier, ajoute cette petite aide :
+const fileExists = async (p) => {
+    try { const i = await FileSystem.getInfoAsync(p); return i.exists; }
+    catch { return false; }
+  };
+  /* renvoie le dossier local réellement présent  */
+const getLocalBase = async (fiche) => {
+    const candidates = [
+      `${FileSystem.documentDirectory}backup/${fiche}/`,
+      `${FileSystem.documentDirectory}Save picture alerte client/${fiche}/`, // ton ancien nom
+    ];
+    for (const path of candidates) { if (await fileExists(path)) return path; }
+    return candidates[0];                       // défaut (existe ou pas)
+  };
+  const loadIntervention = async () => {
+    try {
+      /* ------------------------------------------------------------------ */
+      /* 1) On récupère intervention + fiche du client                      */
+      /* ------------------------------------------------------------------ */
+      const [{ data: inter, error: errInter }, { data: client, error: errCli }] =
+        await Promise.all([
+          supabase
             .from("interventions")
             .select(
-                "article_id, marque_id, modele_id, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost "
+              "article_id, marque_id, modele_id, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost"
             )
             .eq("id", interventionId)
-            .single();
-
-        if (error) {
-            console.error(
-                "Erreur lors du chargement de l'intervention :",
-                error
-            );
-        } else {
-            setDeviceType(data.article_id); // ID de l'article
-            setBrand(data.marque_id); // ID de la marque
-            setModel(data.modele_id); // ID du modèle
-            setReference(data.reference);
-            setDescription(data.description);
-            setCost(data.cost);
-            setDevisCost(data.devis_cost ? data.devis_cost.toString() : "");
-            setSolderestant(data.solderestant || 0);
-            setPartialPayment(data.partialPayment); // Charge l'acompte
-            setStatus(data.status);
-            setSerial_number(data.serial_number);
-            setPassword(data.password);
-            setPhotos(data.photos);
-            setLabelPhoto(data.label_photo); // Charge la photo d'étiquette
-            setCommande(data.commande || "");
-            setRemarks(data.remarks || ""); // Charge les remarques
-            setPaymentStatus(data.paymentStatus || "");
-            setChargeur(data.chargeur ? "Oui" : "Non");
-            setAcceptScreenRisk(data.accept_screen_risk || false);
-            if (data.article_id) loadBrands(data.article_id);
-            if (data.marque_id) loadModels(data.marque_id);
+            .single(),
+          supabase
+            .from("clients")
+            .select("ficheNumber")
+            .eq("id", clientId)
+            .single(),
+        ]);
+  
+      if (errInter || errCli) {
+        console.error("❌ Supabase :", errInter || errCli);
+        return;
+      }
+  
+      /* ------------------------------------------------------------------ */
+      /* 2) On construit le chemin local                                    */
+      /* ------------------------------------------------------------------ */
+      const localBase =
+        FileSystem.documentDirectory +
+        `backup/${client.ficheNumber}/`; // même logique que ImageGallery
+  
+      const fileExists = async (uri) => {
+        try {
+          const info = await FileSystem.getInfoAsync(uri);
+          return info.exists;
+        } catch {
+          return false;
         }
-    };
+      };
+  
+      const urlToLocal = async (url, type = "photo", index = 0) => {
+        if (!url) return null;
+        let filename;
+        if (type === "label") {
+          filename = `etiquette_${interventionId}.jpg`;
+        } else {
+          filename = `photo_${interventionId}_${index + 1}.jpg`;
+        }
+        const localUri = localBase + filename;
+        const exists = await fileExists(localUri);
+        return exists ? localUri : url;
+      };
+  
+      /* ------------------------------------------------------------------ */
+      /* 3) Résolution des photos                                           */
+      /* ------------------------------------------------------------------ */
+      const photosArray = Array.isArray(inter.photos) ? inter.photos : [];
+      const photosResolved = await Promise.all(
+        photosArray.map((u, idx) => urlToLocal(u, "photo", idx))
+      );
+  
+      const labelResolved = await urlToLocal(inter.label_photo, "label");
+  
+      /* ------------------------------------------------------------------ */
+      /* 4) On hydrate l’état React                                         */
+      /* ------------------------------------------------------------------ */
+      setDeviceType(inter.article_id);
+      setBrand(inter.marque_id);
+      setModel(inter.modele_id);
+      setReference(inter.reference);
+      setDescription(inter.description);
+      setCost(inter.cost);
+      setDevisCost(inter.devis_cost ? inter.devis_cost.toString() : "");
+      setSolderestant(inter.solderestant || 0);
+      setPartialPayment(inter.partialPayment);
+      setStatus(inter.status);
+      setSerial_number(inter.serial_number);
+      setPassword(inter.password);
+      setPhotos(photosResolved);          // 🟢 Tableau avec fallback local
+      setLabelPhoto(labelResolved);       // 🟢 Étiquette avec fallback local
+      setCommande(inter.commande || "");
+      setRemarks(inter.remarks || "");
+      setPaymentStatus(inter.paymentStatus || "");
+      setChargeur(inter.chargeur ? "Oui" : "Non");
+      setAcceptScreenRisk(inter.accept_screen_risk || false);
+  
+      if (inter.article_id) loadBrands(inter.article_id);
+      if (inter.marque_id) loadModels(inter.marque_id);
+    } catch (e) {
+      console.error("❌ Erreur loadIntervention :", e);
+    }
+  };
+  
+  
 
     const uploadImageToStorage = async (
         fileUri,
@@ -619,20 +690,49 @@ if (errors.length > 0) {
 							style={[styles.iconRight, { tintColor: "#ececec" }]}
 						/>
 					</TouchableOpacity>
+{/* Étiquette */}
+{labelPhoto ? (
+  <TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
+    <View
+      style={{
+        position: "relative",   // ► pour pouvoir positionner le badge
+        marginLeft: 10,
+        borderRadius: 5,
+        overflow: "hidden",     // ► masque le badge si dépasse
+      }}
+    >
+      {/* Image de l’étiquette */}
+      <Image
+        source={{ uri: labelPhoto }}
+        style={{
+          width: 60,
+          height: 60,
+          borderWidth: 2,
+          borderColor: "green",
+          borderRadius: 5,
+        }}
+      />
 
-					<TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
-						<Image
-							source={{ uri: labelPhoto }}
-							style={{
-								width: 60,
-								height: 60,
-								borderWidth: 2,
-								borderColor: "green",
-								marginLeft: 10,
-								borderRadius: 5,
-							}}
-						/>
-					</TouchableOpacity>
+      {/* Badge Cloud / Local */}
+      <Text
+        style={{
+          position: "absolute",
+          bottom: 3,
+          right: 4,
+          backgroundColor: labelPhoto.startsWith("http")
+            ? "rgba(217,83,79,0.9)"   /* rouge → Cloud */
+            : "rgba(92,184,92,0.9)",  /* vert  → Local */
+          color: "#fff",
+          fontSize: 10,
+          paddingHorizontal: 4,
+          borderRadius: 3,
+        }}
+      >
+        {labelPhoto.startsWith("http") ? "Cloud" : "Local"}
+      </Text>
+    </View>
+  </TouchableOpacity>
+) : null}
 				</View>
 
 
@@ -910,53 +1010,58 @@ if (errors.length > 0) {
                     <Picker.Item label="Oui" value="Oui" />
                 </Picker>
 
-                {/* Affichage des images capturées */}
                 {photos.length > 0 && (
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            justifyContent: "center",
-                        }}
-                    >
-                        {photos.map((photo, index) => (
-                            <View key={index}>
-                                <TouchableOpacity
-                                    onPress={() => setSelectedImage(photo)}
-                                >
-                                    <Image
-                                        source={{ uri: photo }}
-                                        style={{
-                                            width: 100,
-                                            height: 100,
-                                            margin: 5,
-                                            borderRadius: 10,
-                                            borderColor: "#aaaaaa",
-                                            borderWidth: 2,
-                                        }}
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={{
-                                        position: "absolute",
-                                        top: 5,
-                                        right: 5,
-                                    }}
-                                    onPress={() => deletePhoto(photo)}
-                                >
-                                    <Text
-                                        style={{
-                                            color: "red",
-                                            fontWeight: "bold",
-                                        }}
-                                    >
-                                        X
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </View>
-                )}
+  <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+    {photos.map((photo, index) => {
+      const isCloud = photo.startsWith("http");
+      return (
+        <View key={index}>
+          <TouchableOpacity onPress={() => setSelectedImage(photo)}>
+            <Image
+              source={{ uri: photo }}
+              style={{
+                width: 100,
+                height: 100,
+                margin: 5,
+                borderRadius: 10,
+                borderColor: "#aaaaaa",
+                borderWidth: 2,
+              }}
+            />
+{/* petit badge en bas-droite */}
+<Text
+  style={{
+    position: "absolute",
+    bottom: 4,
+    right: 6,
+    // 🔴 rouge si Cloud – 🟢 vert si Local
+    backgroundColor: isCloud
+      ? "rgba(217,83,79,0.9)"   // Cloud  (rouge bootstrap)
+      : "rgba(92,184,92,0.9)", // Local  (vert bootstrap)
+    color: "#fff",
+    fontSize: 10,
+    paddingHorizontal: 4,
+    borderRadius: 3,
+  }}
+>
+  {isCloud ? "Cloud" : "Local"}
+</Text>
+
+          </TouchableOpacity>
+
+          {/* bouton X pour supprimer */}
+          <TouchableOpacity
+            style={{ position: "absolute", top: 5, right: 5 }}
+            onPress={() => deletePhoto(photo)}
+          >
+            <Text style={{ color: "red", fontWeight: "bold" }}>X</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    })}
+  </View>
+)}
+
 
                 {selectedImage && (
                     <Modal

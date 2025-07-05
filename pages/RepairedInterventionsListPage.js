@@ -1,206 +1,271 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-    View,
-    Text,
-    FlatList,
-    TouchableOpacity,
-    StyleSheet,
-    ImageBackground,
-    Animated,
-    Easing,
-    Image,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Image,
+  Animated,
+  Easing,
 } from "react-native";
+import * as Animatable from "react-native-animatable";
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
-import * as Animatable from "react-native-animatable";
-const backgroundImage = require("../assets/listing2.jpg");
-const formatPhoneNumber = (phoneNumber) => {
-	if (!phoneNumber) return "";
 
-	return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 "); // Ajoute un espace après chaque deux chiffres
-};
 export default function RepairedInterventionsListPage({ navigation }) {
-    const [repairedInterventions, setRepairedInterventions] = useState([]);
+  const [allInterventions, setAllInterventions] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [filter, setFilter] = useState("Réparé");          // ← filtre actif
 
+  /* ───────────────── Chargement BDD ───────────────── */
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("interventions")
+        .select(
+          `id, status, notifiedBy, deviceType, brand, model,
+           clients (name, ficheNumber, phone)`
+        )
+        .in("status", ["Réparé", "Non réparable"])
+        .order("updatedAt", { ascending: false });
+
+      if (!error) {
+        setAllInterventions(data);
+      } else {
+        console.error("Erreur chargement :", error);
+      }
+    })();
+  }, []);
+
+  /* ───────────────── Filtres / recherche ───────────────── */
+  useEffect(() => {
+    // 1) filtre Réparé / Non réparable
+    const base = allInterventions.filter((it) => it.status === filter);
+
+    // 2) recherche plein-texte
+    const q = search.trim().toLowerCase();
+    const res = q
+      ? base.filter((it) => {
+          const nom = it.clients?.name?.toLowerCase() || "";
+          const fiche = (it.clients?.ficheNumber || "").toString();
+          const type = (it.deviceType || "").toLowerCase();
+          return (
+            nom.includes(q) || fiche.includes(q) || type.includes(q)
+          );
+        })
+      : base;
+
+    setFiltered(res);
+
+    /* suggestions “autocomplétion” */
+    if (q.length > 0) {
+      const uniq = new Set();
+      const sugg = base
+        .flatMap((it) => [
+          it.clients?.name,
+          it.clients?.ficheNumber?.toString(),
+          it.deviceType,
+        ])
+        .filter(Boolean)
+        .filter((v) => v.toString().toLowerCase().includes(q))
+        .filter((v) => {
+          if (uniq.has(v)) return false;
+          uniq.add(v);
+          return true;
+        })
+        .slice(0, 6); // max 6 suggestions
+      setSuggestions(sugg);
+    } else {
+      setSuggestions([]);
+    }
+  }, [allInterventions, filter, search]);
+
+  /* ───────────────── Rendu ───────────────── */
+  const Blinking = ({ src, tint }) => {
+    const opacity = useRef(new Animated.Value(1)).current;
     useEffect(() => {
-        loadRepairedInterventions();
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+        ])
+      ).start();
     }, []);
-
-    const loadRepairedInterventions = async () => {
-        try {
-            const { data, error } = await supabase
-                .from("interventions")
-                .select(
-                    "id, status,notifiedBy, deviceType, brand, model, clients (name, ficheNumber, phone)"
-                )
-                .in("status", ["Réparé", "Non réparable"]);
-
-            if (error) throw error;
-            setRepairedInterventions(data);
-        } catch (error) {
-            console.error(
-                "Erreur lors du chargement des interventions réparées :",
-                error
-            );
-        }
-    };
-    const BlinkingIcon = ({ source, tintColor }) => {
-        const opacity = useRef(new Animated.Value(1)).current;
-
-        useEffect(() => {
-            const loop = Animated.loop(
-                Animated.sequence([
-                    Animated.timing(opacity, {
-                        toValue: 0,
-                        duration: 500,
-                        useNativeDriver: true,
-                        easing: Easing.linear,
-                    }),
-                    Animated.timing(opacity, {
-                        toValue: 1,
-                        duration: 500,
-                        useNativeDriver: true,
-                        easing: Easing.linear,
-                    }),
-                ])
-            );
-            loop.start();
-            return () => loop.stop();
-        }, []);
-
-        return (
-            <Animated.Image
-                source={source}
-                style={{
-                    width: 30,
-                    height: 30,
-                    tintColor,
-                    opacity,
-                    marginLeft: "auto",
-                }}
-            />
-        );
-    };
     return (
-			<View style={styles.container}>
-                <Text style={styles.title}>
-                    Liste des Interventions Réparées
-                </Text>
-                <FlatList
-                    data={repairedInterventions}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item, index }) => (
-                        <Animatable.View
-                            animation="zoomIn"
-                            duration={400}
-                            delay={index * 150}
-                        >
-                            <TouchableOpacity
-                                style={[
-                                    styles.interventionItem,
-                                    item.status === "Non réparable"
-                                        ? { borderWidth: 2, borderColor: "red" }
-                                        : {}, // Ajout du contour rouge
-                                ]}
-                                onPress={() =>
-                                    navigation.navigate(
-                                        "RepairedInterventionsPage",
-                                        {
-                                            selectedInterventionId: item.id, // Envoie l'ID de l'intervention sélectionnée
-                                        }
-                                    )
-                                }
-                            >
-                                <Text style={styles.itemText}>
-                                    Fiche N°: {item.clients.ficheNumber}
-                                </Text>
-                                <Text style={styles.itemText}>
-                                    Client: {item.clients.name}
-                                </Text>
-								<Text style={styles.itemText}>
-									Téléphone: {formatPhoneNumber(item.clients.phone)}
-                                </Text>
-                                <Text style={styles.itemText}>
-                                    Produit: {item.deviceType} - {item.brand}
-                                </Text>
-                                <View
-                                    style={{
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        marginTop: 8,
-                                    }}
-                                >
-                                    <Text style={styles.itemText}>
-                                        Notification :
-                                    </Text>
-
-                                    {item.notifiedBy === "SMS" && (
-                                        <Image
-                                            source={require("../assets/icons/sms.png")}
-                                            style={{
-                                                width: 30,
-                                                height: 30,
-                                                tintColor: "#045e04",
-                                                marginLeft: "auto",
-                                            }}
-                                        />
-                                    )}
-                                    {item.notifiedBy === "Téléphone" && (
-                                        <Image
-                                            source={require("../assets/icons/call.png")}
-                                            style={{
-                                                width: 20,
-                                                height: 20,
-                                                tintColor: "#3c92f5",
-                                                marginLeft: "auto",
-                                            }}
-                                        />
-                                    )}
-                                    {!item.notifiedBy && (
-                                        <BlinkingIcon
-                                            source={require("../assets/icons/notifications_off.png")}
-                                            tintColor="#fa0404"
-                                        />
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-                        </Animatable.View>
-                    )}
-                />
-            
-
-            <BottomNavigation
-                navigation={navigation}
-                currentRoute="RepairedInterventionsListPage"
-            />
-        </View>
+      <Animated.Image source={src} style={{ width: 24, height: 24, tintColor: tint, opacity }} />
     );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* ───── boutons haut de page ───── */}
+      <View style={styles.segment}>
+        {["Réparé", "Non réparable"].map((lbl) => (
+          <TouchableOpacity
+            key={lbl}
+            style={[
+              styles.segBtn,
+              filter === lbl && styles.segBtnActive,
+            ]}
+            onPress={() => setFilter(lbl)}
+          >
+            <Text style={{ color: filter === lbl ? "#fff" : "#444" }}>
+              {lbl}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ───── recherche + suggestions ───── */}
+      <TextInput
+        style={styles.search}
+        placeholder="Recherche nom, fiche, type…"
+        value={search}
+        onChangeText={setSearch}
+      />
+      {suggestions.length > 0 && (
+        <View style={styles.suggestBox}>
+          {suggestions.map((s) => (
+            <TouchableOpacity
+              key={s}
+              onPress={() => setSearch(s.toString())}
+            >
+              <Text style={styles.suggestItem}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* ───── liste ───── */}
+      <FlatList
+        data={filtered}
+        keyExtractor={(it) => it.id.toString()}
+        contentContainerStyle={{ paddingBottom: 80 }}
+        renderItem={({ item, index }) => (
+          <Animatable.View
+            animation="zoomIn"
+            duration={400}
+            delay={index * 120}
+            style={[
+              styles.card,
+              item.status === "Non réparable" && { borderColor: "red" },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("RepairedInterventionsPage", {
+                  selectedInterventionId: item.id,
+                })
+              }
+            >
+              <Text style={styles.line}>
+                Fiche N° {item.clients.ficheNumber}
+              </Text>
+              <Text style={styles.line}>
+                {item.clients.name} – {formatPhoneNumber(item.clients.phone)}
+              </Text>
+              <Text style={styles.line}>
+                {item.deviceType} {item.brand}
+              </Text>
+
+              <View style={{ flexDirection: "row", marginTop: 6 }}>
+                <Text style={styles.line}>Notif.</Text>
+                {item.notifiedBy === "SMS" && (
+                  <Image
+                    source={require("../assets/icons/sms.png")}
+                    style={{ width: 24, height: 24, tintColor: "#077907", marginLeft: 6 }}
+                  />
+                )}
+                {item.notifiedBy === "Téléphone" && (
+                  <Image
+                    source={require("../assets/icons/call.png")}
+                    style={{ width: 24, height: 24, tintColor: "#3579ff", marginLeft: 6 }}
+                  />
+                )}
+                {!item.notifiedBy && (
+                  <Blinking
+                    src={require("../assets/icons/notifications_off.png")}
+                    tint="#ff3b30"
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animatable.View>
+        )}
+      />
+
+      <BottomNavigation navigation={navigation} currentRoute="RepairedInterventionsListPage" />
+    </View>
+  );
 }
 
+/* ───────────────── helpers ───────────────── */
+const formatPhoneNumber = (n) => n?.replace(/(\d{2})(?=\d)/g, "$1 ") || "";
+
+/* ───────────────── styles ───────────────── */
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: "#e0e0e0",
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        textAlign: "center",
-        color: "#242424",
-        marginBottom: 20,
-    },
-    interventionItem: {
-        padding: 15,
-        marginBottom: 10,
-        backgroundColor: "#f0f0f0",
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: "#888787",
-		elevation: 2,
-    },
-    itemText: {
-        fontSize: 16,
-        color: "#242424",
-    },
+  container: { flex: 1, backgroundColor: "#e0e0e0", padding: 16 },
+  segment: {
+  flexDirection: "row",
+  marginBottom: 12,
+  marginTop: 20, // ← ajoute ceci pour un espacement depuis le haut
+},
+
+  segBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 6,
+    backgroundColor: "#d1d1d1",
+    alignItems: "center",
+  },
+  segBtnActive: { backgroundColor: "#242424" },
+  search: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#888",
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  suggestBox: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#aaa",
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  suggestItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    fontSize: 15,
+  },
+  card: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#888",
+    padding: 14,
+    marginBottom: 10,
+    elevation: 2,
+  },
+  line: { fontSize: 15, color: "#242424" },
 });

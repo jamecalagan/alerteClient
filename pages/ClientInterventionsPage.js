@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import SmartImage from "../components/SmartImage";
 import {
     View,
     Text,
@@ -28,7 +29,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
             try {
                 const { data: clientData, error } = await supabase
                     .from("clients")
-                    .select("id, name, phone")
+                    .select("id, name, phone, ficheNumber")
                     .eq("id", clientId)
                     .single();
 
@@ -243,47 +244,55 @@ export default function ClientInterventionsPage({ route, navigation }) {
                                     </View>
 
                                     <View style={styles.labelContainer}>
-									{item.label_photo ? (
-  <TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
-    <Image
-      source={{
-        uri: item.label_photo,
-      }}
-      style={styles.labelImage}
-    />
-  </TouchableOpacity>
-) : (
-  <Text style={styles.referenceText}>
-    {item.reference || "Référence manquante"}
-  </Text>
-)}
-                                    </View>
+        {item.label_photo ? (
+          <TouchableOpacity onPress={() => handleImagePress(item.label_photo)}>
+            <SmartImage
+              uri={item.label_photo}
+              ficheNumber={selectedClient?.ficheNumber}
+              interventionId={item.id}
+              type="label"          // <— on précise “label”
+              size={80}             // à la place de style={styles.labelImage}
+              borderRadius={8}
+              borderWidth={2}
+              badge
+            />
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.referenceText}>
+            {item.reference || "Référence manquante"}
+          </Text>
+        )}
+      </View>
 
-									<View style={styles.photosContainer}>
-  {item.photos && item.photos.length > 0 ? (
-    item.photos
-      .filter((photoUri) => photoUri !== item.label_photo)
-      .map((photoUri, index) => (
-        <TouchableOpacity
-          key={index}
-          onPress={() => handleImagePress(photoUri)}
-        >
-          <Image
-            source={{ uri: photoUri }}
-            style={styles.photo}
-          />
-        </TouchableOpacity>
-      ))
-  ) : (
-    <Text style={styles.noPhotosText}>
-      Pas d'images disponibles
-    </Text>
+      <View style={styles.photosContainer}>
+        {item.photos && item.photos.length > 0 ? (
+          item.photos
+            .filter((uri) => uri !== item.label_photo) // on enlève l’étiquette
+            .map((uri, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => handleImagePress(uri)}
+              >
+                <SmartImage
+                  uri={uri}
+                  ficheNumber={selectedClient?.ficheNumber}
+                  interventionId={item.id}
+                  index={index}
+                  type="photo"
+                  size={60}
+                  borderRadius={8}
+                  borderWidth={1}
+                  badge          // <— pour afficher Cloud / Local
+                />
+              </TouchableOpacity>
+            ))
+        ) : (
+          <Text style={styles.noPhotosText}>Pas d'images disponibles</Text>
+        )}
+      </View>
+    </View>
   )}
-</View>
-
-                                </View>
-                            )}
-                        />
+/>
                     </View>
                 )}
 

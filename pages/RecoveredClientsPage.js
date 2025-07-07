@@ -18,6 +18,21 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
 import BottomNavigation from "../components/BottomNavigation";
+// Helper pour obtenir une URI exploitable par <Image>
+// À placer une seule fois en haut du fichier
+const resolveImageUri = (uri) => {
+  if (!uri || typeof uri !== "string") return null;
+
+  // Chemins déjà valides
+  if (/^(https?:|file:|content:|data:)/i.test(uri)) return uri;
+
+  // Chemin local absolu sans schéma  → on préfixe
+  if (uri.startsWith("/")) return `file://${uri}`;
+
+  // Sinon on considère un fichier Supabase public
+  return `${supabase.supabaseUrl}/storage/v1/object/public/${uri}`;
+};
+
 
 export default function RecoveredClientsPage({ navigation, route }) {
   const flatListRef = useRef(null); 
@@ -389,44 +404,48 @@ export default function RecoveredClientsPage({ navigation, route }) {
                    
                     <View style={styles.imageContainer}>
                       
-                      {item.photos
-                        ?.filter((p) => p !== item.label_photo)
-                        .map((photo, idx) => (
-                          <SmartImage
-                            key={`photo-${idx}`}
-                            uri={photo}
-                            ficheNumber={item.clients?.ficheNumber}
-                            interventionId={item.id}
-                            index={idx}
-                            type="photo"
-                            size={80}
-                            borderRadius={5}
-                            borderWidth={1}
-                            badge
-                            onPress={(resolvedUri) =>
-                              setSelectedImage(resolvedUri)
-                            }
-                          />
-                        ))}
+{/* Anciennes photos (champ `photos`) */}
+{item.photos
+  ?.filter((p) => p !== item.label_photo)
+  .map((photo, idx) => {
+    const uri = resolveImageUri(photo);
+    return (
+      <SmartImage
+        key={`photo-${idx}`}
+        uri={uri}                        // ✅ miniature
+        ficheNumber={item.clients?.ficheNumber}
+        interventionId={item.id}
+        index={idx}
+        type="photo"
+        size={80}
+        borderRadius={5}
+        borderWidth={1}
+        badge
+        onPress={() => setSelectedImage(uri)}   // ✅ plein-écran
+      />
+    );
+  })}
 
-                      
-                      {item.intervention_images?.map((img, idx) => (
-                        <SmartImage
-                          key={`new-${idx}`}
-                          uri={img}
-                          ficheNumber={item.clients?.ficheNumber}
-                          interventionId={item.id}
-                          index={idx}
-                          type="extra"
-                          size={80}
-                          borderRadius={5}
-                          borderWidth={2}
-                          badge
-                          onPress={(resolvedUri) =>
-                            setSelectedImage(resolvedUri)
-                          }
-                        />
-                      ))}
+{/* Nouvelles images (`intervention_images`) */}
+{item.intervention_images?.map((img, idx) => {
+  const uri = resolveImageUri(img);
+  return (
+    <SmartImage
+      key={`new-${idx}`}
+      uri={uri}
+      ficheNumber={item.clients?.ficheNumber}
+      interventionId={item.id}
+      index={idx}
+      type="extra"
+      size={80}
+      borderRadius={5}
+      borderWidth={2}
+      badge
+      onPress={() => setSelectedImage(uri)}
+    />
+  );
+})}
+
                     </View>
                   </>
                 )}
@@ -477,17 +496,28 @@ export default function RecoveredClientsPage({ navigation, route }) {
         </View>
       </View>
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
-      <Modal
-        visible={selectedImage !== null}
-        transparent={true}
-        onRequestClose={() => setSelectedImage(null)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
-          <View style={styles.modalBackground}>
-            <Image source={{ uri: selectedImage }} style={styles.fullImage} />
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+<Modal
+  visible={!!selectedImage}
+  transparent
+  onRequestClose={() => setSelectedImage(null)}
+>
+  <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+    <View style={styles.modalBackground}>
+      {selectedImage ? (
+        <Image
+          source={{ uri: selectedImage }}
+          style={styles.fullImage}
+          onError={() => {
+            Alert.alert("Erreur", "Impossible de charger l’image.");
+            setSelectedImage(null);
+          }}
+        />
+      ) : null}
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
+
     </View>
   );
 }

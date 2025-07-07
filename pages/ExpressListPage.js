@@ -208,7 +208,7 @@ const goToEdit = (item) => {
                 <Text style={[styles.headerCell, styles.headerBorder]}>
                     Type
                 </Text>
-                <Text style={styles.headerCell}>Prix</Text>
+                <Text style={styles.headerCell}>Prix / Soldé</Text>
 				<Text style={styles.headerCell}>Notif.</Text>
 
             </View>
@@ -229,7 +229,13 @@ const goToEdit = (item) => {
                         {new Date(item.created_at).toLocaleDateString()}
                     </Text>
                     <Text style={styles.cell}>{item.type}</Text>
-                    <Text style={styles.cell}>{item.price} €</Text>
+                    <Text style={styles.cell}>
+  {item.price} €
+  {item.paid && (
+    <Text style={{ color: "#28a745", fontWeight: "bold" }}> ✅</Text>
+  )}
+</Text>
+
 					{item.notified && (
 <Text style={[styles.cell, { color: "#28a745", fontWeight: "bold" }]}>
   Notifié
@@ -309,6 +315,30 @@ const goToEdit = (item) => {
 >
   <Text style={styles.buttonText}>📲 Notifier</Text>
 </TouchableOpacity>
+{!selectedItem.paid && (
+  <TouchableOpacity
+    style={[styles.actionButton, { backgroundColor: "#28a745" }]}
+    onPress={async () => {
+      try {
+        const { error } = await supabase
+          .from("express")
+          .update({ paid: true })
+          .eq("id", selectedItem.id);
+        if (error) {
+          Alert.alert("Erreur", "Impossible de mettre à jour.");
+          console.error("Update paid error:", error);
+        } else {
+          Alert.alert("✅", "Marqué comme réglé.");
+          fetchExpressList();
+        }
+      } catch (e) {
+        console.error("Erreur update paid:", e);
+      }
+    }}
+  >
+    <Text style={styles.buttonText}>✅ Réglé</Text>
+  </TouchableOpacity>
+)}
 
                     <TouchableOpacity
                         style={[

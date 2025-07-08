@@ -8,7 +8,7 @@ https://fncgffajwabqrnhumgzd.supabase.co
 
 envoyer
 git add .
-git commit -m "complet avec page checkup et rien a regler  01/07/25_15h32"
+git commit -m "complet avec page BACKUP IMAGES  07/07/25_15h32"
 git push origin main
 
 recupérer

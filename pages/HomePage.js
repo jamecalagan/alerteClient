@@ -1762,7 +1762,16 @@ const isOrderNotified = (client) =>
                             <View style={styles.buttonContainerMasquer}>
                                 <TouchableOpacity
                                     style={styles.toggleButton}
-                                    onPress={() => setShowClients(!showClients)}
+                                    onPress={() => {
+    setShowClients((prev) => {
+        const next = !prev;
+        if (!next && flatListRef.current) {
+            flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+        }
+        return next;
+    });
+}}
+
                                 >
                                     <Image
                                         source={
@@ -1802,6 +1811,7 @@ const isOrderNotified = (client) =>
                                 <>
                                     {showClients && (
                                         <FlatList
+										ref={flatListRef}
                                             initialNumToRender={10}
                                             maxToRenderPerBatch={5}
                                             showsVerticalScrollIndicator={false}
@@ -3214,8 +3224,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "rgba(7, 7, 7, 0)",
         width: "100%",
-        justifyContent: "center",
-        
+        justifyContent: "flex-start",
     },
     container: {
         flex: 1,

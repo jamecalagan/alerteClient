@@ -716,62 +716,20 @@ export default function RepairedInterventionsPage({ navigation }) {
 
                                     {item.intervention_images &&
                                         item.intervention_images.length > 0 && (
-                                            <View style={styles.imageContainer}>
-                                                {item.intervention_images.map(
-                                                    (image, index) => (
-                                                        <View
-                                                            key={index}
-                                                            style={
-                                                                styles.imageWrapper
-                                                            }
-                                                        >
-                                                            {item.intervention_images?.map(
-                                                                (
-                                                                    image,
-                                                                    index
-                                                                ) => (
-                                                                    <TouchableOpacity
-                                                                        key={`intervention-image-${index}`}
-                                                                        onPress={() => {
-                                                                            console.log(
-                                                                                "👆 Image cliquée :",
-                                                                                image
-                                                                            );
+<View style={styles.imageContainer}>
+  {item.intervention_images.map((img) => (
+    <TouchableOpacity
+      key={`intervention-image-${img.id}`}   // un id unique, plus fiable que l’index
+      onPress={() => openImageModal(img.image_data, img.id, item.id)}
+    >
+      <Image
+        source={{ uri: img.image_data }}     // le lien est déjà complet
+        style={[styles.imageThumbnail, styles.newImageThumbnail]}
+      />
+    </TouchableOpacity>
+  ))}
+</View>
 
-                                                                            setSelectedImage(
-                                                                                {
-                                                                                    id: image.id,
-                                                                                    intervention_id:
-                                                                                        image.intervention_id, // 🔑 on garde ce nom ici
-                                                                                    uri: image.image_data, // 💥 doit être un lien complet http(s)
-                                                                                }
-                                                                            );
-
-                                                                            setIsModalVisible(
-                                                                                true
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        <Image
-                                                                            source={{
-                                                                                uri: image.image_data?.startsWith(
-                                                                                    "http"
-                                                                                )
-                                                                                    ? image.image_data
-                                                                                    : `data:image/jpeg;base64,${selectedImage.uri}`,
-                                                                            }}
-                                                                            style={[
-                                                                                styles.imageThumbnail,
-                                                                                styles.newImageThumbnail,
-                                                                            ]}
-                                                                        />
-                                                                    </TouchableOpacity>
-                                                                )
-                                                            )}
-                                                        </View>
-                                                    )
-                                                )}
-                                            </View>
                                         )}
                                 </View>
                             </View>

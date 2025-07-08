@@ -301,20 +301,22 @@ export default function HomePage({ navigation, route, setUser }) {
     };
 
     // Fonction pour basculer l'état d'expansion d'une fiche client
-    const toggleClientExpansion = (clientId, index) => {
-        setExpandedClientId((prevId) =>
-            prevId === clientId ? null : clientId
-        );
-        if (flatListRef.current) {
-            flatListRef.current.scrollToIndex({
-                index,
-                animated: true,
+     const toggleClientExpansion = (clientId, itemIndex) => {
+           setExpandedClientId(prevId => (prevId === clientId ? null : clientId));
+           if (
+             flatListRef.current &&
+             Number.isFinite(itemIndex) &&            // garde 1 : index bien numérique
+             itemIndex >= 0 &&
+             itemIndex < paginatedClients.length      // garde 2 : dans les bornes
+           ) {
+             flatListRef.current.scrollToIndex({
+               index: itemIndex,
+              animated: true,
             });
-        }
-    };
-    const logMessage = (message) => {
-        setProcessLogs((prevLogs) => [...prevLogs, message]); // Ajouter un message à l'état
-    };
+           }
+         };
+         const logMessage = (message) =>
+            setProcessLogs(prevLogs => [...prevLogs, message]);
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
@@ -1826,6 +1828,12 @@ const isOrderNotified = (client) =>
                                                 offset: 180 * index,
                                                 index,
                                             })}
+                                            onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
+    flatListRef.current?.scrollToIndex({
+      index: Math.max(0, highestMeasuredFrameIndex),
+      animated: true,
+    });
+  }}
                                             renderItem={({ item, index }) => {
 												const isNotified =
     item.latestIntervention?.notifiedBy ||
@@ -1930,11 +1938,7 @@ const isOrderNotified = (client) =>
                                                             </View>
 
                                                             <TouchableOpacity
-                                                                onPress={() =>
-                                                                    toggleClientExpansion(
-                                                                        item.id
-                                                                    )
-                                                                }
+                                                                onPress={() => toggleClientExpansion(item.id, index)}
                                                                 style={
                                                                     styles.clientInfo
                                                                 }

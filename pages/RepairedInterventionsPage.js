@@ -428,7 +428,16 @@ export default function RepairedInterventionsPage({ navigation }) {
             console.log("Mise à jour réussie :", data);
         }
     };
-
+// Retourne l'image d'étiquette si on la trouve, sinon undefined
+const getLabelImage = (images = []) =>
+    images.find(
+      (img) =>
+        // 3 pistes possibles : adapte selon ta structure de table
+        img.type === "label" ||                     // 1) un champ "type"
+        (img.file_name || "").toLowerCase().includes("label") || // 2) nom du fichier
+        (img.image_data || "").toLowerCase().includes("label")   // 3) URL
+    );
+  
     return (
         <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
             <View style={styles.overlay}>
@@ -545,9 +554,29 @@ export default function RepairedInterventionsPage({ navigation }) {
                                     <Text style={styles.interventionText}>
                                         Numéro de série: {item.serial_number}
                                     </Text>
-                                    <Text style={styles.interventionText}>
-                                        Référence: {item.reference}
-                                    </Text>
+                                    {item.reference?.toLowerCase().includes("voir photo") && item.label_photo ? (
+  /* ▼ Texte cliquable : ouvre l’étiquette */
+  <TouchableOpacity
+    onPress={() => openImageModal(item.label_photo, null, item.id)}
+  >
+    <Text
+      style={[
+        styles.interventionText,
+        { color: "#007BFF", textDecorationLine: "underline" },
+      ]}
+    >
+      Référence: {item.reference}
+    </Text>
+  </TouchableOpacity>
+) : (
+  /* ▼ Affichage normal si pas de photo d’étiquette */
+  <Text style={styles.interventionText}>
+    Référence: {item.reference}
+  </Text>
+)}
+
+
+
                                     <Text style={styles.interventionText}>
                                         Description du problème:{" "}
                                         {item.description}
@@ -771,7 +800,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                         <Ionicons name="close-circle" size={40} color="white" />
                     </TouchableOpacity>
 
-                    {selectedImage?.uri && (
+                    {selectedImage?.id && (
                         <View
                             style={{
                                 justifyContent: "center",

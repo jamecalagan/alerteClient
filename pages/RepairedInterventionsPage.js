@@ -724,7 +724,7 @@ export default function RepairedInterventionsPage({ navigation }) {
     >
       <Image
         source={{ uri: img.image_data }}     // le lien est déjà complet
-        style={[styles.imageThumbnail, styles.newImageThumbnail]}
+        style={[styles.imageThumbnail, styles.imageThumbnail]}
       />
     </TouchableOpacity>
   ))}

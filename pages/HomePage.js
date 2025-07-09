@@ -41,7 +41,7 @@ export default function HomePage({ navigation, route, setUser }) {
     const [notifyModalVisible, setNotifyModalVisible] = useState(false); // Gérer la visibilité de la modal de notification
     const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
     const [repairedNotReturnedCount, setRepairedNotReturnedCount] = useState(0);
-	const toBool = (v) => v === true || v === "true" || v === 1 || v === "1";
+    const toBool = (v) => v === true || v === "true" || v === 1 || v === "1";
 
     const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
         useState(0);
@@ -301,22 +301,24 @@ export default function HomePage({ navigation, route, setUser }) {
     };
 
     // Fonction pour basculer l'état d'expansion d'une fiche client
-     const toggleClientExpansion = (clientId, itemIndex) => {
-           setExpandedClientId(prevId => (prevId === clientId ? null : clientId));
-           if (
-             flatListRef.current &&
-             Number.isFinite(itemIndex) &&            // garde 1 : index bien numérique
-             itemIndex >= 0 &&
-             itemIndex < paginatedClients.length      // garde 2 : dans les bornes
-           ) {
-             flatListRef.current.scrollToIndex({
-               index: itemIndex,
-              animated: true,
+    const toggleClientExpansion = (clientId, itemIndex) => {
+        setExpandedClientId((prevId) =>
+            prevId === clientId ? null : clientId
+        );
+        if (
+            flatListRef.current &&
+            Number.isFinite(itemIndex) && // garde 1 : index bien numérique
+            itemIndex >= 0 &&
+            itemIndex < paginatedClients.length // garde 2 : dans les bornes
+        ) {
+            flatListRef.current.scrollToIndex({
+                index: itemIndex,
+                animated: true,
             });
-           }
-         };
-         const logMessage = (message) =>
-            setProcessLogs(prevLogs => [...prevLogs, message]);
+        }
+    };
+    const logMessage = (message) =>
+        setProcessLogs((prevLogs) => [...prevLogs, message]);
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
@@ -471,6 +473,8 @@ export default function HomePage({ navigation, route, setUser }) {
         ),
         orders(
             id,
+			 price,
+			  deposit,
             product,
             paid,
             notified
@@ -493,7 +497,7 @@ export default function HomePage({ navigation, route, setUser }) {
             const ordersByClient = {};
 
             ordersData.forEach((order) => {
-				order.notified = toBool(order.notified);   // ✅ conversion
+                order.notified = toBool(order.notified); // ✅ conversion
                 const clientId = String(order.client_id);
                 if (!ordersByClient[clientId]) {
                     ordersByClient[clientId] = {
@@ -797,77 +801,97 @@ export default function HomePage({ navigation, route, setUser }) {
         console.log("🔄 Mise à jour de l'affichage des commandes !");
         setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
     }, [orders]);
-    const filterClients = async (text) => {
-        setSearchText(text);
-        await loadOrders();
-        console.log("🔄 Commandes rechargées après recherche !");
-        if (text.trim() === "") {
-            setFilteredClients(clients); // Réinitialise la liste si aucun texte n'est entré
-        } else {
-            try {
-                setIsLoading(true); // Active le loader pendant la recherche
+const filterClients = async (text) => {
+  setSearchText(text);
 
-                // Vérification de l'entrée comme nombre entier pour ficheNumber uniquement
-                const isNumber = /^\d+$/.test(text.trim()); // Vérifie si le texte est composé uniquement de chiffres
+  if (text.trim() === "") {
+    setFilteredClients(clients); // remet tous les clients si champ vide
+    return;
+  }
 
-                // Construction de la requête selon la nature de l'entrée
-                const { data, error } = await supabase
-                    .from("clients")
-                    .select(
-                        `*, interventions(id, status, deviceType, cost, createdAt, "updatedAt", commande, photos, notifiedBy)`
-                    )
-                    .or(
-                        isNumber
-                            ? `ficheNumber.eq.${parseInt(
-                                  text,
-                                  10
-                              )}, phone.ilike.%${text}%`
-                            : `name.ilike.${text}%`
-                    );
+  try {
+    setIsLoading(true);
+    const query = text.trim();
+    const isNumber = /^\d+$/.test(query);
 
-                if (error) {
-                    console.error("Erreur lors de la recherche :", error);
-                    return;
-                }
+    // 1️⃣ Charger les clients + interventions
+    const { data: clientsData, error: clientError } = await supabase
+      .from("clients")
+      .select(`
+        *,
+        interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
+      `)
+      .or(
+        isNumber
+          ? `ficheNumber.eq.${parseInt(query, 10)}, phone.ilike.%${query}%`
+          : `name.ilike.${query}%`
+      );
 
-                // Appliquer un filtrage local sur les résultats récupérés
-                const filteredData = data.map((client) => {
-                    const relevantInterventions = client.interventions?.filter(
-                        (intervention) =>
-                            intervention.status !== "Réparé" &&
-                            intervention.status !== "Récupéré" &&
-                            intervention.status !== "Non réparable"
-                    );
+    if (clientError) {
+      console.error("Erreur chargement clients :", clientError);
+      return;
+    }
 
-                    if (relevantInterventions.length > 0) {
-                        client.latestIntervention =
-                            relevantInterventions[
-                                relevantInterventions.length - 1
-                            ];
-                        client.latestIntervention.photos =
-                            client.latestIntervention.photos || [];
-                    } else {
-                        client.latestIntervention = null;
-                    }
+    // 2️⃣ Charger les commandes liées aux clients trouvés
+    const clientIds = clientsData.map((c) => c.id);
+    const { data: ordersData, error: orderError } = await supabase
+      .from("orders")
+      .select("*, client_id")
+      .in("client_id", clientIds);
 
-                    return client;
-                });
+    if (orderError) {
+      console.error("Erreur chargement commandes :", orderError);
+      return;
+    }
 
-                setFilteredClients(filteredData); // Met à jour la liste des clients filtrés
-                console.log(
-                    "👥 Clients affichés après recherche :",
-                    filteredData
-                );
-            } catch (error) {
-                console.error(
-                    "Erreur lors de la recherche des clients:",
-                    error
-                );
-            } finally {
-                setIsLoading(false); // Désactive le loader
-            }
-        }
-    };
+    // 3️⃣ Réorganiser les commandes par client_id
+    const ordersByClient = {};
+    ordersData.forEach((order) => {
+      if (!ordersByClient[order.client_id]) {
+        ordersByClient[order.client_id] = [];
+      }
+      ordersByClient[order.client_id].push(order);
+    });
+
+    // 4️⃣ Enrichir chaque client avec ses interventions triées + commandes + montants
+    const enrichedClients = clientsData.map((client) => {
+      const interventions = client.interventions || [];
+      const orders = ordersByClient[client.id] || [];
+
+      const ongoingInterventions = interventions.filter(
+        (i) =>
+          i.status !== "Réparé" &&
+          i.status !== "Récupéré" &&
+          i.status !== "Non réparable"
+      );
+
+      const totalAmountOngoing = interventions
+        .filter((i) => i.solderestant > 0 && i.status !== "Récupéré")
+        .reduce((sum, i) => sum + i.solderestant, 0);
+
+      const totalOrderRemaining = orders
+        .filter((o) => !o.paid)
+        .reduce((sum, o) => sum + ((o.price || 0) - (o.deposit || 0)), 0);
+
+      return {
+        ...client,
+        interventions: ongoingInterventions,
+        orders,
+        latestIntervention: ongoingInterventions[0] || null,
+        totalAmountOngoing,
+        totalOrderRemaining,
+      };
+    });
+
+    setFilteredClients(enrichedClients);
+    console.log("👥 Clients enrichis après recherche :", enrichedClients);
+  } catch (error) {
+    console.error("❌ Erreur lors de la recherche des clients :", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
     const getIconSource = (status) => {
         switch (status) {
             case "En attente de pièces":
@@ -951,7 +975,7 @@ export default function HomePage({ navigation, route, setUser }) {
         Commande: require("../assets/icons/shipping_box.png"),
         "Carte graphique": require("../assets/icons/Vga_card.png"),
         Manette: require("../assets/icons/controller.png"),
-		Enceinte: require("../assets/icons/speaker.png"),
+        Enceinte: require("../assets/icons/speaker.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
@@ -1261,9 +1285,9 @@ export default function HomePage({ navigation, route, setUser }) {
             console.error("❌ Erreur inattendue :", err.message);
         }
     };
-// ✅ VRAI si AU MOINS UNE commande du client est notifiée
-const isOrderNotified = (client) =>
-  client.orders?.some((o) => o.notified === true) || false;
+    // ✅ VRAI si AU MOINS UNE commande du client est notifiée
+    const isOrderNotified = (client) =>
+        client.orders?.some((o) => o.notified === true) || false;
 
     return (
         <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
@@ -1765,15 +1789,19 @@ const isOrderNotified = (client) =>
                                 <TouchableOpacity
                                     style={styles.toggleButton}
                                     onPress={() => {
-    setShowClients((prev) => {
-        const next = !prev;
-        if (!next && flatListRef.current) {
-            flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-        }
-        return next;
-    });
-}}
-
+                                        setShowClients((prev) => {
+                                            const next = !prev;
+                                            if (!next && flatListRef.current) {
+                                                flatListRef.current.scrollToOffset(
+                                                    {
+                                                        offset: 0,
+                                                        animated: true,
+                                                    }
+                                                );
+                                            }
+                                            return next;
+                                        });
+                                    }}
                                 >
                                     <Image
                                         source={
@@ -1813,7 +1841,7 @@ const isOrderNotified = (client) =>
                                 <>
                                     {showClients && (
                                         <FlatList
-										ref={flatListRef}
+                                            ref={flatListRef}
                                             initialNumToRender={10}
                                             maxToRenderPerBatch={5}
                                             showsVerticalScrollIndicator={false}
@@ -1828,16 +1856,52 @@ const isOrderNotified = (client) =>
                                                 offset: 180 * index,
                                                 index,
                                             })}
-                                            onScrollToIndexFailed={({ index, highestMeasuredFrameIndex }) => {
-    flatListRef.current?.scrollToIndex({
-      index: Math.max(0, highestMeasuredFrameIndex),
-      animated: true,
-    });
-  }}
+                                            onScrollToIndexFailed={({
+                                                index,
+                                                highestMeasuredFrameIndex,
+                                            }) => {
+                                                flatListRef.current?.scrollToIndex(
+                                                    {
+                                                        index: Math.max(
+                                                            0,
+                                                            highestMeasuredFrameIndex
+                                                        ),
+                                                        animated: true,
+                                                    }
+                                                );
+                                            }}
                                             renderItem={({ item, index }) => {
-												const isNotified =
-    item.latestIntervention?.notifiedBy ||
-    (item.orders || []).some((order) => order.notified);
+                                                // Calcul du montant total à régler
+                                                const interventionDue = (
+                                                    item.interventions || []
+                                                )
+                                                    .filter(
+                                                        (i) =>
+                                                            i.solderestant >
+                                                                0 &&
+                                                            i.status !==
+                                                                "Récupéré"
+                                                    )
+                                                    .reduce(
+                                                        (sum, i) =>
+                                                            sum +
+                                                            i.solderestant,
+                                                        0
+                                                    );
+
+                                                const orderDue =
+                                                    item.totalOrderRemaining ||
+                                                    0;
+                                                const amountDue =
+                                                    interventionDue + orderDue;
+
+                                                const isNotified =
+                                                    item.latestIntervention
+                                                        ?.notifiedBy ||
+                                                    (item.orders || []).some(
+                                                        (order) =>
+                                                            order.notified
+                                                    );
 
                                                 const isEven = index % 2 === 0;
                                                 const backgroundColor = isEven
@@ -1938,7 +2002,12 @@ const isOrderNotified = (client) =>
                                                             </View>
 
                                                             <TouchableOpacity
-                                                                onPress={() => toggleClientExpansion(item.id, index)}
+                                                                onPress={() =>
+                                                                    toggleClientExpansion(
+                                                                        item.id,
+                                                                        index
+                                                                    )
+                                                                }
                                                                 style={
                                                                     styles.clientInfo
                                                                 }
@@ -2005,6 +2074,32 @@ const isOrderNotified = (client) =>
                                                                           )
                                                                         : "0,00 €"}
                                                                 </Text>
+                                                                {amountDue >
+                                                                    0 && (
+                                                                    <View
+                                                                        style={
+                                                                            styles.dueBox
+                                                                        }
+                                                                    >
+                                                                        <Text
+                                                                            style={
+                                                                                styles.dueText
+                                                                            }
+                                                                        >
+                                                                            💰 À
+                                                                            régler
+                                                                            :{" "}
+                                                                            {amountDue.toLocaleString(
+                                                                                "fr-FR",
+                                                                                {
+                                                                                    style: "currency",
+                                                                                    currency:
+                                                                                        "EUR",
+                                                                                }
+                                                                            )}
+                                                                        </Text>
+                                                                    </View>
+                                                                )}
 
                                                                 {item.devis_cost >
                                                                     0 && (
@@ -2114,75 +2209,114 @@ const isOrderNotified = (client) =>
                                                                             "row",
                                                                     }}
                                                                 >
-                                                                  {status === "En attente de pièces" && commande && (
-  <TouchableOpacity
-    style={[styles.iconButton, styles.editButton]}
-    onPress={() => {
-      setSelectedCommande(commande);
-      setTransportModalVisible(true);
-    }}
-  >
-    <Image
-      source={
-        latestIntervention?.commande_effectuee
-          ? require("../assets/icons/shipping_fast.png") // ✅ nouvelle icône si commande faite
-          : require("../assets/icons/shipping.png")      // 🛒 icône par défaut
-      }
-      style={{
-        width: 28,
-        height: 28,
-        tintColor: latestIntervention?.commande_effectuee
-          ? "#00fd00" // vert si commandé
-          : "#a073f3", // violet sinon
-      }}
-    />
-  </TouchableOpacity>
-)}
+                                                                    {status ===
+                                                                        "En attente de pièces" &&
+                                                                        commande && (
+                                                                            <TouchableOpacity
+                                                                                style={[
+                                                                                    styles.iconButton,
+                                                                                    styles.editButton,
+                                                                                ]}
+                                                                                onPress={() => {
+                                                                                    setSelectedCommande(
+                                                                                        commande
+                                                                                    );
+                                                                                    setTransportModalVisible(
+                                                                                        true
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <Image
+                                                                                    source={
+                                                                                        latestIntervention?.commande_effectuee
+                                                                                            ? require("../assets/icons/shipping_fast.png") // ✅ nouvelle icône si commande faite
+                                                                                            : require("../assets/icons/shipping.png") // 🛒 icône par défaut
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: 28,
+                                                                                        height: 28,
+                                                                                        tintColor:
+                                                                                            latestIntervention?.commande_effectuee
+                                                                                                ? "#00fd00" // vert si commandé
+                                                                                                : "#a073f3", // violet sinon
+                                                                                    }}
+                                                                                />
+                                                                            </TouchableOpacity>
+                                                                        )}
 
-<View
-    style={{
-        position: "relative",
-    }}
->
-    <TouchableOpacity
-        style={[styles.iconButton, styles.notificationIconContainer]}
-        onPress={() => {
-            navigation.navigate("ClientNotificationsPage", {
-                clientId: item.id,
-            });
-        }}
-    >
-        <Image
-            source={require("../assets/icons/sms.png")}
-            style={{
-                width: 28,
-                height: 28,
-                tintColor:
-                    item.latestIntervention?.notifiedBy ||
-                    (item.orders || []).some((order) => order.notified)
-                        ? "#00fd00"
-                        : "#888787",
-            }}
-        />
-        {!(
-            item.latestIntervention?.notifiedBy ||
-            (item.orders || []).some((order) => order.notified)
-        ) && (
-            <View
-                style={{
-                    position: "absolute",
-                    top: 2,
-                    right: 2,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: "#ff3b30",
-                }}
-            />
-        )}
-    </TouchableOpacity>
-</View>
-
+                                                                    <View
+                                                                        style={{
+                                                                            position:
+                                                                                "relative",
+                                                                        }}
+                                                                    >
+                                                                        <TouchableOpacity
+                                                                            style={[
+                                                                                styles.iconButton,
+                                                                                styles.notificationIconContainer,
+                                                                            ]}
+                                                                            onPress={() => {
+                                                                                navigation.navigate(
+                                                                                    "ClientNotificationsPage",
+                                                                                    {
+                                                                                        clientId:
+                                                                                            item.id,
+                                                                                    }
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <Image
+                                                                                source={require("../assets/icons/sms.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        item
+                                                                                            .latestIntervention
+                                                                                            ?.notifiedBy ||
+                                                                                        (
+                                                                                            item.orders ||
+                                                                                            []
+                                                                                        ).some(
+                                                                                            (
+                                                                                                order
+                                                                                            ) =>
+                                                                                                order.notified
+                                                                                        )
+                                                                                            ? "#00fd00"
+                                                                                            : "#888787",
+                                                                                }}
+                                                                            />
+                                                                            {!(
+                                                                                item
+                                                                                    .latestIntervention
+                                                                                    ?.notifiedBy ||
+                                                                                (
+                                                                                    item.orders ||
+                                                                                    []
+                                                                                ).some(
+                                                                                    (
+                                                                                        order
+                                                                                    ) =>
+                                                                                        order.notified
+                                                                                )
+                                                                            ) && (
+                                                                                <View
+                                                                                    style={{
+                                                                                        position:
+                                                                                            "absolute",
+                                                                                        top: 2,
+                                                                                        right: 2,
+                                                                                        width: 10,
+                                                                                        height: 10,
+                                                                                        borderRadius: 5,
+                                                                                        backgroundColor:
+                                                                                            "#ff3b30",
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                        </TouchableOpacity>
+                                                                    </View>
 
                                                                     <TouchableOpacity
                                                                         style={[
@@ -2378,24 +2512,36 @@ const isOrderNotified = (client) =>
                                                                             )
                                                                         }
                                                                     >
-{isOrderNotified(item) ? (
-  <Image
-    source={require("../assets/icons/Notification.png")} // icône cloche
-    style={{ width: 28, height: 28, tintColor: "#28a745" }}  // cloche verte
-  />
-) : shouldBlink ? (
-  <BlinkingIcon
-    source={require("../assets/icons/order.png")}             // icône commande
-    tintColor={orderColor}
-  />
-) : (
-  <Image
-    source={require("../assets/icons/order.png")}
-    style={{ width: 28, height: 28, tintColor: orderColor }}
-  />
-)}
-
-
+                                                                        {isOrderNotified(
+                                                                            item
+                                                                        ) ? (
+                                                                            <Image
+                                                                                source={require("../assets/icons/Notification.png")} // icône cloche
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        "#28a745",
+                                                                                }} // cloche verte
+                                                                            />
+                                                                        ) : shouldBlink ? (
+                                                                            <BlinkingIcon
+                                                                                source={require("../assets/icons/order.png")} // icône commande
+                                                                                tintColor={
+                                                                                    orderColor
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <Image
+                                                                                source={require("../assets/icons/order.png")}
+                                                                                style={{
+                                                                                    width: 28,
+                                                                                    height: 28,
+                                                                                    tintColor:
+                                                                                        orderColor,
+                                                                                }}
+                                                                            />
+                                                                        )}
                                                                     </TouchableOpacity>
                                                                     <TouchableOpacity
                                                                         style={[
@@ -3321,7 +3467,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: "bold",
     },
-		repairedCountContainer: {
+    repairedCountContainer: {
         padding: 10,
         backgroundColor: "#cacaca",
         borderRadius: 2,
@@ -3347,7 +3493,7 @@ const styles = StyleSheet.create({
         flex: 1,
         resizeMode: "cover", // L'image couvre toute la page
     },
-		headerContainer: {
+    headerContainer: {
         flexDirection: "row",
         justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
         alignItems: "center",
@@ -3616,9 +3762,9 @@ const styles = StyleSheet.create({
     buttonContainerMasquer: {
         flexDirection: "row",
         marginRight: 10,
-		gap: 5,
+        gap: 5,
     },
-     alertBox: {
+    alertBox: {
         width: "85%",
         maxWidth: 400,
         backgroundColor: "#fff",
@@ -3865,6 +4011,21 @@ const styles = StyleSheet.create({
     modalButtonTextSecondaryG: {
         color: "#333",
         textAlign: "center",
+        fontWeight: "bold",
+    },
+    dueBox: {
+        maxWidth: 180,
+        marginTop: 6,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        backgroundColor: "#ffffff",
+        borderRadius: 50,
+        borderWidth: 1,
+        borderColor: "#d42d2d",
+    },
+    dueText: {
+        fontSize: 14,
+        color: "#b00000",
         fontWeight: "bold",
     },
 });

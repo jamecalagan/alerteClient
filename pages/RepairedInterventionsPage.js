@@ -554,8 +554,7 @@ const getLabelImage = (images = []) =>
                                     <Text style={styles.interventionText}>
                                         Numéro de série: {item.serial_number}
                                     </Text>
-                                    {item.reference?.toLowerCase().includes("voir photo") && item.label_photo ? (
-  /* ▼ Texte cliquable : ouvre l’étiquette */
+{item.reference?.toLowerCase().includes("voir photo") && item.label_photo ? (
   <TouchableOpacity
     onPress={() => openImageModal(item.label_photo, null, item.id)}
   >
@@ -569,11 +568,9 @@ const getLabelImage = (images = []) =>
     </Text>
   </TouchableOpacity>
 ) : (
-  /* ▼ Affichage normal si pas de photo d’étiquette */
-  <Text style={styles.interventionText}>
-    Référence: {item.reference}
-  </Text>
+  <Text style={styles.interventionText}>Référence: {item.reference}</Text>
 )}
+
 
 
 
@@ -800,7 +797,7 @@ const getLabelImage = (images = []) =>
                         <Ionicons name="close-circle" size={40} color="white" />
                     </TouchableOpacity>
 
-                    {selectedImage?.id && (
+                    {selectedImage?.uri && (
                         <View
                             style={{
                                 justifyContent: "center",
@@ -809,19 +806,13 @@ const getLabelImage = (images = []) =>
                                 height: "100%",
                             }}
                         >
-                            <Image
-                                source={{
-                                    uri: selectedImage.uri.startsWith("http")
-                                        ? selectedImage.uri
-                                        : `data:image/jpeg;base64,${selectedImage.uri}`,
-                                }}
-                                style={{
-                                    width: "90%",
-                                    height: "70%",
-                                    resizeMode: "contain",
-                                }}
-                            />
+ <Image
+   source={{ uri: selectedImage.uri }}   // on passe l’URI telle quelle
+   style={{ width: "90%", height: "70%", resizeMode: "contain" }}
+   onError={() => alert("Image introuvable.")}
+ />
 
+{selectedImage.id && (
                             <TouchableOpacity
                                 style={[
                                     styles.deleteButton,
@@ -866,6 +857,7 @@ const getLabelImage = (images = []) =>
                                         : "Supprimer"}
                                 </Text>
                             </TouchableOpacity>
+							)}
                         </View>
                     )}
                 </View>

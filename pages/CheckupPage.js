@@ -181,38 +181,41 @@ useEffect(() => {
     }
   };
 
-  const saveCheckup = async () => {
-    if (!validate()) return;
-    const payload = {
-      client_name: clientName,
-      client_phone: clientPhone,
-      client_date: clientDate,
-      product_type: selectedProduct,
-      components,
-      remarks,
-      signature,
-    };
+const saveCheckup = async () => {
+  if (!validate()) return;
 
-    try {
-      if (isEdit && editData?.id) {
-        const { error } = await supabase
-          .from("checkup_reports")
-          .update(payload)
-          .eq("id", editData.id);
-        if (error) throw error;
-        Alert.alert("Succès", "Fiche sauvegardée.", [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
-      } else {
-        const { error } = await supabase.from("checkup_reports").insert(payload);
-        if (error) throw error;
-        await printCheckup();
-      }
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Erreur", "Impossible de sauvegarder la fiche.");
-    }
+  const payload = {
+    client_name: clientName,
+    client_phone: clientPhone,
+    client_date: clientDate,
+    product_type: selectedProduct,
+    components,
+    remarks,
+    signature,
   };
+
+  try {
+    if (isEdit && editData?.id) {
+      const { error } = await supabase
+        .from("checkup_reports")
+        .update(payload)
+        .eq("id", editData.id);
+
+      if (error) throw error;
+
+      Alert.alert("Succès", "Fiche mise à jour.");
+    } else {
+      const { error } = await supabase.from("checkup_reports").insert(payload);
+      if (error) throw error;
+
+      Alert.alert("Succès", "Fiche sauvegardée.");
+    }
+  } catch (e) {
+    console.error(e);
+    Alert.alert("Erreur", "Impossible de sauvegarder la fiche.");
+  }
+};
+
 
   const deleteCheckup = async () => {
     if (!editData?.id) return;
@@ -271,7 +274,10 @@ useEffect(() => {
 
 return (
   <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-    <ScrollView contentContainerStyle={styles.container} scrollEnabled={!isSigning}>
+    <ScrollView
+  contentContainerStyle={[styles.container, { flexGrow: 1 }]}
+  scrollEnabled={!isSigning}
+>
       <Text style={styles.title}>Fiche de contrôle</Text>
 
       <View style={styles.infoBox}>
@@ -360,14 +366,7 @@ return (
         multiline
       />
 
-      <Text style={styles.subtitle}>Signature du client :</Text>
-      {signature && (
-        <Image
-          source={{ uri: signature }}
-          style={{ width: 200, height: 80, alignSelf: "center", marginBottom: 10 }}
-          resizeMode="contain"
-        />
-      )}
+
       <View style={styles.signatureBox}>
         <Signature
           ref={sigRef}
@@ -391,9 +390,10 @@ return (
         <TouchableOpacity style={styles.saveButton} onPress={saveCheckup}>
           <Text style={styles.btnText}>💾 Sauvegarder</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.printButton} onPress={saveAndPrint}>
-          <Text style={styles.btnText}>🖨️ Imprimer</Text>
-        </TouchableOpacity>
+<TouchableOpacity style={styles.printButton} onPress={printCheckup}>
+  <Text style={styles.btnText}>🖨️ Imprimer</Text>
+</TouchableOpacity>
+
         {isEdit && (
           <TouchableOpacity style={styles.deleteButton} onPress={deleteCheckup}>
             <Text style={styles.btnText}>🗑️ Supprimer</Text>

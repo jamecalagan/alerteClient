@@ -805,34 +805,61 @@ const filterClients = async (text) => {
   setSearchText(text);
 
   if (text.trim() === "") {
-    setFilteredClients(clients); // remet tous les clients si champ vide
+    setFilteredClients(clients);
     return;
   }
 
   try {
     setIsLoading(true);
-    const query = text.trim();
-    const isNumber = /^\d+$/.test(query);
 
-    // 1️⃣ Charger les clients + interventions
-    const { data: clientsData, error: clientError } = await supabase
-      .from("clients")
-      .select(`
-        *,
-        interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
-      `)
-      .or(
-        isNumber
-          ? `ficheNumber.eq.${parseInt(query, 10)}, phone.ilike.%${query}%`
-          : `name.ilike.${query}%`
-      );
+    const query = text.trim().toUpperCase();
+    const cleanQuery = query.replace(/\s+/g, "").replace(/[^0-9]/g, "");
+
+    const isFicheNumber = /^\d+$/.test(query);
+    const isPhoneNumber = /^0\d{9}$/.test(cleanQuery);
+
+    let clientQuery;
+
+    if (isFicheNumber && !isPhoneNumber) {
+      // 🔍 Recherche stricte par numéro de fiche
+      clientQuery = supabase
+        .from("clients")
+        .select(`
+          *,
+          interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
+        `)
+        .eq("ficheNumber", parseInt(query, 10));
+    } else if (isPhoneNumber) {
+      // 🔍 Recherche par numéro de téléphone nettoyé
+      clientQuery = supabase
+        .from("clients")
+        .select(`
+          *,
+          interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
+        `)
+        .ilike("phone", `%${cleanQuery}%`);
+} else {
+  const queryUpper = query.toUpperCase();
+  clientQuery = supabase
+    .from("clients")
+    .select(`
+      *,
+      interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
+    `)
+    .ilike("name", `%${queryUpper}%`);
+}
+
+
+    console.log("🔎 Requête exécutée :", clientQuery);
+
+    const { data: clientsData, error: clientError } = await clientQuery;
 
     if (clientError) {
-      console.error("Erreur chargement clients :", clientError);
+      console.error("❌ Erreur chargement clients :", clientError);
       return;
     }
 
-    // 2️⃣ Charger les commandes liées aux clients trouvés
+    // Charger les commandes liées aux clients
     const clientIds = clientsData.map((c) => c.id);
     const { data: ordersData, error: orderError } = await supabase
       .from("orders")
@@ -840,11 +867,11 @@ const filterClients = async (text) => {
       .in("client_id", clientIds);
 
     if (orderError) {
-      console.error("Erreur chargement commandes :", orderError);
+      console.error("❌ Erreur chargement commandes :", orderError);
       return;
     }
 
-    // 3️⃣ Réorganiser les commandes par client_id
+    // Regrouper les commandes par client_id
     const ordersByClient = {};
     ordersData.forEach((order) => {
       if (!ordersByClient[order.client_id]) {
@@ -853,7 +880,7 @@ const filterClients = async (text) => {
       ordersByClient[order.client_id].push(order);
     });
 
-    // 4️⃣ Enrichir chaque client avec ses interventions triées + commandes + montants
+    // Enrichir les clients
     const enrichedClients = clientsData.map((client) => {
       const interventions = client.interventions || [];
       const orders = ordersByClient[client.id] || [];
@@ -891,6 +918,7 @@ const filterClients = async (text) => {
     setIsLoading(false);
   }
 };
+
 
     const getIconSource = (status) => {
         switch (status) {
@@ -1153,7 +1181,7 @@ const filterClients = async (text) => {
 
                 if (error) throw error;
 
-                console.log("📦 Commandes récupérées :", data);
+              
                 setOrders(data);
             } catch (error) {
                 console.error(
@@ -1735,7 +1763,7 @@ const filterClients = async (text) => {
                                         style={styles.searchInput}
                                         placeholder="Rechercher par nom, téléphone, ou statut"
                                         placeholderTextColor="#2c2c2c"
-                                        value={searchText}
+                                        value={searchText.toUpperCase()}
                                         onChangeText={filterClients}
                                     />
                                     <Image

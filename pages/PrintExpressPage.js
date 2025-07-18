@@ -7,7 +7,22 @@ import { supabase } from "../supabaseClient";
 
 const PrintExpressPage = () => {
   const route = useRoute();
-  const { id, name, phone, device, description, price, date, type, cassettecount, cassettetype, outputtype, softwaretype } = route.params;
+  const {
+  id,
+  name,
+  phone,
+  device,
+  description,
+  price,
+  date,
+  type,
+  cassettecount,
+  cassettetype,
+  outputtype,
+  softwaretype,
+  support_fournis, // ✅ ajout ici
+} = route.params;
+const support_fournisseur = support_fournis === true;
   const [signatureExists, setSignatureExists] = useState(false);
   const [signatureData, setSignatureData] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
@@ -60,7 +75,17 @@ const PrintExpressPage = () => {
 	}
   };
   
-  
+  const wakeUpPrinter = async () => {
+  try {
+    await Print.printAsync({
+      html: "<html><body style='height:1px;'></body></html>",
+    });
+    console.log("🟢 Imprimante réveillée");
+  } catch (e) {
+    console.log("⚠️ Échec réveil imprimante :", e.message);
+  }
+};
+
   
 
   const handlePrint = async () => {
@@ -98,30 +123,40 @@ const PrintExpressPage = () => {
 	</div>
 	`;
 	
+  const supportLabel =
+  type === "video" &&
+  support_fournisseur &&
+  (outputtype === "Clé USB" || outputtype === "Disque dur")
+    ? ` (fourni par la boutique, ${outputtype === "Clé USB" ? "+20 €" : "+45 €"})`
+    : "";
+
   
-  
 
-    const htmlContent = `
-      <html>
-        <body style="font-family: Arial; padding: 5px; font-size: 11px; max-width: 595px;">
-          <h3 style="text-align: center;">
-  ${
-    type === "logiciel"
-      ? "Fiche Express - Dépannage système"
-      : type === "video"
-      ? "Fiche Express - Transfert vidéo"
-      : "Fiche Express - Réparation matériel"
-  }
-</h3>
+const htmlContent = `
+<html>
+  <body style="font-family: Arial; padding: 5px; font-size: 11px; max-width: 595px;">
+    <h3 style="text-align: center;">
+      ${
+        type === "logiciel"
+          ? "Fiche Express - Dépannage système"
+          : type === "video"
+          ? "Fiche Express - Transfert vidéo"
+          : "Fiche Express - Réparation matériel"
+      }
+    </h3>
 
-          <p><strong>Date :</strong> ${date}</p>
-          <p><strong>Client :</strong> ${name}</p>
-          <p><strong>Téléphone :</strong> ${phone || 'N/A'}</p>
-          <p><strong>Matériel :</strong> ${device}</p>
-		            ${type === 'logiciel' ? `<p><strong>Prestation :</strong> ${softwaretype}</p>` : ''}
-          <p><strong>Description :</strong>${description}</p>
+    <p><strong>Date :</strong> ${date}</p>
+    <p><strong>Client :</strong> ${name}</p>
+    <p><strong>Téléphone :</strong> ${phone || "N/A"}</p>
+    ${type === "reparation" ? `<p><strong>Matériel :</strong> ${device || "N/A"}</p>` : ""}
 
-          ${type === 'video' ? `<p><strong>Cassettes :</strong> ${cassettecount} (${cassettetype}) → ${outputtype}</p>` : ''}
+
+    ${type === "logiciel" ? `<p><strong>Prestation :</strong> ${softwaretype}</p>` : ""}
+
+    <p><strong>Description :</strong> ${description}</p>
+
+${type === "video" ? `<p><strong>Cassettes :</strong> ${cassettecount} → ${outputtype}${supportLabel}</p>` : ""}
+
           <p><strong>Montant à réglé :</strong> ${price} €</p>
 
           <hr style="margin: 15px 0;" />
@@ -140,13 +175,9 @@ const PrintExpressPage = () => {
   <span style="color: #007bff; font-weight: bold;">📼 8. Les conversions sont livrées sur le support choisi par le client.</span><br/>
   9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.
 </p>
-
-
-  <p>En signant ce document, vous acceptez les conditions ci-dessus.</p>
+<p>En signant ce document, vous acceptez les conditions ci-dessus.</p>
 </div>
 
-
-          <br/><br/>
           <p><strong>Signature client :</strong></p>
           ${signatureData ? `<img src="${signatureData}" style="width: 200px; height: auto;" />` : '<p>______________________________</p>'}
 
@@ -159,7 +190,8 @@ const PrintExpressPage = () => {
       </html>
     `;
 
-    await Print.printAsync({ html: htmlContent });
+    await wakeUpPrinter(); // 👈 réveille l’imprimante avant
+await Print.printAsync({ html: htmlContent });
   };
 
   return (
@@ -183,13 +215,18 @@ const PrintExpressPage = () => {
 	  {type === 'logiciel' && <Text style={styles.label}>Prestation : {softwaretype}</Text>}
       <Text style={styles.label}>Description : {description}</Text>
       
-      {type === 'video' && (
-        <>
-          <Text style={styles.label}>Nombre de cassettes : {cassettecount}</Text>
-          <Text style={styles.label}>Type : {cassettetype}</Text>
-          <Text style={styles.label}>Support : {outputtype}</Text>
-        </>
-      )}
+{type === 'video' && (
+  <>
+    <Text style={styles.label}>Nombre de cassettes : {cassettecount}</Text>
+    <Text style={styles.label}>Type : {cassettetype}</Text>
+    <Text style={styles.label}>
+      Support : {outputtype}
+      {(support_fournisseur && (outputtype === "Clé USB" || outputtype === "Disque dur")) &&
+        ` (fourni par la boutique, ${outputtype === "Clé USB" ? "+20€" : "+45€"})`}
+    </Text>
+  </>
+)}
+
       <Text style={styles.label}>Montant à réglé : {price} €</Text>
 
       <View style={styles.termsSection}>

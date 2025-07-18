@@ -74,7 +74,7 @@ export default function HomePage({ navigation, route, setUser }) {
             loop.start();
             return () => loop.stop();
         }, []);
-
+        console.log("🔍 hasImagesToDelete rendu :", hasImagesToDelete);
         return (
             <Animated.Image
                 source={source}
@@ -139,70 +139,37 @@ export default function HomePage({ navigation, route, setUser }) {
         onConfirm: null,
     });
     const [paginatedClients, setPaginatedClients] = useState([]);
-    const itemsPerPage = 3;
+    const itemsPerPage = 2;
 
-    const checkImagesToDelete = async () => {
-        setIsLoading(true);
-        try {
-            const dateLimite = new Date(
-                Date.now() - 10 * 24 * 60 * 60 * 1000
-            ).toISOString();
-            console.log("📅 Date limite :", dateLimite);
+const checkImagesToDelete = async () => {
+  setIsLoading(true);
+  try {
+    const dateLimite = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    console.log("📅 Date limite pour nettoyage :", dateLimite);
 
-            const { data: interventions, error: interventionError } =
-                await supabase
-                    .from("interventions")
-                    .select("id, photos, commande_effectuee")
-                    .eq("status", "Récupéré")
-                    .lte("updatedAt", dateLimite);
+    const { data, error } = await supabase
+      .from("intervention_images")
+      .select("id, created_at")
+      .lte("created_at", dateLimite); // 👈 filtre par date
 
-            if (interventionError) throw interventionError;
+    if (error) {
+      console.error("❌ Erreur Supabase :", error);
+      setHasImagesToDelete(false);
+      return;
+    }
 
-            console.log("🟡 Interventions récupérées :", interventions.length);
+    const imageCount = data?.length || 0;
+    console.log("🧹 Images anciennes à supprimer :", imageCount);
 
-            let countPhotos = 0;
+    setHasImagesToDelete(imageCount > 0);
+  } catch (err) {
+    console.error("❌ Erreur globale :", err);
+    setHasImagesToDelete(false);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-            interventions.forEach((intervention) => {
-                const photos = intervention.photos;
-                if (Array.isArray(photos)) {
-                    // ✅ On ne compte que les vraies images (hors test et vides)
-                    const validPhotos = photos.filter(
-                        (p) =>
-                            typeof p === "string" &&
-                            p.trim() !== "" &&
-                            p !== "base64testphoto"
-                    );
-                    countPhotos += validPhotos.length;
-                }
-            });
-
-            console.log("📸 Total vraies photos détectées :", countPhotos);
-
-            // Vérifie aussi les images dans la table intervention_images
-            const interventionIds = interventions.map((inter) => inter.id);
-
-            const { count: countImages, error: imagesError } = await supabase
-                .from("intervention_images")
-                .select("id", { count: "exact" })
-                .in("intervention_id", interventionIds);
-
-            if (imagesError) throw imagesError;
-
-            console.log(
-                "🗂️ Total images dans intervention_images :",
-                countImages
-            );
-
-            setHasImagesToDelete((countImages || 0) > 0 || countPhotos > 0);
-        } catch (error) {
-            console.error(
-                "❌ Erreur lors de la vérification des images :",
-                error
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     useEffect(() => {
         loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
@@ -801,124 +768,139 @@ export default function HomePage({ navigation, route, setUser }) {
         console.log("🔄 Mise à jour de l'affichage des commandes !");
         setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
     }, [orders]);
-const filterClients = async (text) => {
-  setSearchText(text);
+    const filterClients = async (text) => {
+        setSearchText(text);
 
-  if (text.trim() === "") {
-    setFilteredClients(clients);
-    return;
-  }
+        if (text.trim() === "") {
+            setFilteredClients(clients);
+            return;
+        }
 
-  try {
-    setIsLoading(true);
+        try {
+            setIsLoading(true);
 
-    const query = text.trim().toUpperCase();
-    const cleanQuery = query.replace(/\s+/g, "").replace(/[^0-9]/g, "");
+            const query = text.trim().toUpperCase();
+            const cleanQuery = query.replace(/\s+/g, "").replace(/[^0-9]/g, "");
 
-    const isFicheNumber = /^\d+$/.test(query);
-    const isPhoneNumber = /^0\d{9}$/.test(cleanQuery);
+            const isFicheNumber = /^\d+$/.test(query);
+            const isPhoneNumber = /^0\d{9}$/.test(cleanQuery);
 
-    let clientQuery;
+            let clientQuery;
 
-    if (isFicheNumber && !isPhoneNumber) {
-      // 🔍 Recherche stricte par numéro de fiche
-      clientQuery = supabase
-        .from("clients")
-        .select(`
+            if (isFicheNumber && !isPhoneNumber) {
+                // 🔍 Recherche stricte par numéro de fiche
+                clientQuery = supabase
+                    .from("clients")
+                    .select(
+                        `
           *,
           interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
-        `)
-        .eq("ficheNumber", parseInt(query, 10));
-    } else if (isPhoneNumber) {
-      // 🔍 Recherche par numéro de téléphone nettoyé
-      clientQuery = supabase
-        .from("clients")
-        .select(`
+        `
+                    )
+                    .eq("ficheNumber", parseInt(query, 10));
+            } else if (isPhoneNumber) {
+                // 🔍 Recherche par numéro de téléphone nettoyé
+                clientQuery = supabase
+                    .from("clients")
+                    .select(
+                        `
           *,
           interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
-        `)
-        .ilike("phone", `%${cleanQuery}%`);
-} else {
-  const queryUpper = query.toUpperCase();
-  clientQuery = supabase
-    .from("clients")
-    .select(`
+        `
+                    )
+                    .ilike("phone", `%${cleanQuery}%`);
+            } else {
+                const queryUpper = query.toUpperCase();
+                clientQuery = supabase
+                    .from("clients")
+                    .select(
+                        `
       *,
       interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
-    `)
-    .ilike("name", `%${queryUpper}%`);
-}
+    `
+                    )
+                    .ilike("name", `%${queryUpper}%`);
+            }
 
+            console.log("🔎 Requête exécutée :", clientQuery);
 
-    console.log("🔎 Requête exécutée :", clientQuery);
+            const { data: clientsData, error: clientError } = await clientQuery;
 
-    const { data: clientsData, error: clientError } = await clientQuery;
+            if (clientError) {
+                console.error("❌ Erreur chargement clients :", clientError);
+                return;
+            }
 
-    if (clientError) {
-      console.error("❌ Erreur chargement clients :", clientError);
-      return;
-    }
+            // Charger les commandes liées aux clients
+            const clientIds = clientsData.map((c) => c.id);
+            const { data: ordersData, error: orderError } = await supabase
+                .from("orders")
+                .select("*, client_id")
+                .in("client_id", clientIds);
 
-    // Charger les commandes liées aux clients
-    const clientIds = clientsData.map((c) => c.id);
-    const { data: ordersData, error: orderError } = await supabase
-      .from("orders")
-      .select("*, client_id")
-      .in("client_id", clientIds);
+            if (orderError) {
+                console.error("❌ Erreur chargement commandes :", orderError);
+                return;
+            }
 
-    if (orderError) {
-      console.error("❌ Erreur chargement commandes :", orderError);
-      return;
-    }
+            // Regrouper les commandes par client_id
+            const ordersByClient = {};
+            ordersData.forEach((order) => {
+                if (!ordersByClient[order.client_id]) {
+                    ordersByClient[order.client_id] = [];
+                }
+                ordersByClient[order.client_id].push(order);
+            });
 
-    // Regrouper les commandes par client_id
-    const ordersByClient = {};
-    ordersData.forEach((order) => {
-      if (!ordersByClient[order.client_id]) {
-        ordersByClient[order.client_id] = [];
-      }
-      ordersByClient[order.client_id].push(order);
-    });
+            // Enrichir les clients
+            const enrichedClients = clientsData.map((client) => {
+                const interventions = client.interventions || [];
+                const orders = ordersByClient[client.id] || [];
 
-    // Enrichir les clients
-    const enrichedClients = clientsData.map((client) => {
-      const interventions = client.interventions || [];
-      const orders = ordersByClient[client.id] || [];
+                const ongoingInterventions = interventions.filter(
+                    (i) =>
+                        i.status !== "Réparé" &&
+                        i.status !== "Récupéré" &&
+                        i.status !== "Non réparable"
+                );
 
-      const ongoingInterventions = interventions.filter(
-        (i) =>
-          i.status !== "Réparé" &&
-          i.status !== "Récupéré" &&
-          i.status !== "Non réparable"
-      );
+                const totalAmountOngoing = interventions
+                    .filter(
+                        (i) => i.solderestant > 0 && i.status !== "Récupéré"
+                    )
+                    .reduce((sum, i) => sum + i.solderestant, 0);
 
-      const totalAmountOngoing = interventions
-        .filter((i) => i.solderestant > 0 && i.status !== "Récupéré")
-        .reduce((sum, i) => sum + i.solderestant, 0);
+                const totalOrderRemaining = orders
+                    .filter((o) => !o.paid)
+                    .reduce(
+                        (sum, o) => sum + ((o.price || 0) - (o.deposit || 0)),
+                        0
+                    );
 
-      const totalOrderRemaining = orders
-        .filter((o) => !o.paid)
-        .reduce((sum, o) => sum + ((o.price || 0) - (o.deposit || 0)), 0);
+                return {
+                    ...client,
+                    interventions: ongoingInterventions,
+                    orders,
+                    latestIntervention: ongoingInterventions[0] || null,
+                    totalAmountOngoing,
+                    totalOrderRemaining,
+                };
+            });
 
-      return {
-        ...client,
-        interventions: ongoingInterventions,
-        orders,
-        latestIntervention: ongoingInterventions[0] || null,
-        totalAmountOngoing,
-        totalOrderRemaining,
-      };
-    });
-
-    setFilteredClients(enrichedClients);
-    console.log("👥 Clients enrichis après recherche :", enrichedClients);
-  } catch (error) {
-    console.error("❌ Erreur lors de la recherche des clients :", error);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+            setFilteredClients(enrichedClients);
+            console.log(
+                "👥 Clients enrichis après recherche :",
+                enrichedClients
+            );
+        } catch (error) {
+            console.error(
+                "❌ Erreur lors de la recherche des clients :",
+                error
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const getIconSource = (status) => {
         switch (status) {
@@ -1181,7 +1163,6 @@ const filterClients = async (text) => {
 
                 if (error) throw error;
 
-              
                 setOrders(data);
             } catch (error) {
                 console.error(
@@ -1316,7 +1297,7 @@ const filterClients = async (text) => {
     // ✅ VRAI si AU MOINS UNE commande du client est notifiée
     const isOrderNotified = (client) =>
         client.orders?.some((o) => o.notified === true) || false;
-
+console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
     return (
         <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
             <View style={styles.overlay}>
@@ -1684,35 +1665,33 @@ const filterClients = async (text) => {
                                         </TouchableOpacity>
                                     </View>
                                 )}
-                                {isLoading ? (
+                                {isLoading && (
                                     <ActivityIndicator
                                         size="large"
                                         color="blue"
                                     />
-                                ) : hasImagesToDelete ? (
-                                    <View>
-                                        <TouchableOpacity
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "ImageCleanup"
-                                                )
-                                            }
-                                            style={{
-                                                marginRight: 40,
-                                                marginTop: 15,
-                                                padding: 10,
-                                                borderRadius: 2,
-                                                borderWidth: 1,
-                                                borderColor: "#888787",
-                                                backgroundColor: "#191f2f",
-                                            }}
-                                        >
-                                            <Text style={{ color: "white" }}>
-                                                Nettoyer les images
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
+                                )}
+                                {!isLoading && hasImagesToDelete === true && (
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            navigation.navigate("ImageCleanup")
+                                        }
+                                        style={{
+                                            marginRight: 40,
+                                            marginTop: 15,
+                                            padding: 10,
+                                            borderRadius: 2,
+                                            borderWidth: 1,
+                                            borderColor: "#888787",
+                                            backgroundColor: "#191f2f",
+                                        }}
+                                    >
+                                        <Text style={{ color: "white" }}>
+                                            Nettoyer les images
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                                {!isLoading && hasImagesToDelete === false && (
                                     <View style={styles.images_numberText}>
                                         <TouchableOpacity
                                             onPress={() =>
@@ -1753,6 +1732,7 @@ const filterClients = async (text) => {
                                         </TouchableOpacity>
                                     </View>
                                 )}
+                                c
                                 <Text style={styles.pageNumberText}>
                                     Page {currentPage} / {totalPages}
                                 </Text>

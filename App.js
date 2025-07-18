@@ -62,6 +62,9 @@ import EditExpressPage from "./pages/EditExpressPage";
 import CheckupPage from "./pages/CheckupPage";
 import CheckupListPage from "./pages/CheckupListPage";
 import RepairPricesPage from "./pages/RepairPricesPage";
+import ExpressRepairPage from "./pages/ExpressRepairPage";
+import ExpressSoftwarePage from "./pages/ExpressSoftwarePage";
+import ExpressVideoPage from "./pages/ExpressVideoPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -288,6 +291,9 @@ function MainStack({ setUser }) {
 				<Stack.Screen name="EditExpressPage" component={EditExpressPage} />
         		<Stack.Screen  name="QuickLabelPrintPage"  component={QuickLabelPrintPage}  options={{ title: "Impression Étiquette" }} />
 				<Stack.Screen name="RepairPrices" component={RepairPricesPage} />
+				<Stack.Screen name="ExpressRepairPage" component={ExpressRepairPage} />
+				<Stack.Screen name="ExpressSoftwarePage" component={ExpressSoftwarePage} />
+  				<Stack.Screen name="ExpressVideoPage" component={ExpressVideoPage} />
 		</Stack.Navigator>
     );
 }

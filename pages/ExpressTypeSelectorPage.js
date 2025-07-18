@@ -12,9 +12,18 @@ import { useNavigation } from "@react-navigation/native";
 const ExpressTypeSelectorPage = () => {
     const navigation = useNavigation();
 
-    const goToExpress = (type) => {
-        navigation.navigate("ExpressClientPage", { type });
-    };
+const goToExpress = (type) => {
+    if (type === "logiciel") {
+        navigation.navigate("ExpressSoftwarePage");
+    } else if (type === "reparation") {
+        navigation.navigate("ExpressRepairPage");
+    } else if (type === "video") {
+        navigation.navigate("ExpressVideoPage");
+    } else {
+        goToExpress(type);
+    }
+};
+
     const animationValues = useRef(
         Array(11)
             .fill()
@@ -112,19 +121,15 @@ const ExpressTypeSelectorPage = () => {
                                         styles.squareButton,
                                         { backgroundColor: buttonProps.color },
                                     ]}
-                                    onPress={() =>
-                                        isQuote
-                                            ? navigation.navigate(
-                                                  "QuoteEditPage",
-                                                  type === "pc"
-                                                      ? { preset: "pc" }
-                                                      : undefined
-                                              )
-                                            : navigation.navigate(
-                                                  "ExpressClientPage",
-                                                  { type }
-                                              )
-                                    }
+onPress={() =>
+    isQuote
+        ? navigation.navigate(
+              "QuoteEditPage",
+              type === "pc" ? { preset: "pc" } : undefined
+          )
+        : goToExpress(type)
+}
+
                                 >
                                     <Text style={styles.buttonIcon}>
                                         {buttonProps.icon}

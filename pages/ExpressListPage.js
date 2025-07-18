@@ -146,8 +146,39 @@ const handleNotify = async (client) => {
         navigation.navigate("BillingPage", { expressData: item });
     };
 const goToEdit = (item) => {
-  navigation.navigate("EditExpressPage", { expressData: item });
+  switch (item.type) {
+    case "video":
+      navigation.navigate("ExpressVideoPage", {
+        isEdit: true,
+        expressData: {
+          ...item,
+        },
+      });
+      break;
+
+    case "reparation":
+      navigation.navigate("ExpressRepairPage", {
+        isEdit: true,
+        expressData: {
+          ...item,
+        },
+      });
+      break;
+
+    case "logiciel":
+      navigation.navigate("ExpressSoftwarePage", {
+        isEdit: true,
+        expressData: {
+          ...item,
+        },
+      });
+      break;
+
+    default:
+      Alert.alert("Erreur", "Type de fiche inconnu");
+  }
 };
+
     return (
 		<View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1 }]}>

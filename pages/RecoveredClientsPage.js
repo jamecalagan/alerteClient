@@ -536,11 +536,10 @@ const styles = StyleSheet.create({
     color: "#242424",
   },
   searchBar: {
-    backgroundColor: "#eeeded",
+    backgroundColor: "#f3f3f3",
     padding: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#888787",
+    borderRadius: 10,
+
     marginBottom: 20,
     fontSize: 16,
     color: "#242424",
@@ -549,10 +548,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     padding: 15,
     marginBottom: 10,
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: "#888787",
-    elevation: 2,
+    borderRadius: 10,
+
   },
   deviceIcon: {
     position: "absolute",

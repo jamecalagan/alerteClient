@@ -757,7 +757,7 @@ if (errors.length > 0) {
                     <Icon
                         name="camera"
                         size={20}
-                        color="#888787"
+                        color="#dddcdc"
                         style={styles.buttonIcon}
                     />
                     <Text style={styles.buttonText}>
@@ -1101,7 +1101,7 @@ if (errors.length > 0) {
                         <Icon
                             name="save"
                             size={20}
-                            color="#888787"
+                            color="#e6e6e6"
                             style={styles.buttonIcon}
                         />
                         <Text style={styles.buttonText}>
@@ -1170,11 +1170,9 @@ const styles = StyleSheet.create({
     },
 
     input: {
-        borderWidth: 1,
-        borderColor: "#585858",
         padding: 10,
         marginBottom: 20,
-        borderRadius: 2,
+        borderRadius: 10,
         backgroundColor: "#cacaca",
         width: "90%",
         alignSelf: "center",
@@ -1209,10 +1207,8 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     referenceInput: {
-        borderWidth: 1,
-        borderColor: "#888787",
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 10,
         backgroundColor: "#cacaca",
         width: "90%",
         fontSize: 16,
@@ -1237,9 +1233,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#0c0f18",
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderWidth: 1,
-        borderRadius: 2,
-        borderColor: "#444444",
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
@@ -1252,12 +1246,10 @@ const styles = StyleSheet.create({
         fontWeight: "medium",
     },
     saveButton: {
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#04852b",
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderWidth: 1,
-        borderRadius: 2,
-        borderColor: "#444444",
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
         flex: 1,

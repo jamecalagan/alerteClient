@@ -1701,13 +1701,11 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                             }
                                             style={{
                                                 marginRight: 40,
-                                                marginTop: 17,
+                                                marginTop: 24,
                                                 padding: 10,
-                                                borderRadius: 2,
-                                                borderWidth: 1,
-                                                borderColor: "#888787",
+                                                borderRadius: 10,
                                                 backgroundColor: "#cacaca",
-                                                elevation: 5,
+                                                elevation: 1,
                                             }}
                                         >
                                             <Text style={{ color: "#242424" }}>
@@ -3394,9 +3392,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         padding: 10,
         backgroundColor: "#cacaca",
-        borderWidth: 1,
-        borderRadius: 2,
-        borderColor: "#888787",
+        borderRadius: 10,
         marginBottom: 10,
     },
     toggleText: {
@@ -3417,15 +3413,15 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         position: "absolute", // Position absolue pour le placer en haut à droite
-        top: 18, // Distance depuis le haut
-        right: 15, // Distance depuis la droite (remplacez `left`)
+        top: 20, // Distance depuis le haut
+        right: 13, // Distance depuis la droite (remplacez `left`)
         zIndex: 10, // S'assure que le bouton est au-dessus du contenu
-        borderRadius: 2, // Bords arrondis pour un style plus moderne
+        borderRadius: 5, // Bords arrondis pour un style plus moderne
     },
     menuIcon: {
         width: 40,
         height: 40,
-        tintColor: "#242424", // Supprimez si vos images ont déjà une couleur
+        tintColor: "#707070", // Supprimez si vos images ont déjà une couleur
     },
     drawer: {
         position: "absolute",
@@ -3476,13 +3472,11 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
     repairedCountContainer: {
+        backgroundColor: "#cacaca", // Fond blanc pour le contraste
         padding: 10,
-        backgroundColor: "#cacaca",
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        marginTop: 15,
-        elevation: 2, // Ajoute une ombre pour un effet de profondeur
+        borderRadius: 10,
+        marginTop: 24,
+
     },
     repairedCountButton: {
         flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -3524,12 +3518,8 @@ const styles = StyleSheet.create({
     clientCard: {
         padding: 10,
         marginVertical: 5,
-        borderWidth: 1,
-        borderTopColor: "#888787",
-        borderRightColor: "#888787",
-        borderBottomColor: "#888787",
         backgroundColor: "#cacaca",
-        borderRadius: 2,
+        borderRadius: 10,
     },
     clientInfo: {
         flex: 1,
@@ -3769,7 +3759,6 @@ const styles = StyleSheet.create({
     },
     buttonContainerMasquer: {
         flexDirection: "row",
-        marginRight: 10,
         gap: 5,
     },
     alertBox: {
@@ -3863,14 +3852,14 @@ const styles = StyleSheet.create({
     },
     totalText: {
         color: "#242424",
-        marginTop: 11,
+        marginTop: 9,
         marginRight: 40,
         padding: 8,
         backgroundColor: "#cacaca",
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        elevation: 2, // Ajoute une ombre pour un effet de profondeur
+        borderRadius: 10,
+ 
+        
+        elevation: 1, // Ajoute une ombre pour un effet de profondeur
     },
     images_numberText: {
         marginLeft: 40,
@@ -3878,13 +3867,12 @@ const styles = StyleSheet.create({
     dateContainer: {
         flexDirection: "row", // Alignement horizontal
         alignItems: "center",
-        borderWidth: 1, // Bordure visible
-        borderColor: "#888787", // Couleur du contour
-        borderRadius: 2, // Coins arrondis
+        borderRadius: 10, // Coins arrondis
         paddingVertical: 11, // Espacement intérieur haut/bas
         paddingHorizontal: 20, // Espacement intérieur gauche/droite
         backgroundColor: "#cacaca", // Fond blanc pour le contraste
         alignSelf: "center", // Centrage du bloc
+        marginLeft: 10,
     },
     icon: {
         width: 20,
@@ -3900,13 +3888,12 @@ const styles = StyleSheet.create({
     timeContainer: {
         flexDirection: "row", // Alignement horizontal
         alignItems: "center",
-        borderWidth: 1, // Bordure visible
-        borderColor: "#888787", // Couleur du contour
-        borderRadius: 2, // Coins arrondis
+        borderRadius: 10, // Coins arrondis
         paddingVertical: 8, // Espacement intérieur haut/bas
         paddingHorizontal: 50, // Espacement intérieur gauche/droite
         backgroundColor: "#cacaca", // Fond blanc
         alignSelf: "center", // Centrage horizontal
+        marginLeft: 10,
     },
     timeText: {
         fontSize: 20,
@@ -3959,9 +3946,7 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: "row",
         alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
+        borderRadius: 10,
         paddingHorizontal: 10,
         backgroundColor: "#fff",
         marginBottom: 4,

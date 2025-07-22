@@ -568,7 +568,7 @@ if (errors.length > 0) {
             {clientName && (
                 <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>
             )}
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.label}>Type de produit</Text>
                 <Picker
                     selectedValue={deviceType}
@@ -1094,7 +1094,7 @@ if (errors.length > 0) {
                                 {
                                     width: 22,
                                     height: 22,
-                                    tintColor: "#888787",
+                                    tintColor: "#f0f0f0",
                                     marginRight: 10,
                                 },
                             ]} // Personnalisation de l'image
@@ -1114,7 +1114,7 @@ if (errors.length > 0) {
                                 {
                                     width: 20,
                                     height: 20,
-                                    tintColor: "#888787",
+                                    tintColor: "#fcfcfc",
                                     marginRight: 10,
                                 },
                             ]} // Personnalisation de l'image
@@ -1165,11 +1165,9 @@ const styles = StyleSheet.create({
 
     input: {
 		height: 50, 
-        borderWidth: 1,
-        borderColor: "#585858",
         padding: 10,
         marginBottom: 20,
-        borderRadius: 5,
+        borderRadius: 10,
         backgroundColor: "#cacaca",
         width: "90%",
         alignSelf: "center",
@@ -1200,10 +1198,8 @@ const styles = StyleSheet.create({
         alignSelf: "center",
     },
     referenceInput: {
-        borderWidth: 1,
-        borderColor: "#888787",
         padding: 10,
-        borderRadius: 2,
+        borderRadius: 10,
         backgroundColor: "#cacaca",
         width: "100%",
         fontSize: 16,
@@ -1228,38 +1224,35 @@ const styles = StyleSheet.create({
         backgroundColor: "#0c0f18",
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderWidth: 1,
-        borderRadius: 5,
-        borderColor: "#444444",
+
+        borderRadius: 10,
+
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
         alignSelf: "center",
         marginTop: 20,
         marginBottom: 20,
-        elevation: 2,
+
     },
     buttonText: {
         color: "#cfcdcd",
         fontWeight: "medium",
     },
     saveButton: {
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#046d16",
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderWidth: 1,
-        borderRadius: 5,
-        borderColor: "#444444",
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
         alignSelf: "center",
         marginTop: 20,
         marginBottom: 20,
-        elevation: 2,
     },
     saveButtonText: {
-        color: "#888787",
+        color: "#f1efef",
         fontSize: 16,
         fontWeight: "mediums",
     },
@@ -1320,7 +1313,7 @@ const styles = StyleSheet.create({
     iconButton: {
         flexDirection: "row", // Positionne l'icône et le texte côte à côte
         alignItems: "center",
-        backgroundColor: "#888787",
+        backgroundColor: "#f0f0f0",
         borderWidth: 1,
         paddingVertical: 10,
         paddingHorizontal: 20,

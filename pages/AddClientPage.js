@@ -262,7 +262,7 @@ export default function AddClientPage({ navigation, route }) {
             <Text style={styles.buttonText}>{loading ? "En cours..." : "Enregistrer le client"}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleAddCommandeClient} disabled={loading || isSubmitting}>
+        <TouchableOpacity style={styles.buttonCommande} onPress={handleAddCommandeClient} disabled={loading || isSubmitting}>
             <Text style={styles.buttonText}>{loading ? "En cours..." : "Créer une commande"}</Text>
         </TouchableOpacity>
 
@@ -308,9 +308,7 @@ container: {
 inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#585858",
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: "#cacaca",
     paddingHorizontal: 10,
     marginBottom: 15,
@@ -333,12 +331,24 @@ input: {
         marginRight: 10,
     },
 button: {
-    backgroundColor: "#0c0f18",
+    backgroundColor: "#009238",
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#242424",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+    marginVertical: 5,
+},
+buttonCommande: {
+    backgroundColor: "#f09205",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",

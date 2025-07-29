@@ -670,7 +670,7 @@ onPress={() => {
                         style={{
                             width: 20, // Largeur de l'image
                             height: 20, // Hauteur de l'image
-                            tintColor: "#888787", // Couleur de l'image
+                            tintColor: "#fffdfd", // Couleur de l'image
                             marginRight: 10,
                         }}
                     />
@@ -679,7 +679,7 @@ onPress={() => {
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.iconButton, styles.addButton]}
+                    style={[styles.iconButton, styles.addButtonSave]}
                     onPress={handleSaveClient}
                 >
                     <Image
@@ -687,7 +687,7 @@ onPress={() => {
                         style={{
                             width: 20, // Largeur de l'image
                             height: 20, // Hauteur de l'image
-                            tintColor: "#888787", // Couleur de l'image
+                            tintColor: "#ffffff", // Couleur de l'image
                             marginRight: 10,
                         }}
                     />
@@ -727,9 +727,7 @@ const styles = StyleSheet.create({
     input: {
      flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#585858",
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: "#cacaca",
     paddingHorizontal: 10,
     marginBottom: 15,
@@ -742,8 +740,7 @@ const styles = StyleSheet.create({
         marginBottom: 14,
         borderRadius: 14,
         backgroundColor: "#ffffff",
-        borderWidth: 1,
-        borderColor: "#e0e0e0",
+
         shadowColor: "#000",
         shadowOpacity: 0.06,
         shadowOffset: { width: 0, height: 2 },
@@ -761,12 +758,10 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     addButton: {
-    backgroundColor: "#0c0f18",
+    backgroundColor: "#117a03",
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#4a90e2",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -774,6 +769,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 6,
+    marginVertical: 5,
+},
+    addButtonSave: {
+    backgroundColor: "#f0a709",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
     marginVertical: 5,
 },
     addButtonText: {
@@ -819,11 +823,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 6,
-        elevation: 4,
+
     },
     buttonContainer: {
         flexDirection: "row",
@@ -834,11 +834,11 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#007bff",
-        borderWidth: 1,
+
         paddingVertical: 14,
         paddingHorizontal: 20,
         borderRadius: 12,
-        borderColor: "#007bff",
+ 
         justifyContent: "center",
         flex: 1,
         marginHorizontal: 6,
@@ -860,8 +860,7 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         marginTop: 10,
-        borderWidth: 1,
-        borderColor: "#07a252",
+
     },
     commandeRecuButtonText: {
         color: "#07a252",

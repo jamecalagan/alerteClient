@@ -117,7 +117,7 @@ export default function HomePage({ navigation, route, setUser }) {
                 style={{
                     width: 28,
                     height: 28,
-                    tintColor: "#00BFFF", // 🔵 BLEU électrique
+                    tintColor: "#00BFFF", 
                     opacity,
                 }}
             />
@@ -125,13 +125,13 @@ export default function HomePage({ navigation, route, setUser }) {
     };
 
     const [expandedClientId, setExpandedClientId] = useState(null);
-    const [activeModal, setActiveModal] = useState(null); // null si aucune modale active
+    const [activeModal, setActiveModal] = useState(null); 
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [processLogs, setProcessLogs] = useState([]); // État pour stocker les messages de log
-    const slideAnim = useRef(new Animated.Value(-250)).current; // Position initiale hors écran
+    const [processLogs, setProcessLogs] = useState([]); 
+    const slideAnim = useRef(new Animated.Value(-250)).current; 
     const [menuVisible, setMenuVisible] = useState(false);
-    const [showClients, setShowClients] = useState(true); // Par défaut, les fiches sont masquées
+    const [showClients, setShowClients] = useState(true); 
     const [allInterventions, setAllInterventions] = useState([]);
     const [modalData, setModalData] = useState({
         title: "",
@@ -172,7 +172,7 @@ const checkImagesToDelete = async () => {
 
 
     useEffect(() => {
-        loadOrders(); // 🔄 Recharge la liste des commandes dès qu'il y a un changement
+        loadOrders(); 
     }, [orders]);
 
     const handleLoadRecoveredInterventions = async () => {
@@ -190,7 +190,7 @@ const checkImagesToDelete = async () => {
                 return [];
             }
 
-            // Récupérer les interventions avec photos plus anciennes que 10 jours
+           
             const filteredInterventions = interventions.filter(
                 (intervention) => {
                     const dateRestitution = new Date(intervention.updatedAt);
@@ -211,7 +211,7 @@ const checkImagesToDelete = async () => {
         }
     };
     const calculateTotalOngoingCost = (clients) => {
-        // Extraire toutes les interventions des clients
+        
         const allInterventions = clients.flatMap((client) =>
             client.interventions.filter((intervention) =>
                 [
@@ -222,43 +222,43 @@ const checkImagesToDelete = async () => {
             )
         );
 
-        // Calculer la somme totale
+        
         const totalCost = allInterventions.reduce(
             (sum, intervention) => sum + (intervention.solderestant || 0),
             0
         );
 
-        return totalCost.toFixed(2); // Retourne un format en 2 décimales
+        return totalCost.toFixed(2); 
     };
 
     const [totalCost, setTotalCost] = useState(0);
     useEffect(() => {
         if (clients.length > 0) {
             const total = calculateTotalOngoingCost(clients);
-            setTotalCost(total); // Met à jour le montant total
+            setTotalCost(total); 
         }
     }, [clients]);
 
     useEffect(() => {
-        // Calculer les fiches à afficher pour la page courante
+        
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
 
-        // Appliquer la pagination uniquement sur les fiches actuellement visibles
+        
         const clientsToDisplay = filteredClients.slice(startIndex, endIndex);
 
         setPaginatedClients(clientsToDisplay);
     }, [filteredClients, currentPage]);
 
-    // Ajoutez d'autres états de modale si nécessaire
+    
     const closeAllModals = () => {
         setAlertVisible(false);
         setNotifyModalVisible(false);
         setTransportModalVisible(false);
     };
 
-    const [alertTitle, setAlertTitle] = useState(""); // Titre de l'alerte
-    const [alertMessage, setAlertMessage] = useState(""); // Message de l'alerte
+    const [alertTitle, setAlertTitle] = useState(""); 
+    const [alertMessage, setAlertMessage] = useState(""); 
     const openModal = (type, title, message, onConfirm = null) => {
         setActiveModal(type);
         setModalData({ title, message, onConfirm });
@@ -267,16 +267,16 @@ const checkImagesToDelete = async () => {
         setActiveModal(null);
     };
 
-    // Fonction pour basculer l'état d'expansion d'une fiche client
+   
     const toggleClientExpansion = (clientId, itemIndex) => {
         setExpandedClientId((prevId) =>
             prevId === clientId ? null : clientId
         );
         if (
             flatListRef.current &&
-            Number.isFinite(itemIndex) && // garde 1 : index bien numérique
+            Number.isFinite(itemIndex) && 
             itemIndex >= 0 &&
-            itemIndex < paginatedClients.length // garde 2 : dans les bornes
+            itemIndex < paginatedClients.length 
         ) {
             flatListRef.current.scrollToIndex({
                 index: itemIndex,
@@ -289,14 +289,14 @@ const checkImagesToDelete = async () => {
 
     const processInterventionQueue = () => {
         if (eligibleInterventions.length === 0) {
-            return; // Aucune intervention restante
+            return; 
         }
 
-        const nextIntervention = eligibleInterventions.shift(); // Récupère et retire la première fiche de la file
-        triggerPhotoCleanupAlert(nextIntervention); // Affiche la modale pour cette intervention
+        const nextIntervention = eligibleInterventions.shift(); 
+        triggerPhotoCleanupAlert(nextIntervention); 
     };
 
-    const eligibleInterventions = []; // File d'attente des fiches à traiter
+    const eligibleInterventions = []; 
     const updateClientNotification = async (client, method) => {
         try {
             if (!client || !client.id) {
@@ -308,13 +308,13 @@ const checkImagesToDelete = async () => {
             }
 
             let error;
-            let hasUpdated = false; // Vérifier si une mise à jour a été effectuée
+            let hasUpdated = false; 
 
             console.log("🔍 Client trouvé :", client);
 
-            // Vérifier si le client a une intervention en cours
+           
             if (client.interventions && client.interventions.length > 0) {
-                const latestIntervention = client.interventions[0]; // Prendre la plus récente
+                const latestIntervention = client.interventions[0]; 
                 console.log(
                     "📌 Mise à jour de l'intervention :",
                     latestIntervention.id
@@ -327,14 +327,14 @@ const checkImagesToDelete = async () => {
 
                 hasUpdated = true;
             }
-            // Sinon, si le client a une commande
+            
             else if (client.orders && client.orders.length > 0) {
-                const latestOrder = client.orders[0]; // Prendre la plus récente
+                const latestOrder = client.orders[0]; 
                 console.log("📌 Mise à jour de la commande :", latestOrder.id);
 
                 ({ error } = await supabase
                     .from("orders")
-                    .update({ notified: method }) // ✅ Ajoute la mise à jour
+                    .update({ notified: method })
                     .eq("id", latestOrder.id));
 
                 hasUpdated = true;
@@ -349,8 +349,8 @@ const checkImagesToDelete = async () => {
             }
 
             if (hasUpdated) {
-                await loadClients(); // 🔄 Rafraîchir la liste des clients après mise à jour
-                setNotifyModalVisible(false); // ✅ Ferme la modale après mise à jour
+                await loadClients(); 
+                setNotifyModalVisible(false); 
                 console.log(
                     `✅ Notification mise à jour pour ${client.name} : ${method}`
                 );
@@ -373,11 +373,11 @@ const checkImagesToDelete = async () => {
                 .from("interventions")
                 .select("*")
                 .eq("status", "Réparé")
-                .eq("restitue", false); // Filtrer les fiches non restituées
+                .eq("restitue", false); 
 
             if (error) throw error;
 
-            setRepairedNotReturnedCount(data.length); // Met à jour le nombre
+            setRepairedNotReturnedCount(data.length); 
         } catch (error) {
             console.error(
                 "Erreur lors du chargement des fiches réparées non restituées:",
@@ -392,11 +392,11 @@ const checkImagesToDelete = async () => {
                 .from("interventions")
                 .select("*")
                 .eq("status", "Non réparable")
-                .eq("restitue", false); // Filtrer les fiches non restituées
+                .eq("restitue", false); 
 
             if (error) throw error;
 
-            setNotRepairedNotReturnedCount(data.length); // Met à jour le nombre
+            setNotRepairedNotReturnedCount(data.length);
         } catch (error) {
             console.error(
                 "Erreur lors du chargement des fiches non réparables non restituées:",
@@ -404,7 +404,7 @@ const checkImagesToDelete = async () => {
             );
         }
     };
-    // Fonction pour naviguer vers la page de visualisation des images
+    
     const goToImageGallery = (clientId) => {
         navigation.navigate("ImageGallery", { clientId });
     };
@@ -412,7 +412,7 @@ const checkImagesToDelete = async () => {
     const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
         setIsLoading(true);
         try {
-            // 🔹 Récupérer les clients avec leurs interventions
+            
             const { data: clientsData, error: clientsError } = await supabase
                 .from("clients")
                 .select(
@@ -452,7 +452,7 @@ const checkImagesToDelete = async () => {
 
             if (clientsError) throw clientsError;
 
-            // 🔹 Récupérer les commandes avec leur montant total
+           
             const { data: ordersData, error: ordersError } = await supabase
                 .from("orders")
                 .select(
@@ -464,7 +464,7 @@ const checkImagesToDelete = async () => {
             const ordersByClient = {};
 
             ordersData.forEach((order) => {
-                order.notified = toBool(order.notified); // ✅ conversion
+                order.notified = toBool(order.notified); 
                 const clientId = String(order.client_id);
                 if (!ordersByClient[clientId]) {
                     ordersByClient[clientId] = {
@@ -547,10 +547,10 @@ const checkImagesToDelete = async () => {
                             ordersByClient[clientId]?.hasUnsaved || false,
                     };
                 });
-                // ✅ On garde tous les clients pour la recherche
+                
                 setClients(updatedData);
 
-                // ✅ On affiche uniquement ceux avec intervention en cours ou commande non sauvegardée/non payée
+               
                 const clientsToShow = updatedData
                     .filter((client) => {
                         const interventions = client.interventions || [];
@@ -647,14 +647,14 @@ const checkImagesToDelete = async () => {
 
                 if (error) throw error;
 
-                setAllInterventions(data); // Stocker toutes les interventions
+                setAllInterventions(data);
                 const total = data.reduce(
                     (sum, intervention) =>
                         sum + (intervention.solderestant || 0),
                     0
                 );
 
-                setTotalCost(total.toFixed(2)); // Mettre à jour le montant total affiché
+                setTotalCost(total.toFixed(2)); 
             } catch (error) {
                 console.error(
                     "Erreur lors de la récupération des interventions :",
@@ -663,24 +663,24 @@ const checkImagesToDelete = async () => {
             }
         };
 
-        fetchAllInterventions(); // Appeler la fonction au chargement de la page
-    }, []); // Ne dépend que du chargement initial
+        fetchAllInterventions();
+    }, []); 
 
     const fetchDetails = (deviceType, marque, model) => {
         setSelectedDevice({
             deviceType,
-            brand: marque || "Inconnu", // Valeur par défaut si la marque est vide
-            model: model || "Inconnu", // Valeur par défaut si le modèle est vide
+            brand: marque || "Inconnu", 
+            model: model || "Inconnu", 
         });
         setIsModalVisible(true);
     };
 
     useEffect(() => {
         loadRepairedNotReturnedCount();
-        loadNotRepairedNotReturnedCount(); // Charger le nombre de fiches réparées non restituées
+        loadNotRepairedNotReturnedCount(); 
     }, []);
 
-    // Pagination
+    
     const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
     const currentClients = filteredClients.slice(
         (currentPage - 1) * itemsPerPage,
@@ -700,16 +700,16 @@ const checkImagesToDelete = async () => {
     };
     useFocusEffect(
         React.useCallback(() => {
-            // Toujours charger les clients triés par date décroissante
+            
             setSortBy("createdAt");
             setOrderAsc(false);
-            loadClients(); // Charge la liste des clients triée
-            loadOrders(); // ✅ Ajout du rechargement des commandes
-            // Charger les statistiques des réparés non restitués
+            loadClients(); 
+            loadOrders(); 
+            
             loadRepairedNotReturnedCount();
             loadNotRepairedNotReturnedCount();
 
-            // ✅ Remplace la fonction interne par l'appel direct
+            
             checkImagesToDelete();
         }, [])
     );
@@ -748,16 +748,16 @@ const checkImagesToDelete = async () => {
     };
     const formatDateTime = (dateString) => {
         try {
-            // Convertir la date ISO en heure locale avec le fuseau "Europe/Paris"
+            
             return new Date(dateString).toLocaleString("fr-FR", {
-                timeZone: "Europe/Paris", // Force le fuseau horaire
+                timeZone: "Europe/Paris", 
                 day: "2-digit",
                 month: "2-digit",
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
-                hour12: false, // Format 24 heures
+                hour12: false, 
             });
         } catch (error) {
             console.error("Erreur de formatage de la date :", error);
@@ -766,7 +766,7 @@ const checkImagesToDelete = async () => {
     };
     useEffect(() => {
         console.log("🔄 Mise à jour de l'affichage des commandes !");
-        setOrders([...orders]); // 🔄 Force la mise à jour de l'état React
+        setOrders([...orders]); 
     }, [orders]);
     const filterClients = async (text) => {
         setSearchText(text);
@@ -788,7 +788,7 @@ const checkImagesToDelete = async () => {
             let clientQuery;
 
             if (isFicheNumber && !isPhoneNumber) {
-                // 🔍 Recherche stricte par numéro de fiche
+                
                 clientQuery = supabase
                     .from("clients")
                     .select(
@@ -799,7 +799,7 @@ const checkImagesToDelete = async () => {
                     )
                     .eq("ficheNumber", parseInt(query, 10));
             } else if (isPhoneNumber) {
-                // 🔍 Recherche par numéro de téléphone nettoyé
+                
                 clientQuery = supabase
                     .from("clients")
                     .select(
@@ -831,7 +831,7 @@ const checkImagesToDelete = async () => {
                 return;
             }
 
-            // Charger les commandes liées aux clients
+        
             const clientIds = clientsData.map((c) => c.id);
             const { data: ordersData, error: orderError } = await supabase
                 .from("orders")
@@ -843,7 +843,7 @@ const checkImagesToDelete = async () => {
                 return;
             }
 
-            // Regrouper les commandes par client_id
+            
             const ordersByClient = {};
             ordersData.forEach((order) => {
                 if (!ordersByClient[order.client_id]) {
@@ -852,7 +852,7 @@ const checkImagesToDelete = async () => {
                 ordersByClient[order.client_id].push(order);
             });
 
-            // Enrichir les clients
+            
             const enrichedClients = clientsData.map((client) => {
                 const interventions = client.interventions || [];
                 const orders = ordersByClient[client.id] || [];
@@ -905,19 +905,19 @@ const checkImagesToDelete = async () => {
     const getIconSource = (status) => {
         switch (status) {
             case "En attente de pièces":
-                return require("../assets/icons/shipping.png"); // Image pour "En attente de pièces"
+                return require("../assets/icons/shipping.png"); 
             case "Devis accepté":
-                return require("../assets/icons/devisAccepte.png"); // Image pour "Devis accepté"
+                return require("../assets/icons/devisAccepte.png"); 
             case "Réparation en cours":
-                return require("../assets/icons/tools1.png"); // Image pour "Réparation en cours"
+                return require("../assets/icons/tools1.png"); 
             case "Réparé":
-                return require("../assets/icons/ok.png"); // Image pour "Réparé"
+                return require("../assets/icons/ok.png"); 
             case "Devis en cours":
-                return require("../assets/icons/devisEnCours.png"); // Image pour "Devis en cours"
+                return require("../assets/icons/devisEnCours.png"); 
             case "Non réparable":
-                return require("../assets/icons/no.png"); // Image pour "Non réparable"
+                return require("../assets/icons/no.png"); 
             default:
-                return require("../assets/icons/order.png"); // Image par défaut
+                return require("../assets/icons/order.png"); 
         }
     };
     const HorizontalSeparator = () => {
@@ -989,7 +989,7 @@ const checkImagesToDelete = async () => {
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 
-    // Fonction pour récupérer l'icône en fonction du type d'appareil
+    
     const getDeviceIcon = (deviceType) => {
         if (!deviceType)
             return (
@@ -999,9 +999,9 @@ const checkImagesToDelete = async () => {
                 />
             );
 
-        const lowerCaseName = deviceType.toLowerCase(); // Convertir en minuscule pour éviter les problèmes de casse
+        const lowerCaseName = deviceType.toLowerCase(); 
 
-        // Vérification pour MacBook
+        
         if (lowerCaseName.includes("macbook")) {
             return (
                 <Image
@@ -1011,7 +1011,7 @@ const checkImagesToDelete = async () => {
             );
         }
 
-        // Vérification pour iMac
+       
         if (lowerCaseName.includes("imac")) {
             return (
                 <Image
@@ -1021,7 +1021,7 @@ const checkImagesToDelete = async () => {
             );
         }
 
-        // Retourner l'icône correspondante ou l'icône par défaut
+        
         const iconSource = deviceIcons[deviceType] || deviceIcons.default;
         return (
             <Image
@@ -1033,16 +1033,16 @@ const checkImagesToDelete = async () => {
 
     const filterByStatus = (status) => {
         if (!showClients) {
-            // Si les fiches sont masquées, afficher uniquement celles correspondant au statut
+            
             const filtered = clients.filter((client) =>
                 client.interventions.some(
                     (intervention) => intervention.status === status
                 )
             );
             setFilteredClients(filtered);
-            setShowClients(true); // Afficher les fiches filtrées
+            setShowClients(true); 
         } else {
-            // Si les fiches sont déjà visibles, appliquer le filtre normalement
+            
             const filtered = clients.filter((client) =>
                 client.interventions.some(
                     (intervention) => intervention.status === status
@@ -1054,18 +1054,18 @@ const checkImagesToDelete = async () => {
 
     const resetFilter = () => {
         setSearchText("");
-        setFilteredClients(clients); // ou ta liste initiale
-        setCurrentPage(1); // ← ajoute cette ligne
+        setFilteredClients(clients); 
+        setCurrentPage(1); 
     };
 
     const formatPhoneNumber = (phoneNumber) => {
         if (!phoneNumber) return "";
 
-        return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 "); // Ajoute un espace après chaque deux chiffres
+        return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 "); 
     };
     const toggleMenu = () => {
         Animated.timing(slideAnim, {
-            toValue: menuVisible ? -250 : 0, // Slide vers l'intérieur ou l'extérieur
+            toValue: menuVisible ? -250 : 0, 
             duration: 300,
             useNativeDriver: true,
         }).start();
@@ -1073,7 +1073,7 @@ const checkImagesToDelete = async () => {
     };
     const closeMenu = () => {
         if (menuVisible) {
-            toggleMenu(); // Ferme le menu si ouvert
+            toggleMenu(); 
         }
     };
 
@@ -1128,7 +1128,7 @@ const checkImagesToDelete = async () => {
         const [currentTime, setCurrentTime] = useState("");
 
         useEffect(() => {
-            // Met à jour l'heure chaque seconde
+            
             const interval = setInterval(() => {
                 const now = new Date();
                 const formattedTime = now.toLocaleTimeString("fr-FR", {
@@ -1139,13 +1139,13 @@ const checkImagesToDelete = async () => {
                 setCurrentTime(formattedTime);
             }, 1000);
 
-            return () => clearInterval(interval); // Nettoie l'intervalle à la destruction du composant
+            return () => clearInterval(interval); 
         }, []);
 
         return (
             <View style={styles.timeContainer}>
                 <Image
-                    source={require("../assets/icons/clock.png")} // Icône d'horloge
+                    source={require("../assets/icons/clock.png")} 
                     style={styles.icon}
                 />
                 <Text style={styles.timeText}>{currentTime}</Text>
@@ -1196,13 +1196,13 @@ const checkImagesToDelete = async () => {
 
     const filterClientsWithCommandeEnCours = async () => {
         try {
-            // 1. Récupère les commandes non réglées
+            
             const { data: unpaidOrders, error: orderError } = await supabase
                 .from("orders")
                 .select("id, client_id, paid, saved, price, deposit")
                 .or("paid.eq.false,saved.eq.false");
 
-            // 2. Récupère les interventions actives avec une commande
+            
             const { data: interventions, error: interventionError } =
                 await supabase
                     .from("interventions")
@@ -1219,7 +1219,7 @@ const checkImagesToDelete = async () => {
                 return;
             }
 
-            // 3. IDs des clients concernés
+            
             const clientIdsFromOrders = unpaidOrders
                 .map((o) => o.client_id)
                 .filter(Boolean);
@@ -1239,7 +1239,7 @@ const checkImagesToDelete = async () => {
                 return;
             }
 
-            // 4. Récupère les clients concernés
+           
             const { data: clients, error: clientError } = await supabase
                 .from("clients")
                 .select("*")
@@ -1254,7 +1254,7 @@ const checkImagesToDelete = async () => {
                 return;
             }
 
-            // 5. Fusionne les infos avec commandes et interventions
+            
             const enrichedClients = clients.map((client) => {
                 const clientOrders = unpaidOrders.filter(
                     (o) => o.client_id === client.id
@@ -1294,7 +1294,7 @@ const checkImagesToDelete = async () => {
             console.error("❌ Erreur inattendue :", err.message);
         }
     };
-    // ✅ VRAI si AU MOINS UNE commande du client est notifiée
+    
     const isOrderNotified = (client) =>
         client.orders?.some((o) => o.notified === true) || false;
 console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
@@ -1308,7 +1308,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             onPress={toggleMenu}
                         >
                             <Image
-                                source={require("../assets/icons/menu.png")} // Remplacez par votre image PNG
+                                source={require("../assets/icons/menu.png")} 
                                 style={styles.menuIcon}
                             />
                         </TouchableOpacity>
@@ -1325,12 +1325,12 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             <TouchableOpacity
                                 style={styles.drawerItem}
                                 onPress={() => {
-                                    toggleMenu(); // Ferme le menu
-                                    navigation.navigate("Home"); // Navigue vers l'écran "Accueil"
+                                    toggleMenu(); 
+                                    navigation.navigate("Home"); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/home.png")} // Icône pour "Accueil"
+                                    source={require("../assets/icons/home.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
@@ -1338,7 +1338,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 navigation.getState().index ===
                                                 0
                                                     ? "blue"
-                                                    : "gray", // Couleur dynamique des icônes
+                                                    : "gray", 
                                         },
                                     ]}
                                 />
@@ -1351,11 +1351,11 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 style={styles.drawerItem}
                                 onPress={() => {
                                     toggleMenu();
-                                    navigation.navigate("AddClient"); // Navigue vers "Ajouter Client"
+                                    navigation.navigate("AddClient"); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/add.png")} // Icône pour "Ajouter Client"
+                                    source={require("../assets/icons/add.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
@@ -1363,7 +1363,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 navigation.getState().index ===
                                                 1
                                                     ? "blue"
-                                                    : "gray", // Couleur dynamique des icônes
+                                                    : "gray", 
                                         },
                                     ]}
                                 />
@@ -1378,11 +1378,11 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                     toggleMenu();
                                     navigation.navigate(
                                         "RepairedInterventions"
-                                    ); // Navigue vers "Réparé"
+                                    ); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/tools1.png")} // Icône pour "Réparé"
+                                    source={require("../assets/icons/tools1.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
@@ -1390,7 +1390,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 navigation.getState().index ===
                                                 2
                                                     ? "blue"
-                                                    : "gray", // Couleur dynamique des icônes
+                                                    : "gray", 
                                         },
                                     ]}
                                 />
@@ -1403,11 +1403,11 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 style={styles.drawerItem}
                                 onPress={() => {
                                     toggleMenu();
-                                    navigation.navigate("RecoveredClients"); // Navigue vers "Réparé"
+                                    navigation.navigate("RecoveredClients"); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/ok.png")} // Icône pour "Réparé"
+                                    source={require("../assets/icons/ok.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
@@ -1415,7 +1415,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 navigation.getState().index ===
                                                 2
                                                     ? "blue"
-                                                    : "gray", // Couleur dynamique des icônes
+                                                    : "gray", 
                                         },
                                     ]}
                                 />
@@ -1428,11 +1428,11 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 style={styles.drawerItem}
                                 onPress={() => {
                                     toggleMenu();
-                                    navigation.navigate("Admin"); // Navigue vers "Administration"
+                                    navigation.navigate("Admin"); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/Config.png")} // Icône pour "Administration"
+                                    source={require("../assets/icons/Config.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
@@ -1440,7 +1440,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 navigation.getState().index ===
                                                 3
                                                     ? "blue"
-                                                    : "gray", // Couleur dynamique des icônes
+                                                    : "gray",
                                         },
                                     ]}
                                 />
@@ -1464,8 +1464,8 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 text: "Déconnexion",
                                                 onPress: async () => {
                                                     try {
-                                                        await handleLogout(); // met setUser(null)
-                                                        toggleMenu(); // ferme le menu après
+                                                        await handleLogout(); 
+                                                        toggleMenu(); 
                                                     } catch (error) {
                                                         console.error(
                                                             "Erreur de déconnexion :",
@@ -1496,19 +1496,19 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             <TouchableOpacity
                                 style={styles.drawerItem}
                                 onPress={() => {
-                                    toggleMenu(); // Ferme le menu
+                                    toggleMenu(); 
                                     filterByStatus("En attente de pièces");
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/shipping.png")} // Icône pour "En attente de pièces"
+                                    source={require("../assets/icons/shipping.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
                                             tintColor: getIconColor(
                                                 "En attente de pièces"
                                             ),
-                                        }, // Applique la couleur en fonction du statut
+                                        }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -1524,13 +1524,13 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/devisAccepte.png")} // Icône pour "Devis accepté"
+                                    source={require("../assets/icons/devisAccepte.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
                                             tintColor:
                                                 getIconColor("Devis accepté"),
-                                        }, // Applique la couleur en fonction du statut
+                                        }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -1541,19 +1541,19 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             <TouchableOpacity
                                 style={styles.drawerItem}
                                 onPress={() => {
-                                    toggleMenu(); // Ferme le menu
+                                    toggleMenu(); 
                                     filterByStatus("Réparation en cours");
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/tools1.png")} // Icône pour "Réparation en cours"
+                                    source={require("../assets/icons/tools1.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
                                             tintColor: getIconColor(
                                                 "Réparation en cours"
                                             ),
-                                        }, // Applique la couleur en fonction du statut
+                                        }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -1564,18 +1564,18 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             <TouchableOpacity
                                 style={styles.drawerItem}
                                 onPress={() => {
-                                    toggleMenu(); // Ferme le menu
+                                    toggleMenu(); 
                                     filterByStatus("Devis en cours");
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/devisEnCours.png")} // Icône pour "Devis en cours"
+                                    source={require("../assets/icons/devisEnCours.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
                                             tintColor:
                                                 getIconColor("Devis en cours"),
-                                        }, // Applique la couleur en fonction du statut
+                                        }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -1585,15 +1585,15 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                             <TouchableOpacity
                                 style={styles.drawerItem}
                                 onPress={() => {
-                                    toggleMenu(); // Ferme le menu
-                                    navigation.navigate("MigrateOldImagesPage"); // Va vers la page de migration
+                                    toggleMenu(); 
+                                    navigation.navigate("MigrateOldImagesPage"); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/upload.png")} // Remplace par une icône de ton choix
+                                    source={require("../assets/icons/upload.png")} 
                                     style={[
                                         styles.drawerItemIcon,
-                                        { tintColor: "#4CAF50" }, // Couleur verte pour migration
+                                        { tintColor: "#4CAF50" }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -1606,17 +1606,17 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 onPress={() => {
                                     toggleMenu();
                                     resetFilter();
-                                    setCurrentPage(1); // ← revient à la première page
+                                    setCurrentPage(1); 
                                 }}
                             >
                                 <Image
-                                    source={require("../assets/icons/reload.png")} // Icône pour "Réinitialiser"
+                                    source={require("../assets/icons/reload.png")} 
                                     style={[
                                         styles.drawerItemIcon,
                                         {
                                             tintColor:
                                                 getIconColor("Réinitialiser"),
-                                        }, // Applique la couleur en fonction du statut
+                                        }, 
                                     ]}
                                 />
                                 <Text style={styles.drawerItemText}>
@@ -2916,7 +2916,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 </Text>
                                             </TouchableOpacity>
 
-                                            {/* 📞 Appeler */}
+                                          
                                             <TouchableOpacity
                                                 style={styles.modalButton}
                                                 onPress={async () => {
@@ -2976,7 +2976,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                 </Text>
                                             </TouchableOpacity>
 
-                                            {/* ❌ Annuler */}
+                                           
                                             <TouchableOpacity
                                                 style={[
                                                     styles.modalButton,
@@ -3073,7 +3073,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                                     {selectedDevice.model}
                                                 </Text>
 
-                                                {/* 🔍 Ligne de 3 boutons */}
+                                                
                                                 <View style={styles.buttonRowG}>
                                                     <TouchableOpacity
                                                         style={[
@@ -3180,7 +3180,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 </View>
                             </Modal>
 
-                            {/* Suppression client */}
+                           
                             <Modal
                                 transparent
                                 visible={modalVisible}
@@ -3231,7 +3231,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 </View>
                             </Modal>
 
-                            {/* Suppression impossible */}
+                         
                             <Modal
                                 transparent
                                 visible={alertVisible}
@@ -3269,7 +3269,7 @@ console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
                                 </View>
                             </Modal>
 
-                            {/* Nettoyage photos */}
+                           
                             {cleanupModalVisible && (
                                 <Modal
                                     transparent
@@ -3577,40 +3577,40 @@ const styles = StyleSheet.create({
     photoButton: {
         padding: 10,
         borderRadius: 2,
-        borderColor: "#242424",
-        borderWidth: 1,
         marginRight: 10,
         backgroundColor: "#575757", // Fond blanc
+        width: 53,
+        height: 53,
     },
     editButton: {
         backgroundColor: "#575757", // Bleu pour l'icône d'édition
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#242424", // Couleur de la bordure (noire)
-        borderWidth: 1, // Épaisseur de la bordure
+        width: 53,
+        height: 53,
     },
     printButton: {
         backgroundColor: "#575757", // Vert pour l'icône d'impression
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#242424", // Couleur de la bordure (noire)
-        borderWidth: 1, // Épaisseur de la bordure
+                width: 53,
+        height: 53,
     },
     trashButton: {
         backgroundColor: "#575757", // Rouge pour l'icône de poubelle
         padding: 10,
         borderRadius: 2,
-        borderColor: "#242424", // Couleur de la bordure (noire)
-        borderWidth: 1, // Épaisseur de la bordure
+                width: 53,
+        height: 53,
     },
     transportButton: {
         padding: 10,
         borderRadius: 2,
         marginRight: 10,
-        borderColor: "#242424", // Couleur de la bordure (noire)
-        borderWidth: 1, // Épaisseur de la bordure
+                width: 53,
+        height: 53,
     },
     rightSection: {
         flexDirection: "column",
@@ -3679,9 +3679,9 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Aligne l'icône et le texte côte à côte
         alignItems: "center", // Centre verticalement
         padding: 10, // Padding pour l'icône
-        borderWidth: 1, // Bordure de 2px
+
         borderRadius: 2, // Bords arrondis
-        borderColor: "#242424", // Couleur de la bordure en noir
+
         marginRight: 8,
         backgroundColor: "#575757", // Fond blanc
     },
@@ -3745,10 +3745,10 @@ const styles = StyleSheet.create({
         alignItems: "center", // Centre verticalement les icônes
     },
     notificationIconContainer: {
+        width: 53,
+        height: 53,
         padding: 10, // Padding pour l'icône
         borderRadius: 2, // Bords arrondis
-        borderWidth: 1, // Bordure de 2px
-        borderColor: "#242424", // Couleur de la bordure en noir
         marginRight: 10, // Espace à droite de l'icône pour séparer les icônes
         backgroundColor: "#575757", // Fond blanc */
     },
@@ -3901,8 +3901,6 @@ const styles = StyleSheet.create({
         color: "#242424", // Couleur orange pour l'heure
     },
     orderButton: {
-        borderWidth: 1,
-        borderColor: "#242424",
         width: 50,
         height: 50,
         borderRadius: 2,
@@ -4012,7 +4010,7 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         paddingHorizontal: 8,
         backgroundColor: "#ffffff",
-        borderRadius: 50,
+        borderRadius: 10,
         borderWidth: 1,
         borderColor: "#d42d2d",
     },

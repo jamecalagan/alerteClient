@@ -986,6 +986,7 @@ const checkImagesToDelete = async () => {
         "Carte graphique": require("../assets/icons/Vga_card.png"),
         Manette: require("../assets/icons/controller.png"),
         Enceinte: require("../assets/icons/speaker.png"),
+        PDA: require("../assets/icons/Pda.png"),
         default: require("../assets/icons/point-dinterrogation.png"),
     };
 

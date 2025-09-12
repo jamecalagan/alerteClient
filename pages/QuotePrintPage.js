@@ -165,7 +165,7 @@ const QuotePrintPage = () => {
 			  <img src="https://www.avenir-informatique.fr/logo.webp" alt="Logo" />
 			</div>
 		  
-			<h2>Devis - Assemblage PC</h2>
+			<h2>Devis</h2>
 		  
 			<div class="section">
 			  <strong>Client :</strong> ${quote.name}<br/>

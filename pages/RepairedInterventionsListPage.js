@@ -19,7 +19,7 @@ export default function RepairedInterventionsListPage({ navigation }) {
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [filter, setFilter] = useState("Réparé");          // ← filtre actif
+  const [filter, setFilter] = useState("Réparé"); // ← filtre actif
 
   /* ───────────────── Chargement BDD ───────────────── */
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function RepairedInterventionsListPage({ navigation }) {
         .order("updatedAt", { ascending: false });
 
       if (!error) {
-        setAllInterventions(data);
+        setAllInterventions(data || []);
       } else {
         console.error("Erreur chargement :", error);
       }
@@ -53,15 +53,13 @@ export default function RepairedInterventionsListPage({ navigation }) {
           const nom = it.clients?.name?.toLowerCase() || "";
           const fiche = (it.clients?.ficheNumber || "").toString();
           const type = (it.deviceType || "").toLowerCase();
-          return (
-            nom.includes(q) || fiche.includes(q) || type.includes(q)
-          );
+          return nom.includes(q) || fiche.includes(q) || type.includes(q);
         })
       : base;
 
     setFiltered(res);
 
-    /* suggestions “autocomplétion” */
+    // suggestions “autocomplétion”
     if (q.length > 0) {
       const uniq = new Set();
       const sugg = base
@@ -90,25 +88,15 @@ export default function RepairedInterventionsListPage({ navigation }) {
     useEffect(() => {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-            easing: Easing.linear,
-          }),
-          Animated.timing(opacity, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-            easing: Easing.linear,
-          }),
+          Animated.timing(opacity, { toValue: 0, duration: 500, useNativeDriver: true, easing: Easing.linear }),
+          Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true, easing: Easing.linear }),
         ])
       ).start();
     }, []);
-    return (
-      <Animated.Image source={src} style={{ width: 24, height: 24, tintColor: tint, opacity }} />
-    );
+    return <Animated.Image source={src} style={{ width: 24, height: 24, tintColor: tint, opacity }} />;
   };
+
+  const formatPhoneNumber = (n) => n?.replace(/(\d{2})(?=\d)/g, "$1 ") || "";
 
   return (
     <View style={styles.container}>
@@ -117,15 +105,10 @@ export default function RepairedInterventionsListPage({ navigation }) {
         {["Réparé", "Non réparable"].map((lbl) => (
           <TouchableOpacity
             key={lbl}
-            style={[
-              styles.segBtn,
-              filter === lbl && styles.segBtnActive,
-            ]}
+            style={[styles.segBtn, filter === lbl && styles.segBtnActive]}
             onPress={() => setFilter(lbl)}
           >
-            <Text style={{ color: filter === lbl ? "#fff" : "#444" }}>
-              {lbl}
-            </Text>
+            <Text style={{ color: filter === lbl ? "#fff" : "#444" }}>{lbl}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -140,11 +123,8 @@ export default function RepairedInterventionsListPage({ navigation }) {
       {suggestions.length > 0 && (
         <View style={styles.suggestBox}>
           {suggestions.map((s) => (
-            <TouchableOpacity
-              key={s}
-              onPress={() => setSearch(s.toString())}
-            >
-              <Text style={styles.suggestItem}>{s}</Text>
+            <TouchableOpacity key={String(s)} onPress={() => setSearch(String(s))}>
+              <Text style={styles.suggestItem}>{String(s)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -153,59 +133,57 @@ export default function RepairedInterventionsListPage({ navigation }) {
       {/* ───── liste ───── */}
       <FlatList
         data={filtered}
-        keyExtractor={(it) => it.id.toString()}
+        keyExtractor={(it) => String(it.id)}
         contentContainerStyle={{ paddingBottom: 80 }}
-        renderItem={({ item, index }) => (
-          <Animatable.View
-            animation="zoomIn"
-            duration={400}
-            delay={index * 120}
-            style={[
-              styles.card,
-              item.status === "Non réparable" && { borderColor: "red" },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate("RepairedInterventionsPage", {
-                  selectedInterventionId: item.id,
-                })
-              }
-            >
-              <Text style={styles.line}>
-                Fiche N° {item.clients.ficheNumber}
-              </Text>
-              <Text style={styles.line}>
-                {item.clients.name} – {formatPhoneNumber(item.clients.phone)}
-              </Text>
-              <Text style={styles.line}>
-                {item.deviceType} {item.brand}
-              </Text>
+        renderItem={({ item, index }) => {
+          const client = item.clients || null; // peut être null si la jointure manque
+          const ficheNum = client?.ficheNumber ?? "—";
+          const clientName = client?.name ?? "Client inconnu";
+          const clientPhone = formatPhoneNumber(client?.phone) || "—";
+          const deviceLine = [item.deviceType, item.brand].filter(Boolean).join(" ") || "—";
 
-              <View style={{ flexDirection: "row", marginTop: 6 }}>
-                <Text style={styles.line}>Notif.</Text>
-                {item.notifiedBy === "SMS" && (
-                  <Image
-                    source={require("../assets/icons/sms.png")}
-                    style={{ width: 24, height: 24, tintColor: "#077907", marginLeft: 6 }}
-                  />
-                )}
-                {item.notifiedBy === "Téléphone" && (
-                  <Image
-                    source={require("../assets/icons/call.png")}
-                    style={{ width: 24, height: 24, tintColor: "#3579ff", marginLeft: 6 }}
-                  />
-                )}
-                {!item.notifiedBy && (
-                  <Blinking
-                    src={require("../assets/icons/notifications_off.png")}
-                    tint="#ff3b30"
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-          </Animatable.View>
-        )}
+          return (
+            <Animatable.View
+              animation="zoomIn"
+              duration={400}
+              delay={index * 120}
+              style={[styles.card, item.status === "Non réparable" && { borderColor: "red" }]}
+            >
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("RepairedInterventionsPage", {
+                    selectedInterventionId: item.id,
+                  })
+                }
+              >
+                <Text style={styles.line}>Fiche N° {ficheNum}</Text>
+                <Text style={styles.line}>
+                  {clientName} – {clientPhone}
+                </Text>
+                <Text style={styles.line}>{deviceLine}</Text>
+
+                <View style={{ flexDirection: "row", marginTop: 6, alignItems: "center" }}>
+                  <Text style={styles.line}>Notif.</Text>
+                  {item.notifiedBy === "SMS" && (
+                    <Image
+                      source={require("../assets/icons/sms.png")}
+                      style={{ width: 24, height: 24, tintColor: "#077907", marginLeft: 6 }}
+                    />
+                  )}
+                  {item.notifiedBy === "Téléphone" && (
+                    <Image
+                      source={require("../assets/icons/call.png")}
+                      style={{ width: 24, height: 24, tintColor: "#3579ff", marginLeft: 6 }}
+                    />
+                  )}
+                  {!item.notifiedBy && (
+                    <Blinking src={require("../assets/icons/notifications_off.png")} tint="#ff3b30" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Animatable.View>
+          );
+        }}
       />
 
       <BottomNavigation navigation={navigation} currentRoute="RepairedInterventionsListPage" />
@@ -213,18 +191,10 @@ export default function RepairedInterventionsListPage({ navigation }) {
   );
 }
 
-/* ───────────────── helpers ───────────────── */
-const formatPhoneNumber = (n) => n?.replace(/(\d{2})(?=\d)/g, "$1 ") || "";
-
 /* ───────────────── styles ───────────────── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#e0e0e0", padding: 16 },
-  segment: {
-  flexDirection: "row",
-  marginBottom: 12,
-  marginTop: 20, // ← ajoute ceci pour un espacement depuis le haut
-},
-
+  segment: { flexDirection: "row", marginBottom: 12, marginTop: 20 },
   segBtn: {
     flex: 1,
     paddingVertical: 8,

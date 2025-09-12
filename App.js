@@ -65,6 +65,10 @@ import RepairPricesPage from "./pages/RepairPricesPage";
 import ExpressRepairPage from "./pages/ExpressRepairPage";
 import ExpressSoftwarePage from "./pages/ExpressSoftwarePage";
 import ExpressVideoPage from "./pages/ExpressVideoPage";
+import QuoteIntakePage from "./pages/QuoteIntakePage";
+import QuoteRequestsListPage from "./pages/QuoteRequestsListPage";
+import QuoteRequestEditPage from "./pages/QuoteRequestEditPage";
+import QuoteRequestDetailsPage from "./pages/QuoteRequestDetailsPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -294,6 +298,26 @@ function MainStack({ setUser }) {
 				<Stack.Screen name="ExpressRepairPage" component={ExpressRepairPage} />
 				<Stack.Screen name="ExpressSoftwarePage" component={ExpressSoftwarePage} />
   				<Stack.Screen name="ExpressVideoPage" component={ExpressVideoPage} />
+				<Stack.Screen
+  name="QuoteIntakePage"
+  component={QuoteIntakePage}
+  options={{ title: "Demande de devis" }}
+/>
+<Stack.Screen
+  name="QuoteRequestsListPage"
+  component={QuoteRequestsListPage}
+  options={{ title: "Demandes de devis" }}
+/>
+<Stack.Screen
+  name="QuoteRequestEditPage"
+  component={QuoteRequestEditPage}
+  options={{ title: "Modifier la demande" }}
+/>
+<Stack.Screen
+  name="QuoteRequestDetailsPage"
+  component={QuoteRequestDetailsPage}
+  options={{ title: "Détails de la demande" }}
+/>
 		</Stack.Navigator>
     );
 }

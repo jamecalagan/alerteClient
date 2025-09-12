@@ -32,28 +32,28 @@ const ExpressListPage = () => {
         fetchExpressList(page);
     }, [page]);
 
-    const fetchExpressList = async (currentPage = 1) => {
-        console.log("🧾 Liste Express avec billing :", data);
-        console.log(
-            "🧾 Express avec billing lié :",
-            JSON.stringify(data, null, 2)
-        );
-        const from = (currentPage - 1) * pageSize;
-        const to = from + pageSize - 1;
+const fetchExpressList = async (currentPage = 1) => {
+  try {
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-        const { data, error, count } = await supabase
-            .from("express")
-            .select("*, billing:billing(*)")
-            .order("created_at", { ascending: false })
-            .range(from, to);
+    const { data, error, count } = await supabase
+      .from("express")
+      .select("*, billing:billing(*)", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-        if (error) {
-            console.error("Erreur récupération:", error);
-        } else {
-            setExpressList(data);
-            setTotalPages(Math.max(1, Math.ceil((count || 0) / pageSize)));
-        }
-    };
+    if (error) throw error;
+
+    console.log("🧾 Express avec billing lié :", JSON.stringify(data, null, 2));
+    setExpressList(data || []);
+    setTotalPages(Math.max(1, Math.ceil((count || 0) / pageSize)));
+  } catch (e) {
+    console.error("Erreur récupération:", e);
+    Alert.alert("Erreur", "Impossible de charger la liste : " + e.message);
+  }
+};
+
 
     const filteredList = expressList.filter((item) => {
         const matchesSearch = `${item.name} ${item.phone}`

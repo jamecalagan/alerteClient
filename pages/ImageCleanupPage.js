@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, Image, Button, Alert, StyleSheet, TouchableOpacity
@@ -13,102 +12,108 @@ export default function ImageCleanupPage() {
   const [archivedImages, setArchivedImages] = useState([]);
 
   useEffect(() => {
-	const fetchData = async () => {
-	  setLoading(true);
-  
-	  const { data: interventionData } = await supabase
-		.from('interventions')
-		.select('id, updatedAt, photos, status, client_id');
-  
-	  const { data: clientsData } = await supabase
-		.from('clients')
-		.select('id, name, ficheNumber');
-  
-		const { data: extraImageData, error: extraImageError } = await supabase
-		.from('intervention_images')
-		.select('id, intervention_id, image_data, created_at');
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // ✅ Alias 'updated_at' -> 'updatedAt' pour unifier l'accès en JS
+        const { data: interventionData, error: intvError } = await supabase
+          .from('interventions')
+          .select('id, "updatedAt", photos, status, client_id');
 
-	  
-	  if (extraImageError) {
-		console.error("❌ Erreur récupération images :", extraImageError);
-	  } else {
-		console.log("🖼️ Images dans intervention_images :", extraImageData);
-	  }
-	  
-		console.log("🖼️ Images dans intervention_images :", extraImageData);
+        if (intvError) {
+          console.error('❌ Erreur interventions :', intvError);
+        }
 
-	  setClients(clientsData);
-  
-	  const tenDaysAgo = new Date();
-	  tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-  
-	  const filtered = (interventionData || []).filter((item) => {
-		const updated = new Date(item.updatedAt || item["updatedAt"]);
-		return (
-		  item.status === 'Récupéré' &&
-		  updated < tenDaysAgo &&
-		  Array.isArray(item.photos) &&
-		  item.photos.some((p) => typeof p === 'string' && p.startsWith('http'))
-		);
-	  });
-  
-	  setInterventions(filtered);
-  
-	  const extraToClean = extraImageData.filter(
-		(img) =>
-		  img.image_data &&
-		  typeof img.image_data === "string" &&
-		  img.image_data.startsWith("http") &&
-		  new Date(img.created_at) < tenDaysAgo
-	  );
-  
-	  setExtraImages(extraToClean); // ← il manquait cette ligne
-	  setLoading(false); // ← pour arrêter le spinner si tu l’utilises
-	};
-  
-	fetchData(); // ← appelle la fonction ici
+        const { data: clientsData, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, name, ficheNumber');
+
+        if (clientsError) {
+          console.error('❌ Erreur clients :', clientsError);
+        }
+
+        const { data: extraImageData, error: extraImageError } = await supabase
+          .from('intervention_images')
+          .select('id, intervention_id, image_data, created_at');
+
+        if (extraImageError) {
+          console.error("❌ Erreur récupération images :", extraImageError);
+        } else {
+          console.log("🖼️ Images dans intervention_images :", extraImageData);
+        }
+
+        setClients(clientsData || []);
+
+        const tenDaysAgo = new Date();
+        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+        // ✅ Filtre : statut "Récupéré", +10 jours, et photos http(s)
+        const filtered = (interventionData || []).filter((item) => {
+          const updated = item.updatedAt ? new Date(item.updatedAt) : null;
+          return (
+            item.status === 'Récupéré' &&
+            updated && updated < tenDaysAgo &&
+            Array.isArray(item.photos) &&
+            item.photos.some((p) => typeof p === 'string' && p.startsWith('http'))
+          );
+        });
+
+        setInterventions(filtered);
+
+        // ✅ Images supplémentaires à nettoyer (>10 jours)
+        const extraToClean = (extraImageData || []).filter(
+          (img) =>
+            img.image_data &&
+            typeof img.image_data === "string" &&
+            img.image_data.startsWith("http") &&
+            new Date(img.created_at) < tenDaysAgo
+        );
+        setExtraImages(extraToClean);
+      } catch (e) {
+        console.error('❌ fetchData error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
-  
 
   const copyImageToOldImages = async (photoUrl, clientInfo = "") => {
-	const baseUrl = 'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/';
-	if (!photoUrl.startsWith(baseUrl)) return false;
-  
-	const originalPath = photoUrl.replace(baseUrl, '');
-	const fileName = originalPath.split('/').pop();
-	const safeClientInfo = clientInfo.replace(/[^a-zA-Z0-9_-]/g, "_");
-	const destinationPath = `old_images/${safeClientInfo}_${fileName}`;
-  
-	console.log("🔎 originalPath =", originalPath);
-	console.log("📁 Copie de :", originalPath, "👉 vers :", destinationPath);
-  
-	// Vérifie l'existence du fichier
-	const folderPath = originalPath.split('/').slice(0, -1).join('/');
-	const { data: files, error: listError } = await supabase
-	  .storage
-	  .from('images')
-	  .list(folderPath);
-  
-	if (listError || !files?.some(f => f.name === fileName)) {
-	  console.error("❌ Fichier introuvable dans le bucket !");
-	  return "not_found";
-	}
-  
-	const { error } = await supabase.storage
-	  .from('images')
-	  .copy(originalPath, destinationPath);
-  
-	if (error) {
-	  console.error("❌ Erreur copie Supabase :", error);
-	  return false;
-	}
-  
-	return true;
-  };
-  
+    const baseUrl = 'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/';
+    if (!photoUrl.startsWith(baseUrl)) return false;
 
-  
-  
+    const originalPath = photoUrl.replace(baseUrl, '');
+    const fileName = originalPath.split('/').pop();
+    const safeClientInfo = clientInfo.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const destinationPath = `old_images/${safeClientInfo}_${fileName}`;
+
+    console.log("🔎 originalPath =", originalPath);
+    console.log("📁 Copie de :", originalPath, "👉 vers :", destinationPath);
+
+    // Vérifie l'existence du fichier
+    const folderPath = originalPath.split('/').slice(0, -1).join('/');
+    const { data: files, error: listError } = await supabase
+      .storage
+      .from('images')
+      .list(folderPath);
+
+    if (listError || !files?.some(f => f.name === fileName)) {
+      console.error("❌ Fichier introuvable dans le bucket !");
+      return "not_found";
+    }
+
+    const { error } = await supabase.storage
+      .from('images')
+      .copy(originalPath, destinationPath);
+
+    if (error) {
+      console.error("❌ Erreur copie Supabase :", error);
+      return false;
+    }
+
+    return true;
+  };
 
   const deleteImage = (imageUrl, interventionId, clientInfo, imageId = null) => {
     Alert.alert(
@@ -140,7 +145,7 @@ export default function ImageCleanupPage() {
                 .eq('id', interventionId)
                 .single();
 
-              const newPhotos = (data.photos || []).filter((p) => p !== imageUrl);
+              const newPhotos = (data?.photos || []).filter((p) => p !== imageUrl);
               await supabase.from('interventions').update({ photos: newPhotos }).eq('id', interventionId);
               setInterventions((prev) =>
                 prev.map((i) =>
@@ -156,56 +161,56 @@ export default function ImageCleanupPage() {
       ]
     );
   };
+
   const deleteImageFromExtraTable = (imageUrl, interventionId, clientLabel, imageId) => {
-	Alert.alert(
-	  "Confirmation",
-	  "Souhaites-tu archiver puis supprimer cette image ?",
-	  [
-		{ text: "Annuler", style: "cancel" },
-		{
-		  text: "Oui, supprimer",
-		  style: "destructive",
-		  onPress: async () => {
-			const copySuccess = await copyImageToOldImages(imageUrl, clientLabel);
-			if (!copySuccess) {
-			  Alert.alert("Erreur", "L’image n’a pas pu être copiée, suppression annulée.");
-			  return;
-			}
-  
-			const pathToDelete = imageUrl.replace(
-			  'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
-			  ''
-			);
-  
-			const { error: storageError } = await supabase.storage
-			  .from('images')
-			  .remove([pathToDelete]);
-  
-			if (storageError) {
-			  console.error('Erreur suppression du bucket :', storageError);
-			  Alert.alert("Erreur", "La suppression dans le bucket a échoué.");
-			  return;
-			}
-  
-			// Supprimer l'entrée de la table intervention_images
-			const { error: deleteError } = await supabase
-			  .from('intervention_images')
-			  .delete()
-			  .eq('id', imageId);
-  
-			if (deleteError) {
-			  console.error('Erreur suppression intervention_images :', deleteError);
-			  return;
-			}
-  
-			Alert.alert("✅ Image supprimée avec succès.");
-			setExtraImages(prev => prev.filter(img => img.id !== imageId));
-		  },
-		},
-	  ]
-	);
+    Alert.alert(
+      "Confirmation",
+      "Souhaites-tu archiver puis supprimer cette image ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Oui, supprimer",
+          style: "destructive",
+          onPress: async () => {
+            const copySuccess = await copyImageToOldImages(imageUrl, clientLabel);
+            if (!copySuccess) {
+              Alert.alert("Erreur", "L’image n’a pas pu être copiée, suppression annulée.");
+              return;
+            }
+
+            const pathToDelete = imageUrl.replace(
+              'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
+              ''
+            );
+
+            const { error: storageError } = await supabase.storage
+              .from('images')
+              .remove([pathToDelete]);
+
+            if (storageError) {
+              console.error('Erreur suppression du bucket :', storageError);
+              Alert.alert("Erreur", "La suppression dans le bucket a échoué.");
+              return;
+            }
+
+            const { error: deleteError } = await supabase
+              .from('intervention_images')
+              .delete()
+              .eq('id', imageId);
+
+            if (deleteError) {
+              console.error('Erreur suppression intervention_images :', deleteError);
+              return;
+            }
+
+            Alert.alert("✅ Image supprimée avec succès.");
+            setExtraImages(prev => prev.filter(img => img.id !== imageId));
+          },
+        },
+      ]
+    );
   };
-  
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🧼 Nettoyage des images anciennes</Text>
@@ -220,7 +225,7 @@ export default function ImageCleanupPage() {
           <View key={intervention.id} style={styles.card}>
             <Text style={styles.idText}>Intervention : {intervention.id}</Text>
             <View style={styles.imageRow}>
-              {intervention.photos.map((photoUrl, idx) => (
+              {(intervention.photos || []).map((photoUrl, idx) => (
                 <View key={idx} style={styles.imageBlock}>
                   <Image source={{ uri: photoUrl }} style={styles.imageThumbnail} />
                   <Text style={styles.imageText}>

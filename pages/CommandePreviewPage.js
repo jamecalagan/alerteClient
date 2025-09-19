@@ -142,7 +142,7 @@ export default function CommandePreviewPage({ route }) {
               clearText="Effacer"
               confirmText="Valider"
               webStyle={`
-                .m-signature-pad { box-shadow: none; border: 1px solid #ccc; width: 80% !important; height: 80% !important; }
+                .m-signature-pad { box-shadow: none; border: 2px solid #2ecc71; width: 100% !important; height: 80% !important; }
                 .m-signature-pad--footer { display: flex; justify-content: space-between; }
               `}
             />
@@ -158,13 +158,76 @@ export default function CommandePreviewPage({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  label: { fontSize: 18, marginBottom: 10 },
-  button: { backgroundColor: "#4CAF50", padding: 15, borderRadius: 10, marginTop: 30, alignItems: "center" },
-  buttonText: { color: "white", fontSize: 18, fontWeight: "bold" },
-  signatureBox: { marginTop: 40, marginBottom: 20 },
-  signatureImage: { width: '100%', height: 200, borderColor: '#ccc', borderWidth: 1, marginTop: 10 },
-  validatedText: { textAlign: 'center', marginTop: 10, fontSize: 16, color: 'green', fontWeight: 'bold' },
-  printedText: { textAlign: 'center', marginTop: 5, fontSize: 16, color: '#2196F3', fontWeight: 'bold' },
+  container: {
+    padding: 24,
+    backgroundColor: "#f9f9f9",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "600",
+    marginBottom: 24,
+    textAlign: "center",
+    color: "#2c3e50",
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: "#34495e",
+    paddingVertical: 2,
+    borderBottomWidth: 0.5,
+    borderColor: "#ccc",
+  },
+  button: {
+    backgroundColor: "#2ecc71",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 30,
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+  },
+signatureBox: {
+  marginTop: 40,
+  marginBottom: 30,
+  padding: 16,
+  backgroundColor: "#fff",
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#ddd",
+  alignItems: "center", // ✅ centre le contenu horizontalement
+},
+
+signatureImage: {
+  width: 220,
+  height: 120,
+  borderRadius: 6,
+  borderColor: "#bbb",
+  borderWidth: 1,
+  marginTop: 10,
+},
+
+  validatedText: {
+    textAlign: "center",
+    marginTop: 12,
+    fontSize: 15,
+    color: "#27ae60",
+    fontWeight: "bold",
+  },
+  printedText: {
+    textAlign: "center",
+    marginTop: 6,
+    fontSize: 15,
+    color: "#2980b9",
+    fontWeight: "bold",
+  },
 });
+

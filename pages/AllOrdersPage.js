@@ -451,6 +451,34 @@ setDeletedCount(data.filter(o => o.deleted).length);
                                             </Text>
                                         </TouchableOpacity>
                                     )}
+<TouchableOpacity
+  style={[styles.editButton, { backgroundColor: "#28a745" }]}
+  onPress={() =>
+    navigation.navigate("CommandePreviewPage", {
+      order: {
+        id: item.id,
+        client: {
+          name: item.clients.name,
+          ficheNumber: item.clients.ficheNumber,
+        },
+        deviceType: item.product,
+        brand: item.brand,
+        model: item.model,
+        cost: item.price,
+        acompte: item.deposit,
+        createdat: item.createdat,
+        signatureclient: item.signatureclient,
+
+        printed: item.printed,
+      },
+      readOnly: true, // ✅ ajoute ce flag pour activer l'affichage direct
+    })
+  }
+>
+  <Text style={styles.buttonText}>📄 Voir fiche imprimée</Text>
+</TouchableOpacity>
+
+
                                 </View>
                             </>
                         ) : (

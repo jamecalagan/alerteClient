@@ -215,17 +215,18 @@ export default function ExpressVideoPage() {
               onChangeText={setDescription}
             />
 
-            <Text style={styles.label}>Quantité par type</Text>
-            {Object.keys(cassetteCounts).map((key) => (
-              <TextInput
-                key={key}
-                style={styles.input}
-                placeholder={`Nombre de ${key}`}
-                keyboardType="numeric"
-                value={cassetteCounts[key]}
-                onChangeText={(val) => setCassetteCounts({ ...cassetteCounts, [key]: val })}
-              />
-            ))}
+{Object.keys(cassetteCounts).map((key) => (
+  <View key={key} style={{ marginBottom: 6 }}>
+    <Text style={[styles.label, { marginBottom: 2, marginTop: 6 }]}>Nombre de {key}</Text>
+    <TextInput
+      style={[styles.input, { marginBottom: 6 }]}
+      keyboardType="numeric"
+      value={cassetteCounts[key]}
+      onChangeText={(val) => setCassetteCounts({ ...cassetteCounts, [key]: val })}
+    />
+  </View>
+))}
+
 
             <Text style={styles.label}>Prix unitaire (€)</Text>
             <TextInput
@@ -254,21 +255,25 @@ export default function ExpressVideoPage() {
 
             <Text style={styles.label}>Montant total calculé : {calculateFinalPrice()} €</Text>
 
-            <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+{/*             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
               <Text style={styles.buttonText}>{isEdit ? "💾 Enregistrer" : "🖋️ Faire signer la fiche"}</Text>
-            </TouchableOpacity>
-									<View style={{ alignItems: "center", marginTop: 16 }}>
-							<TouchableOpacity
-								style={[
-									styles.optionButton,
-									styles.shadowBox,
-									{ backgroundColor: "#a7a7a7", width: "60%" }, // Largeur fixe pour centrage
-								]}
-								onPress={() => navigation.goBack()}
-							>
-								<Text style={styles.buttonText}>⬅ Retour</Text>
-							</TouchableOpacity>
-						</View>
+            </TouchableOpacity> */}
+<View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 20 }}>
+  <TouchableOpacity
+    onPress={() => navigation.goBack()}
+    style={[styles.button, { flex: 1, backgroundColor: "#6c757d", marginRight: 8 }]}
+  >
+    <Text style={styles.buttonText}>⬅️ Retour</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    onPress={handleSubmit}
+    style={[styles.button, { flex: 1, backgroundColor: "#007bff", marginLeft: 8 }]}
+  >
+    <Text style={styles.buttonText}>💾 Enregistrer</Text>
+  </TouchableOpacity>
+</View>
+
           </View>
         }
       />
@@ -284,20 +289,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
-  label: {
-    fontWeight: "600",
-    marginBottom: 4,
-    marginTop: 12,
-    color: "#333",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 12,
-    width: "100%",
-  },
+label: {
+  fontWeight: "600",
+  marginBottom: 4,
+  marginTop: 10, // tu peux réduire à 6 si tu veux encore moins
+  color: "#333",
+},
+input: {
+  borderWidth: 1,
+  borderColor: "#ccc",
+  borderRadius: 6,
+  padding: 8,
+  marginBottom: 10, // réduit ici aussi si besoin
+  width: "100%",
+},
+
   textArea: {
     borderWidth: 1,
     borderColor: "#ccc",

@@ -32,7 +32,55 @@ const resolveImageUri = (uri) => {
   // Sinon on considère un fichier Supabase public
   return `${supabase.supabaseUrl}/storage/v1/object/public/${uri}`;
 };
+const toSignatureUri = (s) => {
+  if (!s || typeof s !== "string") return null;
+  if (s.startsWith("data:")) return s;
+  if (/^https?:\/\//i.test(s)) return s;
+  return s.length > 50 ? `data:image/png;base64,${s}` : null;
+};
+const reprintIntervention = async (interventionId, navigation) => {
+  try {
+    const { data, error } = await supabase
+      .from("interventions")
+      .select(`
+        id, client_id,
+        deviceType, brand, model, reference, description,
+        guarantee, receiver_name, signature,
+        client:client_id ( name, ficheNumber, phone, email )
+      `)
+      .eq("id", interventionId)
+      .single();
 
+    if (error || !data) throw error || new Error("Intervention introuvable.");
+
+    const clientInfo = {
+      name: data.client?.name || "",
+      ficheNumber: data.client?.ficheNumber ?? "",
+      phone: data.client?.phone || "",
+      email: data.client?.email || "",
+    };
+
+    const productInfo = {
+      deviceType: data.deviceType || "",
+      brand: data.brand || "",
+      model: data.model || "",
+      reference: data.reference || "",
+      description: data.description || "", // ta PrintPage l’utilise aussi
+    };
+
+    navigation.navigate("PrintPage", {
+      clientInfo,
+      receiverName: data.receiver_name || clientInfo.name || "",
+      guaranteeText: data.guarantee || "",
+      signature: toSignatureUri(data.signature),
+      productInfo,
+      description: data.description || "",
+    });
+  } catch (e) {
+    console.log("Réimpression — erreur:", e);
+    Alert.alert("Erreur", e?.message || "Impossible de préparer la réimpression.");
+  }
+};
 
 export default function RecoveredClientsPage({ navigation, route }) {
   const flatListRef = useRef(null); 
@@ -400,8 +448,40 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     <Text style={styles.interventionInfo}>
                       Statut du règlement: {item.paymentStatus}
                     </Text>
-
-                   
+{item.status === "Récupéré" && (
+  <TouchableOpacity
+    onPress={() => reprintIntervention(item.id, navigation)}
+    style={{
+      marginTop: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      backgroundColor: "#191f2f",
+      borderWidth: 1,
+      borderColor: "#888787",
+      alignSelf: "flex-start",
+    }}
+  >
+    <Text style={{ color: "white" }}>Réimprimer la restitution (A5)</Text>
+  </TouchableOpacity>
+  
+)}
+           <TouchableOpacity
+  onPress={() => navigation.navigate("InterventionImages", { interventionId: item.id })}
+  style={{
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#191f2f",
+    borderWidth: 1,
+    borderColor: "#888787",
+    alignSelf: "flex-start",
+  }}
+>
+  <Text style={{ color: "white" }}>Voir toutes les images</Text>
+</TouchableOpacity>
+        
                     <View style={styles.imageContainer}>
                       
 {/* Anciennes photos (champ `photos`) */}

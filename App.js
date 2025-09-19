@@ -69,6 +69,7 @@ import QuoteIntakePage from "./pages/QuoteIntakePage";
 import QuoteRequestsListPage from "./pages/QuoteRequestsListPage";
 import QuoteRequestEditPage from "./pages/QuoteRequestEditPage";
 import QuoteRequestDetailsPage from "./pages/QuoteRequestDetailsPage";
+import InterventionImagesPage from "./pages/InterventionImagesPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -298,6 +299,11 @@ function MainStack({ setUser }) {
 				<Stack.Screen name="ExpressRepairPage" component={ExpressRepairPage} />
 				<Stack.Screen name="ExpressSoftwarePage" component={ExpressSoftwarePage} />
   				<Stack.Screen name="ExpressVideoPage" component={ExpressVideoPage} />
+				<Stack.Screen
+  name="InterventionImages"
+  component={InterventionImagesPage}
+  options={{ title: "Images de l'intervention" }}
+/>
 				<Stack.Screen
   name="QuoteIntakePage"
   component={QuoteIntakePage}

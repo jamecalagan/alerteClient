@@ -23,7 +23,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [deviceType, setDeviceType] = useState("default");
-    // Récupérer le client sélectionné au départ
+   
     useEffect(() => {
         const fetchClient = async () => {
             try {
@@ -35,7 +35,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
                 if (error) throw error;
 
-                setSelectedClient(clientData); // Stocker le client sélectionné initialement
+                setSelectedClient(clientData); 
             } catch (error) {
                 console.error("Erreur lors du chargement du client :", error);
             }
@@ -44,20 +44,20 @@ export default function ClientInterventionsPage({ route, navigation }) {
         fetchClient();
     }, [clientId]);
 
-    // Récupérer les interventions pour le client sélectionné au départ
+   
     useEffect(() => {
         if (selectedClient) {
             const fetchClientInterventions = async () => {
                 try {
                     const { data, error } = await supabase
                         .from("interventions")
-                        .select("*, photos, label_photo") // Assurez-vous que 'photos' est récupéré
+                        .select("*, photos, label_photo") 
                         .eq("client_id", selectedClient.id)
                         .order("createdAt", { ascending: false });
 
                     if (error) throw error;
 
-                    setInterventions(data); // Stocker les interventions du client sélectionné
+                    setInterventions(data);
                 } catch (error) {
                     console.error(
                         "Erreur lors du chargement des interventions :",
@@ -70,7 +70,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         }
     }, [selectedClient]);
 
-    // Rechercher d'autres clients si besoin
+   
     useEffect(() => {
         const fetchClients = async () => {
             try {
@@ -80,7 +80,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
                 if (error) throw error;
 
-                setClients(clientData); // Stocker tous les clients pour la recherche
+                setClients(clientData); 
             } catch (error) {
                 console.error("Erreur lors du chargement des clients :", error);
             }
@@ -89,7 +89,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         fetchClients();
     }, []);
 
-    // Filtrer les clients selon la recherche
+ 
     const filteredClients = clients.filter(
         (client) =>
             client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -145,7 +145,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         < KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={0} // Ajuster en fonction de la position désirée
+            keyboardVerticalOffset={0} 
         >
             <View style={{ flex: 1 }}>
                 <Text style={styles.title}>Interventions du client</Text>
@@ -250,8 +250,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
               uri={item.label_photo}
               ficheNumber={selectedClient?.ficheNumber}
               interventionId={item.id}
-              type="label"          // <— on précise “label”
-              size={80}             // à la place de style={styles.labelImage}
+              type="label"   
+              size={80}         
               borderRadius={8}
               borderWidth={2}
               badge
@@ -267,7 +267,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
       <View style={styles.photosContainer}>
         {item.photos && item.photos.length > 0 ? (
           item.photos
-            .filter((uri) => uri !== item.label_photo) // on enlève l’étiquette
+            .filter((uri) => uri !== item.label_photo)
             .map((uri, index) => (
               <TouchableOpacity
                 key={index}
@@ -282,7 +282,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
                   size={60}
                   borderRadius={8}
                   borderWidth={1}
-                  badge          // <— pour afficher Cloud / Local
+                  badge     
                 />
               </TouchableOpacity>
             ))
@@ -304,7 +304,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
                             <TouchableOpacity
                                 onPress={() => {
                                     setSelectedClient(item); // Sélectionner un nouveau client
-                                    setSearchQuery(""); // Réinitialiser le champ de recherche
+                                    setSearchQuery("");
                                 }}
                                 style={styles.clientCard}
                             >

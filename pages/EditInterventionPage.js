@@ -690,7 +690,7 @@ if (errors.length > 0) {
 							style={[styles.iconRight, { tintColor: "#ececec" }]}
 						/>
 					</TouchableOpacity>
-{/* Étiquette */}
+
 {labelPhoto ? (
   <TouchableOpacity onPress={() => setSelectedImage(labelPhoto)}>
     <View
@@ -701,7 +701,7 @@ if (errors.length > 0) {
         overflow: "hidden",     // ► masque le badge si dépasse
       }}
     >
-      {/* Image de l’étiquette */}
+      
       <Image
         source={{ uri: labelPhoto }}
         style={{
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
         borderColor: "green",
     },
     button: {
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#ec9b03",
         paddingVertical: 10,
         paddingHorizontal: 20,
 
@@ -1236,7 +1236,7 @@ const styles = StyleSheet.create({
 
     },
     buttonText: {
-        color: "#cfcdcd",
+        color: "#ffffff",
         fontWeight: "medium",
     },
     saveButton: {
@@ -1314,7 +1314,7 @@ const styles = StyleSheet.create({
         flexDirection: "row", // Positionne l'icône et le texte côte à côte
         alignItems: "center",
         backgroundColor: "#f0f0f0",
-        borderWidth: 1,
+        
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 2,
@@ -1346,8 +1346,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
     autreInput: {
-        borderWidth: 1,
-        borderColor: "#888787",
+
         padding: 10,
         marginBottom: 20,
         borderRadius: 2,
@@ -1370,7 +1369,7 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderWidth: 2,
-        borderColor: "#ccc",
+        borderColor: "#cccccc",
         borderRadius: 5,
         justifyContent: "center",
         alignItems: "center",
@@ -1380,7 +1379,7 @@ const styles = StyleSheet.create({
     checkboxIndicator: {
         width: 12,
         height: 12,
-        backgroundColor: "191f2f", // Couleur de l'indicateur
+        backgroundColor: "#191f2f", // Couleur de l'indicateur
     },
     checkboxLabel: {
         color: "#242424",

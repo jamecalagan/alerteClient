@@ -205,7 +205,7 @@ export default function AdminPage({ navigation, route }) {
                             onPress={() => navigation.navigate("ImageBackup")}
                             style={styles.backupButton}
                         >
-                            <Text style={{ color: "#fffdfd", fontWeight: "bold" }}>
+                            <Text style={{ color: "#888787", fontWeight: "bold" }}>
                                 SAUVEGARDER LES IMAGES
                             </Text>
                         </TouchableOpacity>
@@ -301,7 +301,9 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: "row",
         alignItems: "center",
-        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#888787",
+        borderRadius: 5,
         paddingHorizontal: 10,
         marginBottom: 15,
         backgroundColor: "#cacaca",
@@ -318,9 +320,12 @@ const styles = StyleSheet.create({
     },
     clientItem: {
         padding: 15,
+        borderColor: "#888787",
         backgroundColor: "#f0f0f0",
         marginVertical: 5,
         borderRadius: 5,
+        borderWidth: 1,
+        elevation: 5,
     },
     clientText: {
         fontSize: 16,
@@ -332,10 +337,12 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     backupButton: {
-        backgroundColor: "#2b8103",
+        backgroundColor: "#24435c",
         padding: 12,
         marginVertical: 10,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#888787",
         alignItems: "center",
     },
     webSearchButton: {

@@ -290,7 +290,6 @@ export default function EditClientPage({ route, navigation }) {
   </TouchableOpacity>
 </View>
 
-<<<<<<< HEAD
 
       {interventions.length > 0 ? (
         <FlatList
@@ -366,46 +365,6 @@ export default function EditClientPage({ route, navigation }) {
                       {item.commande_effectuee ? "✅ Produit commandé" : "Produit commandé ?"}
                     </Text>
                   </TouchableOpacity>
-=======
-            <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                    style={[styles.iconButton, styles.addButton]}
-                    onPress={() =>
-                        navigation.navigate("AddIntervention", {
-                            clientId: client.id,
-                        })
-                    }
-                >
-                    <Image
-                        source={require("../assets/icons/plus.png")} // Chemin vers votre image
-                        style={{
-                            width: 20, // Largeur de l'image
-                            height: 20, // Hauteur de l'image
-                            tintColor: "#fffdfd", // Couleur de l'image
-                            marginRight: 10,
-                        }}
-                    />
-                    <Text style={styles.buttonText}>
-                        Ajouter une intervention
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.iconButton, styles.addButtonSave]}
-                    onPress={handleSaveClient}
-                >
-                    <Image
-                        source={require("../assets/icons/save.png")} // Chemin vers votre image
-                        style={{
-                            width: 20, // Largeur de l'image
-                            height: 20, // Hauteur de l'image
-                            tintColor: "#ffffff", // Couleur de l'image
-                            marginRight: 10,
-                        }}
-                    />
-                    <Text style={styles.buttonText}>Sauvegarder</Text>
-                </TouchableOpacity>
-            </View>
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
 
                   <TouchableOpacity
                     style={styles.commandeRecuButton}
@@ -526,12 +485,13 @@ const styles = StyleSheet.create({
   input: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#585858",
+    borderRadius: 8,
     backgroundColor: "#cacaca",
     paddingHorizontal: 10,
     marginBottom: 15,
     height: 45,
-<<<<<<< HEAD
     fontSize: 18,
     color: "#333",
   },
@@ -552,38 +512,11 @@ const styles = StyleSheet.create({
   interventionTextReste: { fontSize: 17, color: "#c0392b", marginBottom: 6 },
   addButton: {
     backgroundColor: "#0c0f18",
-=======
-	        fontSize: 18,
-        color: "#333",
-},
-    interventionCard: {
-        padding: 18,
-        marginBottom: 14,
-        borderRadius: 14,
-        backgroundColor: "#ffffff",
-
-        shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 6,
-        elevation: 3,
-    },
-    interventionText: {
-        fontSize: 17,
-        color: "#2c2c2c",
-        marginBottom: 6,
-    },
-    interventionTextReste: {
-        fontSize: 17,
-        color: "#c0392b",
-        marginBottom: 6,
-    },
-    addButton: {
-    backgroundColor: "#117a03",
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#4a90e2",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -666,7 +599,6 @@ const styles = StyleSheet.create({
   alignItems: "center",
   marginBottom: 12,
 },
-<<<<<<< HEAD
 smallIconBtn: {
   width: 40,
   height: 40,
@@ -684,108 +616,4 @@ smallIcon: {
   tintColor: "#ffffff",
 },
 
-=======
-    addButtonSave: {
-    backgroundColor: "#f0a709",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 5,
-},
-    addButtonText: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "bold",
-    },
-    saveButton: {
-        backgroundColor: "#28a745",
-        paddingVertical: 16,
-        paddingHorizontal: 22,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    saveButtonText: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "bold",
-    },
-    trashButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 10,        justifyContent: "center",
-        alignItems: "center",
-        position: "absolute",
-        top: 10,
-        right: 10,
-        backgroundColor: "#f8d7da",
-        borderWidth: 1,
-        borderColor: "#dc3545",
-    },
-    printButton: {
-        width: 60,
-        height: 60,
-        borderWidth: 2,
-        borderColor: "#28a745",
-        position: "absolute",
-        bottom: 24,
-        right: 24,
-        backgroundColor: "#075304",
-        padding: 12,
-        borderRadius: 5,
-        alignItems: "center",
-        justifyContent: "center",
-
-    },
-    buttonContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginTop: 30,
-    },
-    iconButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#007bff",
-
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 12,
- 
-        justifyContent: "center",
-        flex: 1,
-        marginHorizontal: 6,
-    },
-    buttonText: {
-        color: "#fff",
-        fontSize: 17,
-        fontWeight: "bold",
-    },
-	buttonTextNo: {
-		fontSize: 17,
-		color: "#888787",
-		fontWeight: "bold",
-		textAlign: "center",
-		marginTop: 20,
-	},		
-    commandeRecuButton: {
-        backgroundColor: "#e8f5e9",
-        padding: 12,
-        borderRadius: 8,
-        marginTop: 10,
-
-    },
-    commandeRecuButtonText: {
-        color: "#07a252",
-        fontWeight: "600",
-        textAlign: "center",
-        fontSize: 16,
-    },
-    acceptText: {
-        fontSize: 17,
-        color: "#e67e22",
-        fontWeight: "bold",
-    },
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
 });

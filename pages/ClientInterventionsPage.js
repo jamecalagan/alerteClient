@@ -355,9 +355,12 @@ const styles = StyleSheet.create({
     searchBar: {
 		backgroundColor: "#c7c5c5",
         height: 40,
+        borderColor: "#777676",
+        borderWidth: 1,
+        borderWidth: 1,
         paddingLeft: 8,
         marginBottom: 20,
-        borderRadius: 10,
+        borderRadius: 20,
         fontSize: 16,
         color: "#242424",
     },
@@ -366,6 +369,8 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         backgroundColor: "#cacaca",
         borderRadius: 5,
+        borderWidth: 1,
+        borderColor: "#888787",
         fontSize: 16,
         color: "#242424",
     },
@@ -382,6 +387,8 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         backgroundColor: "#cacaca",
         borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#888787",
     },
     recuperedStatusCard: {
         borderColor: "red", // Bordure rouge pour le statut récupéré
@@ -453,7 +460,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#fd0000", // Rouge pour suppression
         paddingVertical: 10,
         paddingHorizontal: 15,
-        borderRadius: 10,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#888787",
     },
     deleteButtonText: {
         color: "#ffffff",

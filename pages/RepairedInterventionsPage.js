@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
         padding: 15,
         marginBottom: 10,
         backgroundColor: "#cacaca",
-        borderRadius: 10,
+        borderRadius: 2,
         borderWidth: 1,
         borderColor: "#888787",
     },
@@ -1025,9 +1025,9 @@ const styles = StyleSheet.create({
     },
     iconStyle: {
         padding: 10,
- 
+        borderWidth: 1,
         borderRadius: 2,
-
+        borderColor: "#242424",
         backgroundColor: "#8a8a8a",
         marginHorizontal: 5,
     },
@@ -1057,8 +1057,10 @@ const styles = StyleSheet.create({
         marginBottom: 5, // Ajoute un espacement entre les lignes
     },
     detailInput: {
+        borderColor: "#888787",
+        borderWidth: 1,
         padding: 10,
-        borderRadius: 10,
+        borderRadius: 2,
         backgroundColor: "#f1f1f1",
         marginBottom: 10,
         color: "#242424",

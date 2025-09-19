@@ -908,7 +908,6 @@ const filterClients = async (text) => {
     const to0033 = (d) => (d.startsWith("0") ? "0033" + d.slice(1) : d);
     const wildcard = (s) => s.split("").join("%"); // "0601..." => "0%6%0%1%3%3%0%8%9%1"
 
-<<<<<<< HEAD
     // ————— 1) construire la requête clients —————
     let clientQuery;
     if (isFicheNumber && !isPhoneNumber) {
@@ -945,25 +944,6 @@ const filterClients = async (text) => {
       clientQuery = supabase
         .from("clients")
         .select(`
-=======
-            if (isFicheNumber && !isPhoneNumber) {
-                
-                clientQuery = supabase
-                    .from("clients")
-                    .select(
-                        `
-          *,
-          interventions(id, status, deviceType, cost, solderestant, createdAt, "updatedAt", commande, photos, notifiedBy)
-        `
-                    )
-                    .eq("ficheNumber", parseInt(query, 10));
-            } else if (isPhoneNumber) {
-                
-                clientQuery = supabase
-                    .from("clients")
-                    .select(
-                        `
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
           *,
           interventions(
             id, status, deviceType, cost, solderestant,
@@ -1005,27 +985,17 @@ const filterClients = async (text) => {
       .select("*, client_id")
       .in("client_id", combined.map((c) => c.id));
 
-<<<<<<< HEAD
     if (orderError) {
       console.error("❌ Erreur chargement commandes :", orderError);
       setFilteredClients(combined);
       return;
     }
-=======
-        
-            const clientIds = clientsData.map((c) => c.id);
-            const { data: ordersData, error: orderError } = await supabase
-                .from("orders")
-                .select("*, client_id")
-                .in("client_id", clientIds);
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
 
     const ordersByClient = {};
     (ordersData || []).forEach((o) => {
       (ordersByClient[o.client_id] ||= []).push(o);
     });
 
-<<<<<<< HEAD
     const enriched = combined.map((client) => {
       const interventions = client.interventions || [];
       const orders = ordersByClient[client.id] || [];
@@ -1036,21 +1006,6 @@ const filterClients = async (text) => {
           i.status !== "Récupéré" &&
           i.status !== "Non réparable"
       );
-=======
-            
-            const ordersByClient = {};
-            ordersData.forEach((order) => {
-                if (!ordersByClient[order.client_id]) {
-                    ordersByClient[order.client_id] = [];
-                }
-                ordersByClient[order.client_id].push(order);
-            });
-
-            
-            const enrichedClients = clientsData.map((client) => {
-                const interventions = client.interventions || [];
-                const orders = ordersByClient[client.id] || [];
->>>>>>> 1db03ad94f2b576e5d281de30231392b1b3c55a9
 
       const totalAmountOngoing = interventions
         .filter((i) => (i.solderestant || 0) > 0 && i.status !== "Récupéré")

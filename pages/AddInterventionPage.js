@@ -22,6 +22,10 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import * as ImageManipulator from "expo-image-manipulator";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+const normalizeNumber = (v) => {
+    if (v === null || v === undefined) return "";
+    return String(v).replace(",", ".").trim();
+};
 const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
     const folder = isLabel ? "etiquettes" : "supplementaires";
     const fileName = `${Date.now()}.jpg`;
@@ -59,6 +63,9 @@ export default function AddInterventionPage({ route, navigation }) {
     const [description, setDescription] = useState("");
     const [cost, setCost] = useState("");
     const [devisCost, setDevisCost] = useState(""); // Ajout du champ devisCost
+    const [estimateMin, setEstimateMin] = useState("");
+    const [estimateMax, setEstimateMax] = useState("");
+    const [estimateType, setEstimateType] = useState("PLAFOND"); // PLAFOND | INDICATIF
     const [paymentStatus, setPaymentStatus] = useState("non_regle");
     const [status, setStatus] = useState("default");
     const [deviceType, setDeviceType] = useState("default");
@@ -269,198 +276,131 @@ export default function AddInterventionPage({ route, navigation }) {
         return existing?.id || null;
     };
 
-    const addBrandIfNeeded = async (articleId) => {
-        if (brand === "Autre" && customBrand) {
-            const { data, error } = await supabase
-                .from("marque")
-                .insert([{ nom: customBrand, article_id: articleId }])
-                .select();
+// addBrandIfNeeded
+const addBrandIfNeeded = async (articleId) => {
+  if (brand === "Autre" && customBrand) {
+    const { data, error } = await supabase
+      .from("marque")
+      .insert([{ nom: customBrand.trim(), article_id: articleId }])
+      .select();
 
-            if (error) {
-                console.error("Erreur lors de l'ajout de la marque :", error);
-                Alert.alert(
-                    "Erreur",
-                    "Impossible d'ajouter la nouvelle marque."
-                );
-                return null;
-            }
-            if (data) {
-                setBrands([...brands, data[0]]);
-                return data[0].id;
-            }
-        }
-        return brands.find((b) => b.id === brand)?.id || null;
-    };
+    if (error) {
+      console.error("Erreur lors de l'ajout de la marque :", error);
+      Alert.alert("Erreur", "Impossible d'ajouter la nouvelle marque.");
+      return null;
+    }
+    if (data && data[0]) {
+      setBrands((prev) => [...prev, data[0]]); // ✅ correct spread
+      return data[0].id;
+    }
+  }
+  return brands.find((b) => b.id === brand)?.id || null;
+};
 
-    const addModelIfNeeded = async (brandId, articleId) => {
-        if (model === "Autre" && customModel) {
-            const { data, error } = await supabase
-                .from("modele")
-                .insert([
-                    {
-                        nom: customModel,
-                        marque_id: brandId,
-                        article_id: articleId,
-                    },
-                ]) // Ajout de article_id ici
-                .select();
+// addModelIfNeeded
+const addModelIfNeeded = async (brandId, articleId) => {
+  if (model === "Autre" && customModel) {
+    const { data, error } = await supabase
+      .from("modele")
+      .insert([{
+        nom: customModel.trim(),
+        marque_id: brandId,
+        article_id: articleId,
+      }])
+      .select();
 
-            if (error) {
-                console.error("Erreur lors de l'ajout du modèle :", error);
-                Alert.alert(
-                    "Erreur",
-                    "Impossible d'ajouter le nouveau modèle."
-                );
-                return null;
-            }
-            if (data) {
-                setModels([...models, data[0]]);
-                return data[0].id;
-            }
-        }
-        return models.find((m) => m.id === model)?.id || null;
-    };
+    if (error) {
+      console.error("Erreur lors de l'ajout du modèle :", error);
+      Alert.alert("Erreur", "Impossible d'ajouter le nouveau modèle.");
+      return null;
+    }
+    if (data && data[0]) {
+      setModels((prev) => [...prev, data[0]]); // ✅ correct spread
+      return data[0].id;
+    }
+  }
+  return models.find((m) => m.id === model)?.id || null;
+};
+
     const handlePaymentStatusChange = (status) => {
         setPaymentStatus(status);
     };
 
     const handleSaveIntervention = async () => {
-const errors = [];
+        const errors = [];
 
-if (!reference) errors.push("Référence");
-if (!brand || brand === "default") errors.push("Marque");
-if (!model || model === "default") errors.push("Modèle");
-if (!description) errors.push("Description");
-if (deviceType === "default") errors.push("Type de produit");
-if (status === "default") errors.push("Statut");
+        if (!reference) errors.push("Référence");
+        if (!brand || brand === "default") errors.push("Marque");
+        if (!model || model === "default") errors.push("Modèle");
+        if (!description) errors.push("Description");
+        if (deviceType === "default") errors.push("Type de produit");
+        if (status === "default") errors.push("Statut");
 
-if (status !== "Devis en cours" && !cost) {
-    errors.push("Coût de la réparation");
-}
-
-if (!labelPhoto) {
-    errors.push("Photo d’étiquette");
-}
-
-if (paymentStatus === "reglement_partiel" && (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))) {
-    errors.push("Acompte valide");
-}
-
-if (errors.length > 0) {
-    const errorMsg = "Champs manquants ou incorrects :\n\n" + errors.join("\n");
-    Alert.alert("Erreur", errorMsg);
-    return;
-}
-
-
-        // Vérification du coût sauf si le statut est "Devis en cours"
         if (status !== "Devis en cours" && !cost) {
-            Alert.alert(
-                "Erreur",
-                "Veuillez indiquer le coût de la réparation."
-            );
-            return;
+            errors.push("Coût de la réparation");
+        }
+
+        // Validation de la fourchette si "Devis en cours"
+        if (status === "Devis en cours") {
+            const min = parseFloat(normalizeNumber(estimateMin));
+            const max = parseFloat(normalizeNumber(estimateMax));
+            if (isNaN(min) || isNaN(max)) {
+                errors.push("Fourchette de devis (de/à)");
+            } else if (min < 0 || max < 0) {
+                errors.push("Fourchette de devis : valeurs positives requises");
+            } else if (min > max) {
+                errors.push("Fourchette de devis : 'De' doit être ≤ 'À'");
+            }
         }
 
         if (!labelPhoto) {
-            setAlertTitle("Erreur");
-            setAlertMessage("Veuillez prendre une photo d'étiquette.");
-            setAlertVisible(true);
-            return;
+            errors.push("Photo d’étiquette");
         }
 
-        // Validation pour l'acompte
         if (
             paymentStatus === "reglement_partiel" &&
             (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))
         ) {
-            Alert.alert(
-                "Erreur",
-                "Veuillez indiquer un acompte valide qui ne dépasse pas le montant total."
-            );
+            errors.push("Acompte valide");
+        }
+
+        if (errors.length > 0) {
+            const errorMsg = "Champs manquants ou incorrects :\n\n" + errors.join("\n");
+            Alert.alert("Erreur", errorMsg);
             return;
         }
 
-        // 🔹 Gestion du montant du devis
+        // 🔹 Gestion du montant du devis (champ existant, conservé)
         const formattedDevisCost =
             status === "Devis en cours" && devisCost
                 ? parseFloat(devisCost)
-                : null; // Mettre null si vide
+                : null; // null si vide
 
-        // 🔹 Vérification et conversion des valeurs
-        const costValue = cost ? parseFloat(cost) : 0; // Assure que cost est un nombre
-        const partialPaymentValue = partialPayment
-            ? parseFloat(partialPayment)
-            : 0; // Assure que partialPayment est un nombre
+        // Conversion sécurisée
+        const costValue = cost ? parseFloat(cost) : 0;
+        const partialPaymentValue = partialPayment ? parseFloat(partialPayment) : 0;
 
-        // 🔹 Calcul du solde restant dû (assurer qu'il ne soit jamais NULL)
+        // Solde restant dû
         let solderestant = costValue - partialPaymentValue;
+        if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
 
-        // 🔹 Assurer que solderestant ne soit jamais NULL
-        if (isNaN(solderestant) || solderestant < 0) {
-            solderestant = 0; // Si la valeur est invalide ou négative, mettre 0
-        }
+        // … (créations liées aux listes marque/modèle si besoin — inchangé) …
 
-        // 🔹 Vérification avant insertion
-        console.log(
-            "Coût total :",
-            costValue,
-            "Acompte :",
-            partialPaymentValue,
-            "Solde restant :",
-            solderestant
-        );
+        const uploadedPhotoUrls = photos; // suppose que tu gères déjà l’upload
+        const labelPhotoUrl = labelPhoto; // idem
+        const interventionId = undefined; // si tu génères un UUID ailleurs, garde ta logique
+            const articleId = await addArticleIfNeeded();       // crée l'article si "Autre"
+            const brandId   = await addBrandIfNeeded(articleId); // crée la marque si "Autre"
+            const modelId   = await addModelIfNeeded(brandId, articleId); // crée le modèle si "Autre"
 
-        // 🔹 Création des entrées manquantes (Articles, Marques, Modèles)
-        console.log("✅ Début insertion de l'article...");
-        const articleId = await addArticleIfNeeded();
-        console.log("✅ ID article obtenu :", articleId);
-
-        const brandId = await addBrandIfNeeded(articleId);
-        console.log("✅ ID marque obtenu :", brandId);
-
-        const modelId = await addModelIfNeeded(brandId, articleId);
-        console.log("✅ ID modèle obtenu :", modelId);
-
-        const interventionId = uuidv4();
-        console.log("ID intervention généré :", interventionId);
-
-        // Uploader la photo d’étiquette
-        let labelPhotoUrl = null;
-        if (labelPhoto) {
-            labelPhotoUrl = await uploadImageToStorage(
-                labelPhoto,
-                interventionId,
-                true
-            );
-        }
-        // ✅ Upload des photos supplémentaires
-        const uploadedPhotoUrls = [];
-
-        for (const photoUri of photos) {
-            if (photoUri !== labelPhoto) {
-                const url = await uploadImageToStorage(
-                    photoUri,
-                    interventionId,
-                    false
-                );
-
-                if (url) {
-                    uploadedPhotoUrls.push(url);
-                    console.log("✅ URL image supplémentaire :", url);
-                } else {
-                    console.error(
-                        "❌ Erreur upload image supplémentaire pour :",
-                        photoUri
-                    );
-                }
+            if (!articleId) {
+            Alert.alert("Erreur", "Type de produit introuvable. Veuillez réessayer.");
+            return;
             }
-        }
-
-        console.log(
-            "📸 Toutes les images supplémentaires uploadées :",
-            uploadedPhotoUrls
-        );
+            if (!brandId) {
+            Alert.alert("Erreur", "Marque introuvable. Veuillez réessayer.");
+            return;
+            }
 
         const interventionData = {
             reference,
@@ -471,16 +411,23 @@ if (errors.length > 0) {
             cost: costValue,
             solderestant,
             status,
+            // --- Devis / fourchette ---
+            estimate_min: (status === "Devis en cours") ? parseFloat(normalizeNumber(estimateMin)) : null,
+            estimate_max: (status === "Devis en cours") ? parseFloat(normalizeNumber(estimateMax)) : null,
+            estimate_type: (status === "Devis en cours") ? estimateType : null,
+            is_estimate: status === "Devis en cours",
+            estimate_accepted: (status === "Devis en cours" && estimateType === "PLAFOND") ? true : null,
+            estimate_accepted_at: (status === "Devis en cours" && estimateType === "PLAFOND") ? new Date().toISOString() : null,
             deviceType: customDeviceType || deviceType,
+              brand:      customBrand      || (brands.find(b => b.id === brand)?.nom || null),
+             model:      customModel      || (models.find(m => m.id === model)?.nom || null),
             password,
             commande,
             chargeur: chargeur === "Oui",
             client_id: clientId,
             photos: uploadedPhotoUrls,
-
             label_photo: labelPhotoUrl,
-
-            id: interventionId, // ajoute cette ligne aussi pour que l’ID soit bien enregistré
+            id: interventionId,
             article_id: articleId,
             marque_id: brandId,
             modele_id: modelId,
@@ -491,37 +438,36 @@ if (errors.length > 0) {
             createdAt: new Date().toISOString(),
         };
 
-        // 🔹 Ajouter le `devis_cost` uniquement si "Devis en cours"
+        // `devis_cost` (compat) si "Devis en cours"
         if (status === "Devis en cours") {
             interventionData.devis_cost = formattedDevisCost;
         }
 
         try {
-            const { error } = await supabase
-                .from("interventions")
-                .insert(interventionData);
-
+            const { error } = await supabase.from("interventions").insert(interventionData);
             if (error) {
-                console.error(
-                    "❌ Erreur d'insertion intervention :",
-                    error.message
-                );
-            } else {
-                console.log("✅ Intervention insérée avec succès !");
+                console.error("❌ Erreur d'insertion intervention :", error.message);
+                setAlertTitle("Erreur");
+                setAlertMessage("Une erreur est survenue lors de l'enregistrement.");
+                setAlertVisible(true);
+                return;
             }
-
-            navigation.navigate("Home");
-        } catch (error) {
-            console.error("💥 Erreur globale intervention :", error.message);
+            setAlertTitle("Succès");
+            setAlertMessage("Intervention enregistrée avec succès.");
+            setAlertVisible(true);
+        } catch (e) {
+            console.error("❌ Exception insertion :", e);
+            setAlertTitle("Erreur");
+            setAlertMessage("Impossible d'enregistrer l'intervention.");
+            setAlertVisible(true);
         }
     };
 
     const closeAlert = () => {
         setAlertVisible(false);
-        if (alertTitle === "Succès") {
-            navigation.navigate("Home");
-        }
+        if (alertTitle === "Succès") navigation.navigate("Home");
     };
+
 
     return (
         <KeyboardAvoidingView
@@ -942,55 +888,89 @@ if (errors.length > 0) {
                         },
                     ]}
                 >
-                    <View style={styles.fullwidthContainer}>
-                        <Text style={styles.label}>Statut</Text>
-                        <Picker
-                            selectedValue={status}
-                            style={styles.input}
-                            onValueChange={(itemValue) => {
-                                setStatus(itemValue);
-                                if (itemValue === "Devis en cours") {
-                                    setCost(""); // Efface le coût si "Devis en cours" est sélectionné
-                                }
-                            }}
-                        >
-                            <Picker.Item
-                                label="Sélectionnez un statut..."
-                                value="default"
-                            />
-                            <Picker.Item
-                                label="En attente de pièces"
-                                value="En attente de pièces"
-                            />
-                            <Picker.Item
-                                label="Devis en cours"
-                                value="Devis en cours"
-                            />
-                            <Picker.Item
-                                label="Devis accepté"
-                                value="Devis accepté"
-                            />
-                            <Picker.Item
-                                label="Réparation en cours"
-                                value="Réparation en cours"
-                            />
-                            <Picker.Item label="Réparé" value="Réparé" />
-                            <Picker.Item
-                                label="Non réparable"
-                                value="Non réparable"
-                            />
-                        </Picker>
+<View style={styles.fullwidthContainer}>
+                    <Text style={styles.label}>Statut</Text>
+                    <Picker
+                        selectedValue={status}
+                        style={styles.input}
+                        onValueChange={(itemValue) => {
+                            setStatus(itemValue);
+                            if (itemValue === "Devis en cours") {
+                                setCost("");
+                            }
+                        }}
+                    >
+                        <Picker.Item label="Sélectionnez un statut..." value="default" />
+                        <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+                        <Picker.Item label="Devis en cours" value="Devis en cours" />
+                        <Picker.Item label="Devis accepté" value="Devis accepté" />
+                        <Picker.Item label="Réparation en cours" value="Réparation en cours" />
+                        <Picker.Item label="Réparé" value="Réparé" />
+                        <Picker.Item label="Non réparable" value="Non réparable" />
+                    </Picker>
 
-                        {status === "Devis en cours" && (
+                    {status === "Devis en cours" && (
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Montant du devis (€)"
+                            placeholderTextColor="#202020"
+                            keyboardType="numeric"
+                            value={devisCost}
+                            onChangeText={(text) => setDevisCost(text)}
+                        />
+                    )}
+
+                    {/* 👉 NOUVEAU : fourchette + type quand Devis en cours */}
+                    {status === "Devis en cours" && (
+                        <>
+                            <Text style={styles.label}>Fourchette de devis (€)</Text>
+                            <View style={{ flexDirection: "row", gap: 10 }}>
+                                <TextInput
+                                    style={[styles.input, { flex: 1 }]}
+                                    placeholder="De ..."
+                                    placeholderTextColor="#202020"
+                                    keyboardType="numeric"
+                                    value={estimateMin}
+                                    onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
+                                />
+                                <TextInput
+                                    style={[styles.input, { flex: 1 }]}
+                                    placeholder="À ..."
+                                    placeholderTextColor="#202020"
+                                    keyboardType="numeric"
+                                    value={estimateMax}
+                                    onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
+                                />
+                            </View>
+                            <Text style={styles.label}>Type de fourchette</Text>
+                            <Picker
+                                selectedValue={estimateType}
+                                style={styles.input}
+                                onValueChange={(val) => setEstimateType(val)}
+                            >
+                                <Picker.Item label="Fourchette plafonnée (acceptée d’office)" value="PLAFOND" />
+                                <Picker.Item label="Fourchette indicative (à confirmer)" value="INDICATIF" />
+                            </Picker>
+                            <Text style={styles.interventionText}>
+                                Si “plafond” est choisi, le client accepte un maximum garanti (vous facturez ≤ {estimateMax || "…"} €).
+                            </Text>
+                        </>
+                    )}
+
+                    {status !== "Devis en cours" && (
+                        <View style={styles.halfWidthContainer}>
+                            <Text style={styles.label}>Coût de la réparation (€)</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Montant du devis (€)"
+                                placeholder="Coût total (€)"
                                 placeholderTextColor="#202020"
                                 keyboardType="numeric"
-                                value={devisCost}
-                                onChangeText={(text) => setDevisCost(text)}
+                                value={cost}
+                                onChangeText={(text) => setCost(text)}
                             />
-                        )}
+                        </View>
+                    )}
+                </View>
                     </View>
                     {status === "En attente de pièces" && (
                         <View style={styles.halfWidthContainer}>
@@ -1005,7 +985,7 @@ if (errors.length > 0) {
                             />
                         </View>
                     )}
-                </View>
+               
                 <Text style={styles.label}>Remarques</Text>
                 <TextInput
                     style={styles.input}

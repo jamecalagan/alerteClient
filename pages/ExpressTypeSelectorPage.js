@@ -15,18 +15,36 @@ const ExpressTypeSelectorPage = () => {
   const topButtons = ["logiciel", "reparation", "video", "demande_devis", "devis", "pc"];
 
   const gridButtons = [
-    { bg: "#555", text: "Voir toutes les commandes", route: "AllOrdersPage" },
+    
+    
+    
+    
+    
     { bg: "#0b7285", text: "Liste des devis", route: "QuoteListPage" },
+    { bg: "#555", text: "Liste des commandes", route: "AllOrdersPage" },
+    
+    
+    { bg: "#6b4e16", text: "Liste des demandes de devis", route: "QuoteRequestsListPage" },
+    
+    
+    
+    
+    { bg: "#f3ae54", text: "Liste fiches express", route: "ExpressListPage" },
+
     { bg: "#166534", text: "Créer une facture", route: "BillingPage" },
     { bg: "#4338ca", text: "Liste des factures", route: "BillingListPage" },
     { bg: "#690759", text: "Créer une affiche", route: "ProductFormScreen" },
-    { bg: "#34568B", text: "Liste des affiches", route: "FlyerList" },
-    { bg: "#f3ae54", text: "Fiches express enregistrées", route: "ExpressListPage" },
+    { bg: "#34568B", text: "Les affiches", route: "FlyerList" },
+    
+    
     { bg: "#f84903", text: "Créer une étiquette client", route: "QuickLabelPrintPage" },
-    { bg: "#129b00", text: "Clients notifiés", route: "ClientNotificationsPage" },
-    { bg: "#2b8a3e", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
-    { bg: "#7f0883", text: "Fiches de contrôle", route: "CheckupListPage" },
-	{ bg: "#6b4e16", text: "Liste des demandes de devis", route: "QuoteRequestsListPage" },
+    
+    
+        { bg: "#7f0883", text: "Liste fiches de contrôle", route: "CheckupListPage" },
+    
+
+	{ bg: "#2b8a3e", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
+  { bg: "#129b00", text: "Liste des clients notifiés", route: "ClientNotificationsPage" },
   ];
 
   const buttonPropsByType = {
@@ -97,7 +115,7 @@ const ExpressTypeSelectorPage = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Créations rapides</Text>
+      <Text style={styles.title}>Créations EXPRESS</Text>
 
       <View style={styles.creationRow}>
         {topButtons.map((type, index) => {

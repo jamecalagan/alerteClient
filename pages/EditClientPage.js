@@ -83,7 +83,8 @@ export default function EditClientPage({ route, navigation }) {
           id, status, password, deviceType, brand, model, chargeur, description, cost,
           solderestant, createdAt, updatedAt, commande, photos, notifiedBy, accept_screen_risk,
           paymentStatus, reference, serial_number, partialPayment, devis_cost, remarks,
-          imprimee, print_etiquette, commande_effectuee
+          imprimee, print_etiquette, commande_effectuee,
+          is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
         )
       `
       )
@@ -315,6 +316,19 @@ export default function EditClientPage({ route, navigation }) {
               {item.solderestant && <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>}
               <Text style={styles.interventionText}>Statut: {item.status || "Inconnu"}</Text>
               <Text style={styles.interventionText}>Montant du devis: {item.devis_cost} €</Text>
+              {/* Mention sous le montant du devis */}
+{item?.is_estimate && typeof item?.estimate_min === "number" && typeof item?.estimate_max === "number" ? (
+  item?.estimate_type === "PLAFOND" ? (
+    <Text style={styles.interventionText}>
+      Estimation approuvée par le client : de {item.estimate_min} € à {item.estimate_max} €
+    </Text>
+  ) : (
+    <Text style={styles.interventionText}>
+      Estimation indicative : de {item.estimate_min} € à {item.estimate_max} €
+    </Text>
+  )
+) : null}
+
               <Text style={styles.interventionText}>Remarques: {item.remarks || "Aucune"}</Text>
               {item.accept_screen_risk && (
                 <Text style={styles.acceptText}>Acceptation du risque de casse écran : Oui</Text>

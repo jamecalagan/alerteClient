@@ -35,6 +35,27 @@ const fileExists = async (p) => {
     return false;
   }
 };
+// Extrait une string exploitable depuis n'importe quelle forme
+const extractRefString = (v) => {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") {
+    // adapte si besoin selon ta BDD
+    return v.path || v.url || v.uri || "";
+  }
+  return "";
+};
+
+// Récupère le path bucket "images/..." (public ou signé)
+const pathFromSupabaseUrl = (url) => {
+  try {
+    // gère /object/public/images/... ET /object/sign/images/... (avec ?token)
+    const m = url.match(/\/storage\/v1\/object\/(public|sign)\/images\/(.+?)(\?|$)/);
+    return m ? m[2] : null; // sans le "images/"
+  } catch {
+    return null;
+  }
+};
 
 // Convertit un id Picker vers un type DB
 // - si l'id est purement numérique → Number
@@ -296,40 +317,66 @@ try {
     }
   };
 
-  const deletePhoto = (photoUrlToDelete) => {
-    Alert.alert(
-      "Supprimer cette image ?",
-      "Cette action est définitive et supprimera l'image du stockage et de la fiche.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const fullPath = photoUrlToDelete.split("/storage/v1/object/public/")[1];
-              const path = fullPath.startsWith("images/") ? fullPath.slice(7) : fullPath;
+const deletePhoto = (photoRefRaw) => {
+  const photoRef = extractRefString(photoRefRaw); // <-- SÉCURISATION
+
+  Alert.alert(
+    "Supprimer cette image ?",
+    "Cette action est définitive et supprimera l'image du stockage et de la fiche.",
+    [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Supprimer",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            if (!photoRef) {
+              console.warn("⚠️ deletePhoto: ref vide/indéfinie, on retire juste du state.");
+            }
+
+            let path = null;
+
+            if (photoRef && photoRef.startsWith("http")) {
+              // URL publique ou signée → extraire le chemin
+              path = pathFromSupabaseUrl(photoRef);
+            } else if (photoRef && photoRef.startsWith("file://")) {
+              // Fichier local uniquement → rien à supprimer côté cloud
+              path = null;
+            } else if (photoRef) {
+              // Chemin de bucket direct, ex: "supplementaires/123/xxx.jpg"
+              path = photoRef;
+            }
+
+            if (path) {
               const { error } = await supabase.storage.from("images").remove([path]);
               if (error) {
                 console.error("❌ Erreur Supabase lors de la suppression :", error.message);
-                return;
+                // on continue quand même pour retirer du state/BDD
               }
-              const updatedPhotos = photos.filter((photo) => photo !== photoUrlToDelete);
-              setPhotos(updatedPhotos);
-              const { error: updateError } = await supabase
-                .from("interventions")
-                .update({ photos: updatedPhotos })
-                .eq("id", interventionId);
-              if (updateError)
-                console.error("❌ Erreur mise à jour BDD :", updateError.message);
-            } catch (e) {
-              console.error("❌ Erreur générale lors de la suppression :", e);
             }
-          },
+
+            // Mettre à jour le state (compare via string normalisée)
+            setPhotos((prev) => prev.filter((p) => extractRefString(p) !== photoRef));
+
+            // Mettre à jour la BDD
+            const newPhotos = photos.filter((p) => extractRefString(p) !== photoRef);
+            const { error: updateError } = await supabase
+              .from("interventions")
+              .update({ photos: newPhotos })
+              .eq("id", interventionId);
+
+            if (updateError) {
+              console.error("❌ Erreur mise à jour BDD :", updateError.message);
+            }
+          } catch (e) {
+            console.error("❌ Erreur générale lors de la suppression :", e);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
+
 
   // ———————————————————————————————————————————
   // Handlers Pickers
@@ -726,25 +773,50 @@ try {
           <Picker.Item label="Oui" value="Oui" />
         </Picker>
 
-        {/* Galerie */}
-        {photos.length > 0 && (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
-            {photos.map((photo, index) => {
-              const isCloud = String(photo).startsWith("http");
-              return (
-                <View key={index}>
-                  <TouchableOpacity onPress={() => setSelectedImage(photo)}>
-                    <Image source={{ uri: photo }} style={{ width: 100, height: 100, margin: 5, borderRadius: 10, borderColor: "#aaaaaa", borderWidth: 2 }} />
-                    <Text style={{ position: "absolute", bottom: 4, right: 6, backgroundColor: isCloud ? "rgba(217,83,79,0.9)" : "rgba(92,184,92,0.9)", color: "#fff", fontSize: 10, paddingHorizontal: 4, borderRadius: 3 }}>{isCloud ? "Cloud" : "Local"}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={{ position: "absolute", top: 5, right: 5 }} onPress={() => deletePhoto(photo)}>
-                    <Text style={{ color: "red", fontWeight: "bold" }}>X</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
+{/* Galerie */}
+{Array.isArray(photos) && photos.filter(Boolean).length > 0 && (
+  <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+    {photos
+      .filter(Boolean)
+      .map((item, index) => {
+        const refStr = extractRefString(item);
+        return (
+          <View key={index}>
+            <ResolvedImage
+              refOrPath={refStr}
+              size={100}
+              onPress={(uri) => setSelectedImage(uri)}
+            />
+
+            <Text
+              style={{
+                position: "absolute",
+                bottom: 9,
+                right: 11,
+                backgroundColor: refStr.startsWith("file://")
+                  ? "rgba(92,184,92,0.9)"
+                  : "rgba(217,83,79,0.9)",
+                color: "#fff",
+                fontSize: 10,
+                paddingHorizontal: 4,
+                borderRadius: 3,
+              }}
+            >
+              {refStr.startsWith("file://") ? "Local" : "Cloud"}
+            </Text>
+
+            <TouchableOpacity
+              style={{ position: "absolute", top: 5, right: 5 }}
+              onPress={() => deletePhoto(item)}  // on peut passer l'objet d'origine
+            >
+              <Text style={{ color: "red", fontWeight: "bold" }}>X</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        );
+      })}
+  </View>
+)}
+
 
         {selectedImage && (
           <Modal visible={true} transparent={true} onRequestClose={() => setSelectedImage(null)}>
@@ -783,6 +855,96 @@ try {
       </Modal>
     </KeyboardAvoidingView>
   );
+}
+// ———————————————————————————————————————————
+// Helper: retourne une URI affichable (local → direct, http → direct, bucket → URL signée)
+// ———————————————————————————————————————————
+const getDisplayUri = async (refOrPath) => {
+  if (!refOrPath) return null;
+
+  // file:// local
+  if (typeof refOrPath === "string" && refOrPath.startsWith("file://")) {
+    try {
+      const info = await FileSystem.getInfoAsync(refOrPath);
+      return info.exists && !info.isDirectory ? refOrPath : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // http(s) déjà prêt
+  if (typeof refOrPath === "string" && /^https?:\/\//i.test(refOrPath)) {
+    return refOrPath;
+  }
+
+  // Objet {url|path|uri} → on extrait une chaîne
+  if (refOrPath && typeof refOrPath === "object") {
+    const s = refOrPath.url || refOrPath.path || refOrPath.uri || "";
+    if (!s) return null;
+    return getDisplayUri(s);
+  }
+
+  // Sinon: chemin de bucket "images", ex: "supplementaires/<id>/<file>.jpg"
+  try {
+    const { data, error } = await supabase
+      .storage
+      .from("images")
+      .createSignedUrl(refOrPath, 3600); // 1h
+    if (!error && data?.signedUrl) return data.signedUrl;
+
+    const { data: pub } = supabase.storage.from("images").getPublicUrl(refOrPath);
+    return pub?.publicUrl || null;
+  } catch {
+    return null;
+  }
+};
+
+// ———————————————————————————————————————————
+function ResolvedImage({ refOrPath, size = 100, onPress }) {
+  const [uri, setUri] = React.useState(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const u = await getDisplayUri(refOrPath);
+      if (alive) setUri(u);
+    })();
+    return () => { alive = false; };
+  }, [refOrPath]);
+
+  // Placeholder si pas d'URI
+  if (!uri) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          margin: 5,
+          borderRadius: 10,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#cfcfcf",
+          borderColor: "#aaa",
+          borderWidth: 1,
+        }}
+      >
+        <Text style={{ fontSize: 10, color: "#555" }}>—</Text>
+      </View>
+    );
+  }
+
+  const Img = (
+    <Image
+      source={{ uri }}
+      style={{ width: size, height: size, margin: 5, borderRadius: 10, borderColor: "#aaaaaa", borderWidth: 2 }}
+      resizeMode="cover"
+    />
+  );
+
+  if (onPress) {
+    return <TouchableOpacity onPress={() => onPress(uri)}>{Img}</TouchableOpacity>;
+  }
+  return Img;
 }
 
 const styles = StyleSheet.create({

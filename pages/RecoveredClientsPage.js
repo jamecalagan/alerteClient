@@ -23,14 +23,17 @@ import BottomNavigation from "../components/BottomNavigation";
 const resolveImageUri = (uri) => {
   if (!uri || typeof uri !== "string") return null;
 
-  // Chemins déjà valides
+  // Cas déjà exploitables
   if (/^(https?:|file:|content:|data:)/i.test(uri)) return uri;
 
-  // Chemin local absolu sans schéma  → on préfixe
-  if (uri.startsWith("/")) return `file://${uri}`;
+  // Si on reçoit un chemin de bucket (avec ou sans "images/")
+  // ex: "supplementaires/....jpg" ou "images/supplementaires/....jpg"
+  const pathInBucket = uri.startsWith("images/")
+    ? uri.slice("images/".length)
+    : uri;
 
-  // Sinon on considère un fichier Supabase public
-  return `${supabase.supabaseUrl}/storage/v1/object/public/${uri}`;
+  const { data } = supabase.storage.from("images").getPublicUrl(pathInBucket);
+  return data?.publicUrl ?? null;
 };
 const toSignatureUri = (s) => {
   if (!s || typeof s !== "string") return null;
@@ -390,22 +393,25 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     />
 
                     
-                    {item.label_photo && (
-                      <TouchableOpacity
-                        onPress={() => setSelectedImage(item.label_photo)}
-                      >
-                        <SmartImage
-                          uri={item.label_photo}
-                          ficheNumber={item.clients?.ficheNumber} 
-                          interventionId={item.id}
-                          type="label"
-                          size={50}
-                          borderRadius={4}
-                          borderWidth={2}
-                          badge 
-                        />
-                      </TouchableOpacity>
-                    )}
+{item.label_photo && (
+  <TouchableOpacity
+    onPress={() => {
+      const uri = resolveImageUri(item.label_photo);
+      if (uri) setSelectedImage(uri);
+    }}
+  >
+    <SmartImage
+      uri={resolveImageUri(item.label_photo)} // ✅ résolu
+      ficheNumber={item.clients?.ficheNumber}
+      interventionId={item.id}
+      type="label"
+      size={50}
+      borderRadius={4}
+      borderWidth={2}
+      badge
+    />
+  </TouchableOpacity>
+)}
                   </View>
                 </View>
 

@@ -447,85 +447,116 @@ const handlePrint = async () => {
 
 
 
-    const handleSave = async () => {
-        if (!clientname.trim()) return alert("❌ Le nom du client est requis.");
-        if (!clientphone.trim())
-            return alert("❌ Le téléphone du client est requis.");
-        if (!paymentmethod.trim())
-            return alert("❌ Le mode de paiement est requis.");
-        if (
-            lines.length === 0 ||
-            lines.some(
-                (l) =>
-                    !String(l.designation).trim() ||
-                    !String(l.quantity).trim() ||
-                    !String(l.price).trim()
-            )
-        ) {
-            return alert(
-                "❌ Remplissez correctement toutes les lignes de prestation."
-            );
-        }
+const handleSave = async () => {
+	  if (isSaved) {
+    alert("✅ Cette facture est déjà enregistrée. Impossible de la sauvegarder à nouveau.");
+    return;
+  }
+  if (!clientname.trim()) return alert("❌ Le nom du client est requis.");
+  if (!clientphone.trim()) return alert("❌ Le téléphone du client est requis.");
+  if (!paymentmethod.trim()) return alert("❌ Le mode de paiement est requis.");
+  if (
+    lines.length === 0 ||
+    lines.some((l) => !String(l.designation).trim() || !String(l.quantity).trim() || !String(l.price).trim())
+  ) {
+    return alert("❌ Remplissez correctement toutes les lignes de prestation.");
+  }
 
-        try {
-            const { data: existing, error: fetchError } = await supabase
-                .from("billing")
-                .select("id")
-                .eq("invoicenumber", invoicenumber)
-                .maybeSingle();
-            if (fetchError) {
-                console.error("Erreur vérification facture :", fetchError);
-                return alert(
-                    "❌ Erreur lors de la vérification de la facture."
-                );
-            }
+  try {
+    // 1) Vérifier unicité du numéro
+    const { data: existing, error: fetchError } = await supabase
+      .from("billing")
+      .select("id, express_id, order_id")
+      .eq("invoicenumber", invoicenumber)
+      .maybeSingle();
+    if (fetchError) {
+      console.error("Erreur vérification facture :", fetchError);
+      return alert("❌ Erreur lors de la vérification de la facture.");
+    }
 
-            const factureData = {
-                clientname,
-                clientphone,
-                client_address,
-                invoicenumber,
-                invoicedate: new Date(
-                    invoicedate.split("/").reverse().join("-")
-                ),
-                paymentmethod,
-                acompte: acompte === "" ? 0 : n(acompte),
-                lines,
-                totalht: isNaN(totalht) ? 0 : totalht,
-                totaltva: isNaN(totaltva) ? 0 : totaltva,
-                totalttc: isNaN(totalttc) ? 0 : totalttc,
-                created_at: new Date(),
-                paid,
-                order_id: order_id || null,
-                express_id: express_id, // ✅ ne pas écraser à null
-            };
+    // 2) Vérifier que express_id et order_id existent réellement (sinon null)
+    let expressIdForDB = express_id ?? null;
+    let orderIdForDB = order_id ?? null;
 
-            let saveError;
-            if (existing) {
-                const { error } = await supabase
-                    .from("billing")
-                    .update(factureData)
-                    .eq("id", existing.id);
-                saveError = error;
-            } else {
-                const { error } = await supabase
-                    .from("billing")
-                    .insert([factureData]);
-                saveError = error;
-            }
+    if (expressIdForDB != null) {
+      const { data: exRow, error: exErr } = await supabase
+        .from("express")
+        .select("id")
+        .eq("id", expressIdForDB)
+        .maybeSingle();
+      if (exErr || !exRow) {
+        console.warn("⚠️ express_id invalide → mise à null");
+        expressIdForDB = null;
+      }
+    }
 
-            if (saveError) {
-                console.error("Erreur sauvegarde :", saveError);
-                alert("❌ Erreur lors de la sauvegarde de la facture.");
-            } else {
-                alert("✅ Facture enregistrée avec succès.");
-                setIsSaved(true);
-            }
-        } catch (e) {
-            console.error("Erreur inattendue :", e);
-            alert("❌ Erreur inattendue lors de la sauvegarde.");
-        }
+    if (orderIdForDB != null) {
+      const { data: orRow, error: orErr } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("id", orderIdForDB)
+        .maybeSingle();
+      if (orErr || !orRow) {
+        console.warn("⚠️ order_id invalide → mise à null");
+        orderIdForDB = null;
+      }
+    }
+
+    // 3) Construire les totaux
+    const totalttcLocal = lines.reduce(
+      (s, l) => s + parseFloat(String(l.quantity).replace(",", ".")) * parseFloat(String(l.price).replace(",", ".")),
+      0
+    );
+    const tvaRate = 0.2;
+    const totalhtLocal = totalttcLocal / (1 + tvaRate);
+    const totaltvaLocal = totalttcLocal - totalhtLocal;
+
+    // 4) Données facture
+    const factureData = {
+      clientname,
+      clientphone,
+      client_address,
+      invoicenumber,
+      invoicedate: new Date(invoicedate.split("/").reverse().join("-")),
+      paymentmethod,
+      acompte: acompte === "" ? 0 : n(acompte),
+      lines,
+      totalht: isNaN(totalhtLocal) ? 0 : totalhtLocal,
+      totaltva: isNaN(totaltvaLocal) ? 0 : totaltvaLocal,
+      totalttc: isNaN(totalttcLocal) ? 0 : totalttcLocal,
+      created_at: new Date(),
+      paid,
+      express_id: expressIdForDB, // ✅ seulement si présent en BDD
+      order_id: orderIdForDB,     // ✅ idem
     };
+
+    // 5) Insert / Update
+    let saveError;
+    if (existing) {
+      const { error } = await supabase
+        .from("billing")
+        .update(factureData)
+        .eq("id", existing.id);
+      saveError = error;
+    } else {
+      const { error } = await supabase
+        .from("billing")
+        .insert([factureData]);
+      saveError = error;
+    }
+
+    if (saveError) {
+      console.error("Erreur sauvegarde :", saveError);
+      alert("❌ Erreur lors de la sauvegarde de la facture.");
+    } else {
+      alert("✅ Facture enregistrée avec succès.");
+      setIsSaved(true);
+    }
+  } catch (e) {
+    console.error("Erreur inattendue :", e);
+    alert("❌ Erreur inattendue lors de la sauvegarde.");
+  }
+};
 
     const searchClients = async (text) => {
         setClientName(text);
@@ -1033,15 +1064,19 @@ const handlePrint = async () => {
                         <Text style={styles.buttonText}>🖨️ Imprimer</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.actionButton,
-                            { backgroundColor: "#007bff" },
-                        ]}
-                        onPress={handleSave}
-                    >
-                        <Text style={styles.buttonText}>💾 Sauvegarder</Text>
-                    </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    styles.actionButton,
+    { backgroundColor: isSaved ? "#aaa" : "#007bff" },
+  ]}
+  onPress={handleSave}
+  disabled={isSaved}   // ✅ désactivé après sauvegarde
+>
+  <Text style={styles.buttonText}>
+    {isSaved ? "✅ Déjà sauvegardée" : "💾 Sauvegarder"}
+  </Text>
+</TouchableOpacity>
+
 
                     <TouchableOpacity
                         style={[

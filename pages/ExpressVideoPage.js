@@ -19,6 +19,9 @@ export default function ExpressVideoPage() {
 
   const isEdit = route.params?.isEdit || false;
   const editData = route.params?.expressData || {};
+const [isPaid, setIsPaid] = useState(
+  editData?.paid === true || editData?.paymentStatus === "paid"
+);
 
   const [searchText, setSearchText] = useState(editData.name || "");
   const [filteredClients, setFilteredClients] = useState([]);
@@ -113,17 +116,19 @@ export default function ExpressVideoPage() {
 
     const finalPrice = calculateFinalPrice();
 
-    const updateData = {
-      name,
-      phone,
-      type: "video",
-      description,
-      price: finalPrice,
-      cassettecount: cassetteSummary,
-      cassettetype: "multiple",
-      outputtype,
-      support_fournis: supportFournis,
-    };
+const updateData = {
+  name,
+  phone,
+  type: "video",
+  description,
+  price: finalPrice,
+  cassettecount: cassetteSummary,
+  cassettetype: "multiple",
+  outputtype,
+  support_fournis: supportFournis,
+  paid: isPaid,                 // ← ajout essentiel
+  // paymentStatus: isPaid ? "paid" : "unpaid", // ← dé-commente si tu utilises une chaîne
+};
 
     const supportLabel =
       supportFournis && (outputtype === "Clé USB" || outputtype === "Disque dur")
@@ -252,6 +257,25 @@ export default function ExpressVideoPage() {
                 <Text>{supportFournis ? "☑️" : "⬜"} Support fourni par la boutique</Text>
               </TouchableOpacity>
             )}
+{/* Statut de paiement */}
+<View style={{ marginTop: 14, marginBottom: 6 }}>
+  <Text style={styles.label}>Facture réglée</Text>
+  <TouchableOpacity
+    onPress={() => setIsPaid(!isPaid)}
+    style={{
+      padding: 10,
+      borderWidth: 1,
+      borderColor: "#aaa",
+      borderRadius: 8,
+      backgroundColor: isPaid ? "#d4edda" : "#f8d7da",
+      alignItems: "center",
+    }}
+  >
+    <Text style={{ fontWeight: "600" }}>
+      {isPaid ? "✅ Oui, marquer comme réglée" : "⬜ Non, encore due"}
+    </Text>
+  </TouchableOpacity>
+</View>
 
             <Text style={styles.label}>Montant total calculé : {calculateFinalPrice()} €</Text>
 
@@ -272,6 +296,27 @@ export default function ExpressVideoPage() {
   >
     <Text style={styles.buttonText}>💾 Enregistrer</Text>
   </TouchableOpacity>
+  {isEdit && editData?.id && (
+  <TouchableOpacity
+    onPress={async () => {
+      const { error } = await supabase
+        .from("express")
+        .update({ paid: !isPaid })
+        .eq("id", editData.id);
+      if (error) {
+        Alert.alert("Erreur", error.message);
+      } else {
+        setIsPaid(!isPaid);
+        Alert.alert("OK", `Fiche ${!isPaid ? "marquée réglée" : "remise en dû"}.`);
+      }
+    }}
+    style={[styles.button, { backgroundColor: isPaid ? "#6c757d" : "#28a745" }]}
+  >
+    <Text style={styles.buttonText}>
+      {isPaid ? "💱 Remettre en dû" : "✅ Marquer comme réglée"}
+    </Text>
+  </TouchableOpacity>
+)}
 </View>
 
           </View>

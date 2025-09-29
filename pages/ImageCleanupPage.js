@@ -79,43 +79,42 @@ export default function ImageCleanupPage() {
     fetchData();
   }, []);
 
-  const copyImageToOldImages = async (photoUrl, clientInfo = "") => {
-    const baseUrl = 'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/';
-    if (!photoUrl.startsWith(baseUrl)) return false;
+const copyImageToOldImages = async (photoUrl, clientInfo = "") => {
+  const key = bucketKey(photoUrl);
+  if (!key) return false;
 
-    const originalPath = photoUrl.replace(baseUrl, '');
-    const fileName = originalPath.split('/').pop();
-    const safeClientInfo = clientInfo.replace(/[^a-zA-Z0-9_-]/g, "_");
-    const destinationPath = `old_images/${safeClientInfo}_${fileName}`;
+  const fileName = key.split("/").pop();
+  const safeClientInfo = (clientInfo || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const destinationPath = `old_images/${safeClientInfo}_${fileName}`;
 
-    console.log("🔎 originalPath =", originalPath);
-    console.log("📁 Copie de :", originalPath, "👉 vers :", destinationPath);
+  const folderPath = key.split("/").slice(0, -1).join("/");
+  const fileNameOnly = key.split("/").pop();
 
-    // Vérifie l'existence du fichier
-    const folderPath = originalPath.split('/').slice(0, -1).join('/');
-    const { data: files, error: listError } = await supabase
-      .storage
-      .from('images')
-      .list(folderPath);
+  const { data: files, error: listError } = await supabase.storage.from("images").list(folderPath);
+  if (listError || !files?.some(f => f.name === fileNameOnly)) {
+    console.error("❌ Fichier introuvable dans le bucket !");
+    return "not_found";
+  }
 
-    if (listError || !files?.some(f => f.name === fileName)) {
-      console.error("❌ Fichier introuvable dans le bucket !");
-      return "not_found";
-    }
+  const { error } = await supabase.storage.from("images").copy(key, destinationPath);
+  if (error) {
+    console.error("❌ Erreur copie Supabase :", error);
+    return false;
+  }
+  return true;
+};
 
-    const { error } = await supabase.storage
-      .from('images')
-      .copy(originalPath, destinationPath);
-
-    if (error) {
-      console.error("❌ Erreur copie Supabase :", error);
-      return false;
-    }
-
-    return true;
-  };
 
   const deleteImage = (imageUrl, interventionId, clientInfo, imageId = null) => {
+    const isEtiquettePath = (url) =>
+  /\/storage\/v1\/object\/(?:public|sign)\/images\/etiquettes\//i.test(url) ||
+  /^images\/etiquettes\//i.test(url);
+
+if (isEtiquettePath(imageUrl)) {
+  Alert.alert("Refusé", "Ceci est une étiquette — non supprimée.");
+  return;
+}
+
     Alert.alert(
       "Confirmation de suppression",
       "Souhaites-tu vraiment archiver puis supprimer cette image ?",
@@ -145,7 +144,8 @@ export default function ImageCleanupPage() {
                 .eq('id', interventionId)
                 .single();
 
-              const newPhotos = (data?.photos || []).filter((p) => p !== imageUrl);
+              const newPhotos = (data?.photos || []).filter((p) => !sameImage(p, imageUrl));
+
               await supabase.from('interventions').update({ photos: newPhotos }).eq('id', interventionId);
               setInterventions((prev) =>
                 prev.map((i) =>
@@ -163,6 +163,15 @@ export default function ImageCleanupPage() {
   };
 
   const deleteImageFromExtraTable = (imageUrl, interventionId, clientLabel, imageId) => {
+    const isEtiquettePath = (url) =>
+  /\/storage\/v1\/object\/(?:public|sign)\/images\/etiquettes\//i.test(url) ||
+  /^images\/etiquettes\//i.test(url);
+
+if (isEtiquettePath(imageUrl)) {
+  Alert.alert("Refusé", "Ceci est une étiquette — non supprimée.");
+  return;
+}
+
     Alert.alert(
       "Confirmation",
       "Souhaites-tu archiver puis supprimer cette image ?",
@@ -210,6 +219,18 @@ export default function ImageCleanupPage() {
       ]
     );
   };
+const bucketKey = (s) => {
+  if (!s) return "";
+  s = String(s).trim();
+  const q = s.indexOf("?");
+  if (q > -1) s = s.slice(0, q);
+  const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i);
+  if (m && m[1]) return m[1];
+  if (s.toLowerCase().startsWith("images/")) return s.slice(7);
+  return s;
+};
+
+const sameImage = (a, b) => bucketKey(a) && bucketKey(a) === bucketKey(b);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

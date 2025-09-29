@@ -225,7 +225,7 @@ const [expressList, setExpressList] = useState([]);
       const dateLimite = new Date(
         Date.now() - 10 * 24 * 60 * 60 * 1000
       ).toISOString();
-      console.log("📅 Date limite pour nettoyage :", dateLimite);
+      
 
       // 1) Images ajoutées dans la table 'intervention_images'
       const extraPromise = supabase
@@ -261,11 +261,7 @@ const [expressList, setExpressList] = useState([]);
         .filter((u) => typeof u === "string" && u.startsWith("http")).length;
 
       const total = extraCount + photosCount;
-      console.log("🧹 Images anciennes à supprimer :", {
-        extraCount,
-        photosCount,
-        total,
-      });
+
 
       setHasImagesToDelete(total > 0);
       // si tu as un compteur à l’écran :
@@ -885,7 +881,7 @@ loadExpressInProgress(); // ← AJOUT
     }
   };
   useEffect(() => {
-    console.log("🔄 Mise à jour de l'affichage des commandes !");
+    
     setOrders([...orders]);
   }, [orders]);
   const filterClients = async (text) => {
@@ -1422,7 +1418,7 @@ loadExpressInProgress(); // ← AJOUT
 
   const isOrderNotified = (client) =>
     client.orders?.some((o) => o.notified === true) || false;
-  console.log("🧭 rendu HomePage : hasImagesToDelete =", hasImagesToDelete);
+ 
   return (
     <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
       <View style={styles.overlay}>

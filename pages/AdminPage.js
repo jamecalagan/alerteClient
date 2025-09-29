@@ -29,6 +29,21 @@ export default function AdminPage({ navigation, route }) {
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
+    const handlePageChange = (newPage) => {
+  if (newPage >= 1 && newPage <= Math.max(totalPages, 1)) {
+    setCurrentPage(newPage);
+  }
+};
+// Helpers recherche
+const norm = (s) =>
+  (s ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // sans accents
+    .toLowerCase()
+    .trim();
+
+const digits = (s) => (s ?? "").toString().replace(/\D/g, "");
 
     const [clients, setClients] = useState({
         all: [],
@@ -53,6 +68,7 @@ export default function AdminPage({ navigation, route }) {
             if (data) {
                 setClients({ all: data });
                 setFilteredClients(data);
+                setCurrentPage(1);
             }
         } catch (error) {
             console.error("Erreur lors du chargement des clients :", error);
@@ -63,25 +79,33 @@ export default function AdminPage({ navigation, route }) {
         }
     };
 
-    useEffect(() => {
-        if (searchText.trim() === "") {
-            setFilteredClients(clients.all);
-        } else {
-            const lowercasedSearch = searchText.toLowerCase();
-            const filtered = clients.all.filter(
-                (client) =>
-                    client.name.toLowerCase().includes(lowercasedSearch) ||
-                    client.phone.includes(lowercasedSearch)
-            );
-            setFilteredClients(filtered);
-        }
-    }, [searchText, clients]);
+useEffect(() => {
+  const q = searchText ?? "";
+  if (q.trim() === "") {
+    setFilteredClients(clients.all);
+    setCurrentPage(1);
+    return;
+  }
 
-    const handlePageChange = (newPage) => {
-        if (newPage >= 1 && newPage <= totalPages) {
-            setCurrentPage(newPage);
-        }
-    };
+  const qNorm = norm(q);        // nom sans accents / lowercase
+  const qDigits = digits(q);    // seulement chiffres (pour téléphone)
+
+  const filtered = (clients.all || []).filter((c) => {
+    const nameNorm   = norm(c?.name);
+    const ficheStr   = (c?.ficheNumber ?? "").toString().toLowerCase();
+    const phoneDigit = digits(c?.phone);
+
+    const hitName  = nameNorm.includes(qNorm);
+    const hitFiche = ficheStr.includes(qNorm);       // tape "1502" → match
+    const hitPhone = qDigits.length > 0 && phoneDigit.includes(qDigits);
+
+    return hitName || hitFiche || hitPhone;
+  });
+
+  setFilteredClients(filtered);
+  setCurrentPage(1);
+}, [searchText, clients]);
+
 
     return (
         <KeyboardAvoidingView
@@ -370,22 +394,5 @@ const styles = StyleSheet.create({
         color: "#242424",
         fontSize: 20,
     },
-	row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 15,
-},
 
-actionButton: {
-    flex: 1,
-    backgroundColor: "#191f2f",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 5,
-    height: 100,
-},
 });

@@ -31,29 +31,44 @@ export default function EditClientPage({ route, navigation }) {
     checkIfCheckupExists();
   }, []);
 
-
   const [name, setName] = useState(client.name || "");
   const [phone, setPhone] = useState(client.phone || "");
   const [email, setEmail] = useState(client.email || "");
   const [etiquetteImprimee, setEtiquetteImprimee] = useState(false);
 
-  const [interventions, setInterventions] = useState(client.interventions || []);
+  const [interventions, setInterventions] = useState(
+    client.interventions || []
+  );
 
   const BlinkingIcon = ({ source }) => {
     const opacity = useRef(new Animated.Value(1)).current;
     useEffect(() => {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(opacity, { toValue: 0, duration: 500, useNativeDriver: true, easing: Easing.linear }),
-          Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true, easing: Easing.linear }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
         ])
       );
       loop.start();
       return () => loop.stop();
     }, []);
-    return <Animated.Image source={source} style={{ width: 28, height: 28, tintColor: "#f54242", opacity }} />;
+    return (
+      <Animated.Image
+        source={source}
+        style={{ width: 28, height: 28, tintColor: "#f54242", opacity }}
+      />
+    );
   };
-
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -71,7 +86,6 @@ export default function EditClientPage({ route, navigation }) {
     const unsubscribe = navigation.addListener("focus", loadClientData);
     return unsubscribe;
   }, [navigation]);
-
 
   const loadClientData = async () => {
     const { data, error } = await supabase
@@ -103,18 +117,22 @@ export default function EditClientPage({ route, navigation }) {
 
       setName(updatedClient.name || "");
       setPhone(updatedClient.phone || "");
-      setEmail(updatedClient.email || ""); 
+      setEmail(updatedClient.email || "");
       setInterventions(filteredInterventions || []);
 
-      const anyNotPrinted = (filteredInterventions || []).some((i) => !i.print_etiquette);
+      const anyNotPrinted = (filteredInterventions || []).some(
+        (i) => !i.print_etiquette
+      );
       setEtiquetteImprimee(!anyNotPrinted);
     }
   };
 
-
   const handleSaveClient = async () => {
     if (!name || !phone) {
-      showAlert("Erreur", "Le nom et le numéro de téléphone doivent être remplis.");
+      showAlert(
+        "Erreur",
+        "Le nom et le numéro de téléphone doivent être remplis."
+      );
       return;
     }
 
@@ -130,7 +148,7 @@ export default function EditClientPage({ route, navigation }) {
         .from("clients")
         .update(payload)
         .eq("id", client.id)
-        .select("id"); 
+        .select("id");
 
       if (error) throw error;
 
@@ -142,10 +160,12 @@ export default function EditClientPage({ route, navigation }) {
       showAlert("Succès", "Client modifié avec succès.");
       navigation.goBack();
     } catch (e) {
-      showAlert("Erreur", "Erreur lors de la modification du client : " + e.message);
+      showAlert(
+        "Erreur",
+        "Erreur lors de la modification du client : " + e.message
+      );
     }
   };
-
 
   const updateEmailOnly = async () => {
     try {
@@ -166,14 +186,12 @@ export default function EditClientPage({ route, navigation }) {
         return;
       }
 
-   
       setEmail(rows[0]?.email || "");
       showAlert("OK", "Adresse email mise à jour.");
     } catch (e) {
       showAlert("Erreur", e.message || "Mise à jour impossible.");
     }
   };
-
 
   function formatWithSpaces(value) {
     const str = value.toString();
@@ -205,16 +223,26 @@ export default function EditClientPage({ route, navigation }) {
   };
 
   const handleDeleteIntervention = (interventionId) => {
-    showAlert("Confirmer la suppression", "Êtes-vous sûr de vouloir supprimer cette intervention ?", async () => {
-      try {
-        const { error } = await supabase.from("interventions").delete().eq("id", interventionId);
-        if (error) throw error;
-        loadClientData();
-        showAlert("Succès", "Intervention supprimée avec succès.");
-      } catch (error) {
-        showAlert("Erreur", "Erreur lors de la suppression de l'intervention");
+    showAlert(
+      "Confirmer la suppression",
+      "Êtes-vous sûr de vouloir supprimer cette intervention ?",
+      async () => {
+        try {
+          const { error } = await supabase
+            .from("interventions")
+            .delete()
+            .eq("id", interventionId);
+          if (error) throw error;
+          loadClientData();
+          showAlert("Succès", "Intervention supprimée avec succès.");
+        } catch (error) {
+          showAlert(
+            "Erreur",
+            "Erreur lors de la suppression de l'intervention"
+          );
+        }
       }
-    });
+    );
   };
 
   const handlePrint = async () => {
@@ -232,23 +260,44 @@ export default function EditClientPage({ route, navigation }) {
               </style>
             </head>
             <body>
-              <div class="label-section"><p class="bold">Numéro Client :</p><p>${client.ficheNumber}</p></div>
+              <div class="label-section"><p class="bold">Numéro Client :</p><p>${
+                client.ficheNumber
+              }</p></div>
               <div class="label-section"><p class="bold">Nom :</p><p>${name}</p></div>
-              <div class="label-section"><p class="bold">Téléphone :</p><p>${formatWithSpaces(phone)}</p></div>
-              <div class="label-section"><p class="bold">Mot de passe :</p><p>${intervention.password || "N/A"}</p></div>
-              <div class="label-section"><p class="bold">Marque :</p><p>${intervention.brand}</p></div>
-              <div class="label-section"><p class="bold">Modèle :</p><p>${intervention.model}</p></div>
-              <div class="label-section"><p class="bold">Description :</p><p>${intervention.description || "N/A"}</p></div>
-              <div class="label-section"><p class="bold">Coût :</p><p>${intervention.cost || "0"} €</p></div>
-              <div class="label-section"><p class="bold">Chargeur :</p><p>${intervention.chargeur ? "Oui" : "Non"}</p></div>
-              <div class="label-section"><p class="bold">Date :</p><p>${formatDateFR(intervention?.createdAt)}</p></div>
+              <div class="label-section"><p class="bold">Téléphone :</p><p>${formatWithSpaces(
+                phone
+              )}</p></div>
+              <div class="label-section"><p class="bold">Mot de passe :</p><p>${
+                intervention.password || "N/A"
+              }</p></div>
+              <div class="label-section"><p class="bold">Marque :</p><p>${
+                intervention.brand
+              }</p></div>
+              <div class="label-section"><p class="bold">Modèle :</p><p>${
+                intervention.model
+              }</p></div>
+              <div class="label-section"><p class="bold">Description :</p><p>${
+                intervention.description || "N/A"
+              }</p></div>
+              <div class="label-section"><p class="bold">Coût :</p><p>${
+                intervention.cost || "0"
+              } €</p></div>
+              <div class="label-section"><p class="bold">Chargeur :</p><p>${
+                intervention.chargeur ? "Oui" : "Non"
+              }</p></div>
+              <div class="label-section"><p class="bold">Date :</p><p>${formatDateFR(
+                intervention?.createdAt
+              )}</p></div>
             </body>
           </html>
         `;
         await Print.printAsync({ html: htmlContent });
 
         if (!intervention.print_etiquette) {
-          await supabase.from("interventions").update({ print_etiquette: true }).eq("id", intervention.id);
+          await supabase
+            .from("interventions")
+            .update({ print_etiquette: true })
+            .eq("id", intervention.id);
         }
       }
       await loadClientData();
@@ -268,29 +317,36 @@ export default function EditClientPage({ route, navigation }) {
         autoCapitalize="characters"
       />
 
-      <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      <TextInput
+        style={styles.input}
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
 
-<View style={styles.emailRow}>
-  <TextInput
-    style={[styles.input, { flex: 1, marginBottom: 0 }]}
-    value={email}
-    onChangeText={setEmail}
-    keyboardType="email-address"
-    placeholderTextColor="#888787"
-    placeholder="Adresse e-mail (optionnel)"
-    autoCapitalize="none"
-  />
+      <View style={styles.emailRow}>
+        <TextInput
+          style={[styles.input, { flex: 1, marginBottom: 0 }]}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          placeholderTextColor="#888787"
+          placeholder="Adresse e-mail (optionnel)"
+          autoCapitalize="none"
+        />
 
-  <TouchableOpacity
-    onPress={updateEmailOnly}
-    style={styles.smallIconBtn}
-    accessibilityRole="button"
-    accessibilityLabel="Enregistrer uniquement l’adresse e-mail"
-  >
-    <Image source={require("../assets/icons/save.png")} style={styles.smallIcon} />
-  </TouchableOpacity>
-</View>
-
+        <TouchableOpacity
+          onPress={updateEmailOnly}
+          style={styles.smallIconBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Enregistrer uniquement l’adresse e-mail"
+        >
+          <Image
+            source={require("../assets/icons/save.png")}
+            style={styles.smallIcon}
+          />
+        </TouchableOpacity>
+      </View>
 
       {interventions.length > 0 ? (
         <FlatList
@@ -299,43 +355,98 @@ export default function EditClientPage({ route, navigation }) {
           renderItem={({ item, index }) => (
             <TouchableOpacity
               style={[styles.interventionCard, getStatusStyle(item.status)]}
-              onPress={() => navigation.navigate("EditIntervention", { clientId: client.id, interventionId: item.id })}
+              onPress={() =>
+                navigation.navigate("EditIntervention", {
+                  clientId: client.id,
+                  interventionId: item.id,
+                })
+              }
             >
-              <Text style={styles.interventionText}>Intervention N° {index + 1}</Text>
-              <Text style={styles.interventionText}>Type d'appareil: {item.deviceType || "Non renseignée"}</Text>
-              <Text style={styles.interventionText}>Marque: {item.brand || "Non renseignée"}</Text>
-              <Text style={styles.interventionText}>Modèle: {item.model || "Non renseignée"}</Text>
-              {item.serial_number && <Text style={styles.interventionText}>Numéro de série: {item.serial_number}</Text>}
-              <Text style={styles.interventionText}>Référence: {item.reference || "Non renseignée"}</Text>
-              <Text style={styles.interventionText}>Description de l'intervention : {item.description || "Aucune description"}</Text>
-              {item.cost && <Text style={styles.interventionText}>Coût total: {item.cost} €</Text>}
-              <Text style={styles.interventionText}>Etat du règlement: {item.paymentStatus || "Non précisé"}</Text>
-              {item.paymentStatus === "reglement_partiel" && item.partialPayment && (
-                <Text style={styles.interventionText}>Acompte de: {item.partialPayment} €</Text>
+              <Text style={styles.interventionText}>
+                Intervention N° {index + 1}
+              </Text>
+              <Text style={styles.interventionText}>
+                Type d'appareil: {item.deviceType || "Non renseignée"}
+              </Text>
+              <Text style={styles.interventionText}>
+                Marque: {item.brand || "Non renseignée"}
+              </Text>
+              <Text style={styles.interventionText}>
+                Modèle: {item.model || "Non renseignée"}
+              </Text>
+              {item.serial_number && (
+                <Text style={styles.interventionText}>
+                  Numéro de série: {item.serial_number}
+                </Text>
               )}
-              {item.solderestant && <Text style={styles.interventionTextReste}>Montant restant dû: {item.solderestant}€</Text>}
-              <Text style={styles.interventionText}>Statut: {item.status || "Inconnu"}</Text>
-              <Text style={styles.interventionText}>Montant du devis: {item.devis_cost} €</Text>
-              {/* Mention sous le montant du devis */}
-{item?.is_estimate && typeof item?.estimate_min === "number" && typeof item?.estimate_max === "number" ? (
-  item?.estimate_type === "PLAFOND" ? (
-    <Text style={styles.interventionText}>
-      Estimation approuvée par le client : de {item.estimate_min} € à {item.estimate_max} €
-    </Text>
-  ) : (
-    <Text style={styles.interventionText}>
-      Estimation indicative : de {item.estimate_min} € à {item.estimate_max} €
-    </Text>
-  )
-) : null}
+              <Text style={styles.interventionText}>
+                Référence: {item.reference || "Non renseignée"}
+              </Text>
+              <Text style={styles.interventionText}>
+                Description de l'intervention :{" "}
+                {item.description || "Aucune description"}
+              </Text>
+              {item.cost && (
+                <Text style={styles.interventionText}>
+                  Coût total: {item.cost} €
+                </Text>
+              )}
+              <Text style={styles.interventionText}>
+                Etat du règlement: {item.paymentStatus || "Non précisé"}
+              </Text>
+              {item.paymentStatus === "reglement_partiel" &&
+                item.partialPayment && (
+                  <Text style={styles.interventionText}>
+                    Acompte de: {item.partialPayment} €
+                  </Text>
+                )}
+              {item.solderestant && (
+                <Text style={styles.interventionTextReste}>
+                  Montant restant dû: {item.solderestant}€
+                </Text>
+              )}
+              <Text style={styles.interventionText}>
+                Statut: {item.status || "Inconnu"}
+              </Text>
+              <Text style={styles.interventionText}>
+                Montant du devis: {item.devis_cost} €
+              </Text>
 
-              <Text style={styles.interventionText}>Remarques: {item.remarks || "Aucune"}</Text>
+              {item?.is_estimate &&
+              typeof item?.estimate_min === "number" &&
+              typeof item?.estimate_max === "number" ? (
+                item?.estimate_type === "PLAFOND" ? (
+                  <Text style={styles.interventionText}>
+                    Estimation approuvée par le client : de {item.estimate_min}{" "}
+                    € à {item.estimate_max} €
+                  </Text>
+                ) : (
+                  <Text style={styles.interventionText}>
+                    Estimation indicative : de {item.estimate_min} € à{" "}
+                    {item.estimate_max} €
+                  </Text>
+                )
+              ) : null}
+
+              <Text style={styles.interventionText}>
+                Remarques: {item.remarks || "Aucune"}
+              </Text>
               {item.accept_screen_risk && (
-                <Text style={styles.acceptText}>Acceptation du risque de casse écran : Oui</Text>
+                <Text style={styles.acceptText}>
+                  Acceptation du risque de casse écran : Oui
+                </Text>
               )}
-              {item.password && <Text style={styles.interventionText}>Mdp: {item.password}</Text>}
-              <Text style={styles.interventionText}>Date: {new Date(item.createdAt).toLocaleDateString("fr-FR")}</Text>
-              <Text style={styles.interventionText}>Chargeur: {item.chargeur ? "Oui" : "Non"}</Text>
+              {item.password && (
+                <Text style={styles.interventionText}>
+                  Mdp: {item.password}
+                </Text>
+              )}
+              <Text style={styles.interventionText}>
+                Date: {new Date(item.createdAt).toLocaleDateString("fr-FR")}
+              </Text>
+              <Text style={styles.interventionText}>
+                Chargeur: {item.chargeur ? "Oui" : "Non"}
+              </Text>
 
               {item.status === "En attente de pièces" && (
                 <>
@@ -344,7 +455,9 @@ export default function EditClientPage({ route, navigation }) {
                   </Text>
                   <TouchableOpacity
                     style={{
-                      backgroundColor: item.commande_effectuee ? "#d6d6d6" : "#fffde7",
+                      backgroundColor: item.commande_effectuee
+                        ? "#d6d6d6"
+                        : "#fffde7",
                       borderWidth: 1,
                       borderColor: item.commande_effectuee ? "#999" : "#f9a825",
                       padding: 10,
@@ -355,18 +468,25 @@ export default function EditClientPage({ route, navigation }) {
                     disabled={item.commande_effectuee}
                     onPress={() => {
                       const newValue = true;
-                      showAlert("Confirmer", "Marquer ce produit comme commandé ?", async () => {
-                        const { error } = await supabase
-                          .from("interventions")
-                          .update({ commande_effectuee: newValue })
-                          .eq("id", item.id);
-                        if (!error) {
-                          const updatedInterventions = interventions.map((i) =>
-                            i.id === item.id ? { ...i, commande_effectuee: newValue } : i
-                          );
-                          setInterventions(updatedInterventions);
+                      showAlert(
+                        "Confirmer",
+                        "Marquer ce produit comme commandé ?",
+                        async () => {
+                          const { error } = await supabase
+                            .from("interventions")
+                            .update({ commande_effectuee: newValue })
+                            .eq("id", item.id);
+                          if (!error) {
+                            const updatedInterventions = interventions.map(
+                              (i) =>
+                                i.id === item.id
+                                  ? { ...i, commande_effectuee: newValue }
+                                  : i
+                            );
+                            setInterventions(updatedInterventions);
+                          }
                         }
-                      });
+                      );
                     }}
                   >
                     <Text
@@ -376,7 +496,9 @@ export default function EditClientPage({ route, navigation }) {
                         fontWeight: "bold",
                       }}
                     >
-                      {item.commande_effectuee ? "✅ Produit commandé" : "Produit commandé ?"}
+                      {item.commande_effectuee
+                        ? "✅ Produit commandé"
+                        : "Produit commandé ?"}
                     </Text>
                   </TouchableOpacity>
 
@@ -394,24 +516,36 @@ export default function EditClientPage({ route, navigation }) {
                               .eq("id", item.id);
                             if (error) return;
 
-                            const updatedInterventions = interventions.map((intervention) =>
-                              intervention.id === item.id
-                                ? { ...intervention, status: "Réparation en cours" }
-                                : intervention
+                            const updatedInterventions = interventions.map(
+                              (intervention) =>
+                                intervention.id === item.id
+                                  ? {
+                                      ...intervention,
+                                      status: "Réparation en cours",
+                                    }
+                                  : intervention
                             );
                             setInterventions(updatedInterventions);
-                            showAlert("Succès", 'Statut mis à jour à "Réparation en cours".');
+                            showAlert(
+                              "Succès",
+                              'Statut mis à jour à "Réparation en cours".'
+                            );
                           } catch (error) {}
                         }
                       );
                     }}
                   >
-                    <Text style={styles.commandeRecuButtonText}>Commande reçue ?</Text>
+                    <Text style={styles.commandeRecuButtonText}>
+                      Commande reçue ?
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
 
-              <TouchableOpacity style={styles.trashButton} onPress={() => handleDeleteIntervention(item.id)}>
+              <TouchableOpacity
+                style={styles.trashButton}
+                onPress={() => handleDeleteIntervention(item.id)}
+              >
                 <Image
                   source={require("../assets/icons/trash.png")}
                   style={{ width: 24, height: 24, tintColor: "#ff0000" }}
@@ -419,20 +553,32 @@ export default function EditClientPage({ route, navigation }) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.printButton, { right: 90, backgroundColor: checkupExists ? "#aaa" : "#6c5ce7" }]}
+                style={[
+                  styles.printButton,
+                  {
+                    right: 90,
+                    backgroundColor: checkupExists ? "#aaa" : "#6c5ce7",
+                  },
+                ]}
                 onPress={() => {
                   if (checkupExists) {
-                    Alert.alert("Fiche déjà créée", "Une fiche de contrôle existe déjà pour ce client.");
+                    Alert.alert(
+                      "Fiche déjà créée",
+                      "Une fiche de contrôle existe déjà pour ce client."
+                    );
                     return;
                   }
                   const currentIntervention =
-                    Array.isArray(interventions) && interventions.length > 0 ? interventions[0] : null;
+                    Array.isArray(interventions) && interventions.length > 0
+                      ? interventions[0]
+                      : null;
 
                   navigation.navigate("CheckupPage", {
                     clientName: client.name,
                     clientPhone: client.phone,
                     clientDate: new Date().toLocaleDateString("fr-FR"),
-                    deviceType: currentIntervention?.deviceType || "PC Portable",
+                    deviceType:
+                      currentIntervention?.deviceType || "PC Portable",
                   });
                 }}
               >
@@ -442,11 +588,17 @@ export default function EditClientPage({ route, navigation }) {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
+              <TouchableOpacity
+                style={styles.printButton}
+                onPress={handlePrint}
+              >
                 {!etiquetteImprimee ? (
                   <BlinkingIcon source={require("../assets/icons/print.png")} />
                 ) : (
-                  <Image source={require("../assets/icons/print.png")} style={{ width: 28, height: 28, tintColor: "#ffffff" }} />
+                  <Image
+                    source={require("../assets/icons/print.png")}
+                    style={{ width: 28, height: 28, tintColor: "#ffffff" }}
+                  />
                 )}
               </TouchableOpacity>
             </TouchableOpacity>
@@ -459,19 +611,34 @@ export default function EditClientPage({ route, navigation }) {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.iconButton, styles.addButton]}
-          onPress={() => navigation.navigate("AddIntervention", { clientId: client.id })}
+          onPress={() =>
+            navigation.navigate("AddIntervention", { clientId: client.id })
+          }
         >
           <Image
             source={require("../assets/icons/plus.png")}
-            style={{ width: 20, height: 20, tintColor: "#888787", marginRight: 10 }}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: "#888787",
+              marginRight: 10,
+            }}
           />
           <Text style={styles.buttonText}>Ajouter une intervention</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.iconButton, styles.addButton]} onPress={handleSaveClient}>
+        <TouchableOpacity
+          style={[styles.iconButton, styles.addButton]}
+          onPress={handleSaveClient}
+        >
           <Image
             source={require("../assets/icons/save.png")}
-            style={{ width: 20, height: 20, tintColor: "#888787", marginRight: 10 }}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: "#888787",
+              marginRight: 10,
+            }}
           />
           <Text style={styles.buttonText}>Sauvegarder</Text>
         </TouchableOpacity>
@@ -495,7 +662,13 @@ export default function EditClientPage({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20, textAlign: "center", color: "#2c3e50" },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#2c3e50",
+  },
   input: {
     flexDirection: "row",
     alignItems: "center",
@@ -582,7 +755,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  buttonContainer: { flexDirection: "row", justifyContent: "space-between", marginTop: 30 },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 30,
+  },
   iconButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -597,7 +774,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
   },
   buttonText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-  buttonTextNo: { fontSize: 17, color: "#888787", fontWeight: "bold", textAlign: "center", marginTop: 20 },
+  buttonTextNo: {
+    fontSize: 17,
+    color: "#888787",
+    fontWeight: "bold",
+    textAlign: "center",
+    marginTop: 20,
+  },
   commandeRecuButton: {
     backgroundColor: "#e8f5e9",
     padding: 12,
@@ -606,28 +789,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#07a252",
   },
-  commandeRecuButtonText: { color: "#07a252", fontWeight: "600", textAlign: "center", fontSize: 16 },
+  commandeRecuButtonText: {
+    color: "#07a252",
+    fontWeight: "600",
+    textAlign: "center",
+    fontSize: 16,
+  },
   acceptText: { fontSize: 17, color: "#e67e22", fontWeight: "bold" },
   emailRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginBottom: 12,
-},
-smallIconBtn: {
-  width: 40,
-  height: 40,
-  marginLeft: 8,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: "#4a90e2",
-  backgroundColor: "#0c0f18",
-  alignItems: "center",
-  justifyContent: "center",
-},
-smallIcon: {
-  width: 18,
-  height: 18,
-  tintColor: "#ffffff",
-},
-
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  smallIconBtn: {
+    width: 40,
+    height: 40,
+    marginLeft: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#4a90e2",
+    backgroundColor: "#0c0f18",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smallIcon: {
+    width: 18,
+    height: 18,
+    tintColor: "#ffffff",
+  },
 });

@@ -13,13 +13,24 @@ import {
 import * as Animatable from "react-native-animatable";
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
-
+import { useRoute } from "@react-navigation/native";
 export default function RepairedInterventionsListPage({ navigation }) {
   const [allInterventions, setAllInterventions] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [filter, setFilter] = useState("Réparé"); // ← filtre actif
+  const route = useRoute();
+const initialFilter = route.params?.initialFilter ?? "Réparé";
+
+// état du filtre (par défaut sur le param, sinon "Réparé")
+const [filter, setFilter] = useState(initialFilter);
+
+// si tu veux aussi réagir si on revient avec un autre param après montage :
+useEffect(() => {
+  if (initialFilter && (initialFilter === "Réparé" || initialFilter === "Non réparable")) {
+    setFilter(initialFilter);
+  }
+}, [initialFilter]);
 
   /* ───────────────── Chargement BDD ───────────────── */
   useEffect(() => {

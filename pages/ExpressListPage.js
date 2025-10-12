@@ -10,7 +10,7 @@ import {
     Alert,
     Linking,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import { printInvoice } from "../utils/printInvoice.js"; 
 
@@ -27,27 +27,66 @@ const n = (v) => {
     return Number.isFinite(x) ? x : 0;
 };
 
-// "3 VHS, 15 VHS-C" -> 18
-const parseCassetteCount = (val) => {
-    if (val == null) return null;
-    const m = String(val).match(/\d+(?:[.,]\d+)?/g);
-    return m ? m.reduce((s, t) => s + n(t), 0) : null;
+// "3 VHS, 15 VHS-C" -> 18 ; "1 Hi8" -> 1 (on ignore le '8' collé à 'Hi')
+const parseCassetteCountStrict = (val) => {
+  if (val == null) return null;
+  const s = String(val);
+  let total = 0;
+  const re = /\d+(?:[.,]\d+)?/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+    const prev = start > 0 ? s[start - 1] : "";
+    const next = end < s.length ? s[end] : "";
+    // ❌ exclure si collé à une lettre (ex: "Hi8")
+    if ((prev && /[A-Za-z]/.test(prev)) || (next && /[A-Za-z]/.test(next))) {
+      continue;
+    }
+    total += parseFloat(m[0].replace(",", "."));
+  }
+  return total > 0 ? total : null;
 };
 
-// true => le client fournit le support (donc PAS de facturation du support)
-const clientFournitSupport = (v) => {
-    if (typeof v === "boolean") return v === false ? true : false; 
-    const s = String(v ?? "")
-        .trim()
-        .toLowerCase();
-    if (["true", "1", "oui", "client"].includes(s)) return true;
-    if (["false", "0", "non", "magasin"].includes(s)) return false; 
-    return false;
+const getQuantity = (item) => {
+  const explicit = n(item.quantity) || n(item.qty) || n(item.count);
+  if (explicit > 0) return explicit;
+
+  // sous-comptes (garde seulement ceux que tu utilises chez toi)
+  const summed =
+    n(item.vhs) +
+    n(item.vhsc) +
+    n(item.video8) +
+    n(item.hi8) +
+    n(item.minidv) +
+    n(item.betamax) +
+    n(item.super8) +
+    n(item.cassette_count) +
+    n(item.nb_cassettes);
+  if (summed > 0) return summed;
+
+  const parsed = parseCassetteCountStrict(item.cassettecount);
+  if (parsed && parsed > 0) return parsed;
+
+  return 1; // défaut
 };
-const magasinFournitSupport = (v) => !clientFournitSupport(v);
+
+
+
+// ✅ true  => MAGASIN fournit ⇒ facturation support (USB/HDD)
+// ✅ false => CLIENT fournit  ⇒ pas de facturation support
+const magasinFournitSupport = (v) => {
+  if (typeof v === "boolean") return v;
+  const s = String(v ?? "").trim().toLowerCase();
+  if (["magasin", "boutique", "store", "oui", "true", "1"].includes(s)) return true;
+  if (["client", "non", "false", "0"].includes(s)) return false;
+  return false; // par défaut: ne pas sur-facturer si incertain
+};
+
+const clientFournitSupport = (v) => !magasinFournitSupport(v);
 
 const outputKinds = (val) => {
-  const out = String(val || "").trim().toLowerCase();
+  const out = String(val || "").toLowerCase();
   return {
     isUSB: out.includes("usb"),
     isHDD: out.includes("disque") || out.includes("hdd"),
@@ -56,76 +95,58 @@ const outputKinds = (val) => {
   };
 };
 
-
 const computePreview = (item) => {
-  const qty =
-    n(item.quantity) ||
-    n(item.qty) ||
-    n(item.count) ||
-    parseCassetteCount(item.cassettecount) ||
-    1;
+  const qty = Math.max(1, getQuantity(item)); // jamais 0
 
-  const total =
+  const { isUSB, isHDD, isCD, isDVD } = outputKinds(item.outputtype);
+
+  // Coût support (magasin fournit + USB/HDD)
+  let storageCost = 0;
+  if (magasinFournitSupport(item.support_fournis) && (isUSB || isHDD)) {
+    storageCost = isUSB ? USB_COST : HDD_COST;
+  }
+
+  const supportLabel =
+    storageCost > 0
+      ? isUSB
+        ? "Clé USB fournie par le magasin"
+        : "Disque dur fourni par le magasin"
+      : "";
+
+  let clientSupportLabel = "";
+  if (!magasinFournitSupport(item.support_fournis) && (isUSB || isHDD)) {
+    clientSupportLabel = isUSB
+      ? "Clé USB fournie par le client"
+      : "Disque dur fourni par le client";
+  } else if (isCD || isDVD) {
+    clientSupportLabel = isCD ? "CD (non facturé)" : "DVD (non facturé)";
+  }
+
+  // Total TTC (dans ta BDD: 'price' est la source principale)
+  const explicitTotal =
+    n(item.price) ||
     n(item.total) ||
     n(item.totalttc) ||
     n(item.totalTTC) ||
     n(item.amount) ||
-    n(item.price) ||
     0;
 
+  // ✅ PU service = (total - support) / qty
+  const baseService = Math.max(0, explicitTotal - storageCost);
+  const unitService = qty > 0 ? baseService / qty : 0;
 
-  const { isUSB, isHDD, isCD, isDVD } = outputKinds(item.outputtype);
+  // Si 'price' manquait, reconstruit
+  const total = explicitTotal > 0 ? explicitTotal : baseService + storageCost;
 
+  const description = String(item.description || "").replaceAll("<br/>", "\n");
 
-  const clientFournit = clientFournitSupport(item.support_fournis);
-  const magasinFournit = !clientFournit;
-
-
-  let storageCost = 0;
-  if (magasinFournit) {
-    if (isUSB) storageCost = USB_COST;
-    if (isHDD) storageCost = HDD_COST;
-  }
-
-
-  const candUnit = n(item.unitPrice);
-  const unitService =
-    candUnit > 0
-      ? candUnit
-      : qty > 0
-      ? Math.max(0, (total - storageCost) / qty)
-      : 0;
-
-  const supportLabel =
-    storageCost > 0
-      ? (isUSB
-          ? "Clé USB fournie par le magasin"
-          : isHDD
-          ? "Disque dur fourni par le magasin"
-          : "Support de stockage fourni par le magasin")
-      : "";
-
- 
-  let clientSupportLabel = "";
-  if (clientFournit && (isUSB || isHDD)) {
-    clientSupportLabel = isUSB
-      ? "Clé USB fournie par le client"
-      : "Disque dur fourni par le client";
-  }
-  
-  if (!clientSupportLabel && (isCD || isDVD)) {
-    clientSupportLabel = isCD ? "CD (non facturé)" : "DVD (non facturé)";
-  }
-
-  const description = String(item.description || "")
-    .split("<br/>")
-    .join("\n");
+  const fix2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
 
   return {
     qty,
-    total,
-    unitService,
-    storageCost,
+    total: fix2(total),
+    unitService: fix2(unitService),
+    storageCost: fix2(storageCost),
     supportLabel,
     clientSupportLabel,
     description,
@@ -182,7 +203,21 @@ const ExpressListPage = () => {
                 .includes(s)
         );
     });
+const routeNav = useRoute();
 
+useFocusEffect(
+  useCallback(() => {
+    // À chaque focus, on recharge
+    fetchRows();
+  }, [fetchRows])
+);
+
+// Si tu veux aussi réagir au paramètre 'refresh' (quand on revient depuis la page d'édition)
+useEffect(() => {
+  if (routeNav?.params?.refresh) {
+    fetchRows();
+  }
+}, [routeNav?.params?.refresh, fetchRows]);
     // Reset page quand la recherche change ou quand la taille change
     useEffect(() => {
         setPage(1);
@@ -445,28 +480,56 @@ const ExpressListPage = () => {
                     </View>
 
                  
-                    <View
-                        style={[
-                            styles.statusPill,
-                            item.paid ? styles.statusPaid : styles.statusUnpaid,
-                        ]}
-                    >
-                        <View
-                            style={[
-                                styles.dot,
-                                item.paid ? styles.dotGreen : styles.dotRed,
-                            ]}
-                        />
-                        <Text
-                            style={
-                                item.paid
-                                    ? styles.statusTextPaid
-                                    : styles.statusTextUnpaid
-                            }
-                        >
-                            {item.paid ? "Soldée" : "Non soldée"}
-                        </Text>
-                    </View>
+<View style={styles.statusGroup}>
+  {/* Encart payé / non payé (inchangé) */}
+  <View
+    style={[
+      styles.statusPill,
+      item.paid ? styles.statusPaid : styles.statusUnpaid,
+    ]}
+  >
+    <View
+      style={[
+        styles.dot,
+        item.paid ? styles.dotGreen : styles.dotRed,
+      ]}
+    />
+    <Text
+      style={
+        item.paid
+          ? styles.statusTextPaid
+          : styles.statusTextUnpaid
+      }
+    >
+      {item.paid ? "Soldée" : "Non soldée"}
+    </Text>
+  </View>
+
+  {/* Nouvel encart notification */}
+  <View
+    style={[
+      styles.statusPill,
+      item.notified ? styles.notifyYes : styles.notifyNo,
+    ]}
+  >
+    <View
+      style={[
+        styles.dot,
+        item.notified ? styles.dotBlue : styles.dotGrey,
+      ]}
+    />
+    <Text
+      style={
+        item.notified
+          ? styles.statusTextNotifyYes
+          : styles.statusTextNotifyNo
+      }
+    >
+      {item.notified ? "Notifié" : "À notifier"}
+    </Text>
+  </View>
+</View>
+
                 </View>
                 {item.description ? (
                     <Text style={styles.desc} numberOfLines={2}>
@@ -761,6 +824,41 @@ const styles = StyleSheet.create({
         fontSize: 12,
         textTransform: "uppercase",
     },
+	// Groupe de pastilles (paiement + notification)
+statusGroup: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+
+// Pastille notification: fonds / bordures
+notifyYes: {
+  backgroundColor: "#e8f1ff",
+  borderColor: "#0d6efd",
+},
+notifyNo: {
+  backgroundColor: "#f3f4f6",
+  borderColor: "#cfd4da",
+},
+
+// Points de couleur pour la notif
+dotBlue: { backgroundColor: "#0d6efd" },
+dotGrey: { backgroundColor: "#9aa0a6" },
+
+// Textes de la notif
+statusTextNotifyYes: {
+  color: "#0b5ed7",
+  fontWeight: "700",
+  fontSize: 12,
+  textTransform: "uppercase",
+},
+statusTextNotifyNo: {
+  color: "#5f6368",
+  fontWeight: "700",
+  fontSize: 12,
+  textTransform: "uppercase",
+},
+
 });
 
 export default ExpressListPage;

@@ -92,7 +92,7 @@ export default function ClientNotificationsPage() {
     const fetchNotifications = async () => {
         const { data: interventions, error: error1 } = await supabase
             .from("interventions")
-            .select("id, notifiedBy, notifiedat, review_requested, client_id, deviceType, status, client:client_id(id, name, phone)")
+            .select("id, notifiedBy, notifiedat, notify_type, review_requested, client_id, deviceType, status, client:client_id(id, name, phone)")
 
             .order("created_at", { ascending: false });
 

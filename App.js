@@ -324,6 +324,8 @@ function MainStack({ setUser }) {
   component={QuoteRequestDetailsPage}
   options={{ title: "Détails de la demande" }}
 />
+
+
 		</Stack.Navigator>
     );
 }

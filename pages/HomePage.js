@@ -7,24 +7,107 @@ import {
   StyleSheet,
   TextInput,
   Modal,
-  ImageBackground,
   ActivityIndicator,
   Image,
   Alert,
   Animated,
   TouchableWithoutFeedback,
   Easing,
-  Pressable, 
+  Pressable,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useFocusEffect, CommonActions } from "@react-navigation/native";
-import RoundedButton from "../components/RoundedButton";
+
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 import { Linking } from "react-native";
 import * as Clipboard from "expo-clipboard";
+// ——— Helpers notifs commandes ———
+const isTruthy = (v) => v === true || v === 1 || v === "1" || v === "true" || v === "t";
+
+const hasClientOrderNotified = (orders, clientId) => {
+  if (!Array.isArray(orders) || clientId == null) return false;
+  const cid = String(clientId);
+  return orders.some((o) => String(o?.client_id) === cid && isTruthy(o?.notified));
+};
+
+// retourne un timestamp (ms) de la DERNIÈRE intervention d'un client
+const __latestInterventionMs = (client) => {
+  const list = Array.isArray(client?.interventions) ? client.interventions : [];
+  let best = 0;
+  for (const it of list) {
+    const d = new Date(__coalesceDate(it)).getTime();
+    if (Number.isFinite(d) && d > best) best = d;
+  }
+  return best; // 0 si rien
+};
+
+const __norm = (s) =>
+  (s ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+
+const __CLOSED_INT = new Set([
+  "recupere",
+  "restitue",
+  "annule",
+  "non reparable",
+  "livre",
+  "termine",
+  "terminee",
+  "archive",
+  "archivee",
+]);
+
+const __CLOSED_ORDER = new Set([
+  "livre",
+  "restitue",
+  "annule",
+  "termine",
+  "terminee",
+  "archive",
+  "archivee",
+]);
+
+const __isActiveIntervention = (row) => !__CLOSED_INT.has(__norm(row?.status));
+const __isActiveOrder = (o) =>
+  o && o.paid !== true && !__CLOSED_ORDER.has(__norm(o.status));
+
+const __coalesceDate = (r) =>
+  r?.created_at ||
+  r?.createdAt ||
+  r?.updated_at ||
+  r?.updatedAt ||
+  r?.inserted_at ||
+  "1970-01-01T00:00:00Z";
+
+const __pickLatestActiveIntervention = (arr = []) =>
+  arr
+    .filter(__isActiveIntervention)
+    .sort(
+      (a, b) => new Date(__coalesceDate(b)) - new Date(__coalesceDate(a))
+    )[0] || null;
+
+const __pickLatestActiveOrder = (arr = []) =>
+  arr
+    .filter(__isActiveOrder)
+    .sort(
+      (a, b) => new Date(__coalesceDate(b)) - new Date(__coalesceDate(a))
+    )[0] || null;
+
+// Cloche NOTIF = vert si la DERNIÈRE fiche ACTIVE (intervention prioritaire, sinon commande) est notifiée
+const __notifBellGreen = (client) => {
+  const li = __pickLatestActiveIntervention(client?.interventions || []);
+  if (li) return Boolean(li.is_notified === true || li.notifiedBy);
+  const lo = __pickLatestActiveOrder(client?.orders || []);
+  return Boolean(lo?.notified === true);
+};
+
 export default function HomePage({ navigation, route, setUser }) {
   const flatListRef = useRef(null);
   const [clients, setClients] = useState([]);
@@ -48,7 +131,130 @@ export default function HomePage({ navigation, route, setUser }) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupData, setPopupData] = useState([]); // [{ client, interventionsEnCours[], ordersEnCours[], montants }]
   const popupShownRef = useRef(false); // éviter d’ouvrir plusieurs fois dans la même session
-const [expressList, setExpressList] = useState([]);
+  const [expressList, setExpressList] = useState([]);
+  // Map locale: { [interventionId]: 'pickup' | 'info' | 'none' }
+  const [notifyLocalMap, setNotifyLocalMap] = useState({});
+  // --- en haut de HomePage(...) avec les autres useState ---
+  const [notifySheetVisible, setNotifySheetVisible] = useState(false);
+  const [notifySheetCtx, setNotifySheetCtx] = useState(null); // { client, latest }
+  const [notifyChooserVisible, setNotifyChooserVisible] = useState(false);
+  const [notifyForClient, setNotifyForClient] = useState(null);
+  // Ouvre la feuille de sélection
+  const openNotifyChooser = (client) => {
+    const latest = __pickLatestActiveIntervention(client?.interventions || []);
+    if (!latest) {
+      Alert.alert(
+        "Aucune intervention active",
+        "Ce client n'a pas de fiche active."
+      );
+      return;
+    }
+    setNotifySheetCtx({ client, latest });
+    setNotifySheetVisible(true);
+  };
+
+  // lecture de l'état effectif: d'abord local, sinon champs de l'objet
+  const getNotifyChoice = (interv) => {
+    if (!interv) return "none";
+    return (
+      notifyLocalMap[interv.id] ??
+      interv.notify_type ??
+      (interv.notifiedBy ? "pickup" : "none")
+    );
+  };
+  const handleNotifyPick = async (mode) => {
+    try {
+      const ctx = notifySheetCtx;
+      if (!ctx?.client || !ctx?.latest?.id) return;
+
+      // 1) MAJ immédiate de l’icône
+      setNotifyLocal(ctx.client.id, ctx.latest.id, mode);
+
+      // 2) Persistance DB (non bloquant)
+      persistNotify(ctx.latest.id, mode).catch((e) =>
+        console.error("persistNotify:", e)
+      );
+
+      // 3) Ferme la feuille
+      setNotifySheetVisible(false);
+
+      // 4) Navigation (pas pour "none")
+      if (mode === "pickup" || mode === "info") {
+        navigation.navigate("ClientNotificationsPage", {
+          clientId: ctx.client.id,
+          clientName: ctx.client.name,
+          phone: ctx.client.phone,
+          ficheNumber: ctx.client.ficheNumber,
+          interventionId: ctx.latest.id,
+          deviceType: ctx.latest.deviceType || "appareil",
+          mode, // "pickup" | "info"
+        });
+      }
+    } catch (e) {
+      console.error("handleNotifyPick:", e);
+    }
+  };
+
+  // mise à jour OPTIMISTE (icône immédiate) + patch dans tes listes
+  const setNotifyLocal = (clientId, interventionId, choice) => {
+    setNotifyLocalMap((m) => ({ ...m, [interventionId]: choice }));
+
+    const ts = choice === "none" ? null : new Date().toISOString();
+    const patchOneClient = (c) => {
+      if (c.id !== clientId) return c;
+
+      const patchInterv = (it) =>
+        it.id === interventionId
+          ? {
+              ...it,
+              notify_type: choice,
+              notifiedBy: choice === "none" ? null : "SMS",
+              notifiedat: ts,
+            }
+          : it;
+
+      const interventions = (c.interventions || []).map(patchInterv);
+      const latest =
+        c.latestIntervention?.id === interventionId
+          ? {
+              ...c.latestIntervention,
+              notify_type: choice,
+              notifiedBy: choice === "none" ? null : "SMS",
+              notifiedat: ts,
+            }
+          : c.latestIntervention;
+
+      return { ...c, interventions, latestIntervention: latest };
+    };
+
+    setClients((prev) => prev.map(patchOneClient));
+    setFilteredClients((prev) => prev.map(patchOneClient));
+  };
+
+  // persistance Supabase (asynchrone)
+// persistance Supabase (asynchrone) — SANS notify_type
+const persistNotify = async (interventionId, choice) => {
+  // choice: "pickup" | "info" | "none"
+  const payload =
+    choice === "none"
+      ? { notify_type: "none", notifiedBy: null, notifiedat: null }
+      : {
+          notify_type: choice,
+          notifiedBy: "SMS",
+          notifiedat: new Date().toISOString(),
+        };
+
+  const { error } = await supabase
+    .from("interventions")
+    .update(payload)
+    .eq("id", interventionId);
+
+  if (error) {
+    console.error("persistNotify:", error);
+    Alert.alert("Erreur", "Impossible d’enregistrer le signalement.");
+  }
+};
+
 
   const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
     useState(0);
@@ -94,6 +300,25 @@ const [expressList, setExpressList] = useState([]);
   };
   const BlinkingIconBlue = ({ source }) => {
     const opacity = useRef(new Animated.Value(1)).current;
+    const IconSquare = ({
+      source,
+      tintColor = "#00fd00",
+      onPress,
+      badge = false,
+    }) => (
+      <TouchableOpacity
+        onPress={onPress}
+        style={styles.iconSquare}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={source}
+          style={{ width: 28, height: 28, tintColor }}
+          resizeMode="contain"
+        />
+        {badge && <View style={styles.iconBadge} />}
+      </TouchableOpacity>
+    );
 
     useEffect(() => {
       const loop = Animated.loop(
@@ -128,6 +353,31 @@ const [expressList, setExpressList] = useState([]);
       />
     );
   };
+  // === Bouton carré homogène pour les icônes ===
+  const IconSquare = React.memo(function IconSquare({
+    source,
+    tintColor = "#00fd00",
+    onPress,
+    badge = false,
+    children,
+  }) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        style={styles.iconSquare}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={source}
+          style={{ width: 28, height: 28, tintColor }}
+          resizeMode="contain"
+        />
+        {children}
+        {badge ? <View style={styles.iconBadge} /> : null}
+      </TouchableOpacity>
+    );
+  });
+
   const loadPopupData = useCallback(async () => {
     try {
       // 1) Clients + interventions + commandes
@@ -225,7 +475,6 @@ const [expressList, setExpressList] = useState([]);
       const dateLimite = new Date(
         Date.now() - 10 * 24 * 60 * 60 * 1000
       ).toISOString();
-      
 
       // 1) Images ajoutées dans la table 'intervention_images'
       const extraPromise = supabase
@@ -262,12 +511,10 @@ const [expressList, setExpressList] = useState([]);
 
       const total = extraCount + photosCount;
 
-
       setHasImagesToDelete(total > 0);
       // si tu as un compteur à l’écran :
       // setImagesToDeleteCount(total);
     } catch (err) {
-      console.error("❌ checkImagesToDelete :", err);
       setHasImagesToDelete(false);
       // setImagesToDeleteCount?.(0);
     } finally {
@@ -298,10 +545,6 @@ const [expressList, setExpressList] = useState([]);
       openOnce();
     }, [loadPopupData])
   );
-
-  useEffect(() => {
-    loadOrders();
-  }, [orders]);
 
   const handleLoadRecoveredInterventions = async () => {
     try {
@@ -401,80 +644,41 @@ const [expressList, setExpressList] = useState([]);
   const logMessage = (message) =>
     setProcessLogs((prevLogs) => [...prevLogs, message]);
 
-  const processInterventionQueue = () => {
-    if (eligibleInterventions.length === 0) {
-      return;
-    }
-
-    const nextIntervention = eligibleInterventions.shift();
-    triggerPhotoCleanupAlert(nextIntervention);
-  };
-
   const eligibleInterventions = [];
   const updateClientNotification = async (client, method) => {
     try {
-      if (!client || !client.id) {
-        console.warn(
-          "⚠ Aucun client valide sélectionné pour la mise à jour.",
-          client
-        );
-        return;
-      }
+      if (!client || !client.id) return;
 
-      let error;
-      let hasUpdated = false;
+      const latestI = __pickLatestActiveIntervention(
+        client.interventions || []
+      );
+      const latestO = __pickLatestActiveOrder(client.orders || []);
 
-      console.log("🔍 Client trouvé :", client);
+      let error,
+        updated = false;
 
-      if (client.interventions && client.interventions.length > 0) {
-        const latestIntervention = client.interventions[0];
-        console.log(
-          "📌 Mise à jour de l'intervention :",
-          latestIntervention.id
-        );
-
+      if (latestI) {
         ({ error } = await supabase
           .from("interventions")
-          .update({ notifiedBy: method })
-          .eq("id", latestIntervention.id));
-
-        hasUpdated = true;
-      } else if (client.orders && client.orders.length > 0) {
-        const latestOrder = client.orders[0];
-        console.log("📌 Mise à jour de la commande :", latestOrder.id);
-
+          .update({ is_notified: true, notifiedBy: method || "autre" })
+          .eq("id", latestI.id));
+        updated = true;
+      } else if (latestO) {
         ({ error } = await supabase
           .from("orders")
-          .update({ notified: method })
-          .eq("id", latestOrder.id));
-
-        hasUpdated = true;
+          .update({ notified: true, notified_method: method || "autre" })
+          .eq("id", latestO.id));
+        updated = true;
       }
 
-      if (error) {
-        console.error(
-          "❌ Erreur lors de la mise à jour de la notification :",
-          error
-        );
-        return;
-      }
-
-      if (hasUpdated) {
+      if (!error && updated) {
         await loadClients();
         setNotifyModalVisible(false);
-        console.log(
-          `✅ Notification mise à jour pour ${client.name} : ${method}`
-        );
-      } else {
-        console.warn(
-          "⚠ Aucune mise à jour effectuée (ni intervention ni commande trouvée)."
-        );
+      } else if (error) {
+        console.error("update notif:", error);
       }
-    } catch (error) {
-      console.error(
-        "❌ Erreur lors de la mise à jour de la notification :",
-        error
-      );
+    } catch (e) {
+      console.error("update notif ex:", e);
     }
   };
 
@@ -542,7 +746,9 @@ const [expressList, setExpressList] = useState([]);
 						commande,
 						commande_effectuee,
 						photos,
+						label_photo, 
 						notifiedBy,
+						notify_type,
 						accept_screen_risk,
 						devis_cost,
 						imprimee,
@@ -691,7 +897,7 @@ const [expressList, setExpressList] = useState([]);
             client.latestIntervention = client.interventions[0];
             return client;
           });
-
+clientsToShow.sort((a, b) => __latestInterventionMs(b) - __latestInterventionMs(a));
         setClients(clientsToShow);
         setFilteredClients(clientsToShow);
       }
@@ -713,23 +919,23 @@ const [expressList, setExpressList] = useState([]);
       console.error("Erreur lors du chargement des commandes:", error);
     }
   };
-const loadExpressInProgress = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('express')
-      .select('id, client_id, name, phone, product, device, type, description, price, paid, notified, created_at')
-      .eq('paid', false)
-      .order('created_at', { ascending: false });
+  const loadExpressInProgress = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("express")
+        .select(
+          "id, client_id, name, phone, product, device, type, description, price, paid, notified, notified_at, created_at"
+        )
+        .eq("paid", false)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    setExpressList(data || []);
-  } catch (e) {
-    console.error('❌ EXPRESS (table) :', e?.message || e);
-    setExpressList([]);
-  }
-};
-
-
+      if (error) throw error;
+      setExpressList(data || []);
+    } catch (e) {
+      console.error("❌ EXPRESS (table) :", e?.message || e);
+      setExpressList([]);
+    }
+  };
 
   const loadOngoingInterventions = async () => {
     try {
@@ -827,7 +1033,7 @@ const loadExpressInProgress = async () => {
 
       loadRepairedNotReturnedCount();
       loadNotRepairedNotReturnedCount();
-loadExpressInProgress(); // ← AJOUT
+      loadExpressInProgress(); // ← AJOUT
       checkImagesToDelete();
     }, [])
   );
@@ -880,10 +1086,7 @@ loadExpressInProgress(); // ← AJOUT
       return "Date invalide";
     }
   };
-  useEffect(() => {
-    
-    setOrders([...orders]);
-  }, [orders]);
+
   const filterClients = async (text) => {
     setSearchText(text);
 
@@ -919,10 +1122,10 @@ loadExpressInProgress(); // ← AJOUT
           .select(
             `
           *,
-          interventions(
-            id, status, deviceType, cost, solderestant,
-            createdAt, "updatedAt", commande, photos, notifiedBy
-          )
+interventions(
+  id, status, deviceType, cost, solderestant,
+  createdAt, "updatedAt", commande, photos, label_photo, notifiedBy
+)
         `
           )
           .eq("ficheNumber", parseInt(query, 10));
@@ -1039,7 +1242,8 @@ loadExpressInProgress(); // ← AJOUT
         };
       });
 
-      setFilteredClients(enriched);
+      enriched.sort((a, b) => __latestInterventionMs(b) - __latestInterventionMs(a));
+setFilteredClients(enriched);
     } catch (e) {
       console.error("❌ Erreur lors de la recherche des clients :", e);
       setFilteredClients([]);
@@ -1294,23 +1498,6 @@ loadExpressInProgress(); // ← AJOUT
   };
   const [orders, setOrders] = useState([]);
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("id, client_id, paid");
-
-        if (error) throw error;
-
-        setOrders(data);
-      } catch (error) {
-        console.error("❌ Erreur lors du chargement des commandes :", error);
-      }
-    };
-
-    fetchOrders();
-  }, []);
   const getOrderColor = (clientOrders = []) => {
     if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
       return "#888787"; // ⚪ Gris, aucune commande
@@ -1418,7 +1605,9 @@ loadExpressInProgress(); // ← AJOUT
 
   const isOrderNotified = (client) =>
     client.orders?.some((o) => o.notified === true) || false;
- 
+  const repairedNotReturnedCountSafe = Number(repairedNotReturnedCount ?? 0);
+  const notRepairableCountSafe = Number(NotRepairedNotReturnedCount ?? 0);
+  const hasAny = repairedNotReturnedCountSafe + notRepairableCountSafe > 0;
   return (
     <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
       <View style={styles.overlay}>
@@ -1687,58 +1876,61 @@ loadExpressInProgress(); // ← AJOUT
             </Animated.View>
             <View style={styles.overlay}>
               <View style={styles.headerContainer}>
-                {repairedNotReturnedCount > 0 && (
-                  <View style={styles.repairedCountContainer}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        navigation.navigate("RepairedInterventionsListPage")
-                      }
-                      style={styles.repairedCountButton}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Text style={styles.repairedCountText}>
-                          Produits réparés en attente de restitution :{" "}
-                          {repairedNotReturnedCount}
-                        </Text>
-                        <Text style={styles.repairedCountText}>
-                          Produits non réparables :{" "}
-                          {NotRepairedNotReturnedCount}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                <View style={styles.repairedCountContainer}>
+                  {/* Bouton — Réparés en attente */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      repairedNotReturnedCountSafe > 0 &&
+                      navigation.navigate("RepairedInterventionsListPage", {
+                        initialFilter: "Réparé",
+                      })
+                    }
+                    disabled={repairedNotReturnedCountSafe === 0}
+                    style={[
+                      styles.counterBtn,
+                      styles.btnRepaired,
+                      repairedNotReturnedCountSafe === 0 && styles.btnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.counterBtnText}>
+                      Produits réparés en attente de restitution :{" "}
+                      {repairedNotReturnedCountSafe}
+                    </Text>
+                  </TouchableOpacity>
 
-                    {/* 🆕 Bouton résumé interventions + commandes en cours */}
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await loadPopupData();
-                        setPopupVisible(true);
-                      }}
-                      style={[styles.repairedCountButton, { marginTop: 3 }]}
-                    >
-                      <Text
-                        style={[
-                          styles.repairedCountText,
-                          { color: "#2e4f80", textAlign: "center" },
-                        ]}
-                      >
-                        Voir interventions & commandes en cours
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                  {/* Bouton — Non réparables */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      notRepairableCountSafe > 0 &&
+                      navigation.navigate("RepairedInterventionsListPage", {
+                        initialFilter: "Non réparable",
+                      })
+                    }
+                    disabled={notRepairableCountSafe === 0}
+                    style={[
+                      styles.counterBtn,
+                      styles.btnNR,
+                      { marginTop: 6 },
+                      notRepairableCountSafe === 0 && styles.btnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.counterBtnText}>
+                      Produits non réparables : {notRepairableCountSafe}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {isLoading && <ActivityIndicator size="large" color="blue" />}
+
                 {!isLoading && hasImagesToDelete === true && (
                   <TouchableOpacity
                     onPress={() => navigation.navigate("ImageCleanup")}
                     style={{
                       marginRight: 40,
-                      marginTop: 15,
-                      padding: 10,
+                      marginTop: 10,
+                      padding: 12,
                       borderRadius: 2,
                       borderWidth: 1,
                       borderColor: "#888787",
@@ -1748,14 +1940,15 @@ loadExpressInProgress(); // ← AJOUT
                     <Text style={{ color: "white" }}>Nettoyer les images</Text>
                   </TouchableOpacity>
                 )}
+
                 {!isLoading && hasImagesToDelete === false && (
                   <View style={styles.images_numberText}>
                     <TouchableOpacity
                       onPress={() => navigation.navigate("StoredImages")}
                       style={{
                         marginRight: 40,
-                        marginTop: 24,
-                        padding: 10,
+                        marginTop: 1,
+                        padding: 12,
                         borderRadius: 10,
                         backgroundColor: "#cacaca",
                         elevation: 1,
@@ -1779,10 +1972,12 @@ loadExpressInProgress(); // ← AJOUT
                     </TouchableOpacity>
                   </View>
                 )}
+
                 <Text style={styles.pageNumberText}>
                   Page {currentPage} / {totalPages}
                 </Text>
               </View>
+
               <View style={{ marginBottom: 20 }}>
                 <View style={styles.searchContainer}>
                   <TextInput
@@ -1895,6 +2090,17 @@ loadExpressInProgress(); // ← AJOUT
                         });
                       }}
                       renderItem={({ item, index }) => {
+                        const latestForTint = __pickLatestActiveIntervention(
+                          item?.interventions || []
+                        );
+                        const tChoice = getNotifyChoice(latestForTint);
+                        const smsTint =
+                          tChoice === "pickup"
+                            ? "#00c853"
+                            : tChoice === "info"
+                            ? "#2f00ff"
+                            : "#888787";
+
                         // Calcul du montant total à régler
                         const interventionDue = (item.interventions || [])
                           .filter(
@@ -1940,6 +2146,11 @@ loadExpressInProgress(); // ← AJOUT
                         const shouldBlink = item.orders?.some(
                           (order) => !order.paid
                         );
+                        const labelUri =
+                          item?.latestIntervention?.label_photo || null;
+						  // Bleu si une commande du client est marquée notifiée (on tolère true/"true"/1)
+const orderNotified = Array.isArray(item.orders) && item.orders.some(o => isTruthy(o?.notified));
+
                         return (
                           // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
                           <Animatable.View
@@ -2113,292 +2324,329 @@ loadExpressInProgress(); // ← AJOUT
                               </TouchableOpacity>
 
                               <View style={styles.topRightButtons}>
-                                <View
-                                  style={{
-                                    flexDirection: "row",
-                                  }}
-                                >
+                                <View style={{ flexDirection: "row" }}>
+                                  {/* Transport / Commande en attente */}
                                   {status === "En attente de pièces" &&
-                                    commande && (
-                                      <TouchableOpacity
-                                        style={[
-                                          styles.iconButton,
-                                          styles.editButton,
-                                        ]}
+                                    commande &&
+                                    (latestIntervention?.commande_effectuee ? (
+                                      <IconSquare
+                                        source={require("../assets/icons/shipping_fast.png")}
+                                        tintColor="#00fd00"
                                         onPress={() => {
                                           setSelectedCommande(commande);
                                           setTransportModalVisible(true);
                                         }}
-                                      >
-                                        <Image
-                                          source={
-                                            latestIntervention?.commande_effectuee
-                                              ? require("../assets/icons/shipping_fast.png") // ✅ nouvelle icône si commande faite
-                                              : require("../assets/icons/shipping.png") // 🛒 icône par défaut
-                                          }
-                                          style={{
-                                            width: 28,
-                                            height: 28,
-                                            tintColor:
-                                              latestIntervention?.commande_effectuee
-                                                ? "#00fd00" // vert si commandé
-                                                : "#a073f3", // violet sinon
-                                          }}
-                                        />
-                                      </TouchableOpacity>
-                                    )}
-
-                                  <View
-                                    style={{
-                                      position: "relative",
-                                    }}
-                                  >
-                                    <TouchableOpacity
-                                      style={[
-                                        styles.iconButton,
-                                        styles.notificationIconContainer,
-                                      ]}
-                                      onPress={() => {
-                                        navigation.navigate(
-                                          "ClientNotificationsPage",
-                                          {
-                                            clientId: item.id,
-                                          }
-                                        );
-                                      }}
-                                    >
-                                      <Image
-                                        source={require("../assets/icons/sms.png")}
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          tintColor:
-                                            item.latestIntervention
-                                              ?.notifiedBy ||
-                                            (item.orders || []).some(
-                                              (order) => order.notified
-                                            )
-                                              ? "#00fd00"
-                                              : "#888787",
+                                      />
+                                    ) : (
+                                      <IconSquare
+                                        source={require("../assets/icons/shipping.png")}
+                                        tintColor="#a073f3"
+                                        onPress={() => {
+                                          setSelectedCommande(commande);
+                                          setTransportModalVisible(true);
                                         }}
                                       />
-                                      {!(
-                                        item.latestIntervention?.notifiedBy ||
-                                        (item.orders || []).some(
-                                          (order) => order.notified
-                                        )
-                                      ) && (
-                                        <View
-                                          style={{
-                                            position: "absolute",
-                                            top: 2,
-                                            right: 2,
-                                            width: 10,
-                                            height: 10,
-                                            borderRadius: 5,
-                                            backgroundColor: "#ff3b30",
-                                          }}
-                                        />
-                                      )}
-                                    </TouchableOpacity>
-                                  </View>
+                                    ))}
 
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.iconButton,
-                                      styles.editButton,
-                                    ]}
-                                    onPress={() =>
-                                      navigation.navigate("EditClient", {
-                                        client: item,
-                                      })
-                                    }
-                                  >
-                                    {item.latestIntervention
-                                      ?.print_etiquette === false ? (
+                                  {/* Notifications (cloche / badge rouge si rien envoyé) */}
+                                  {(() => {
+                                    // — helpers locaux, uniquement pour ce bloc —
+                                    const norm = (s) =>
+                                      (s ?? "")
+                                        .toString()
+                                        .normalize("NFD")
+                                        .replace(/\p{Diacritic}/gu, "")
+                                        .trim()
+                                        .toLowerCase();
+
+                                    const CLOSED_INT = new Set([
+                                      "recupere",
+                                      "restitue",
+                                      "annule",
+                                      "non reparable",
+                                      "livre",
+                                      "termine",
+                                      "terminee",
+                                      "archive",
+                                      "archivee",
+                                    ]);
+                                    const CLOSED_ORDER = new Set([
+                                      "livre",
+                                      "restitue",
+                                      "annule",
+                                      "termine",
+                                      "terminee",
+                                      "archive",
+                                      "archivee",
+                                    ]);
+
+                                    const isActiveInterv = (r) =>
+                                      !CLOSED_INT.has(norm(r?.status));
+                                    const isActiveOrder = (o) =>
+                                      o &&
+                                      o.paid !== true &&
+                                      !CLOSED_ORDER.has(norm(o.status));
+                                    const coalesceDate = (r) =>
+                                      r?.created_at ||
+                                      r?.createdAt ||
+                                      r?.updated_at ||
+                                      r?.updatedAt ||
+                                      r?.inserted_at ||
+                                      "1970-01-01T00:00:00Z";
+
+                                    // Dernière intervention ACTIVE du client
+                                    const latestActiveInterv =
+                                      (item.interventions || [])
+                                        .filter(isActiveInterv)
+                                        .sort(
+                                          (a, b) =>
+                                            new Date(coalesceDate(b)) -
+                                            new Date(coalesceDate(a))
+                                        )[0] || null;
+
+                                    // Dernière commande ACTIVE du client
+                                    const latestActiveOrder =
+                                      (item.orders || [])
+                                        .filter(isActiveOrder)
+                                        .sort(
+                                          (a, b) =>
+                                            new Date(coalesceDate(b)) -
+                                            new Date(coalesceDate(a))
+                                        )[0] || null;
+
+                                    // Cloche verte si le DERNIER ACTIF est notifié
+                                    const notifGreen = latestActiveInterv
+                                      ? Boolean(
+                                          latestActiveInterv.is_notified ===
+                                            true ||
+                                            latestActiveInterv.notifiedBy
+                                        )
+                                      : Boolean(
+                                          latestActiveOrder?.notified === true
+                                        );
+                                    const latestForIcon =
+                                      __pickLatestActiveIntervention(
+                                        item?.interventions || []
+                                      );
+                                    const choice =
+                                      getNotifyChoice(latestForIcon);
+                                    const notifyIconSource =
+                                      choice === "pickup"
+                                        ? require("../assets/icons/ok.png") // ✅ intervention terminée
+                                        : choice === "info"
+                                        ? require("../assets/icons/infos.png") // ℹ️ (remplace par info.png si tu l’as)
+                                        : require("../assets/icons/sms.png"); // 📩 par défaut
+                                    return (
+                                      <IconSquare
+                                        source={notifyIconSource}
+                                        tintColor={
+                                          choice === "pickup"
+                                            ? "#00c853"
+                                            : choice === "info"
+                                            ? "#008cff"
+                                            : "#888787"
+                                        }
+                                        onPress={() => openNotifyChooser(item)}
+                                      />
+                                    );
+                                  })()}
+
+                                  {/* Edit client */}
+                                  {item.latestIntervention?.print_etiquette ===
+                                  false ? (
+                                    <TouchableOpacity
+                                      style={styles.iconSquare}
+                                      onPress={() =>
+                                        navigation.navigate("EditClient", {
+                                          client: item,
+                                        })
+                                      }
+                                      activeOpacity={0.8}
+                                    >
                                       <BlinkingIconBlue
                                         source={require("../assets/icons/edit.png")}
                                       />
-                                    ) : (
-                                      <Image
-                                        source={require("../assets/icons/edit.png")}
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          tintColor: "#00fd00",
-                                        }}
-                                      />
-                                    )}
-                                  </TouchableOpacity>
-
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.iconButton,
-                                      styles.printButton,
-                                    ]}
-                                    onPress={async () => {
-                                      const interventionId =
-                                        item.latestIntervention?.id;
-                                      if (interventionId) {
-                                        await supabase
-                                          .from("interventions")
-                                          .update({
-                                            imprimee: true,
-                                          })
-                                          .eq("id", interventionId);
+                                    </TouchableOpacity>
+                                  ) : (
+                                    <IconSquare
+                                      source={require("../assets/icons/edit.png")}
+                                      tintColor="#00fd00"
+                                      onPress={() =>
+                                        navigation.navigate("EditClient", {
+                                          client: item,
+                                        })
                                       }
+                                    />
+                                  )}
 
-                                      navigation.navigate(
-                                        "SelectInterventionPage",
-                                        {
-                                          clientId: item.id,
+                                  {/* Print étiquette / fiche */}
+                                  {item.latestIntervention?.imprimee ===
+                                  false ? (
+                                    <TouchableOpacity
+                                      style={styles.iconSquare}
+                                      onPress={async () => {
+                                        const interventionId =
+                                          item.latestIntervention?.id;
+                                        if (interventionId) {
+                                          await supabase
+                                            .from("interventions")
+                                            .update({ imprimee: true })
+                                            .eq("id", interventionId);
                                         }
-                                      );
-                                    }}
-                                  >
-                                    {item.latestIntervention?.imprimee ===
-                                    false ? (
+                                        navigation.navigate(
+                                          "SelectInterventionPage",
+                                          { clientId: item.id }
+                                        );
+                                      }}
+                                      activeOpacity={0.8}
+                                    >
                                       <BlinkingIcon
                                         source={require("../assets/icons/print.png")}
                                       />
-                                    ) : (
-                                      <Image
-                                        source={require("../assets/icons/print.png")}
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          tintColor: "#00fd00",
-                                        }}
-                                      />
-                                    )}
-                                  </TouchableOpacity>
+                                    </TouchableOpacity>
+                                  ) : (
+                                    <IconSquare
+                                      source={require("../assets/icons/print.png")}
+                                      tintColor="#00fd00"
+                                      onPress={async () => {
+                                        const interventionId =
+                                          item.latestIntervention?.id;
+                                        if (interventionId) {
+                                          await supabase
+                                            .from("interventions")
+                                            .update({ imprimee: true })
+                                            .eq("id", interventionId);
+                                        }
+                                        navigation.navigate(
+                                          "SelectInterventionPage",
+                                          { clientId: item.id }
+                                        );
+                                      }}
+                                    />
+                                  )}
 
+                                  {/* Galerie photos (si images) */}
                                   {totalImages > 0 && (
-                                    <TouchableOpacity
-                                      style={[
-                                        styles.iconButton,
-                                        styles.photoButton,
-                                      ]}
+                                    <IconSquare
+                                      source={require("../assets/icons/image.png")}
+                                      tintColor="#00fd00"
                                       onPress={() => goToImageGallery(item.id)}
+                                    />
+                                  )}
+
+                                  {/* Interventions count */}
+                                  {totalInterventions > 0 && (
+                                    <IconSquare
+                                      source={require("../assets/icons/tools.png")}
+                                      tintColor="#00fd00"
+                                      onPress={() =>
+                                        navigation.navigate(
+                                          "ClientInterventionsPage",
+                                          { clientId: item.id }
+                                        )
+                                      }
+                                    >
+                                      <View style={styles.countBadge}>
+                                        <Text style={styles.countBadgeText}>
+                                          {item.totalInterventions}
+                                        </Text>
+                                      </View>
+                                    </IconSquare>
+                                  )}
+
+                                  {/* Commandes */}
+<TouchableOpacity
+  style={[
+    styles.iconSquare,
+    { borderColor: getOrderColor(item.orders || []) },
+  ]}
+  onPress={() =>
+    navigation.navigate("OrdersPage", {
+      clientId: item.id,
+      clientName: item.name,
+      clientPhone: item.phone,
+      clientNumber: item.ficheNumber,
+    })
+  }
+  activeOpacity={0.8}
+>
+  {orderNotified ? (
+    // ✅ Notifié -> icône bleue (fixe)
+    <Image
+      source={require("../assets/icons/order.png")}
+      style={{ width: 28, height: 28, tintColor: "#1E90FF" }}
+      resizeMode="contain"
+    />
+  ) : Array.isArray(item.orders) && item.orders.some(__isActiveOrder) ? (
+    // 🟡 Commande active non payée -> clignote (comportement inchangé)
+    <BlinkingIcon source={require("../assets/icons/order.png")} />
+  ) : (
+    // ⚪ État normal (teinte selon getOrderColor)
+    <Image
+      source={require("../assets/icons/order.png")}
+      style={{
+        width: 28,
+        height: 28,
+        tintColor: getOrderColor(item.orders || []),
+      }}
+      resizeMode="contain"
+    />
+  )}
+</TouchableOpacity>
+
+                                  {labelUri ? (
+                                    // 👉 On montre la miniature de l'étiquette à la place de la corbeille
+                                    <TouchableOpacity
+                                      style={styles.iconSquare}
+                                      activeOpacity={0.85}
+                                      onPress={() =>
+                                        navigation.navigate("ImageGallery", {
+                                          clientId: item.id,
+                                        })
+                                      }
+                                      onLongPress={() =>
+                                        confirmDeleteClient(item.id)
+                                      } // on garde la suppression en appui long
+                                      delayLongPress={400}
                                     >
                                       <Image
-                                        source={require("../assets/icons/image.png")} // Chemin vers votre icône image
+                                        source={{ uri: labelUri }}
+                                        style={styles.labelInSquare}
+                                      />
+                                    </TouchableOpacity>
+                                  ) : (
+                                    // 👉 Sinon, on garde la corbeille classique
+                                    <TouchableOpacity
+                                      style={[styles.iconSquare]}
+                                      onPress={() =>
+                                        confirmDeleteClient(item.id)
+                                      }
+                                      activeOpacity={0.8}
+                                    >
+                                      <Image
+                                        source={require("../assets/icons/trash.png")}
                                         style={{
                                           width: 28,
                                           height: 28,
-                                          tintColor: "#00fd00", // Couleur de l'icône (ici vert)
+                                          tintColor: "red",
                                         }}
+                                        resizeMode="contain"
                                       />
                                     </TouchableOpacity>
                                   )}
-                                  <View
-                                    style={{
-                                      flexDirection: "row",
-                                      justifyContent: "flex-end",
-                                    }}
-                                  >
-                                    {totalInterventions > 0 && (
-                                      <TouchableOpacity
-                                        style={[
-                                          styles.iconButton,
-                                          styles.interventionContainer,
-                                        ]}
-                                        onPress={() =>
-                                          navigation.navigate(
-                                            "ClientInterventionsPage",
-                                            {
-                                              clientId: item.id,
-                                            }
-                                          )
-                                        }
-                                      >
-                                        <Image
-                                          source={require("../assets/icons/tools.png")}
-                                          style={{
-                                            width: 28,
-                                            height: 28,
-                                            tintColor: "#00fd00",
-                                          }}
-                                        />
-                                        <Text style={styles.interventionsCount}>
-                                          {item.totalInterventions}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    )}
-                                  </View>
-                                  <TouchableOpacity
-                                    style={{
-                                      backgroundColor: "#575757",
-                                      padding: 10,
-                                      alignItems: "center",
-                                      borderRadius: 2,
-                                      borderWidth:
-                                        orderColor !== "#888787" ? 2 : 2,
-                                      borderColor: orderColor,
-                                      marginRight: 7,
-                                    }}
-                                    onPress={() =>
-                                      navigation.navigate("OrdersPage", {
-                                        clientId: item.id,
-                                        clientName: item.name,
-                                        clientPhone: item.phone,
-                                        clientNumber: item.ficheNumber,
-                                      })
-                                    }
-                                  >
-                                    {isOrderNotified(item) ? (
-                                      <Image
-                                        source={require("../assets/icons/Notification.png")} // icône cloche
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          tintColor: "#28a745",
-                                        }} // cloche verte
-                                      />
-                                    ) : shouldBlink ? (
-                                      <BlinkingIcon
-                                        source={require("../assets/icons/order.png")} // icône commande
-                                        tintColor={orderColor}
-                                      />
-                                    ) : (
-                                      <Image
-                                        source={require("../assets/icons/order.png")}
-                                        style={{
-                                          width: 28,
-                                          height: 28,
-                                          tintColor: orderColor,
-                                        }}
-                                      />
-                                    )}
-                                  </TouchableOpacity>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.iconButton,
-                                      styles.trashButton,
-                                    ]}
-                                    onPress={() => confirmDeleteClient(item.id)}
-                                  >
-                                    <Image
-                                      source={require("../assets/icons/trash.png")} // Chemin vers votre icône poubelle
-                                      style={{
-                                        width: 28,
-                                        height: 28,
-
-                                        tintColor: "red", // Couleur de l'icône (ici noir)
-                                      }}
-                                    />
-                                  </TouchableOpacity>
                                 </View>
+
+                                {/* === icônes devices en bas du bloc === */}
                                 <View style={styles.additionalIconsContainer}>
                                   {item.interventions
                                     .filter(
                                       (intervention) =>
                                         intervention.status !== "Réparé" &&
                                         intervention.status !== "Récupéré"
-                                    ) // Filtrer uniquement les interventions en cours
-                                    .map((intervention, index) => (
+                                    )
+                                    .map((intervention, idx) => (
                                       <View
-                                        key={intervention.id || index}
+                                        key={intervention.id || idx}
                                         style={{
                                           flexDirection: "row",
                                           alignItems: "center",
@@ -2410,11 +2658,12 @@ loadExpressInProgress(); // ← AJOUT
                                             borderWidth: 1,
                                             borderColor: "#242424",
                                             paddingTop: 5,
-                                            width: 50,
-                                            height: 50,
-                                            borderRadius: 2,
+                                            width: 53,
+                                            height: 53,
+                                            borderRadius: 8,
                                             alignItems: "center",
                                             backgroundColor: "#fff",
+                                            marginRight: 10,
                                           }}
                                         >
                                           <TouchableOpacity
@@ -2425,6 +2674,7 @@ loadExpressInProgress(); // ← AJOUT
                                                 intervention.model
                                               )
                                             }
+                                            activeOpacity={0.7}
                                           >
                                             {getDeviceIcon(
                                               intervention.deviceType
@@ -2433,17 +2683,6 @@ loadExpressInProgress(); // ← AJOUT
                                         </View>
                                       </View>
                                     ))}
-                                  {item.interventions &&
-                                    item.interventions.length > 0 && (
-                                      <View
-                                        style={[
-                                          styles.deviceIconContainer,
-                                          {
-                                            flexDirection: "row",
-                                          },
-                                        ]}
-                                      ></View>
-                                    )}
                                 </View>
                               </View>
 
@@ -2523,6 +2762,109 @@ loadExpressInProgress(); // ← AJOUT
                   )}
                 </>
               )}
+
+              <Modal
+                transparent
+                visible={notifySheetVisible}
+                animationType="fade"
+                onRequestClose={() => setNotifySheetVisible(false)}
+              >
+                {/* Fond assombri cliquable */}
+                <Pressable
+                  style={stylesNS.backdrop}
+                  onPress={() => setNotifySheetVisible(false)}
+                />
+
+                {/* Contenu en bas (sheet) */}
+                <View style={stylesNS.sheet}>
+                  <Text style={stylesNS.sheetTitle}>Notifier le client</Text>
+                  <Text style={stylesNS.sheetSubtitle}>
+                    Choisissez le type de notification pour{" "}
+                    {notifySheetCtx?.client?.name || "ce client"}.
+                  </Text>
+
+                  {/* Option — Intervention terminée */}
+                  <Pressable
+                    android_ripple={{ color: "#e5e5e5" }}
+                    style={stylesNS.row}
+                    onPress={() => handleNotifyPick("pickup")}
+                  >
+                    <Image
+                      source={require("../assets/icons/ok.png")}
+                      style={[stylesNS.rowIcon, { tintColor: "#00c853" }]}
+                    />
+                    <View style={stylesNS.rowTextWrap}>
+                      <Text style={stylesNS.rowTitle}>
+                        Intervention terminée
+                      </Text>
+                      <Text style={stylesNS.rowSubtitle}>
+                        Le client peut venir récupérer.
+                      </Text>
+                    </View>
+                    <Image
+                      source={require("../assets/icons/chevrond.png")}
+                      style={stylesNS.chev}
+                    />
+                  </Pressable>
+
+                  {/* Option — Demande d’informations */}
+                  <Pressable
+                    android_ripple={{ color: "#e5e5e5" }}
+                    style={stylesNS.row}
+                    onPress={() => handleNotifyPick("info")}
+                  >
+                    <Image
+                      source={require("../assets/icons/devisEnCours.png")}
+                      style={[stylesNS.rowIcon, { tintColor: "#ffbf00" }]}
+                    />
+                    <View style={stylesNS.rowTextWrap}>
+                      <Text style={stylesNS.rowTitle}>
+                        Demande d'informations
+                      </Text>
+                      <Text style={stylesNS.rowSubtitle}>
+                        Besoin d’un retour du client.
+                      </Text>
+                    </View>
+                    <Image
+                      source={require("../assets/icons/chevrond.png")}
+                      style={stylesNS.chev}
+                    />
+                  </Pressable>
+
+                  {/* Option — Annuler le signalement */}
+                  <Pressable
+                    android_ripple={{ color: "#e5e5e5" }}
+                    style={stylesNS.row}
+                    onPress={() => handleNotifyPick("none")}
+                  >
+                    <Image
+                      source={require("../assets/icons/trash.png")}
+                      style={[stylesNS.rowIcon, { tintColor: "#e53935" }]}
+                    />
+                    <View style={stylesNS.rowTextWrap}>
+                      <Text style={stylesNS.rowTitle}>
+                        Annuler le signalement
+                      </Text>
+                      <Text style={stylesNS.rowSubtitle}>
+                        Réinitialise l’icône (gris).
+                      </Text>
+                    </View>
+                    <Image
+                      source={require("../assets/icons/chevrond.png")}
+                      style={stylesNS.chev}
+                    />
+                  </Pressable>
+
+                  {/* Fermer */}
+                  <Pressable
+                    android_ripple={{ color: "#dcdcdc" }}
+                    style={stylesNS.closeBtn}
+                    onPress={() => setNotifySheetVisible(false)}
+                  >
+                    <Text style={stylesNS.closeText}>Fermer</Text>
+                  </Pressable>
+                </View>
+              </Modal>
 
               <Modal
                 transparent
@@ -2905,50 +3247,63 @@ loadExpressInProgress(); // ← AJOUT
             </View>
           </View>
         </TouchableWithoutFeedback>
-<View pointerEvents="box-none">
-  {expressList.length > 0 && (
-    <View style={styles.expressCard} pointerEvents="box-none">
-      <Text style={styles.expressTitle}>
-        Fiches EXPRESS en cours : {expressList.length}
-      </Text>
+        <View pointerEvents="box-none">
+          {expressList.length > 0 && (
+            <View style={styles.expressCard} pointerEvents="box-none">
+              <Text style={styles.expressTitle}>
+                Fiches EXPRESS en cours : {expressList.length}
+              </Text>
 
-      {expressList.slice(0, 5).map((it) => (
-        <Pressable
-          key={it.id}
-          onPress={() =>
-            navigation.navigate("ExpressListPage", {
-              initialSearch: it.phone || it.name || "",
-              initialType: it.type || "all",
-            })
-          }
-          onLongPress={() => navigation.navigate("EditClientPage", { clientId: it.client_id })}
-          android_ripple={{ borderless: false }}
-          style={({ pressed }) => [
-            { paddingVertical: 6 },
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Text style={styles.expressItem}>
-            • {it.name} — {
-              (it.type && it.type.toLowerCase().startsWith("vid"))
-                ? "Transferts"
-                : (it.product || it.device || "Produit")
-            } — {it.price ? `${it.price} €` : "—"} {it.type ? `(${it.type})` : ""}
-          </Text>
-        </Pressable>
-      ))}
+              {expressList.slice(0, 5).map((it) => (
+                <Pressable
+                  key={it.id}
+                  onPress={() =>
+                    navigation.navigate("ExpressListPage", {
+                      initialSearch: it.phone || it.name || "",
+                      initialType: it.type || "all",
+                    })
+                  }
+                  onLongPress={() =>
+                    navigation.navigate("EditClientPage", {
+                      clientId: it.client_id,
+                    })
+                  }
+                  android_ripple={{ borderless: false }}
+                  style={({ pressed }) => [
+                    { paddingVertical: 6 },
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+<Text style={styles.expressItem}>
+  • {it.name} —{" "}
+  {it.type && it.type.toLowerCase().startsWith("vid")
+    ? "Transferts"
+    : it.product || it.device || "Produit"}{" "}
+  — {it.price ? `${it.price} €` : "—"}{" "}
+  {it.type ? `(${it.type})` : ""}
 
-      {expressList.length > 5 && (
-        <Text style={styles.expressMore}>
-          … et {expressList.length - 5} de plus
-        </Text>
-      )}
-    </View>
-  )}
-</View>
+  {"  "}
+  <Text
+    style={[
+      styles.badgeNotify,
+      it?.notified ? styles.badgeNotifyYes : styles.badgeNotifyNo,
+    ]}
+  >
+    {it?.notified ? "Notifié" : "À notifier"}
+  </Text>
+</Text>
 
+                </Pressable>
+              ))}
 
-
+              {expressList.length > 5 && (
+                <Text style={styles.expressMore}>
+                  … et {expressList.length - 5} de plus
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
 
         <View style={styles.paginationContainer}>
           <TouchableOpacity
@@ -3069,19 +3424,29 @@ loadExpressInProgress(); // ← AJOUT
                       {item.totals.intervDue > 0
                         ? `  (Interventions: ${item.totals.intervDue.toLocaleString(
                             "fr-FR",
-                            { style: "currency", currency: "EUR" }
+                            {
+                              style: "currency",
+                              currency: "EUR",
+                            }
                           )})`
                         : ""}
                       {item.totals.orderDue > 0
                         ? `  (Commandes: ${item.totals.orderDue.toLocaleString(
                             "fr-FR",
-                            { style: "currency", currency: "EUR" }
+                            {
+                              style: "currency",
+                              currency: "EUR",
+                            }
                           )})`
                         : ""}
                     </Text>
 
                     <View
-                      style={{ flexDirection: "row", gap: 8, marginTop: 8 }}
+                      style={{
+                        flexDirection: "row",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
                     >
                       {item.interventionsEnCours.length > 0 && (
                         <TouchableOpacity
@@ -3098,7 +3463,12 @@ loadExpressInProgress(); // ← AJOUT
                             });
                           }}
                         >
-                          <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                          <Text
+                            style={{
+                              color: "#fff",
+                              fontWeight: "bold",
+                            }}
+                          >
                             Voir interventions
                           </Text>
                         </TouchableOpacity>
@@ -3121,7 +3491,12 @@ loadExpressInProgress(); // ← AJOUT
                             });
                           }}
                         >
-                          <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                          <Text
+                            style={{
+                              color: "#fff",
+                              fontWeight: "bold",
+                            }}
+                          >
                             Voir commandes
                           </Text>
                         </TouchableOpacity>
@@ -3148,7 +3523,12 @@ loadExpressInProgress(); // ← AJOUT
                   borderRadius: 6,
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontWeight: "bold",
+                  }}
+                >
                   Fermer
                 </Text>
               </TouchableOpacity>
@@ -3164,7 +3544,12 @@ loadExpressInProgress(); // ← AJOUT
                   borderRadius: 6,
                 }}
               >
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontWeight: "bold",
+                  }}
+                >
                   Rafraîchir
                 </Text>
               </TouchableOpacity>
@@ -3275,11 +3660,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#cacaca", // Fond blanc pour le contraste
     padding: 10,
     borderRadius: 10,
-    marginTop: 24,
   },
   repairedCountButton: {
     flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
     alignItems: "center", // Pour centrer le texte à l'intérieur du bouton
+    marginBottom: 3,
   },
   repairedCountText: {
     color: "#242424",
@@ -3298,7 +3683,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
     alignItems: "center",
-    marginBottom: 10, // Vous pouvez ajuster la marge en fonction de l'espace que vous souhaitez
+    marginBottom: 2, // Vous pouvez ajuster la marge en fonction de l'espace que vous souhaitez
+    marginTop: 20,
   },
   pageNumberText: {
     marginRight: 20,
@@ -3580,13 +3966,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
   },
-  alertMessage: {
-    fontSize: 16,
-    color: "#444",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
+
   modalText: {
     fontSize: 16,
     color: "#333",
@@ -3728,13 +4108,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  suggestionItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-
   suggestionText: {
     fontSize: 16,
     color: "#333333",
@@ -3818,36 +4191,220 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   expressCard: {
-  marginHorizontal: 15,
-  marginTop: 10,
-  marginBottom: 10,
-  backgroundColor: "#fff7ed",
-  borderColor: "#fdba74",
+    marginHorizontal: 15,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#fff7ed",
+    borderColor: "#fdba74",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  expressTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#9a3412",
+    marginBottom: 6,
+  },
+  expressItem: {
+    fontSize: 14,
+    color: "#7c2d12",
+    marginBottom: 2,
+  },
+  expressMore: {
+    marginTop: 4,
+    fontSize: 13,
+    fontStyle: "italic",
+    color: "#9a3412",
+  },
+  iconSquare: {
+    width: 53,
+    height: 53,
+    borderRadius: 8,
+    backgroundColor: "#575757",
+    borderWidth: 1,
+    borderColor: "#3f3f3f",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  iconBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#ff3b30",
+  },
+  countBadge: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9, // même rondeur partout
+    backgroundColor: "#2c7a7b",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  labelInSquare: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8, // même radius que iconSquare
+    resizeMode: "cover", // on remplit proprement le carré
+  },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    width: "100%",
+    borderRadius: 8,
+  },
+  optionIcon: {
+    width: 28,
+    height: 28,
+    tintColor: "#374151",
+    marginRight: 12,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  optionSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    alignSelf: "stretch",
+    marginVertical: 8,
+  },
+  repairedCountContainer: {
+    alignItems: "stretch",
+  },
+
+  counterBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  btnRepaired: {
+    backgroundColor: "#e6f1e6",
+    borderColor: "#6b8f6b",
+  },
+
+  btnNR: {
+    backgroundColor: "#f6eaea",
+    borderColor: "#a16565",
+  },
+
+  btnDisabled: {
+    opacity: 0.5,
+  },
+
+  counterBtnText: {
+    color: "#242424",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  badgeNotify: {
+  paddingHorizontal: 8,
+  paddingVertical: 2,
+  borderRadius: 999,
   borderWidth: 1,
-  borderRadius: 10,
-  paddingVertical: 10,
-  paddingHorizontal: 12,
-  shadowColor: "#000",
-  shadowOpacity: 0.08,
-  shadowRadius: 6,
-  elevation: 2,
-},
-expressTitle: {
-  fontSize: 16,
+  fontSize: 11,
   fontWeight: "700",
-  color: "#9a3412",
-  marginBottom: 6,
+  textTransform: "uppercase",
+  overflow: "hidden",
 },
-expressItem: {
-  fontSize: 14,
-  color: "#7c2d12",
-  marginBottom: 2,
+badgeNotifyYes: {
+  backgroundColor: "#e8f1ff",
+  borderColor: "#0d6efd",
+  color: "#0b5ed7",
 },
-expressMore: {
-  marginTop: 4,
-  fontSize: 13,
-  fontStyle: "italic",
-  color: "#9a3412",
+badgeNotifyNo: {
+  backgroundColor: "#f3f4f6",
+  borderColor: "#cfd4da",
+  color: "#5f6368",
 },
 
+});
+const stylesNS = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 14,
+    paddingBottom: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    elevation: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  sheetSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "#f9fafb",
+    marginBottom: 8,
+  },
+  rowIcon: { width: 26, height: 26, marginRight: 12 },
+  rowTextWrap: { flex: 1 },
+  rowTitle: { fontSize: 16, color: "#111827", fontWeight: "600" },
+  rowSubtitle: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+  chev: { width: 20, height: 20, tintColor: "#9ca3af", marginLeft: 10 },
+  closeBtn: {
+    marginTop: 8,
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: "#e5e7eb",
+  },
+  closeText: { color: "#111827", fontWeight: "700", fontSize: 15 },
 });

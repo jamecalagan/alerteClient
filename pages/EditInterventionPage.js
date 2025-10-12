@@ -13,13 +13,13 @@ import {
   TouchableWithoutFeedback,
   Alert,
   Pressable,
+  FlatList,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
-
 
 // -------- Helpers string image (version unique) --------
 const stripQuotes = (s) =>
@@ -43,16 +43,17 @@ const extractRefString = (v) => {
 const _stripQuotes = (s) =>
   typeof s === "string" &&
   s.length >= 2 &&
-  ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
+  ((s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'")))
     ? s.slice(1, -1)
     : s;
 
 const _cleanRef = (raw) => {
   if (!raw) return "";
-  let s = typeof raw === "string" ? raw : (raw.url || raw.path || raw.uri || "");
+  let s = typeof raw === "string" ? raw : raw.url || raw.path || raw.uri || "";
   s = String(s);
   s = _stripQuotes(s).trim().replace(/\\+$/g, ""); // supprime backslashes fin
-  const q = s.indexOf("?");                        // supprime ?token=...
+  const q = s.indexOf("?"); // supprime ?token=...
   if (q > -1) s = s.slice(0, q);
   return s;
 };
@@ -72,11 +73,11 @@ const _uniqPhotosForView = (arr, labelRef = null) => {
   const seen = new Set();
   const labelKey = labelRef ? _bucketKey(labelRef) : null;
   const out = [];
-  for (const it of (arr || [])) {
+  for (const it of arr || []) {
     const key = _bucketKey(it);
     if (!key) continue;
     if (labelKey && key === labelKey) continue; // exclure l'étiquette
-    if (seen.has(key)) continue;                // enlever doublon
+    if (seen.has(key)) continue; // enlever doublon
     seen.add(key);
     out.push(_cleanRef(it));
   }
@@ -221,11 +222,15 @@ export default function EditInterventionPage({ route, navigation }) {
   const [labelPhoto, setLabelPhoto] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [labelPhotoDB, setLabelPhotoDB] = useState(null);
-  // Divers UI
+  const [alertType, setAlertType] = useState("danger"); 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
   const [clientName, setClientName] = useState("");
+  const [openType, setOpenType] = useState(false);
+  const [openBrand, setOpenBrand] = useState(false);
+  const [openModel, setOpenModel] = useState(false);
+  const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
   const repairBrokenPhotoUrlsForCurrentIntervention = async () => {
     try {
       const { data: inter, error } = await supabase
@@ -788,13 +793,21 @@ export default function EditInterventionPage({ route, navigation }) {
           [{ resize: { width: 800 } }],
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
-        const url = await uploadImageToStorage(
-          compressedImage.uri,
-          interventionId,
-          true
-        );
-        if (url) setLabelPhoto(url);
-        setLabelPhotoDB(url); // on mémorise la ref cloud pour la BDD
+const url = await uploadImageToStorage(
+  compressedImage.uri,
+  interventionId,
+  true // dossier 'etiquettes'
+);
+
+if (!url) {
+  Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+  return;
+}
+
+// ✅ Mettre immédiatement l’URL cloud dans l’état (visible A & B)
+setLabelPhoto(url);
+setLabelPhotoDB(url); // mémo DB (cloud)
+
       }
     } catch (error) {
       console.error("Erreur capture étiquette :", error);
@@ -818,28 +831,34 @@ export default function EditInterventionPage({ route, navigation }) {
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
       );
 
-      const url = await uploadImageToStorage(
-        compressedImage.uri,
-        interventionId,
-        false
-      );
-      if (!url) {
-        Alert.alert("Erreur", "Upload impossible, photo non ajoutée.");
-        return;
-      }
+const url = await uploadImageToStorage(
+  compressedImage.uri,
+  interventionId,
+  false // dossier 'supplementaires'
+);
 
-      // État local
-      let next = [];
-      setPhotos((prev) => {
-        next = [...prev, url];
-        return next;
-      });
+if (!url) {
+  Alert.alert("Erreur", "Upload impossible, photo non ajoutée.");
+  return;
+}
 
-      // MAJ BDD immédiate (uniquement cloud)
-      const { error: dbErr } = await supabase
-        .from("interventions")
-        .update({ photos: next })
-        .eq("id", interventionId);
+// ✅ On n’ajoute QUE l’URL cloud en état (jamais de file://)
+setPhotos((prev) => {
+  const next = [...prev, url].filter(Boolean);
+  return next;
+});
+
+// ✅ MAJ BDD (liste 100% cloud)
+const { error: dbErr } = await supabase
+  .from("interventions")
+  .update((cur) => ({ photos: (Array.isArray(cur.photos) ? cur.photos : []).concat([url]) }))
+  .eq("id", interventionId);
+
+if (dbErr) {
+  console.error("MAJ BDD (photos) :", dbErr.message);
+  Alert.alert("Erreur", "Photo ajoutée localement, base non mise à jour.");
+}
+
 
       if (dbErr) {
         console.error("MAJ BDD (photos) :", dbErr.message);
@@ -853,19 +872,139 @@ export default function EditInterventionPage({ route, navigation }) {
       Alert.alert("Erreur", "Impossible d'ajouter la photo.");
     }
   };
+  // ⬇️ extrait la partie qui fait vraiment l’update (réutilisé après confirmation)
+  const performSaveIntervention = async () => {
+	   const articleName = articles.find(a => a.id === deviceType)?.nom || null;
+   const brandName   = brands.find(b => b.id === brand)?.nom || null;
+   const modelName   = models.find(m => m.id === model)?.nom || null;
+    // --- Montants
+    const costValue = parseFloat(cost) || 0;
+    const partialPaymentValue = parseFloat(partialPayment) || 0;
+    const solderestantValue =
+      paymentStatus === "reglement_partiel"
+        ? Math.max(costValue - partialPaymentValue, 0)
+        : paymentStatus === "solde"
+        ? 0
+        : costValue;
+
+    const isEstimateMode = status === "Devis en cours";
+
+    // --- Upload/normalisation des images vers le cloud
+    const photosCloud = [];
+    for (const p of Array.isArray(photos) ? photos : []) {
+      const ref = extractRefString(p);
+      if (!ref) continue;
+      if (isLocalRef(ref)) {
+        const url = await uploadImageToStorage(ref, interventionId, false);
+        if (url) photosCloud.push(url);
+      } else {
+        photosCloud.push(ref);
+      }
+    }
+    const photosCloudFiltered = photosCloud.filter(Boolean);
+
+    let labelCloud = null;
+    if (labelPhoto) {
+      const ref = extractRefString(labelPhoto);
+      if (isLocalRef(ref)) {
+        labelCloud = await uploadImageToStorage(ref, interventionId, true);
+      } else {
+        labelCloud = ref;
+      }
+    }
+
+    const updatedIntervention = {
+      article_id: toDBId(deviceType),
+      marque_id: toDBId(brand),
+      modele_id: toDBId(model),
+	  deviceType: articleName,
+     brand:      brandName,
+     model:      modelName,
+      reference,
+      description,
+      cost: costValue,
+      solderestant: solderestantValue || 0,
+      partialPayment: partialPaymentValue || null,
+      no_cost_but_restitution: noCostButRestitution,
+      status,
+      password,
+      serial_number,
+      photos: photosCloudFiltered, // ⬅️ uniquement CLOUD
+      label_photo: labelCloud, // ⬅️ uniquement CLOUD
+      commande,
+      remarks,
+      paymentStatus,
+      chargeur: chargeur === "Oui",
+      accept_screen_risk: acceptScreenRisk,
+      // Fourchette
+      estimate_min: isEstimateMode
+        ? parseFloat(normalizeNumber(estimateMin))
+        : null,
+      estimate_max: isEstimateMode
+        ? parseFloat(normalizeNumber(estimateMax))
+        : null,
+      estimate_type: isEstimateMode ? estimateType : null,
+      is_estimate: isEstimateMode,
+      estimate_accepted:
+        isEstimateMode && estimateType === "PLAFOND" ? true : null,
+      estimate_accepted_at:
+        isEstimateMode && estimateType === "PLAFOND"
+          ? new Date().toISOString()
+          : null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const formattedDevisCost =
+      isEstimateMode && devisCost ? parseFloat(devisCost) : null;
+    if (isEstimateMode) updatedIntervention.devis_cost = formattedDevisCost;
+
+    try {
+      const { data, error } = await supabase
+        .from("interventions")
+        .update(updatedIntervention)
+        .eq("id", interventionId)
+        .select();
+
+      if (error || !data || data.length === 0) {
+        setAlertType("danger");  // ✅
+        setAlertTitle("Erreur");
+        setAlertMessage(error?.message || "Aucune fiche mise à jour.");
+        setAlertVisible(true);
+        return;
+      }
+
+      // ✅ Mets à jour l’état local avec les URLs cloud (pour voir tout de suite)
+      setPhotos(photosCloudFiltered);
+      setLabelPhoto(labelCloud);
+setAlertType("success"); // ✅ AJOUT
+      setAlertTitle("Succès");
+      setAlertMessage("Intervention mise à jour avec succès.");
+      setAlertVisible(true);
+    } catch (err) {
+      setAlertType("danger");  // ✅
+      setAlertTitle("Erreur");
+      setAlertMessage("Erreur lors de la mise à jour de l'intervention.");
+      setAlertVisible(true);
+    }
+  };
 
   // ———————————————————————————————————————————
   // Sauvegarde
   // ———————————————————————————————————————————
-const handleSaveIntervention = async () => {
+  // ———————————————————————————————————————————
+  // Sauvegarde (avec rappel mot de passe non bloquant)
+  // ———————————————————————————————————————————
+  const handleSaveIntervention = async () => {
   console.log("▶️ handleSaveIntervention appelé");
 
   if (!interventionId) {
+    setAlertType("danger"); // 🔴 erreur
     setAlertTitle("Erreur");
     setAlertMessage("ID d'intervention manquant.");
     setAlertVisible(true);
     return;
   }
+
   if (selectedImage) setSelectedImage(null);
 
   // --- Validation de base
@@ -885,8 +1024,10 @@ const handleSaveIntervention = async () => {
     const min = parseFloat(normalizeNumber(estimateMin));
     const max = parseFloat(normalizeNumber(estimateMax));
     if (isNaN(min) || isNaN(max)) errors.push("Fourchette de devis (de/à)");
-    else if (min < 0 || max < 0) errors.push("Fourchette de devis : valeurs positives requises");
-    else if (min > max) errors.push("Fourchette de devis : 'De' doit être ≤ 'À'");
+    else if (min < 0 || max < 0)
+      errors.push("Fourchette de devis : valeurs positives requises");
+    else if (min > max)
+      errors.push("Fourchette de devis : 'De' doit être ≤ 'À'");
   }
 
   if (!labelPhoto) errors.push("Photo d’étiquette");
@@ -898,119 +1039,27 @@ const handleSaveIntervention = async () => {
     errors.push("Acompte valide");
   }
 
+  // 🔴 Cas d’erreur → rouge
   if (errors.length > 0) {
+    setAlertType("danger");
     setAlertTitle("Erreur");
-    setAlertMessage("Champs manquants ou incorrects :\n\n" + errors.join("\n"));
+    setAlertMessage(
+      "Champs manquants ou incorrects :\n\n" + errors.join("\n")
+    );
     setAlertVisible(true);
     return;
   }
 
-  // --- Montants
-  const costValue = parseFloat(cost) || 0;
-  const partialPaymentValue = parseFloat(partialPayment) || 0;
-  const solderestantValue =
-    paymentStatus === "reglement_partiel"
-      ? Math.max(costValue - partialPaymentValue, 0)
-      : paymentStatus === "solde"
-      ? 0
-      : costValue;
-
-  const isEstimateMode = status === "Devis en cours";
-
-  // --- IMPORTANT : upload de TOUTES les refs locales AVANT l’update
-  // Photos
-  const photosCloud = [];
-  for (const p of Array.isArray(photos) ? photos : []) {
-    const ref = extractRefString(p);
-    if (!ref) continue;
-    if (isLocalRef(ref)) {
-      const url = await uploadImageToStorage(ref, interventionId, false);
-      if (url) photosCloud.push(url);
-    } else {
-      photosCloud.push(ref);
-    }
+  // 🔔 Rappel non bloquant si mot de passe vide
+  if (!password) {
+    setPwdReminderVisible(true); // → modale spécifique
+    return; // on stoppe ici
   }
 
-  // Label
-  let labelCloud = null;
-  if (labelPhoto) {
-    const ref = extractRefString(labelPhoto);
-    if (isLocalRef(ref)) {
-      labelCloud = await uploadImageToStorage(ref, interventionId, true);
-    } else {
-      labelCloud = ref;
-    }
-  }
+  // ✅ Cas de succès → vert
+  await performSaveIntervention();
 
-  const updatedIntervention = {
-    article_id: toDBId(deviceType),
-    marque_id: toDBId(brand),
-    modele_id: toDBId(model),
-    reference,
-    description,
-    cost: costValue,
-    solderestant: solderestantValue || 0,
-    partialPayment: partialPaymentValue || null,
-    no_cost_but_restitution: noCostButRestitution,
-    status,
-    password,
-    serial_number,
-    photos: photosCloud,     // ⬅️ uniquement CLOUD
-    label_photo: labelCloud, // ⬅️ uniquement CLOUD
-    commande,
-    remarks,
-    paymentStatus,
-    chargeur: chargeur === "Oui",
-    accept_screen_risk: acceptScreenRisk,
-    // Fourchette
-    estimate_min: isEstimateMode ? parseFloat(normalizeNumber(estimateMin)) : null,
-    estimate_max: isEstimateMode ? parseFloat(normalizeNumber(estimateMax)) : null,
-    estimate_type: isEstimateMode ? estimateType : null,
-    is_estimate: isEstimateMode,
-    estimate_accepted: isEstimateMode && estimateType === "PLAFOND" ? true : null,
-    estimate_accepted_at: isEstimateMode && estimateType === "PLAFOND" ? new Date().toISOString() : null,
-    updatedAt: new Date().toISOString(),
-  };
-
-  const formattedDevisCost =
-    isEstimateMode && devisCost ? parseFloat(devisCost) : null;
-  if (isEstimateMode) updatedIntervention.devis_cost = formattedDevisCost;
-
-  console.log("🟦 Payload update:", updatedIntervention);
-
-  try {
-    const { data, error } = await supabase
-      .from("interventions")
-      .update(updatedIntervention)
-      .eq("id", interventionId)
-      .select();
-
-    if (error) {
-      console.log("❌ Supabase update error:", error);
-      throw error;
-    }
-    if (!data || data.length === 0) {
-      setAlertTitle("Erreur");
-      setAlertMessage("Aucune fiche mise à jour (id introuvable ?).");
-      setAlertVisible(true);
-      return;
-    }
-
-    // ✅ Mets à jour l’état local avec les URLs cloud (pour voir tout de suite)
-    setPhotos(photosCloud);
-    setLabelPhoto(labelCloud);
-
-    setAlertTitle("Succès");
-    setAlertMessage("Intervention mise à jour avec succès.");
-    setAlertVisible(true);
-  } catch (err) {
-    console.log("❌ Exception update:", err);
-    setAlertTitle("Erreur");
-    setAlertMessage("Erreur lors de la mise à jour de l'intervention.");
-    setAlertVisible(true);
-  }
 };
-
 
   const deletePhoto = (photoRefRaw) => {
     const photoRef = extractRefString(photoRefRaw);
@@ -1069,12 +1118,11 @@ const handleSaveIntervention = async () => {
     );
   };
 
-const closeAlert = () => {
-  console.log("ℹ️ closeAlert, title=", alertTitle);
-  setAlertVisible(false);
-  if (alertTitle === "Succès") navigation.goBack();
-};
-
+  const closeAlert = () => {
+    console.log("ℹ️ closeAlert, title=", alertTitle);
+    setAlertVisible(false);
+    if (alertTitle === "Succès") navigation.goBack();
+  };
 
   // Propagation devis accepté → pré-remplir coût si vide
   useEffect(() => {
@@ -1097,46 +1145,46 @@ const closeAlert = () => {
       ) : null}
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Type de produit */}
-        <Text style={styles.label}>Type de produit</Text>
-        <Picker
-          selectedValue={deviceType}
-          style={styles.input}
-          onValueChange={handleDeviceTypeChange}
-        >
-          <Picker.Item label="Sélectionnez un type de produit..." value="" />
-          {articles.map((a) => (
-            <Picker.Item key={a.id} label={a.nom} value={a.id} />
-          ))}
-        </Picker>
+        <View style={styles.pickersRow}>
+          <TouchableOpacity
+            style={styles.pickerBox}
+            onPress={() => setOpenType(true)}
+          >
+            <Text style={{ fontSize: 16, color: deviceType ? "#111" : "#666" }}>
+              {deviceType
+                ? articles.find((a) => a.id === deviceType)?.nom || "Type"
+                : "Type de produit"}
+            </Text>
+          </TouchableOpacity>
 
-        {/* Marque */}
-        <Text style={styles.label}>Marque du produit</Text>
-        <Picker
-          selectedValue={brand}
-          style={styles.input}
-          enabled={!!deviceType}
-          onValueChange={handleBrandChange}
-        >
-          <Picker.Item label="Sélectionnez une marque..." value="" />
-          {brands.map((b) => (
-            <Picker.Item key={b.id} label={b.nom} value={b.id} />
-          ))}
-        </Picker>
+          <View style={{ width: 8 }} />
 
-        {/* Modèle */}
-        <Text style={styles.label}>Modèle du produit</Text>
-        <Picker
-          selectedValue={model}
-          style={styles.input}
-          enabled={!!brand}
-          onValueChange={handleModelChange}
-        >
-          <Picker.Item label="Sélectionnez un modèle..." value="" />
-          {models.map((m) => (
-            <Picker.Item key={m.id} label={m.nom} value={m.id} />
-          ))}
-        </Picker>
+          <TouchableOpacity
+            style={[styles.pickerBox, { opacity: deviceType ? 1 : 0.5 }]}
+            disabled={!deviceType}
+            onPress={() => setOpenBrand(true)}
+          >
+            <Text style={{ fontSize: 16, color: brand ? "#111" : "#666" }}>
+              {brand
+                ? brands.find((b) => b.id === brand)?.nom || "Marque"
+                : "Marque"}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ width: 8 }} />
+
+          <TouchableOpacity
+            style={[styles.pickerBox, { opacity: brand ? 1 : 0.5 }]}
+            disabled={!brand}
+            onPress={() => setOpenModel(true)}
+          >
+            <Text style={{ fontSize: 16, color: model ? "#111" : "#666" }}>
+              {model
+                ? models.find((m) => m.id === model)?.nom || "Modèle"
+                : "Modèle"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Référence */}
         <View style={styles.referenceContainer}>
@@ -1193,7 +1241,6 @@ const closeAlert = () => {
                       size={80}
                       style={styles.labelOutline}
                     />
-
                   </TouchableOpacity>
                 );
               })()}
@@ -1555,31 +1602,43 @@ const closeAlert = () => {
               style={styles.galleryScroll}
               contentContainerStyle={styles.galleryContent}
             >
-{/* Galerie */}
-{Array.isArray(photos) && _uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).length > 0 && (
-  <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
-{_uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).map((refStr, index) => {
-  return (
-    <View key={`${_bucketKey(refStr)}-${index}`} style={{ margin: 6, alignItems: "center" }}>
-      <Pressable
-        onPress={() => setSelectedImage(refStr)}
-        onLongPress={() => deletePhoto(refStr)}
-        delayLongPress={400}
-        style={styles.thumbWrap}
-      >
-        <ResolvedImage
-          refOrPath={refStr}
-          size={100}
-          // le badge est désormais géré dedans, et l'image
-          // disparaît si non résolue (pas de cadre vide)
-        />
-      </Pressable>
-    </View>
-  );
-})}
-  </View>
-)}
-
+              {/* Galerie */}
+              {Array.isArray(photos) &&
+                _uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).length >
+                  0 && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {_uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).map(
+                      (refStr, index) => {
+                        return (
+                          <View
+                            key={`${_bucketKey(refStr)}-${index}`}
+                            style={{ margin: 6, alignItems: "center" }}
+                          >
+                            <Pressable
+                              onPress={() => setSelectedImage(refStr)}
+                              onLongPress={() => deletePhoto(refStr)}
+                              delayLongPress={400}
+                              style={styles.thumbWrap}
+                            >
+                              <ResolvedImage
+                                refOrPath={refStr}
+                                size={100}
+                                // le badge est désormais géré dedans, et l'image
+                                // disparaît si non résolue (pas de cadre vide)
+                              />
+                            </Pressable>
+                          </View>
+                        );
+                      }
+                    )}
+                  </View>
+                )}
             </ScrollView>
           </>
         )}
@@ -1641,21 +1700,298 @@ const closeAlert = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      {/* === MODALE TYPE (4 colonnes) === */}
+      <Modal
+        visible={openType}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenType(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Type de produit
+            </Text>
+            <FlatList
+              data={articles.map((a) => ({ label: a.nom, value: a.id }))}
+              keyExtractor={(it, i) => String(it.value ?? i)}
+              numColumns={4}
+              columnWrapperStyle={{ gap: 8 }}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              contentContainerStyle={{ gap: 8 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    handleDeviceTypeChange(item.value);
+                    setOpenType(false);
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1 / 4,
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#e5e5e5",
+                    backgroundColor: pressed ? "#f2f2f2" : "#fff",
+                    minHeight: 48,
+                  })}
+                >
+                  <Text
+                    numberOfLines={2}
+                    style={{ fontSize: 14, textAlign: "center" }}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <TouchableOpacity
+              onPress={() => setOpenType(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* === MODALE MARQUE === */}
+      <Modal
+        visible={openBrand}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenBrand(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Marque du produit
+            </Text>
+            <FlatList
+              data={brands.map((b) => ({ label: b.nom, value: b.id }))}
+              keyExtractor={(it, i) => String(it.value ?? i)}
+              numColumns={4}
+              columnWrapperStyle={{ gap: 8 }}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              contentContainerStyle={{ gap: 8 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    handleBrandChange(item.value);
+                    setOpenBrand(false);
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1 / 4,
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#e5e5e5",
+                    backgroundColor: pressed ? "#f2f2f2" : "#fff",
+                    minHeight: 48,
+                  })}
+                >
+                  <Text
+                    numberOfLines={2}
+                    style={{ fontSize: 14, textAlign: "center" }}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <TouchableOpacity
+              onPress={() => setOpenBrand(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* === MODALE MODÈLE === */}
+      <Modal
+        visible={openModel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenModel(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Modèle du produit
+            </Text>
+            <FlatList
+              data={models.map((m) => ({ label: m.nom, value: m.id }))}
+              keyExtractor={(it, i) => String(it.value ?? i)}
+              numColumns={4}
+              columnWrapperStyle={{ gap: 8 }}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              contentContainerStyle={{ gap: 8 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    handleModelChange(item.value);
+                    setOpenModel(false);
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1 / 4,
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#e5e5e5",
+                    backgroundColor: pressed ? "#f2f2f2" : "#fff",
+                    minHeight: 48,
+                  })}
+                >
+                  <Text
+                    numberOfLines={2}
+                    style={{ fontSize: 14, textAlign: "center" }}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <TouchableOpacity
+              onPress={() => setOpenModel(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modale info */}
+<Modal transparent visible={alertVisible} animationType="fade" onRequestClose={closeAlert}>
+  <View style={styles.modalOverlay}>
+    <View style={[
+      styles.alertBox,
+      alertType === 'success' ? styles.alertBoxSuccess : styles.alertBoxDanger
+    ]}>
+      <Text style={styles.alertTitle}>{alertTitle}</Text>
+      <Text style={styles.alertMessage}>{alertMessage}</Text>
+      <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
+        <Text style={styles.modalButtonText}>OK</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+
+      {/* Modale rappel mot de passe — cadre rouge */}
       <Modal
-        transparent={true}
-        visible={alertVisible}
+        transparent
+        visible={pwdReminderVisible}
         animationType="fade"
-        onRequestClose={closeAlert}
+        onRequestClose={() => setPwdReminderVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>{alertTitle}</Text>
-            <Text style={styles.alertMessage}>{alertMessage}</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
+          <View style={[styles.alertBox, styles.alertBoxDanger]}>
+            <Text style={styles.alertTitle}>Rappel</Text>
+            <Text style={styles.alertMessage}>
+              Aucun mot de passe n’a été saisi. Continuer sans renseigner le mot
+              de passe ?
+            </Text>
+
+            <View style={styles.rowButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.btnCancel]}
+                onPress={() => setPwdReminderVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.btnContinue]}
+                onPress={() => {
+                  setPwdReminderVisible(false);
+                  performSaveIntervention(); // on sauvegarde quand même
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  Continuer
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1682,7 +2018,9 @@ const getDisplayUri = async (refOrPath) => {
   let raw = refOrPath;
   if (raw && typeof raw === "object")
     raw = raw.path || raw.url || raw.uri || "";
-  raw = stripQuotes(String(raw || "")).trim().replace(/\\+$/g, ""); // ⬅ backslashes de fin
+  raw = stripQuotes(String(raw || ""))
+    .trim()
+    .replace(/\\+$/g, ""); // ⬅ backslashes de fin
 
   if (!raw) return null;
 
@@ -1702,8 +2040,8 @@ const getDisplayUri = async (refOrPath) => {
   // 3) chemin bucket -> tente URL signée puis publique
   const clean = raw.replace(/^\/+/, ""); // enlève les "/" de tête
   const variants = clean.toLowerCase().startsWith("images/")
-    ? [clean.slice("images/".length), clean]           // relatif + complet
-    : [clean, "images/" + clean];                      // relatif + complet
+    ? [clean.slice("images/".length), clean] // relatif + complet
+    : [clean, "images/" + clean]; // relatif + complet
 
   for (const p of variants) {
     try {
@@ -1744,7 +2082,9 @@ function ResolvedImage({
       const u = await getDisplayUri(refOrPath);
       if (alive) setUri(u || null);
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [refOrPath]);
 
   const isLocal =
@@ -1800,10 +2140,12 @@ function ResolvedImage({
     </View>
   );
 
-  return onPress ? <TouchableOpacity onPress={() => onPress(uri)}>{Img}</TouchableOpacity> : Img;
+  return onPress ? (
+    <TouchableOpacity onPress={() => onPress(uri)}>{Img}</TouchableOpacity>
+  ) : (
+    Img
+  );
 }
-
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#e0e0e0", paddingHorizontal: 20 },
@@ -2019,6 +2361,55 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
+alertBoxDanger: {
+  backgroundColor: "#ffebee",
+  borderWidth: 2,
+  borderColor: "#d32f2f",
+},
+
+alertBoxSuccess: {
+  backgroundColor: "#e8f5e9",
+  borderWidth: 2,
+  borderColor: "#2e7d32",
+},
+
+btnDanger: {
+  backgroundColor: "#d32f2f",
+  borderRadius: 6,
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+},
+
+btnSuccess: {
+  backgroundColor: "#2e7d32",
+  borderRadius: 6,
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+},
+
+      rowButtons: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        width: "100%",
+        marginTop: 6,
+        gap: 10,
+      },
+
+      btnCancel: {
+        flex: 1,
+        backgroundColor: "#f3f3f3",
+        borderColor: "#bbb",
+        borderWidth: 1,
+        borderRadius: 6,
+      },
+
+      btnContinue: {
+        flex: 1,
+        backgroundColor: "#d32f2f",
+        borderColor: "#b71c1c",
+        borderWidth: 1,
+        borderRadius: 6,
+      },
   badgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" }, // vert
   badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" }, // rouge
@@ -2042,5 +2433,32 @@ const styles = StyleSheet.create({
   thumbItem: {
     marginHorizontal: 6,
     alignItems: "center",
+  },
+  pickersRow: { flexDirection: "row", marginBottom: 12 },
+  pickerBox: {
+    flex: 1,
+    height: 52,
+    borderWidth: 1,
+    borderColor: "#585858",
+    borderRadius: 8,
+    backgroundColor: "#cacaca",
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+
+  pickerBoxMid: {
+    marginHorizontal: 8,
+  },
+  picker: {
+    width: "100%",
+    height: "100%", // occupe toute la hauteur
+    paddingVertical: 0,
+    color: "#333",
+    ...Platform.select({
+      android: {
+        marginTop: -2, // petit ajustement visuel Android
+      },
+      
+    }),
   },
 });

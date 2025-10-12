@@ -16,6 +16,13 @@ import { supabase } from "../supabaseClient";
 
 const ITEMS_PER_PAGE = 2;
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const safeLower = (v) => (v ?? "").toString().toLowerCase();
+
+const getClientName = (o) =>
+  o?.clients?.name ?? o?.client?.name ?? o?.client_name ?? "Client";
+
+const getClientFiche = (o) =>
+  o?.clients?.ficheNumber ?? o?.client?.ficheNumber ?? o?.ficheNumber ?? "";
 
 // ---- Helpers -------------------------------------------------
 const toNumber = (v, def = 0) => {
@@ -107,19 +114,21 @@ export default function AllOrdersPage({ navigation }) {
     fetchOrders();
   }, []);
 
-  const handleSearchChange = (text) => {
-    setSearch(text);
-    const lower = text.toLowerCase();
-    const matches = orders.filter(
-      (order) =>
-        order.product?.toLowerCase().includes(lower) ||
-        order.brand?.toLowerCase().includes(lower) ||
-        order.model?.toLowerCase().includes(lower) ||
-        order.clients?.name?.toLowerCase().includes(lower) ||
-        order.clients?.ficheNumber?.toString().includes(lower)
-    );
-    setSuggestions(text.length > 0 ? matches.slice(0, 5) : []);
-  };
+const handleSearchChange = (text) => {
+  setSearch(text);
+  const lower = safeLower(text);
+
+  const matches = orders.filter((order) =>
+    safeLower(order.product).includes(lower) ||
+    safeLower(order.brand).includes(lower) ||
+    safeLower(order.model).includes(lower) ||
+    safeLower(getClientName(order)).includes(lower) ||
+    String(getClientFiche(order)).includes(lower)
+  );
+
+  setSuggestions(text.length > 0 ? matches.slice(0, 5) : []);
+};
+
 
   const fetchOrders = async () => {
     const { data, error } = await supabase
@@ -255,12 +264,13 @@ const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
     })
     .filter((order) => {
       const searchLower = search.toLowerCase();
-      const matchesSearch =
-        order.product.toLowerCase().includes(searchLower) ||
-        order.brand.toLowerCase().includes(searchLower) ||
-        order.model.toLowerCase().includes(searchLower) ||
-        order.clients.name.toLowerCase().includes(searchLower) ||
-        order.clients.ficheNumber.toString().includes(searchLower);
+const matchesSearch =
+  safeLower(order.product).includes(searchLower) ||
+  safeLower(order.brand).includes(searchLower) ||
+  safeLower(order.model).includes(searchLower) ||
+  safeLower(getClientName(order)).includes(searchLower) ||
+  String(getClientFiche(order)).includes(searchLower);
+
 
       const isPending = !order.received && !order.paid && !order.recovered;
       const isInProgress = order.received && !order.recovered;
@@ -350,9 +360,10 @@ const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
       <View style={styles.card}>
         {/* En-tête */}
         <View style={styles.headerRow}>
-          <Text style={styles.client}>
-            👤 {item.clients.name} (#{item.clients.ficheNumber})
-          </Text>
+<Text style={styles.client}>
+  👤 {getClientName(item)} (#{getClientFiche(item)})
+</Text>
+
           <Text style={styles.statusIndicator}>
             {getStatusIcon(item)} {getStatusText(item)}
           </Text>
@@ -482,30 +493,30 @@ const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
                       <Text style={styles.buttonText}>🗑️ Supprimer</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
-                    style={[styles.editButton, { backgroundColor: "#28a745" }]}
-                    onPress={() =>
-                      navigation.navigate("CommandePreviewPage", {
-                        order: {
-                          id: item.id,
-                          client: {
-                            name: item.clients.name,
-                            ficheNumber: item.clients.ficheNumber,
-                          },
-                          deviceType: item.product,
-                          brand: item.brand,
-                          model: item.model,
-                          cost: item.price,
-                          acompte: item.deposit,
-                          createdat: item.createdat,
-                          signatureclient: item.signatureclient,
-                          printed: item.printed,
-                          quantity: item.quantity ?? 1,
-                          total: item.total ?? total,
-                        },
-                        readOnly: true,
-                      })
-                    }
+<TouchableOpacity
+  style={[styles.editButton, { backgroundColor: "#28a745" }]}
+  onPress={() =>
+    navigation.navigate("CommandePreviewPage", {
+      order: {
+        id: item.id,
+        client: {
+          name: getClientName(item),
+          ficheNumber: getClientFiche(item),
+        },
+        deviceType: item.product,
+        brand: item.brand,
+        model: item.model,
+        cost: item.price,
+        acompte: item.deposit,
+        createdat: item.createdat,
+        signatureclient: item.signatureclient,
+        printed: item.printed,
+        quantity: item.quantity ?? 1,
+        total: item.total ?? total,
+      },
+      readOnly: true,
+    })
+  }
                   >
                     <Text style={styles.buttonText}>📄 Voir fiche imprimée</Text>
                   </TouchableOpacity>
@@ -658,24 +669,25 @@ const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
           onFocus={() => setFocusedField("search")}
           onBlur={() => setFocusedField(null)}
         />
-        {suggestions.length > 0 && (
-          <View style={styles.suggestionContainer}>
-            {suggestions.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => {
-                  setSearch(item.clients.name);
-                  setSuggestions([]);
-                }}
-                style={styles.suggestionItem}
-              >
-                <Text style={styles.suggestionText}>
-                  {item.clients.name} - {item.clients.ficheNumber}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+{suggestions.length > 0 && (
+  <View style={styles.suggestionContainer}>
+    {suggestions.map((it) => (
+      <TouchableOpacity
+        key={it.id}
+        onPress={() => {
+          setSearch(getClientName(it));
+          setSuggestions([]);
+        }}
+        style={styles.suggestionItem}
+      >
+        <Text style={styles.suggestionText}>
+          {getClientName(it)} - {getClientFiche(it)}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+)}
+
       </View>
 
       {/* Filtres */}

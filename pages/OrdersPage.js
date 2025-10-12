@@ -23,7 +23,8 @@ const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
 const ORDER_PHOTOS_FOLDER = "orders"; // sous-dossier pour les commandes
 
 export default function OrdersPage({ route, navigation, order }) {
-  const { clientId, clientName, clientPhone, clientNumber } = route.params || {};
+  const { clientId, clientName, clientPhone, clientNumber, prefillProduct, autoReturnOnCreate } = route.params || {};
+
 
   const [orders, setOrders] = useState([]);
   const [expandedOrders, setExpandedOrders] = useState([]);
@@ -128,6 +129,15 @@ export default function OrdersPage({ route, navigation, order }) {
   useEffect(() => {
     if (clientId) setNewOrder((p) => ({ ...p, client_id: clientId }));
   }, [clientId]);
+useEffect(() => {
+  if (prefillProduct) {
+    setNewOrder((p) => ({
+      ...p,
+      product: prefillProduct,
+      client_id: clientId || p.client_id,
+    }));
+  }
+}, [prefillProduct, clientId]);
 
   useEffect(() => {
     loadOrders();
@@ -204,6 +214,12 @@ export default function OrdersPage({ route, navigation, order }) {
         client_id: clientId,
       });
       loadOrders();
+      if (autoReturnOnCreate) {
+  // On revient immédiatement pour finaliser la fiche d’intervention
+  navigation.goBack();
+  return;
+}
+
     } catch (e) {
       console.error("❌ Ajout commande:", e);
     }

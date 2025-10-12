@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
 import { useRoute, useIsFocused } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../supabaseClient";
 export default function BottomMenu({
     navigation,
     filterByStatus,
@@ -12,6 +13,7 @@ export default function BottomMenu({
     const isFocused = useIsFocused();
     const [activeButton, setActiveButton] = useState(null); // État pour le bouton actif
     const [showBackupAlert, setShowBackupAlert] = useState(false);
+    const [ongoingCount, setOngoingCount] = useState(0);
 
     // Désactiver les autres boutons lorsque l'on revient sur Home
     useEffect(() => {
@@ -22,6 +24,53 @@ export default function BottomMenu({
         }
         checkBackupReminder();
     }, [isFocused, route.name]);
+useEffect(() => {
+  if (!isFocused) return;
+
+  const commandeStatuses = ["Commande en cours", "En attente de pièces"]; // ← adapte à tes libellés exacts
+
+  (async () => {
+    try {
+      // 1) commandes depuis "orders" encore en cours = paid = false
+      const { count: ordersCount, error: err1 } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("paid", false);
+
+      if (err1) throw err1;
+
+      // 2) "commandes" logées dans la table "interventions"
+      //    → si tes statuts sont différents, modifie la liste ci-dessus.
+      const { count: interCount, error: err2 } = await supabase
+        .from("interventions")
+        .select("*", { count: "exact", head: true })
+        .in("status", commandeStatuses);
+
+      if (err2) throw err2;
+
+      setOngoingCount((ordersCount ?? 0) + (interCount ?? 0));
+    } catch (e) {
+      console.error("Erreur comptage commandes en cours:", e);
+      // Fallback plus permissif si tes libellés ne matchent pas :
+      try {
+        const { count: ordersCount2 } = await supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("paid", false);
+
+        const { count: interCount2 } = await supabase
+          .from("interventions")
+          .select("*", { count: "exact", head: true })
+          .ilike("status", "%commande%"); // attrape "commande", "commandes", etc.
+
+        setOngoingCount((ordersCount2 ?? 0) + (interCount2 ?? 0));
+      } catch {
+        setOngoingCount(0);
+      }
+    }
+  })();
+}, [isFocused]);
+
 
     const handlePress = (status, action) => {
         if (status !== "Home") {
@@ -63,22 +112,33 @@ export default function BottomMenu({
     return (
         <View style={styles.bottomMenuContainer}>
             <View style={styles.filterRow}>
-                <TouchableOpacity
-                    style={[
-                        styles.filterButtonShipping,
-                        { backgroundColor: getButtonColor("Commande") },
-                        getButtonBorder("Commande"),
-                    ]}
-                    onPress={() => handlePress("Commande", onFilterCommande)}
-                >
-                    <View style={styles.buttonContent}>
-                        <Image
-                            source={require("../assets/icons/shipping.png")}
-                            style={styles.icon}
-                        />
-                        <Text style={styles.filterText}>Commande</Text>
-                    </View>
-                </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    styles.filterButtonShipping,
+    { backgroundColor: getButtonColor("Commande") },
+    getButtonBorder("Commande"),
+  ]}
+  onPress={() => handlePress("Commande", onFilterCommande)}
+>
+  <View style={styles.buttonContent}>
+    <View style={styles.iconWrap}>
+      <Image
+        source={require("../assets/icons/shipping.png")}
+        style={styles.icon}
+      />
+      {ongoingCount > 0 && (
+        <View style={styles.greenBadge}>
+          <Text style={styles.greenBadgeText}>
+            {ongoingCount > 99 ? "99+" : String(ongoingCount)}
+          </Text>
+        </View>
+      )}
+    </View>
+    <Text style={styles.filterText}>Commande</Text>
+  </View>
+</TouchableOpacity>
+
+
 
 				<TouchableOpacity
     style={[
@@ -419,4 +479,31 @@ const styles = StyleSheet.create({
         top: 0,
         right: 0,
     },
+iconWrap: {
+  position: "relative",
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: 8,
+},
+greenBadge: {
+  position: "absolute",
+  top: -5,
+  right: 0,
+  minWidth: 30,
+  height: 30,
+  paddingHorizontal: 4,
+  borderRadius: 10,
+  backgroundColor: "#0c7a3a",
+  borderWidth: 1,
+  borderColor: "#ffffff",
+  alignItems: "center",
+  justifyContent: "center",
+},
+greenBadgeText: {
+  color: "#ffffff",
+  fontSize: 11,
+  fontWeight: "bold",
+},
+
+
 });

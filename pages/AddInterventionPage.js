@@ -12,6 +12,7 @@ import {
   Image,
   TouchableWithoutFeedback,
   Alert,
+  Keyboard,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -92,6 +93,20 @@ export default function AddInterventionPage({ route, navigation }) {
   const [showDeviceTypes, setShowDeviceTypes] = useState(true);
   const [showBrands, setShowBrands] = useState(true);
   const [showModels, setShowModels] = useState(true);
+  const [openType, setOpenType] = useState(false);
+  const [openBrand, setOpenBrand] = useState(false);
+  const [openModel, setOpenModel] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [cameraBusy, setCameraBusy] = useState(false);
+  // ⬇️ ajoute ceci avec les autres useState
+  const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
+  const [alertType, setAlertType] = useState("info"); // "success" | "danger" | "info"
+  const openAlert = (type, title, message) => {
+    setAlertType(type); // "danger" | "success"
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   // Helper: détecte une URI locale
   const isLocalRef = (s) => typeof s === "string" && s.startsWith("file://");
 
@@ -173,12 +188,29 @@ export default function AddInterventionPage({ route, navigation }) {
 
         const compressedUri = compressedImage.uri;
 
-        // ✅ étiquette seule
-        setLabelPhoto(compressedUri);
-        setIsPhotoTaken(true);
+// ✅ Téléverser directement l'image dans Supabase
+const publicUrl = await uploadImageToStorage(
+  compressedUri,
+  clientId || "tmp",   // on utilise le clientId comme dossier provisoire
+  true                 // isLabel = true → dossier 'etiquettes'
+);
 
-        // 👉 ne PAS l’ajouter dans photos, pour éviter le doublon en bas
-        // setPhotos((prev) => [compressedUri, ...prev]);  // <-- SUPPRIMÉ
+if (!publicUrl) {
+  Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+  return;
+}
+
+// ✅ étiquette = URL cloud (visible sur A et B)
+setLabelPhoto(publicUrl);
+setIsPhotoTaken(true);
+
+// (on n’ajoute toujours pas l’étiquette dans 'photos', pour éviter les doublons)
+if (!reference) {
+  setReference("Voir photo pour référence produit");
+}
+
+console.log("✅ Image d'étiquette (URL):", publicUrl);
+
 
         if (!reference) {
           setReference("Voir photo pour référence produit");
@@ -211,10 +243,25 @@ export default function AddInterventionPage({ route, navigation }) {
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        const compressedUri = compressedImage.uri;
-        setPhotos([...photos, compressedUri]);
+const compressedUri = compressedImage.uri;
 
-        console.log("✅ Image supplémentaire ajoutée (URI) :", compressedUri);
+// ✅ Téléverser directement l'image dans Supabase
+const publicUrl = await uploadImageToStorage(
+  compressedUri,
+  clientId || "tmp",   // dossier provisoire basé sur le client
+  false                // isLabel = false → dossier 'supplementaires'
+);
+
+if (!publicUrl) {
+  Alert.alert("Erreur", "Échec de l'upload de la photo.");
+  return;
+}
+
+// ✅ on stocke l'URL cloud (visible sur A et B)
+setPhotos((prev) => [...prev, publicUrl]);
+
+console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
+
       } else {
         console.log("Aucune image capturée ou opération annulée.");
       }
@@ -379,12 +426,18 @@ export default function AddInterventionPage({ route, navigation }) {
     }
 
     if (errors.length > 0) {
-      const errorMsg =
-        "Champs manquants ou incorrects :\n\n" + errors.join("\n");
-      Alert.alert("Erreur", errorMsg);
+      openAlert(
+        "danger",
+        "Champs manquants ou incorrects",
+        "Veuillez corriger :\n\n" + errors.join("\n")
+      );
       return;
     }
-
+    // 🔔 Rappel non bloquant si mot de passe vide
+    if (!password) {
+      setPwdReminderVisible(true);
+      return; // on attend le choix dans la modale
+    }
     // 🔹 Gestion du montant du devis (champ existant, conservé)
     const formattedDevisCost =
       status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null; // null si vide
@@ -473,12 +526,16 @@ export default function AddInterventionPage({ route, navigation }) {
       if (error) {
         console.error("❌ Erreur d'insertion intervention :", error.message);
         setAlertTitle("Erreur");
-        setAlertMessage("Une erreur est survenue lors de l'enregistrement.");
+        openAlert(
+          "danger",
+          "Erreur",
+          "Une erreur est survenue lors de l'enregistrement."
+        );
         setAlertVisible(true);
         return;
       }
       setAlertTitle("Succès");
-      setAlertMessage("Intervention enregistrée avec succès.");
+      openAlert("success", "Succès", "Intervention enregistrée avec succès.");
       setAlertVisible(true);
     } catch (e) {
       console.error("❌ Exception insertion :", e);
@@ -491,6 +548,102 @@ export default function AddInterventionPage({ route, navigation }) {
   const closeAlert = () => {
     setAlertVisible(false);
     if (alertTitle === "Succès") navigation.navigate("Home");
+  };
+  const performAddIntervention = async () => {
+    // 🔹 Gestion du montant du devis (champ existant, conservé)
+    const formattedDevisCost =
+      status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null;
+
+    // Conversion sécurisée
+    const costValue = cost ? parseFloat(cost) : 0;
+    const partialPaymentValue = partialPayment ? parseFloat(partialPayment) : 0;
+
+    // Solde restant dû
+    let solderestant = costValue - partialPaymentValue;
+    if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
+
+    const uploadedPhotoUrls = photos;
+    const labelPhotoUrl = labelPhoto;
+
+    // Ids liés (création “Autre …” si besoin)
+    const articleId = await addArticleIfNeeded();
+    const brandId = await addBrandIfNeeded(articleId);
+    const modelId = await addModelIfNeeded(brandId, articleId);
+
+    if (!articleId) {
+      Alert.alert("Erreur", "Type de produit introuvable. Veuillez réessayer.");
+      return;
+    }
+    if (!brandId) {
+      Alert.alert("Erreur", "Marque introuvable. Veuillez réessayer.");
+      return;
+    }
+
+    const interventionData = {
+      reference,
+      brand: customBrand || brands.find((b) => b.id === brand)?.nom,
+      model: customModel || models.find((m) => m.id === model)?.nom,
+      serial_number,
+      description,
+      cost: costValue,
+      solderestant,
+      status,
+      // --- Devis / fourchette ---
+      estimate_min:
+        status === "Devis en cours"
+          ? parseFloat(normalizeNumber(estimateMin))
+          : null,
+      estimate_max:
+        status === "Devis en cours"
+          ? parseFloat(normalizeNumber(estimateMax))
+          : null,
+      estimate_type: status === "Devis en cours" ? estimateType : null,
+      is_estimate: status === "Devis en cours",
+      estimate_accepted:
+        status === "Devis en cours" && estimateType === "PLAFOND" ? true : null,
+      estimate_accepted_at:
+        status === "Devis en cours" && estimateType === "PLAFOND"
+          ? new Date().toISOString()
+          : null,
+
+      deviceType: customDeviceType || deviceType,
+      password,
+      commande,
+      chargeur: chargeur === "Oui",
+      client_id: clientId,
+      photos: uploadedPhotoUrls,
+      label_photo: labelPhotoUrl,
+      article_id: articleId,
+      marque_id: brandId,
+      modele_id: modelId,
+      remarks,
+      paymentStatus,
+      partialPayment: partialPayment ? parseFloat(partialPayment) : null,
+      accept_screen_risk: acceptScreenRisk,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (status === "Devis en cours") {
+      interventionData.devis_cost = formattedDevisCost;
+    }
+
+try {
+  const { error } = await supabase
+    .from("interventions")
+    .insert(interventionData);
+
+  if (error) {
+    console.error("❌ Erreur d'insertion intervention :", error.message);
+    openAlert("danger", "Erreur", "Une erreur est survenue lors de l'enregistrement.");
+    return;
+  }
+
+  openAlert("success", "Succès", "Intervention enregistrée avec succès.");
+} catch (e) {
+  console.error("❌ Exception insertion :", e);
+  openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");
+}
+
   };
 
   return (
@@ -506,162 +659,83 @@ export default function AddInterventionPage({ route, navigation }) {
           paddingBottom: 20,
           flexGrow: 1,
         }}
+        keyboardShouldPersistTaps="always"
       >
-        <View>
-          <Text style={styles.label}>Type de produit</Text>
-          {showDeviceTypes ? (
-            <View style={styles.buttonGroup}>
-              {products
-                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
-                .map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={[
-                      styles.selectionButton,
-                      deviceType === p.nom && styles.selectedButton,
-                    ]}
-                    onPress={() => handleDeviceTypeChange(p.nom)}
-                  >
-                    <Text style={styles.selectionText}>{p.nom}</Text>
-                  </TouchableOpacity>
-                ))}
-              <TouchableOpacity
-                style={[
-                  styles.selectionButton,
-                  deviceType === "Autre" && styles.selectedButton,
-                ]}
-                onPress={() => handleDeviceTypeChange("Autre")}
-              >
-                <Text style={styles.selectionText}>Autre</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.selectedInfo}>Produit : {deviceType}</Text>
-              {deviceType === "Autre" && (
-                <TextInput
-                  style={styles.input}
-                  placeholder="Entrez le type de produit"
-                  value={customDeviceType}
-                  onChangeText={setCustomDeviceType}
-                />
-              )}
-              <View style={styles.reopenContainer}>
-                <TouchableOpacity
-                  style={styles.reopenButton}
-                  onPress={() => setShowDeviceTypes(true)}
-                >
-                  <Text style={styles.reopenButtonText}>
-                    Modifier le produit
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+        {/* SÉLECTEURS COMPACTS (ouvrent les modales) */}
+        <View style={styles.pickersRow}>
+          {/* Type */}
+          <TouchableOpacity
+            style={styles.pickerBox}
+            onPress={() => setOpenType(true)}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                color: deviceType && deviceType !== "default" ? "#111" : "#666",
+              }}
+            >
+              {deviceType && deviceType !== "default"
+                ? products.find((p) => p.nom === deviceType)?.nom || deviceType
+                : "Type de produit"}
+            </Text>
+          </TouchableOpacity>
 
-          <Text style={styles.label}>Marque</Text>
-          {showBrands ? (
-            <View style={styles.buttonGroup}>
-              {brands
-                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
-                .map((b) => (
-                  <TouchableOpacity
-                    key={b.id}
-                    style={[
-                      styles.selectionButton,
-                      brand === b.id && styles.selectedButton,
-                    ]}
-                    onPress={() => handleBrandChange(b.id)}
-                  >
-                    <Text style={styles.selectionText}>{b.nom}</Text>
-                  </TouchableOpacity>
-                ))}
-              <TouchableOpacity
-                style={[
-                  styles.selectionButton,
-                  brand === "Autre" && styles.selectedButton,
-                ]}
-                onPress={() => handleBrandChange("Autre")}
-              >
-                <Text style={styles.selectionText}>Autre</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.selectedInfo}>
-                Marque :{" "}
-                {customBrand || brands.find((b) => b.id === brand)?.nom}
-              </Text>
-              {brand === "Autre" && (
-                <TextInput
-                  style={styles.input}
-                  placeholder="Entrez la marque"
-                  value={customBrand}
-                  onChangeText={setCustomBrand}
-                />
-              )}
-              <TouchableOpacity
-                style={styles.reopenButton}
-                onPress={() => setShowBrands(true)}
-              >
-                <Text style={styles.reopenButtonText}>Modifier la marque</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <View style={{ width: 8 }} />
 
-          <Text style={styles.label}>Modèle</Text>
-          {showModels ? (
-            <View style={styles.buttonGroup}>
-              {models
-                .sort((a, b) => a.nom.localeCompare(b.nom)) // <== Ajouté ici
-                .map((m) => (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={[
-                      styles.selectionButton,
-                      model === m.id && styles.selectedButton,
-                    ]}
-                    onPress={() => {
-                      setModel(m.id);
-                      setShowModels(false);
-                    }}
-                  >
-                    <Text style={styles.selectionText}>{m.nom}</Text>
-                  </TouchableOpacity>
-                ))}
-              <TouchableOpacity
-                style={[
-                  styles.selectionButton,
-                  model === "Autre" && styles.selectedButton,
-                ]}
-                onPress={() => setModel("Autre")}
-              >
-                <Text style={styles.selectionText}>Autre</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.selectedInfo}>
-                Modèle :{" "}
-                {customModel || models.find((m) => m.id === model)?.nom}
-              </Text>
-              {model === "Autre" && (
-                <TextInput
-                  style={styles.input}
-                  placeholder="Entrez le modèle"
-                  value={customModel}
-                  onChangeText={setCustomModel}
-                />
-              )}
-              <TouchableOpacity
-                style={styles.reopenButton}
-                onPress={() => setShowBrands(true)}
-              >
-                <Text style={styles.reopenButtonText}>Modifier le modèle</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          {/* Marque */}
+          <TouchableOpacity
+            style={[
+              styles.pickerBox,
+              { opacity: deviceType && deviceType !== "default" ? 1 : 0.5 },
+            ]}
+            disabled={!deviceType || deviceType === "default"}
+            onPress={() => setOpenBrand(true)}
+          >
+            <Text style={{ fontSize: 16, color: brand ? "#111" : "#666" }}>
+              {brand
+                ? brand === "Autre"
+                  ? "Autre"
+                  : brands.find((b) => b.id === brand)?.nom || "Marque"
+                : "Marque"}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ width: 8 }} />
+
+          {/* Modèle */}
+          <TouchableOpacity
+            style={[styles.pickerBox, { opacity: brand ? 1 : 0.5 }]}
+            disabled={!brand}
+            onPress={() => setOpenModel(true)}
+          >
+            <Text style={{ fontSize: 16, color: model ? "#111" : "#666" }}>
+              {model
+                ? model === "Autre"
+                  ? "Autre"
+                  : models.find((m) => m.id === model)?.nom || "Modèle"
+                : "Modèle"}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Champs saisis quand “Autre” est choisi */}
+        {deviceType === "Autre" && (
+          <TextInput
+            style={styles.input}
+            placeholder="Entrez le type de produit"
+            value={customDeviceType}
+            onChangeText={setCustomDeviceType}
+          />
+        )}
+
+        {brand === "Autre" && (
+          <TextInput
+            style={styles.input}
+            placeholder="Entrez la marque"
+            value={customBrand}
+            onChangeText={setCustomBrand}
+          />
+        )}
 
         {model === "Autre" && (
           <TextInput
@@ -671,6 +745,8 @@ export default function AddInterventionPage({ route, navigation }) {
             onChangeText={setCustomModel}
           />
         )}
+
+        {/* Séparateur */}
         <View
           style={{
             height: 2,
@@ -678,6 +754,7 @@ export default function AddInterventionPage({ route, navigation }) {
             marginVertical: 8,
           }}
         />
+
         <View style={styles.referenceContainer}>
           <TextInput
             style={styles.referenceInput}
@@ -995,17 +1072,47 @@ export default function AddInterventionPage({ route, navigation }) {
             )}
           </View>
         </View>
-        {status === "En attente de pièces" && (
-          <View style={styles.halfWidthContainer}>
-            <Text style={styles.label}>Commande</Text>
-            <TextInput
-              style={styles.input}
-              value={commande.toUpperCase()}
-              onChangeText={(text) => setCommande(text.toUpperCase())}
-              autoCapitalize="characters"
-            />
-          </View>
-        )}
+{status === "En attente de pièces" && (
+  <View style={styles.halfWidthContainer}>
+    <Text style={styles.label}>Commande</Text>
+
+    {/* Conteneur limité à 90% de la page */}
+    <View style={styles.commandeRowContainer}>
+      <View style={styles.sameLineRow}>
+        <TextInput
+          style={styles.inlineInput}
+          value={commande.toUpperCase()}
+          onChangeText={(text) => setCommande(text.toUpperCase())}
+          autoCapitalize="characters"
+          placeholder="Pièce ou produit à commander"
+          placeholderTextColor="#202020"
+        />
+
+        <TouchableOpacity
+          style={[styles.inlineButton, !commande?.trim() && styles.inlineButtonDisabled]}
+          activeOpacity={0.8}
+          disabled={!commande?.trim()}
+          onPress={() => {
+            if (!clientId) {
+              Alert.alert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
+              return;
+            }
+            navigation.navigate("OrdersPage", {
+              clientId,
+              clientName: clientName || "",
+              prefillProduct: (commande || "").trim(),
+              autoReturnOnCreate: true,
+            });
+          }}
+        >
+          <Text style={styles.inlineButtonText}>Créer commande</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+)}
+
+
 
         <Text style={styles.label}>Remarques</Text>
         <TextInput
@@ -1027,55 +1134,59 @@ export default function AddInterventionPage({ route, navigation }) {
           <Picker.Item label="Oui" value="Oui" />
         </Picker>
 
-{photos.length > 0 && (
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={styles.galleryRowCentered}
-    style={{ marginTop: 12 }}
-  >
-    {photos.map((photo, index) => (
-      <View key={index} style={styles.thumbWrapper}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setSelectedImage(photo)}
-          onLongPress={() => confirmDeletePhoto(photo)}
-          style={{ position: "relative" }}
-        >
-          <Image
-            source={{ uri: photo }}
-            style={[
-              styles.thumbnail,
-              photo === labelPhoto && { borderWidth: 2, borderColor: "#43ec86" },
-            ]}
-          />
-
-          {/* Badge Local/Cloud */}
-          <View
-            style={[
-              styles.badgeOverlay,
-              isLocalRef(photo) ? styles.badgeLocalBg : styles.badgeCloudBg,
-            ]}
+        {photos.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.galleryRowCentered}
+            style={{ marginTop: 12 }}
           >
-            <Text style={styles.badgeText}>
-              {isLocalRef(photo) ? "Local" : "Cloud"}
-            </Text>
-          </View>
-        </TouchableOpacity>
+            {photos.map((photo, index) => (
+              <View key={index} style={styles.thumbWrapper}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedImage(photo)}
+                  onLongPress={() => confirmDeletePhoto(photo)}
+                  style={{ position: "relative" }}
+                >
+                  <Image
+                    source={{ uri: photo }}
+                    style={[
+                      styles.thumbnail,
+                      photo === labelPhoto && {
+                        borderWidth: 2,
+                        borderColor: "#43ec86",
+                      },
+                    ]}
+                  />
 
-        {/* Bouton × pour supprimer */}
-        <TouchableOpacity
-          style={styles.deleteBadge}
-          onPress={() => confirmDeletePhoto(photo)}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Text style={styles.deleteBadgeText}>×</Text>
-        </TouchableOpacity>
-      </View>
-    ))}
-  </ScrollView>
-)}
+                  {/* Badge Local/Cloud */}
+                  <View
+                    style={[
+                      styles.badgeOverlay,
+                      isLocalRef(photo)
+                        ? styles.badgeLocalBg
+                        : styles.badgeCloudBg,
+                    ]}
+                  >
+                    <Text style={styles.badgeText}>
+                      {isLocalRef(photo) ? "Local" : "Cloud"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
 
+                {/* Bouton × pour supprimer */}
+                <TouchableOpacity
+                  style={styles.deleteBadge}
+                  onPress={() => confirmDeletePhoto(photo)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Text style={styles.deleteBadgeText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {selectedImage && (
           <Modal
@@ -1097,7 +1208,10 @@ export default function AddInterventionPage({ route, navigation }) {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.iconButton, styles.button]}
-            onPress={pickAdditionalImage}
+            onPress={() => {
+              Keyboard.dismiss();
+              pickAdditionalImage();
+            }}
           >
             <Icon
               name="camera"
@@ -1109,7 +1223,10 @@ export default function AddInterventionPage({ route, navigation }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, styles.saveButton]}
-            onPress={handleSaveIntervention}
+            onPress={() => {
+              Keyboard.dismiss();
+              handleSaveIntervention();
+            }}
           >
             <Icon
               name="save"
@@ -1121,20 +1238,407 @@ export default function AddInterventionPage({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      {/* === MODALE TYPE === */}
+      <Modal
+        visible={openType}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenType(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Type de produit
+            </Text>
+            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "center",
+                }}
+              >
+                {products
+                  .sort((a, b) => a.nom.localeCompare(b.nom))
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => {
+                        handleDeviceTypeChange(item.nom);
+                        setOpenType(false);
+                      }}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        minWidth: 120,
+                        borderWidth: 1,
+                        borderColor: "#e5e5e5",
+                        borderRadius: 8,
+                        backgroundColor: "#fff",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        numberOfLines={2}
+                        style={{ fontSize: 14, textAlign: "center" }}
+                      >
+                        {item.nom}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+              {/* … après la map des products … */}
+              <TouchableOpacity
+                onPress={() => {
+                  handleDeviceTypeChange("Autre");
+                  setOpenType(false);
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 8,
+                  minWidth: 120,
+                  borderWidth: 1,
+                  borderColor: "#e5e5e5",
+                  borderRadius: 8,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14, textAlign: "center" }}>
+                  Autre…
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setOpenType(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* === MODALE MARQUE === */}
+      <Modal
+        visible={openBrand}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenBrand(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Marque
+            </Text>
+            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "center",
+                }}
+              >
+                {brands
+                  .sort((a, b) => a.nom.localeCompare(b.nom))
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => {
+                        handleBrandChange(item.id);
+                        setOpenBrand(false);
+                      }}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        minWidth: 120,
+                        borderWidth: 1,
+                        borderColor: "#e5e5e5",
+                        borderRadius: 8,
+                        backgroundColor: "#fff",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        numberOfLines={2}
+                        style={{ fontSize: 14, textAlign: "center" }}
+                      >
+                        {item.nom}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  handleBrandChange("Autre");
+                  setOpenBrand(false);
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 8,
+                  minWidth: 120,
+                  borderWidth: 1,
+                  borderColor: "#e5e5e5",
+                  borderRadius: 8,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14, textAlign: "center" }}>
+                  Autre…
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setOpenBrand(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* === MODALE MODÈLE === */}
+      <Modal
+        visible={openModel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenModel(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "90%",
+              maxHeight: "80%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#585858",
+            }}
+          >
+            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
+              Modèle
+            </Text>
+            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "center",
+                }}
+              >
+                {models
+                  .sort((a, b) => a.nom.localeCompare(b.nom))
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => {
+                        setModel(item.id);
+                        setOpenModel(false);
+                      }}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        minWidth: 120,
+                        borderWidth: 1,
+                        borderColor: "#e5e5e5",
+                        borderRadius: 8,
+                        backgroundColor: "#fff",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        numberOfLines={2}
+                        style={{ fontSize: 14, textAlign: "center" }}
+                      >
+                        {item.nom}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setModel("Autre");
+                  setOpenModel(false);
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 8,
+                  minWidth: 120,
+                  borderWidth: 1,
+                  borderColor: "#e5e5e5",
+                  borderRadius: 8,
+                  backgroundColor: "#fff",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ fontSize: 14, textAlign: "center" }}>
+                  Autre…
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setOpenModel(false)}
+              style={{
+                marginTop: 10,
+                alignSelf: "flex-end",
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: "#007bff" }}>
+                Fermer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
-        transparent={true}
+        transparent
         visible={alertVisible}
         animationType="fade"
         onRequestClose={closeAlert}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>{alertTitle}</Text>
+          <View
+            style={[
+              styles.alertBox,
+              alertType === "success"
+                ? styles.alertBoxSuccess
+                : styles.alertBoxDanger,
+            ]}
+          >
+            <Text
+              style={[
+                styles.alertTitle,
+                alertType === "success"
+                  ? styles.alertTitleSuccess
+                  : styles.alertTitleDanger,
+              ]}
+            >
+              {alertTitle}
+            </Text>
+
             <Text style={styles.alertMessage}>{alertMessage}</Text>
+
             <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
-              <Text style={styles.modalButtonText}>OK</Text>
+              <Text
+                style={[
+                  styles.modalButtonText,
+                  alertType === "success"
+                    ? styles.modalButtonTextSuccess
+                    : styles.modalButtonTextDanger,
+                ]}
+              >
+                OK
+              </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modale rappel mot de passe */}
+      <Modal
+        transparent
+        visible={pwdReminderVisible}
+        animationType="fade"
+        onRequestClose={() => setPwdReminderVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.pwdReminderBox}>
+            <Text style={styles.pwdReminderTitle}>
+              Mot de passe non renseigné
+            </Text>
+            <Text style={styles.pwdReminderMessage}>
+              Vous pouvez l’ajouter maintenant, ou continuer sans.{"\n"}
+              (Ce rappel n’empêche pas l’enregistrement.)
+            </Text>
+
+            <View style={styles.pwdReminderActions}>
+              <TouchableOpacity
+                style={[styles.pwdBtn, styles.pwdBtnCancel]}
+                onPress={() => setPwdReminderVisible(false)}
+              >
+                <Text style={styles.pwdBtnCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.pwdBtn, styles.pwdBtnContinue]}
+                onPress={async () => {
+                  setPwdReminderVisible(false);
+                  await performAddIntervention();
+                }}
+              >
+                <Text style={styles.pwdBtnContinueText}>Continuer sans</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1541,13 +2045,151 @@ const styles = StyleSheet.create({
   badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" }, // vert
   badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" }, // rouge
-galleryRowCentered: {
-  flexGrow: 1,
-  flexDirection: "row",
-  justifyContent: "center",
-  alignItems: "center",
+  galleryRowCentered: {
+    flexGrow: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  pickersRow: { flexDirection: "row", marginBottom: 12 },
+  pickerBox: {
+    flex: 1,
+    height: 52,
+    borderWidth: 1,
+    borderColor: "#585858",
+    borderRadius: 8,
+    backgroundColor: "#cacaca",
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  pwdReminderBox: {
+    width: 320,
+    padding: 18,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#d32f2f", // cadre rouge (modale de rappel)
+    alignItems: "center",
+  },
+  pwdReminderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#b71c1c",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  pwdReminderMessage: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  pwdReminderActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  pwdBtn: {
+    minWidth: 120,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pwdBtnCancel: {
+    backgroundColor: "#eeeeee",
+    borderWidth: 1,
+    borderColor: "#c7c7c7",
+  },
+  pwdBtnContinue: {
+    backgroundColor: "#0c0f18",
+  },
+  pwdBtnCancelText: {
+    color: "#333",
+    fontWeight: "600",
+  },
+  pwdBtnContinueText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  alertBoxDanger: {
+    borderWidth: 2,
+    borderColor: "#d32f2f",
+    backgroundColor: "rgba(255,235,238,0.95)",
+  },
+  alertBoxSuccess: {
+    borderWidth: 2,
+    borderColor: "#2e7d32",
+    backgroundColor: "rgba(232,245,233,0.95)",
+  },
+  alertTitleDanger: { color: "#b71c1c" },
+  alertTitleSuccess: { color: "#1b5e20" },
+  modalButtonTextDanger: { color: "#b71c1c", fontWeight: "700" },
+  modalButtonTextSuccess: { color: "#1b5e20", fontWeight: "700" },
+  smallActionButton: {
+  backgroundColor: "#191f2f",
+  paddingVertical: 10,
   paddingHorizontal: 12,
-  gap: 8,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#424242",
 },
+smallActionButtonText: {
+  color: "#ffffff",
+  fontWeight: "700",
+  fontSize: 12,
+},
+// Conteneur limité à 90% de la largeur de la page
+commandeRowContainer: {
+  width: "90%",
+  alignSelf: "center",
+},
+// ——— Aligne le champ + bouton sur une ligne, pleine largeur ———
+sameLineRow: {
+  width: "100%",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8, // si RN < 0.71, remplace par marginRight sur le champ
+},
+
+// ——— Champ "Commande" harmonisé ———
+inlineInput: {
+  flex: 1,
+  height: 46,               // ← hauteur identique au bouton
+  paddingHorizontal: 12,
+  borderWidth: 1,
+  borderColor: "#424242",
+  borderRadius: 8,
+  backgroundColor: "#ffffff",
+  color: "#111827",
+  // Si ton styles.input a déjà des réglages précis, tu peux partir de lui :
+  // ...styles.input, puis override uniquement height/borderRadius/etc.
+},
+
+// ——— Bouton "Créer commande" harmonisé ———
+inlineButton: {
+  height: 46,               // ← même hauteur que le champ
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#424242",
+  backgroundColor: "#191f2f",
+  alignItems: "center",
+  justifyContent: "center",
+  // largeur auto : s’adapte au texte sans casser l’alignement
+},
+
+inlineButtonDisabled: {
+  opacity: 0.5,
+},
+
+inlineButtonText: {
+  color: "#ffffff",
+  fontWeight: "700",
+  fontSize: 12,
+},
+
 
 });

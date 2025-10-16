@@ -63,6 +63,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [serial_number, setSerial_number] = useState("");
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("");
+ 
   const [devisCost, setDevisCost] = useState(""); // Ajout du champ devisCost
   const [estimateMin, setEstimateMin] = useState("");
   const [estimateMax, setEstimateMax] = useState("");
@@ -107,6 +108,7 @@ export default function AddInterventionPage({ route, navigation }) {
     setAlertMessage(message);
     setAlertVisible(true);
   };
+  
   // Helper: détecte une URI locale
   const isLocalRef = (s) => typeof s === "string" && s.startsWith("file://");
 
@@ -554,13 +556,20 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
     const formattedDevisCost =
       status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null;
 
-    // Conversion sécurisée
-    const costValue = cost ? parseFloat(cost) : 0;
-    const partialPaymentValue = partialPayment ? parseFloat(partialPayment) : 0;
+// Normalisations sûres (virgule/point acceptées)
+const parseEu = (v) => {
+  const s = (v ?? "").toString().replace(",", ".").trim();
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
 
-    // Solde restant dû
-    let solderestant = costValue - partialPaymentValue;
-    if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
+const costValue = parseEu(cost);            // ← on enregistre le TOTAL tel que saisi
+const partialPaymentValue = parseEu(partialPayment);
+
+let solderestant = costValue - partialPaymentValue;
+if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
+
+
 
     const uploadedPhotoUrls = photos;
     const labelPhotoUrl = labelPhoto;
@@ -1057,19 +1066,21 @@ try {
               </>
             )}
 
-            {status !== "Devis en cours" && (
-              <View style={styles.halfWidthContainer}>
-                <Text style={styles.label}>Coût de la réparation (€)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Coût total (€)"
-                  placeholderTextColor="#202020"
-                  keyboardType="numeric"
-                  value={cost}
-                  onChangeText={(text) => setCost(text)}
-                />
-              </View>
-            )}
+{status !== "Devis en cours" && (
+  <View style={styles.halfWidthContainer}>
+    <Text style={styles.label}>Coût de la réparation (€)</Text>
+    <TextInput
+      style={styles.input}
+      placeholder="Coût total (€)"
+      placeholderTextColor="#202020"
+      keyboardType="numeric"
+      value={cost}
+      onChangeText={setCost}
+    />
+  </View>
+)}
+
+
           </View>
         </View>
 {status === "En attente de pièces" && (
@@ -1097,12 +1108,14 @@ try {
               Alert.alert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
               return;
             }
-            navigation.navigate("OrdersPage", {
-              clientId,
-              clientName: clientName || "",
-              prefillProduct: (commande || "").trim(),
-              autoReturnOnCreate: true,
-            });
+navigation.navigate("OrdersPage", {
+  clientId,
+  clientName: clientName || "",
+  prefillProduct: (commande || "").trim(),
+  autoReturnOnCreate: true,
+  fromIntervention: true, // 👈 nouvel indicateur
+});
+
           }}
         >
           <Text style={styles.inlineButtonText}>Créer commande</Text>
@@ -2189,6 +2202,27 @@ inlineButtonText: {
   color: "#ffffff",
   fontWeight: "700",
   fontSize: 12,
+},
+costRow: {
+  width: "100%",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8, // si non supporté, enlève et mets marginLeft sur orderCostInput
+},
+
+costInput: {
+  height: 46,
+  paddingHorizontal: 12,
+  borderWidth: 1,
+  borderColor: "#424242",
+  borderRadius: 8,
+  backgroundColor: "#ffffff",
+  color: "#111827",
+},
+
+orderCostInput: {
+  width: 160, // largeur fixe lisible pour le champ "Coût commande"
 },
 
 

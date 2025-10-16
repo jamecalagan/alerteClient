@@ -23,7 +23,15 @@ const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
 const ORDER_PHOTOS_FOLDER = "orders"; // sous-dossier pour les commandes
 
 export default function OrdersPage({ route, navigation, order }) {
-  const { clientId, clientName, clientPhone, clientNumber, prefillProduct, autoReturnOnCreate } = route.params || {};
+  const {
+  clientId,
+  clientName,
+  clientPhone,
+  clientNumber,
+  prefillProduct,
+  autoReturnOnCreate,
+  fromIntervention, // 👈 on lit ce nouveau flag
+} = route.params || {};
 
 
   const [orders, setOrders] = useState([]);
@@ -129,15 +137,24 @@ export default function OrdersPage({ route, navigation, order }) {
   useEffect(() => {
     if (clientId) setNewOrder((p) => ({ ...p, client_id: clientId }));
   }, [clientId]);
+
+
 useEffect(() => {
   if (prefillProduct) {
+    const label =
+      fromIntervention
+        ? `${prefillProduct} (inclus dans le coût de l’intervention)` // 👈 optionnel et visuel
+        : prefillProduct;
+
     setNewOrder((p) => ({
       ...p,
-      product: prefillProduct,
+      product: label,
       client_id: clientId || p.client_id,
+      // on NE force pas le prix ici : on le traitera au moment de créer (0 par défaut)
     }));
   }
-}, [prefillProduct, clientId]);
+}, [prefillProduct, clientId, fromIntervention]);
+
 
   useEffect(() => {
     loadOrders();
@@ -176,54 +193,66 @@ useEffect(() => {
     );
   };
 
-  const handleCreateOrder = async () => {
-    try {
-      if (!newOrder.product || !newOrder.price) {
-        alert("Veuillez remplir au moins le produit et le prix !");
-        return;
-      }
-      const priceToSend = parseFloat((newOrder.price || "0").replace(",", ".")) || 0;
-      const qtyToSend = Math.max(1, parseInt(newOrder.quantity || "1", 10) || 1);
-      const depositToSend = parseFloat((newOrder.deposit || "0").replace(",", ".")) || 0;
-      const totalToSend = priceToSend * qtyToSend;
+const handleCreateOrder = async () => {
+  try {
+    // Produit requis, prix facultatif (0 € si vide)
+    if (!newOrder.product || !newOrder.product.trim()) {
+      Alert.alert("Champs manquants", "Renseignez au minimum le produit.");
+      return;
+    }
 
-      const { error } = await supabase.from("orders").insert([
-        {
-          product: newOrder.product,
-          brand: newOrder.brand || "",
-          model: newOrder.model || "",
-          serial: newOrder.serial || "",
-          price: priceToSend,
-          quantity: qtyToSend, // 🆕 en base si la colonne existe
-          total: totalToSend, // 🆕 idem
-          deposit: depositToSend,
-          paid: false,
-          client_id: clientId,
-        },
-      ]);
-      if (error) throw error;
-      setNewOrder({
-        product: "",
-        brand: "",
-        model: "",
-        serial: "",
-        price: "",
-        quantity: "1",
-        deposit: "",
+    const parseEu = (v) => {
+      const s = (v ?? "").toString().replace(",", ".").trim();
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    };
+
+    const priceNum   = parseEu(newOrder?.price);                 // 0 si vide
+    const qtyNum     = Math.max(1, parseInt(newOrder?.quantity || "1", 10) || 1);
+    const depositNum = parseEu(newOrder?.deposit);
+    const totalNum   = priceNum * qtyNum;
+
+    const { error } = await supabase.from("orders").insert([
+      {
+        product: (newOrder.product || "").trim(),
+        brand: newOrder.brand || "",
+        model: newOrder.model || "",
+        serial: newOrder.serial || "",
+        price: priceNum,             // peut être 0
+        quantity: qtyNum,
+        total: totalNum,             // calculé (0 si prix vide)
+        deposit: depositNum,
         paid: false,
         client_id: clientId,
-      });
-      loadOrders();
-      if (autoReturnOnCreate) {
-  // On revient immédiatement pour finaliser la fiche d’intervention
-  navigation.goBack();
-  return;
-}
+      },
+    ]);
+    if (error) throw error;
 
-    } catch (e) {
-      console.error("❌ Ajout commande:", e);
+    setNewOrder({
+      product: "",
+      brand: "",
+      model: "",
+      serial: "",
+      price: "",
+      quantity: "1",
+      deposit: "",
+      paid: false,
+      client_id: clientId,
+    });
+
+    loadOrders();
+
+    if (autoReturnOnCreate) {
+      // Retour immédiat pour finaliser la fiche d’intervention
+      navigation.goBack();
+      return;
     }
-  };
+  } catch (e) {
+    console.error("❌ Ajout commande:", e);
+    Alert.alert("Erreur", "Impossible de créer la commande.");
+  }
+};
+
 
   const handleDeleteOrder = async (ord) => {
     if (!ord.paid && !ord.saved) {

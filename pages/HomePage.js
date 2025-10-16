@@ -24,13 +24,57 @@ import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 import { Linking } from "react-native";
 import * as Clipboard from "expo-clipboard";
+
+// ——— Helpers montants ———
+const _toNum = (v) => {
+  const s = (v ?? "").toString().replace(",", ".").trim();
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+};
+const _fmt = (n) => `${(Math.round(n * 100) / 100).toFixed(2)} €`;
+const hasOpenOrderForClient = (orders = [], clientId) => {
+  const cid = String(clientId ?? "");
+  return orders.some((o) => String(o.client_id) === cid && !o.saved);
+};
+
+// Somme du restant dû pour les COMMANDES d’un client (non sauvegardées)
+const getOrderRemainingForClient = (orders = [], clientId) => {
+  const cid = String(clientId ?? "");
+  return orders
+    .filter((o) => String(o.client_id) === cid && !o.saved) // tu peux retirer !o.saved si tu veux compter même les sauvegardées
+    .reduce((acc, o) => {
+      const qty = Math.max(1, parseInt(o.quantity ?? 1, 10) || 1);
+      const unit = typeof o.price === "number" ? o.price : _toNum(o.price);
+      const total =
+        typeof o.total === "number" && !isNaN(o.total) ? o.total : unit * qty;
+      const deposit = _toNum(o.deposit);
+      const remaining = Math.max(0, total - deposit);
+      return acc + remaining;
+    }, 0);
+};
+
+// Restant dû pour l’INTERVENTION (prend solderestant si dispo, sinon recalcule)
+const getInterventionRemaining = (latestIntervention) => {
+  if (!latestIntervention) return 0;
+  if (latestIntervention.solderestant != null)
+    return _toNum(latestIntervention.solderestant);
+  const cost = _toNum(latestIntervention.cost);
+  const acompte = _toNum(
+    latestIntervention.partialPayment ?? latestIntervention.acompte
+  );
+  return Math.max(0, cost - acompte);
+};
+
 // ——— Helpers notifs commandes ———
-const isTruthy = (v) => v === true || v === 1 || v === "1" || v === "true" || v === "t";
+const isTruthy = (v) =>
+  v === true || v === 1 || v === "1" || v === "true" || v === "t";
 
 const hasClientOrderNotified = (orders, clientId) => {
   if (!Array.isArray(orders) || clientId == null) return false;
   const cid = String(clientId);
-  return orders.some((o) => String(o?.client_id) === cid && isTruthy(o?.notified));
+  return orders.some(
+    (o) => String(o?.client_id) === cid && isTruthy(o?.notified)
+  );
 };
 
 // retourne un timestamp (ms) de la DERNIÈRE intervention d'un client
@@ -132,9 +176,12 @@ export default function HomePage({ navigation, route, setUser }) {
   const [popupData, setPopupData] = useState([]); // [{ client, interventionsEnCours[], ordersEnCours[], montants }]
   const popupShownRef = useRef(false); // éviter d’ouvrir plusieurs fois dans la même session
   const [expressList, setExpressList] = useState([]);
-  // Map locale: { [interventionId]: 'pickup' | 'info' | 'none' }
+  const [ordersList, setOrdersList] = useState([]); // ← NE PAS RENOMMER
   const [notifyLocalMap, setNotifyLocalMap] = useState({});
-  // --- en haut de HomePage(...) avec les autres useState ---
+
+  const [openExpress, setOpenExpress] = useState(true);
+  const [openOrders, setOpenOrders] = useState(true);
+
   const [notifySheetVisible, setNotifySheetVisible] = useState(false);
   const [notifySheetCtx, setNotifySheetCtx] = useState(null); // { client, latest }
   const [notifyChooserVisible, setNotifyChooserVisible] = useState(false);
@@ -232,29 +279,28 @@ export default function HomePage({ navigation, route, setUser }) {
   };
 
   // persistance Supabase (asynchrone)
-// persistance Supabase (asynchrone) — SANS notify_type
-const persistNotify = async (interventionId, choice) => {
-  // choice: "pickup" | "info" | "none"
-  const payload =
-    choice === "none"
-      ? { notify_type: "none", notifiedBy: null, notifiedat: null }
-      : {
-          notify_type: choice,
-          notifiedBy: "SMS",
-          notifiedat: new Date().toISOString(),
-        };
+  // persistance Supabase (asynchrone) — SANS notify_type
+  const persistNotify = async (interventionId, choice) => {
+    // choice: "pickup" | "info" | "none"
+    const payload =
+      choice === "none"
+        ? { notify_type: "none", notifiedBy: null, notifiedat: null }
+        : {
+            notify_type: choice,
+            notifiedBy: "SMS",
+            notifiedat: new Date().toISOString(),
+          };
 
-  const { error } = await supabase
-    .from("interventions")
-    .update(payload)
-    .eq("id", interventionId);
+    const { error } = await supabase
+      .from("interventions")
+      .update(payload)
+      .eq("id", interventionId);
 
-  if (error) {
-    console.error("persistNotify:", error);
-    Alert.alert("Erreur", "Impossible d’enregistrer le signalement.");
-  }
-};
-
+    if (error) {
+      console.error("persistNotify:", error);
+      Alert.alert("Erreur", "Impossible d’enregistrer le signalement.");
+    }
+  };
 
   const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
     useState(0);
@@ -377,6 +423,44 @@ const persistNotify = async (interventionId, choice) => {
       </TouchableOpacity>
     );
   });
+  // Charge les commandes en cours (paid=false OU saved=false) pour l'encart
+  const loadOrdersInProgress = async () => {
+    try {
+      const { data: rows, error: err } = await supabase
+        .from("orders")
+        .select("*")
+        .or("paid.eq.false,saved.eq.false"); // pas d'ORDER BY (on trie côté JS)
+
+      if (err) throw err;
+
+      const sorted = (rows || [])
+        .slice()
+        .sort(
+          (a, b) => new Date(__coalesceDate(b)) - new Date(__coalesceDate(a))
+        );
+
+      const ids = [...new Set(sorted.map((o) => o.client_id).filter(Boolean))];
+      let map = {};
+      if (ids.length > 0) {
+        const { data: clients, error: cErr } = await supabase
+          .from("clients")
+          .select("id, name, phone, ficheNumber")
+          .in("id", ids);
+        if (cErr) throw cErr;
+        map = Object.fromEntries((clients || []).map((c) => [String(c.id), c]));
+      }
+
+      setOrdersList(
+        sorted.map((o) => ({
+          ...o,
+          __client: map[String(o.client_id)] || null,
+        }))
+      );
+    } catch (e) {
+      console.error("❌ Commandes en cours :", e);
+      setOrdersList([]);
+    }
+  };
 
   const loadPopupData = useCallback(async () => {
     try {
@@ -897,7 +981,9 @@ const persistNotify = async (interventionId, choice) => {
             client.latestIntervention = client.interventions[0];
             return client;
           });
-clientsToShow.sort((a, b) => __latestInterventionMs(b) - __latestInterventionMs(a));
+        clientsToShow.sort(
+          (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
+        );
         setClients(clientsToShow);
         setFilteredClients(clientsToShow);
       }
@@ -1030,7 +1116,7 @@ clientsToShow.sort((a, b) => __latestInterventionMs(b) - __latestInterventionMs(
       setOrderAsc(false);
       loadClients();
       loadOrders();
-
+      loadOrdersInProgress();
       loadRepairedNotReturnedCount();
       loadNotRepairedNotReturnedCount();
       loadExpressInProgress(); // ← AJOUT
@@ -1242,8 +1328,10 @@ interventions(
         };
       });
 
-      enriched.sort((a, b) => __latestInterventionMs(b) - __latestInterventionMs(a));
-setFilteredClients(enriched);
+      enriched.sort(
+        (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
+      );
+      setFilteredClients(enriched);
     } catch (e) {
       console.error("❌ Erreur lors de la recherche des clients :", e);
       setFilteredClients([]);
@@ -2148,8 +2236,10 @@ setFilteredClients(enriched);
                         );
                         const labelUri =
                           item?.latestIntervention?.label_photo || null;
-						  // Bleu si une commande du client est marquée notifiée (on tolère true/"true"/1)
-const orderNotified = Array.isArray(item.orders) && item.orders.some(o => isTruthy(o?.notified));
+                        // Bleu si une commande du client est marquée notifiée (on tolère true/"true"/1)
+                        const orderNotified =
+                          Array.isArray(item.orders) &&
+                          item.orders.some((o) => isTruthy(o?.notified));
 
                         return (
                           // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
@@ -2265,18 +2355,58 @@ const orderNotified = Array.isArray(item.orders) && item.orders.some(o => isTrut
                                     </Text>
                                   );
                                 })()}
+                                {(() => {
+                                  const interDue = getInterventionRemaining(
+                                    item.latestIntervention
+                                  );
+                                  const ordDue = getOrderRemainingForClient(
+                                    orders,
+                                    item.id
+                                  );
+                                  const hasOpen = hasOpenOrderForClient(
+                                    orders,
+                                    item.id
+                                  );
+                                  const totalDue = interDue + ordDue;
 
-                                {amountDue > 0 && (
-                                  <View style={styles.dueBox}>
-                                    <Text style={styles.dueText}>
-                                      💰 À régler :{" "}
-                                      {amountDue.toLocaleString("fr-FR", {
-                                        style: "currency",
-                                        currency: "EUR",
-                                      })}
-                                    </Text>
-                                  </View>
-                                )}
+                                  if (totalDue <= 0) return null;
+
+                                  return (
+                                    <View style={styles.dueBox}>
+                                      <View style={styles.dueRow}>
+                                        <Text
+                                          style={styles.dueText}
+                                          numberOfLines={1}
+                                          ellipsizeMode="tail"
+                                        >
+                                          💰 À régler :{" "}
+                                          {totalDue.toLocaleString("fr-FR", {
+                                            style: "currency",
+                                            currency: "EUR",
+                                          })}
+                                        </Text>
+
+                                        {hasOpen && (
+                                          <Text
+                                            style={styles.dueHint}
+                                            numberOfLines={1}
+                                          >
+                                            commande comprise{" "}
+                                            {ordDue > 0
+                                              ? `: ${ordDue.toLocaleString(
+                                                  "fr-FR",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "EUR",
+                                                  }
+                                                )}`
+                                              : "(incluse)"}
+                                          </Text>
+                                        )}
+                                      </View>
+                                    </View>
+                                  );
+                                })()}
 
                                 {item.devis_cost > 0 && (
                                   <Text style={styles.clientText}>
@@ -2555,44 +2685,57 @@ const orderNotified = Array.isArray(item.orders) && item.orders.some(o => isTrut
                                   )}
 
                                   {/* Commandes */}
-<TouchableOpacity
-  style={[
-    styles.iconSquare,
-    { borderColor: getOrderColor(item.orders || []) },
-  ]}
-  onPress={() =>
-    navigation.navigate("OrdersPage", {
-      clientId: item.id,
-      clientName: item.name,
-      clientPhone: item.phone,
-      clientNumber: item.ficheNumber,
-    })
-  }
-  activeOpacity={0.8}
->
-  {orderNotified ? (
-    // ✅ Notifié -> icône bleue (fixe)
-    <Image
-      source={require("../assets/icons/order.png")}
-      style={{ width: 28, height: 28, tintColor: "#1E90FF" }}
-      resizeMode="contain"
-    />
-  ) : Array.isArray(item.orders) && item.orders.some(__isActiveOrder) ? (
-    // 🟡 Commande active non payée -> clignote (comportement inchangé)
-    <BlinkingIcon source={require("../assets/icons/order.png")} />
-  ) : (
-    // ⚪ État normal (teinte selon getOrderColor)
-    <Image
-      source={require("../assets/icons/order.png")}
-      style={{
-        width: 28,
-        height: 28,
-        tintColor: getOrderColor(item.orders || []),
-      }}
-      resizeMode="contain"
-    />
-  )}
-</TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.iconSquare,
+                                      {
+                                        borderColor: getOrderColor(
+                                          item.orders || []
+                                        ),
+                                      },
+                                    ]}
+                                    onPress={() =>
+                                      navigation.navigate("OrdersPage", {
+                                        clientId: item.id,
+                                        clientName: item.name,
+                                        clientPhone: item.phone,
+                                        clientNumber: item.ficheNumber,
+                                      })
+                                    }
+                                    activeOpacity={0.8}
+                                  >
+                                    {orderNotified ? (
+                                      // ✅ Notifié -> icône bleue (fixe)
+                                      <Image
+                                        source={require("../assets/icons/order.png")}
+                                        style={{
+                                          width: 28,
+                                          height: 28,
+                                          tintColor: "#1E90FF",
+                                        }}
+                                        resizeMode="contain"
+                                      />
+                                    ) : Array.isArray(item.orders) &&
+                                      item.orders.some(__isActiveOrder) ? (
+                                      // 🟡 Commande active non payée -> clignote (comportement inchangé)
+                                      <BlinkingIcon
+                                        source={require("../assets/icons/order.png")}
+                                      />
+                                    ) : (
+                                      // ⚪ État normal (teinte selon getOrderColor)
+                                      <Image
+                                        source={require("../assets/icons/order.png")}
+                                        style={{
+                                          width: 28,
+                                          height: 28,
+                                          tintColor: getOrderColor(
+                                            item.orders || []
+                                          ),
+                                        }}
+                                        resizeMode="contain"
+                                      />
+                                    )}
+                                  </TouchableOpacity>
 
                                   {labelUri ? (
                                     // 👉 On montre la miniature de l'étiquette à la place de la corbeille
@@ -3248,61 +3391,152 @@ const orderNotified = Array.isArray(item.orders) && item.orders.some(o => isTrut
           </View>
         </TouchableWithoutFeedback>
         <View pointerEvents="box-none">
-          {expressList.length > 0 && (
-            <View style={styles.expressCard} pointerEvents="box-none">
-              <Text style={styles.expressTitle}>
-                Fiches EXPRESS en cours : {expressList.length}
-              </Text>
+{expressList.length > 0 && (
+  <View style={stylesNS.expressWrap}>
+    {/* === ACCORDÉON : EXPRESS === */}
+    <View style={stylesNS.card}>
+      <Pressable
+        style={stylesNS.cardHeader}
+        onPress={() => setOpenExpress((v) => !v)}
+        android_ripple={{ color: "#e5e7eb" }}
+      >
+        <Text style={stylesNS.cardTitle}>
+          Fiches EXPRESS en cours : {expressList.length}
+        </Text>
+        <Image
+          source={require("../assets/icons/chevrond.png")}
+          style={[
+            stylesNS.cardChevron,
+            { transform: [{ rotate: openExpress ? "90deg" : "-90deg" }] },
+          ]}
+        />
+      </Pressable>
 
-              {expressList.slice(0, 5).map((it) => (
-                <Pressable
-                  key={it.id}
-                  onPress={() =>
-                    navigation.navigate("ExpressListPage", {
-                      initialSearch: it.phone || it.name || "",
-                      initialType: it.type || "all",
-                    })
-                  }
-                  onLongPress={() =>
-                    navigation.navigate("EditClientPage", {
-                      clientId: it.client_id,
-                    })
-                  }
-                  android_ripple={{ borderless: false }}
-                  style={({ pressed }) => [
-                    { paddingVertical: 6 },
-                    pressed && { opacity: 0.6 },
-                  ]}
-                >
-<Text style={styles.expressItem}>
-  • {it.name} —{" "}
-  {it.type && it.type.toLowerCase().startsWith("vid")
-    ? "Transferts"
-    : it.product || it.device || "Produit"}{" "}
-  — {it.price ? `${it.price} €` : "—"}{" "}
-  {it.type ? `(${it.type})` : ""}
-
-  {"  "}
-  <Text
-    style={[
-      styles.badgeNotify,
-      it?.notified ? styles.badgeNotifyYes : styles.badgeNotifyNo,
-    ]}
-  >
-    {it?.notified ? "Notifié" : "À notifier"}
-  </Text>
-</Text>
-
-                </Pressable>
-              ))}
-
-              {expressList.length > 5 && (
-                <Text style={styles.expressMore}>
-                  … et {expressList.length - 5} de plus
+      {openExpress && (
+        <View style={stylesNS.cardBody}>
+          {expressList.slice(0, 5).map((it) => (
+            <Pressable
+              key={it.id}
+              onPress={() =>
+                navigation.navigate("ExpressListPage", {
+                  initialSearch: it.phone || it.name || "",
+                  initialType: it.type || "all",
+                })
+              }
+              onLongPress={() =>
+                navigation.navigate("EditClientPage", { clientId: it.client_id })
+              }
+              android_ripple={{ color: "#f1f5f9" }}
+              style={stylesNS.row}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={stylesNS.rowMain} numberOfLines={1}>
+                  {(it.name || "CLIENT").toUpperCase()} —{" "}
+                  {it.type && it.type.toLowerCase().startsWith("vid")
+                    ? "Transferts"
+                    : it.product || it.device || "Produit"}
                 </Text>
-              )}
-            </View>
+                <Text style={stylesNS.rowSub} numberOfLines={1}>
+                  {it.price ? `${Number(it.price).toFixed(2)} €` : "—"} ·{" "}
+                  {it.created_at ? new Date(it.created_at).toLocaleDateString("fr-FR") : "—"}
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  stylesNS.pill,
+                  it?.notified ? stylesNS.pillOk : stylesNS.pillDue,
+                ]}
+              >
+                {it?.notified ? "Notifié" : "À notifier"}
+              </Text>
+            </Pressable>
+          ))}
+
+          {expressList.length > 5 && (
+            <Text style={stylesNS.moreText}>
+              … et {expressList.length - 5} de plus
+            </Text>
           )}
+        </View>
+      )}
+    </View>
+
+    {/* === ACCORDÉON : Commandes en cours === */}
+    {ordersList.length > 0 && (
+      <View style={stylesNS.card}>
+        <Pressable
+          style={stylesNS.cardHeader}
+          onPress={() => setOpenOrders((v) => !v)}
+          android_ripple={{ color: "#e5e7eb" }}
+        >
+          <Text style={stylesNS.cardTitle}>
+            Commandes en cours : {ordersList.length}
+          </Text>
+          <Image
+            source={require("../assets/icons/chevrond.png")}
+            style={[
+              stylesNS.cardChevron,
+              { transform: [{ rotate: openOrders ? "90deg" : "-90deg" }] },
+            ]}
+          />
+        </Pressable>
+
+        {openOrders && (
+          <View style={stylesNS.cardBody}>
+            {ordersList.slice(0, 5).map((o) => {
+              const cli = o.__client || {};
+              const price = Number(o.price || 0);
+              const deposit = Number(o.deposit || 0);
+              const rest = Math.max(0, price - deposit);
+
+              return (
+                <Pressable
+                  key={o.id}
+                  onPress={() =>
+                    navigation.navigate("OrdersPage", {
+                      clientId: cli.id || o.client_id,
+                      clientName: cli.name,
+                      clientPhone: cli.phone,
+                      clientNumber: cli.ficheNumber,
+                    })
+                  }
+                  android_ripple={{ color: "#e9efff" }}
+                  style={stylesNS.row}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={stylesNS.rowMain} numberOfLines={1}>
+                      {(cli.name || "CLIENT").toUpperCase()} — {o.product || "Produit"}
+                    </Text>
+                    <Text style={stylesNS.rowSub} numberOfLines={1}>
+                      {price ? `${price.toFixed(2)} €` : "—"} · Fiche {cli.ficheNumber ?? "—"}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      stylesNS.pill,
+                      rest > 0 ? stylesNS.pillDue : stylesNS.pillOk,
+                    ]}
+                  >
+                    {rest > 0 ? `reste ${rest.toFixed(2)} €` : "OK"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            {ordersList.length > 5 && (
+              <Text style={stylesNS.moreText}>
+                … et {ordersList.length - 5} de plus
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    )}
+  </View>
+)}
+
         </View>
 
         <View style={styles.paginationContainer}>
@@ -4176,7 +4410,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   dueBox: {
-    maxWidth: 180,
+    maxWidth: 250,
     marginTop: 6,
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -4328,26 +4562,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   badgeNotify: {
-  paddingHorizontal: 8,
-  paddingVertical: 2,
-  borderRadius: 999,
-  borderWidth: 1,
-  fontSize: 11,
-  fontWeight: "700",
-  textTransform: "uppercase",
-  overflow: "hidden",
-},
-badgeNotifyYes: {
-  backgroundColor: "#e8f1ff",
-  borderColor: "#0d6efd",
-  color: "#0b5ed7",
-},
-badgeNotifyNo: {
-  backgroundColor: "#f3f4f6",
-  borderColor: "#cfd4da",
-  color: "#5f6368",
-},
-
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    overflow: "hidden",
+  },
+  badgeNotifyYes: {
+    backgroundColor: "#e8f1ff",
+    borderColor: "#0d6efd",
+    color: "#0b5ed7",
+  },
+  badgeNotifyNo: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#cfd4da",
+    color: "#5f6368",
+  },
 });
 const stylesNS = StyleSheet.create({
   backdrop: {
@@ -4407,4 +4640,235 @@ const stylesNS = StyleSheet.create({
     backgroundColor: "#e5e7eb",
   },
   closeText: { color: "#111827", fontWeight: "700", fontSize: 15 },
+  amountLine: { fontSize: 16, color: "#242424", fontWeight: "600" },
+  amountMain: { fontWeight: "800", color: "#242424" },
+  amountHint: { fontSize: 14, color: "#666", fontStyle: "italic" }, // affiché à droite
+  dueHint: { fontSize: 14, color: "#666", fontStyle: "italic" },
+
+  dueRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between", // ← met la mention à droite, dans le même encart
+  },
+
+  dueHint: {
+    fontSize: 14,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  // Conteneur de l'encart EXPRESS avec ancrage possible
+  expressWrap: {
+    position: "relative",
+    marginHorizontal: 15, // aligne avec ton expressCard existant
+    marginTop: 10,
+  },
+
+  // Carte "Commandes en cours" ancrée en bas à droite
+  ordersOverlay: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    width: 320,
+    backgroundColor: "#eef6ff",
+    borderColor: "#93c5fd",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    zIndex: 5, // ← ajoute ça
+  },
+
+  // Sous stylesNS = StyleSheet.create({...})
+  ordersCard: {
+    marginTop: 10,
+    backgroundColor: "#eef6ff",
+    borderColor: "#93c5fd",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  ordersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+
+  ordersTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e3a8a",
+  },
+
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+
+  closeBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+
+  ordersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.06)",
+    gap: 10,
+  },
+
+  ordersMain: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "700",
+  },
+
+  ordersSub: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#6b7280",
+  },
+
+  ordersPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    overflow: "hidden",
+  },
+
+  ordersPillOk: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#34d399",
+    color: "#059669",
+  },
+
+  ordersPillDue: {
+    backgroundColor: "#fff1f2",
+    borderColor: "#fb7185",
+    color: "#be123c",
+  },
+
+  ordersMore: {
+    marginTop: 6,
+    fontSize: 13,
+    fontStyle: "italic",
+    color: "#1e3a8a",
+  },
+  card: {
+  marginHorizontal: 15,
+  marginTop: 10,
+  marginBottom: 10,
+  backgroundColor: "#ffffff",
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#e5e7eb",
+  shadowColor: "#000",
+  shadowOpacity: 0.06,
+  shadowRadius: 6,
+  elevation: 2,
+},
+
+cardHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  backgroundColor: "#ccd9ec",
+  borderTopLeftRadius: 10,
+  borderTopRightRadius: 10,
+  borderRadius: 10,
+},
+
+cardTitle: {
+  fontSize: 16,
+  fontWeight: "700",
+  color: "#111827",
+},
+
+cardChevron: {
+  width: 20,
+  height: 20,
+  tintColor: "#6b7280",
+},
+
+cardBody: {
+  paddingHorizontal: 12,
+  paddingBottom: 10,
+  backgroundColor: "#ffffff",
+  borderBottomLeftRadius: 10,
+  borderBottomRightRadius: 10,
+},
+
+row: {
+  flexDirection: "row",
+  alignItems: "center",
+  paddingVertical: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: "rgba(0,0,0,0.06)",
+  gap: 10,
+},
+
+rowMain: {
+  fontSize: 14,
+  color: "#111827",
+  fontWeight: "700",
+},
+
+rowSub: {
+  marginTop: 2,
+  fontSize: 13,
+  color: "#6b7280",
+},
+
+pill: {
+  paddingHorizontal: 8,
+  paddingVertical: 2,
+  borderRadius: 999,
+  borderWidth: 1,
+  fontSize: 11,
+  fontWeight: "700",
+  overflow: "hidden",
+},
+
+pillOk: {
+  backgroundColor: "#ecfdf5",
+  borderColor: "#34d399",
+  color: "#059669",
+},
+
+pillDue: {
+  backgroundColor: "#fff1f2",
+  borderColor: "#fb7185",
+  color: "#be123c",
+},
+
+moreText: {
+  marginTop: 6,
+  fontSize: 13,
+  fontStyle: "italic",
+  color: "#1e3a8a",
+},
+
 });

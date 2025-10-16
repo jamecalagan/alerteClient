@@ -278,39 +278,83 @@ useEffect(() => {
         },
         [navigation]
     );
+// ——— Normalisation du type (retire accents, espace superflus, met en minuscule)
+const normType = (v) =>
+  String(v ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+
+// ——— Regroupe toutes les variantes possibles vers 3 familles: video / reparation / logiciel
+const kindOf = (item) => {
+  const t = normType(item?.type);
+  if (!t) return null;
+
+  // vidéos
+  if (t.startsWith("video") || t.includes("cassette")) return "video";
+
+  // réparations / dépannages (toute orthographe/variante)
+  if (
+    t.startsWith("reparation") ||
+    t.startsWith("depannage") ||
+    t.startsWith("repar") ||
+    t.includes("atelier")
+  ) {
+    return "reparation";
+  }
+
+  // logiciels / système
+  if (
+    t.startsWith("logiciel") ||
+    t.includes("soft") ||
+    t.includes("systeme") ||
+    t.includes("os")
+  ) {
+    return "logiciel";
+  }
+
+  return null;
+};
 
     // Modifier : route vers la bonne page selon le type
-    const goToEdit = useCallback(
-        (item) => {
-            if (!item?.type) {
-                Alert.alert("Erreur", "Type de fiche inconnu.");
-                return;
-            }
-            switch (item.type) {
-                case "video":
-                    navigation.navigate("ExpressVideoPage", {
-                        isEdit: true,
-                        expressData: { ...item },
-                    });
-                    break;
-                case "reparation":
-                    navigation.navigate("ExpressRepairPage", {
-                        isEdit: true,
-                        expressData: { ...item },
-                    });
-                    break;
-                case "logiciel":
-                    navigation.navigate("ExpressSoftwarePage", {
-                        isEdit: true,
-                        expressData: { ...item },
-                    });
-                    break;
-                default:
-                    Alert.alert("Erreur", `Type non géré : ${item.type}`);
-            }
-        },
-        [navigation]
-    );
+const goToEdit = useCallback(
+  (item) => {
+    const kind = kindOf(item);
+    if (!kind) {
+      Alert.alert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
+      return;
+    }
+
+    if (kind === "video") {
+      navigation.navigate("ExpressVideoPage", {
+        isEdit: true,
+        expressData: { ...item },
+      });
+      return;
+    }
+
+    if (kind === "reparation") {
+      navigation.navigate("ExpressRepairPage", {
+        isEdit: true,
+        expressData: { ...item },
+      });
+      return;
+    }
+
+    if (kind === "logiciel") {
+      navigation.navigate("ExpressSoftwarePage", {
+        isEdit: true,
+        expressData: { ...item },
+      });
+      return;
+    }
+
+    // sécurité (ne devrait plus arriver)
+    Alert.alert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
+  },
+  [navigation]
+);
 
     // Supprimer
     const handleDelete = useCallback(
@@ -405,30 +449,25 @@ useEffect(() => {
                 return;
             }
 
-            let message = "";
-            switch (String(item?.type || "").toLowerCase()) {
-                case "video":
-                    message =
-                        "Bonjour, vos cassettes sont prêtes. AVENIR INFORMATIQUE";
-                    break;
-                case "reparation": {
-                    const device =
-                        item?.device ||
-                        item?.material ||
-                        item?.modele ||
-                        "appareil";
-                    message = `Bonjour, votre ${device} est prêt. AVENIR INFORMATIQUE`;
-                    break;
-                }
-                case "logiciel":
-                    message =
-                        "Bonjour, votre système est prêt. AVENIR INFORMATIQUE";
-                    break;
-                default:
-                    message =
-                        "Bonjour, votre commande est prête. AVENIR INFORMATIQUE";
-                    break;
-            }
+let message = "";
+const kind = kindOf(item);
+switch (kind) {
+  case "video":
+    message = "Bonjour, vos cassettes sont prêtes. AVENIR INFORMATIQUE";
+    break;
+  case "reparation": {
+    const device =
+      item?.device || item?.material || item?.modele || "appareil";
+    message = `Bonjour, votre ${device} est prêt. AVENIR INFORMATIQUE`;
+    break;
+  }
+  case "logiciel":
+    message = "Bonjour, votre système est prêt. AVENIR INFORMATIQUE";
+    break;
+  default:
+    message = "Bonjour, votre commande est prête. AVENIR INFORMATIQUE";
+}
+
 
             const url = `sms:${phone}?body=${encodeURIComponent(message)}`;
             try {

@@ -8,7 +8,7 @@ https://fncgffajwabqrnhumgzd.supabase.co
 
 envoyer
 git add .
-git commit -m "complet avec demande devis et recherche clients ok 19092025"
+git commit -m "complet avec création de commande dans addintervention ok 12102025"
 git push origin main
 
 recupérer

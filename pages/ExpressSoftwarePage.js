@@ -1,331 +1,421 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import {
-    View,
-    Text,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    FlatList,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  FlatList,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 
 export default function ExpressSoftwarePage() {
-    const navigation = useNavigation();
-    const route = useRoute();
-    const isEdit = route.params?.isEdit || false;
-    const editData = route.params?.expressData || {};
+  const navigation = useNavigation();
+  const route = useRoute();
+  const isEdit = route.params?.isEdit || false;
+  const editData = route.params?.expressData || {};
 
-    const [searchText, setSearchText] = useState("");
-    const [filteredClients, setFilteredClients] = useState([]);
+  const [searchText, setSearchText] = useState("");
+  const [filteredClients, setFilteredClients] = useState([]);
 
-    const [name, setName] = useState(editData.name || "");
-    const [phone, setPhone] = useState(editData.phone || "");
-    const [softwaretype, setSoftwaretype] = useState(
-        editData.softwaretype || ""
-    );
-    const [description, setDescription] = useState(editData.description || "");
-    const [licence, setLicence] = useState(editData.licence || "");
-    const [price, setPrice] = useState(
-        editData.price ? String(editData.price) : ""
-    );
+  const [name, setName] = useState(editData.name || "");
+  const [phone, setPhone] = useState(editData.phone || "");
+  const [softwaretype, setSoftwaretype] = useState(editData.softwaretype || "");
+  const [description, setDescription] = useState(editData.description || "");
+  const [licence, setLicence] = useState(editData.licence || "");
+  const [price, setPrice] = useState(editData.price ? String(editData.price) : "");
+  const [date, setDate] = useState(editData.date || new Date().toISOString().split("T")[0]); // affichage local seulement
+const [isPaid, setIsPaid] = useState(
+  editData?.paid === true || editData?.paymentStatus === "paid"
+);
 
-    const [date, setDate] = useState(
-        editData.date || new Date().toISOString().split("T")[0]
-    );
-    useEffect(() => {
-        if (isEdit && editData) {
-            setName(editData.name || "");
-            setPhone(editData.phone || "");
-            setSoftwaretype(editData.softwaretype || "");
-            setDescription(editData.description || "");
-            setLicence(editData.licence || "");
-            setPrice(editData.price ? String(editData.price) : "");
-            setDate(editData.date || new Date().toISOString().split("T")[0]);
-        }
-    }, []);
+  // Anti double-clic
+  const [saving, setSaving] = useState(false);
 
-    const filterClients = async (text) => {
-        setSearchText(text);
-        setName(text);
-        if (text.trim() === "") {
-            setFilteredClients([]);
-            return;
-        }
+  useEffect(() => {
+    if (isEdit && editData) {
+      setName(editData.name || "");
+      setPhone(editData.phone || "");
+      setSoftwaretype(editData.softwaretype || "");
+      setDescription(editData.description || "");
+      setLicence(editData.licence || "");
+      setPrice(editData.price ? String(editData.price) : "");
+      setDate(editData.date || new Date().toISOString().split("T")[0]);
+    }
+  }, []);
 
-        const { data, error } = await supabase
-            .from("clients")
-            .select("name, phone")
-            .or(`name.ilike.%${text}%,phone.ilike.%${text}%`);
+  // ———————————————————————————————————
+  // Recherche clients
+  // ———————————————————————————————————
+  const filterClients = async (text) => {
+    setSearchText(text);
+    setName(text);
+    if (text.trim() === "") {
+      setFilteredClients([]);
+      return;
+    }
 
-        if (!error) {
-            setFilteredClients(data);
-        }
-    };
+    const { data, error } = await supabase
+      .from("clients")
+      .select("name, phone")
+      .or(`name.ilike.%${text}%,phone.ilike.%${text}%`);
 
-    const handleSelectClient = (client) => {
-        setName(client.name);
-        setPhone(client.phone);
-        setSearchText(client.name);
-        setFilteredClients([]);
-    };
-
-const handleSubmit = async () => {
-  if (!name || !phone || !softwaretype || !description || !price) {
-    Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires.");
-    return;
-  }
-
-  // Prix au bon format numérique
-  const numericPrice = Number(String(price).replace(",", "."));
-  if (Number.isNaN(numericPrice)) {
-    Alert.alert("Erreur", "Le montant est invalide.");
-    return;
-  }
-
-  const baseData = {
-    name,
-    phone,
-    type: "logiciel",
-    softwaretype,
-    licence,
-    description,
-    price: numericPrice,
-    // ❌ surtout pas de 'date' ici
+    if (!error) {
+      setFilteredClients(data);
+    }
   };
 
-  try {
-    if (isEdit && editData?.id) {
-      // ----- MODIFICATION -----
-      const { data, error } = await supabase
-        .from("express")
-        .update(baseData)
-        .eq("id", editData.id)
-        .select("id, created_at")
-        .single();
+  const handleSelectClient = (client) => {
+    setName(client.name);
+    setPhone(client.phone);
+    setSearchText(client.name);
+    setFilteredClients([]);
+  };
 
-      if (error) throw error;
+  // ———————————————————————————————————
+  // Soumission (création / édition) + option signature
+  // ———————————————————————————————————
+  const handleSubmit = async (goToSignature = true) => {
+    if (saving) return;
 
-      const displayDate = data?.created_at
-        ? new Date(data.created_at).toLocaleDateString("fr-FR")
-        : new Date().toLocaleDateString("fr-FR");
-
-      navigation.navigate("PrintExpressPage", {
-        id: data.id,
-        name,
-        phone,
-        softwaretype,
-        licence,
-        description,
-        price: numericPrice,
-        type: "logiciel",
-        displayDate, // ✅ pour l’affichage uniquement
-      });
-    } else {
-      // ----- CREATION (comme ta page Vidéo) -----
-      const { data, error } = await supabase
-        .from("express")
-        .insert([{ ...baseData, created_at: new Date() }]) // 👈 identique à ExpressVideoPage
-        .select("id, created_at");
-
-      if (error) throw error;
-
-      const row = data?.[0] || {};
-      const displayDate = row.created_at
-        ? new Date(row.created_at).toLocaleDateString("fr-FR")
-        : new Date().toLocaleDateString("fr-FR");
-
-      navigation.navigate("PrintExpressPage", {
-        id: row.id,
-        name,
-        phone,
-        softwaretype,
-        licence,
-        description,
-        price: numericPrice,
-        type: "logiciel",
-        date: new Date().toLocaleDateString(),
-      });
+    if (!name || !phone || !softwaretype || !description || !price) {
+      Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires.");
+      return;
     }
-  } catch (e) {
-    Alert.alert("Erreur", e?.message || "Impossible d’enregistrer.");
-  }
-};
 
+    const numericPrice = Number(String(price).replace(",", "."));
+    if (Number.isNaN(numericPrice)) {
+      Alert.alert("Erreur", "Le montant est invalide.");
+      return;
+    }
 
-    return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ flex: 1 }}
+    const baseData = {
+      name: String(name).trim(),
+      phone: String(phone).trim(),
+      type: "logiciel",
+      softwaretype: String(softwaretype).trim(),
+      licence: String(licence || "").trim(),
+      description: String(description).trim(),
+      price: numericPrice,
+      paid: !!isPaid, // ← optionnel
+      // ⚠️ pas de 'updated_at' ni 'date' envoyés à la table 'express'
+    };
+
+    try {
+      setSaving(true);
+
+      if (isEdit && editData?.id) {
+        // ----- MODIFICATION -----
+        const { data, error } = await supabase
+          .from("express")
+          .update(baseData)
+          .eq("id", editData.id)
+          .select("id, created_at")
+          .single();
+
+        if (error) throw error;
+
+        const displayDate = data?.created_at
+          ? new Date(data.created_at).toLocaleDateString("fr-FR")
+          : new Date().toLocaleDateString("fr-FR");
+
+        if (goToSignature) {
+          navigation.navigate("PrintExpressPage", {
+            id: data.id,
+            name,
+            phone,
+            softwaretype: baseData.softwaretype,
+            licence: baseData.licence,
+            description: baseData.description,
+            price: numericPrice,
+            type: "logiciel",
+            date: displayDate,
+          });
+        } else {
+          Alert.alert("Succès", "Fiche mise à jour.");
+          navigation.navigate("ExpressListPage", { refresh: Date.now() });
+        }
+      } else {
+        // ----- CREATION -----
+        const { data, error } = await supabase
+          .from("express")
+          .insert([{ ...baseData, created_at: new Date().toISOString() }])
+          .select("id, created_at");
+
+        if (error) throw error;
+
+        const row = data?.[0] || {};
+        const displayDate = row.created_at
+          ? new Date(row.created_at).toLocaleDateString("fr-FR")
+          : new Date().toLocaleDateString("fr-FR");
+
+        // En création, on va signer/imprimer directement
+        navigation.navigate("PrintExpressPage", {
+          id: row.id,
+          name,
+          phone,
+          softwaretype: baseData.softwaretype,
+          licence: baseData.licence,
+          description: baseData.description,
+          price: numericPrice,
+          type: "logiciel",
+          date: displayDate,
+        });
+      }
+    } catch (e) {
+      console.error("handleSubmit (logiciel):", e);
+      Alert.alert("Erreur", e?.message || "Impossible d’enregistrer.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ———————————————————————————————————
+  // Bouton “Enregistrer” dans le header (en édition)
+  // ———————————————————————————————————
+  useLayoutEffect(() => {
+    if (!isEdit) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => handleSubmit(false)}
+          disabled={saving}
+          style={{
+            marginRight: 12,
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            backgroundColor: saving ? "#9bbcff" : "#0d6efd",
+            borderRadius: 8,
+          }}
         >
-            <FlatList
-                ListHeaderComponent={
-                    <View>
-                        <Text style={styles.title}>
-                            Fiche Express - Logiciel
-                        </Text>
+          <Text style={{ color: "#fff", fontWeight: "700" }}>
+            {saving ? "…" : "Enregistrer"}
+          </Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, isEdit, saving, name, phone, softwaretype, licence, description, price]);
 
-                        <Text style={styles.label}>Nom ou téléphone</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={searchText || name}
-                            onChangeText={filterClients}
-                        />
-                    </View>
-                }
-                data={searchText.length >= 2 ? filteredClients : []}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        onPress={() => handleSelectClient(item)}
-                        style={styles.suggestionItemWrapper}
-                    >
-                        <Text style={styles.suggestionItem}>
-                            {item.name} - {item.phone}
-                        </Text>
-                    </TouchableOpacity>
-                )}
-                ListFooterComponent={
-                    <View>
-                        <Text style={styles.label}>Téléphone</Text>
-                        <TextInput
-                            style={styles.input}
-                            keyboardType="phone-pad"
-                            value={phone}
-                            onChangeText={setPhone}
-                        />
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1 }}
+    >
+      <FlatList
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.title}>
+              Fiche Express - Logiciel {isEdit ? "(modification)" : ""}
+            </Text>
 
-                        <Text style={styles.label}>Type de prestation</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={softwaretype}
-                            onChangeText={setSoftwaretype}
-                        />
-
-                        <Text style={styles.label}>
-                            Désignation de la prestation
-                        </Text>
-                        <TextInput
-                            style={styles.textArea}
-                            multiline
-                            value={description}
-                            onChangeText={setDescription}
-                        />
-
-                        <Text style={styles.label}>Clé de licence</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={licence}
-                            onChangeText={setLicence}
-                        />
-
-                        <Text style={styles.label}>Montant total (€)</Text>
-                        <TextInput
-                            style={styles.input}
-                            keyboardType="decimal-pad"
-                            value={price}
-                            onChangeText={setPrice}
-                        />
-
-                        <TouchableOpacity
-                            style={styles.button}
-                            onPress={handleSubmit}
-                        >
-                            <Text style={styles.buttonText}>
-                                🖋️ Faire signer la fiche
-                            </Text>
-                        </TouchableOpacity>
-
-                        <View style={{ alignItems: "center", marginTop: 16 }}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.optionButton,
-                                    styles.shadowBox,
-                                    {
-                                        backgroundColor: "#a7a7a7",
-                                        width: "60%",
-                                    },
-                                ]}
-                                onPress={() => navigation.goBack()}
-                            >
-                                <Text style={styles.buttonText}>⬅ Retour</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                }
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.container}
+            <Text style={styles.label}>Nom ou téléphone</Text>
+            <TextInput
+              style={styles.input}
+              value={searchText || name}
+              onChangeText={filterClients}
             />
-        </KeyboardAvoidingView>
-    );
+          </View>
+        }
+        data={searchText.length >= 2 ? filteredClients : []}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleSelectClient(item)}
+            style={styles.suggestionItemWrapper}
+          >
+            <Text style={styles.suggestionItem}>
+              {item.name} - {item.phone}
+            </Text>
+          </TouchableOpacity>
+        )}
+        ListFooterComponent={
+          <View>
+            <Text style={styles.label}>Téléphone</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+
+            <Text style={styles.label}>Type de prestation</Text>
+            <TextInput
+              style={styles.input}
+              value={softwaretype}
+              onChangeText={setSoftwaretype}
+            />
+
+            <Text style={styles.label}>Désignation de la prestation</Text>
+            <TextInput
+              style={styles.textArea}
+              multiline
+              value={description}
+              onChangeText={setDescription}
+            />
+
+            <Text style={styles.label}>Clé de licence</Text>
+            <TextInput
+              style={styles.input}
+              value={licence}
+              onChangeText={setLicence}
+            />
+
+            <Text style={styles.label}>Montant total (€)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="decimal-pad"
+              value={price}
+              onChangeText={setPrice}
+            />
+
+            {/* 1) Bouton Faire signer (toujours) */}
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: saving ? "#9bbcff" : "#007bff" },
+              ]}
+              onPress={() => handleSubmit(true)}
+              disabled={saving}
+            >
+              <Text style={styles.buttonText}>
+                {saving ? "Préparation…" : "🖋️ Faire signer la fiche"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* 2) Bouton Enregistrer (en édition uniquement) */}
+            {isEdit && (
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: saving ? "#9bbcff" : "#0d6efd" },
+                ]}
+                onPress={() => handleSubmit(false)}
+                disabled={saving}
+              >
+                <Text style={styles.buttonText}>
+                  {saving ? "Enregistrement…" : "💾 Enregistrer"}
+                </Text>
+              </TouchableOpacity>
+
+
+            )}
+              {isEdit && editData?.id && (
+  <TouchableOpacity
+    onPress={async () => {
+      try {
+        const { error } = await supabase
+          .from("express")
+          .update({ paid: !isPaid })
+          .eq("id", editData.id);
+        if (error) throw error;
+
+        setIsPaid(!isPaid);
+        Alert.alert(
+          "OK",
+          !isPaid ? "Fiche marquée réglée." : "Fiche remise en dû."
+        );
+      } catch (e) {
+        console.error("toggle paid (software):", e);
+        Alert.alert("Erreur", "Impossible de mettre à jour le paiement.");
+      }
+    }}
+    style={[
+      styles.button,
+      { backgroundColor: isPaid ? "#6c757d" : "#28a745" },
+    ]}
+  >
+    <Text style={styles.buttonText}>
+      {isPaid ? "💱 Remettre en dû" : "✅ Marquer comme réglée"}
+    </Text>
+  </TouchableOpacity>
+)}
+            <View style={{ alignItems: "center", marginTop: 16 }}>
+              <TouchableOpacity
+                style={[
+                  styles.optionButton,
+                  styles.shadowBox,
+                  { backgroundColor: "#a7a7a7", width: "60%" },
+                ]}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.buttonText}>⬅ Retour</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.container}
+      />
+    </KeyboardAvoidingView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: { padding: 20 },
-    title: {
-        fontSize: 20,
-        fontWeight: "bold",
-        marginBottom: 20,
-        textAlign: "center",
-    },
-    label: {
-        fontWeight: "600",
-        marginBottom: 4,
-        marginTop: 12,
-        color: "#333",
-    },
-    input: {
-        width: "100%",
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
-        padding: 10,
-        marginBottom: 8,
-    },
-    textArea: {
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
-        padding: 10,
-        marginBottom: 12,
-        minHeight: 80,
-        textAlignVertical: "top",
-    },
-    button: {
-        backgroundColor: "#007bff",
-        padding: 14,
-        borderRadius: 10,
-        alignItems: "center",
-        marginTop: 20,
-    },
-    buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
-    suggestionItemWrapper: {
-        width: "100%",
-    },
-    suggestionItem: {
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        width: "100%",
-        borderBottomWidth: 1,
-        borderColor: "#eee",
-        backgroundColor: "#f9f9f9",
-    },
-    optionButton: {
-        width: 310,
-        paddingVertical: 15,
-        backgroundColor: "#3e4c69",
-        borderRadius: 50,
-        alignItems: "center",
-        marginTop: 20,
-    },
-    shadowBox: {
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
+  container: { padding: 20 },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  label: {
+    fontWeight: "600",
+    marginBottom: 4,
+    marginTop: 12,
+    color: "#333",
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 12,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  button: {
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  buttonText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  suggestionItemWrapper: {
+    width: "100%",
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: "100%",
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#f9f9f9",
+  },
+  optionButton: {
+    width: 310,
+    paddingVertical: 15,
+    backgroundColor: "#3e4c69",
+    borderRadius: 50,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  shadowBox: {
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
 });

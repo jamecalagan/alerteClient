@@ -9,7 +9,7 @@ import { Alert, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { supabase } from './supabaseClient';
 import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
 import OrdersPage from './pages/OrdersPage';
-// Import des pages
+import ArchivesInterventionsPage from "./pages/ArchivesInterventionsPage";
 import RecoveredClientsPage from './pages/RecoveredClientsPage';
 import AdminPage from './pages/AdminPage';
 import HomePage from './pages/HomePage';
@@ -324,6 +324,10 @@ function MainStack({ setUser }) {
   component={QuoteRequestDetailsPage}
   options={{ title: "Détails de la demande" }}
 />
+<Stack.Screen name="ArchivesInterventionsPage"
+ component={ArchivesInterventionsPage}
+  options={{ title: "Archives – Non réparables" }} />
+
 
 
 		</Stack.Navigator>

@@ -178,7 +178,7 @@ export default function HomePage({ navigation, route, setUser }) {
   const [expressList, setExpressList] = useState([]);
   const [ordersList, setOrdersList] = useState([]); // ← NE PAS RENOMMER
   const [notifyLocalMap, setNotifyLocalMap] = useState({});
-
+  const [isBannedMatch, setIsBannedMatch] = useState(false);
   const [openExpress, setOpenExpress] = useState(true);
   const [openOrders, setOpenOrders] = useState(true);
 
@@ -186,6 +186,54 @@ export default function HomePage({ navigation, route, setUser }) {
   const [notifySheetCtx, setNotifySheetCtx] = useState(null); // { client, latest }
   const [notifyChooserVisible, setNotifyChooserVisible] = useState(false);
   const [notifyForClient, setNotifyForClient] = useState(null);
+  const [bannedAlert, setBannedAlert] = useState({
+    visible: false,
+    name: "",
+    phone: "",
+    reason: "",
+  });
+
+  const openBannedAlert = (item) => {
+    setBannedAlert({
+      visible: true,
+      name: item?.name || "Client",
+      phone: item?.phone || "",
+      reason: item?.ban_reason || "Raison non précisée",
+    });
+  };
+
+  // === Détection "la saisie correspond à un client banni" ===
+  const _norm = (s) =>
+    (s ?? "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const _digits = (s) => (s ?? "").toString().replace(/\D/g, "");
+
+  useEffect(() => {
+    const q = (searchText || "").trim();
+    if (!q) {
+      setIsBannedMatch(false);
+      return;
+    }
+    const qNorm = _norm(q);
+    const qDigits = _digits(q);
+
+    // on regarde les SUGGESTIONS affichées
+    const hit = (filteredClients || []).some((c) => {
+      if (c?.banned !== true) return false;
+      const nameOk = _norm(c?.name).includes(qNorm);
+      const phoneOk =
+        qDigits.length >= 3 && _digits(c?.phone).includes(qDigits);
+      return nameOk || phoneOk;
+    });
+
+    setIsBannedMatch(hit);
+  }, [searchText, filteredClients]);
+
   // Ouvre la feuille de sélection
   const openNotifyChooser = (client) => {
     const latest = __pickLatestActiveIntervention(client?.interventions || []);
@@ -366,7 +414,7 @@ export default function HomePage({ navigation, route, setUser }) {
       </TouchableOpacity>
     );
 
-    useEffect(() => {
+    /*     useEffect(() => {
       const loop = Animated.loop(
         Animated.sequence([
           Animated.timing(opacity, {
@@ -385,7 +433,7 @@ export default function HomePage({ navigation, route, setUser }) {
       );
       loop.start();
       return () => loop.stop();
-    }, []);
+    }, []); */
 
     return (
       <Animated.Image
@@ -1210,8 +1258,10 @@ export default function HomePage({ navigation, route, setUser }) {
           *,
 interventions(
   id, status, deviceType, cost, solderestant,
-  createdAt, "updatedAt", commande, photos, label_photo, notifiedBy
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette
 )
+
         `
           )
           .eq("ficheNumber", parseInt(query, 10));
@@ -1239,10 +1289,12 @@ interventions(
           .select(
             `
           *,
-          interventions(
-            id, status, deviceType, cost, solderestant,
-            createdAt, "updatedAt", commande, photos, notifiedBy
-          )
+interventions(
+  id, status, deviceType, cost, solderestant,
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette
+)
+
         `
           )
           .or(orParts);
@@ -1254,10 +1306,12 @@ interventions(
           .select(
             `
           *,
-          interventions(
-            id, status, deviceType, cost, solderestant,
-            createdAt, "updatedAt", commande, photos, notifiedBy
-          )
+interventions(
+  id, status, deviceType, cost, solderestant,
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette
+)
+
         `
           )
           .ilike("name", `%${query}%`);
@@ -2067,28 +2121,120 @@ interventions(
               </View>
 
               <View style={{ marginBottom: 20 }}>
-                <View style={styles.searchContainer}>
+                {/* —— BARRE DE RECHERCHE —— */}
+                <View
+                  style={[
+                    styles.searchContainer,
+                    isBannedMatch && styles.searchContainerBanned,
+                  ]}
+                >
                   <TextInput
-                    style={styles.searchInput}
-                    placeholder="Rechercher par nom, téléphone, ou statut"
-                    placeholderTextColor="#2c2c2c"
-                    value={searchText.toUpperCase()}
-                    onChangeText={filterClients}
+                    style={[
+                      styles.searchInput,
+                      isBannedMatch && styles.searchInputBanned,
+                    ]}
+                    placeholder="Rechercher client (nom ou téléphone)"
+                    placeholderTextColor={isBannedMatch ? "#7f1d1d" : "#575757"}
+                    value={searchText}
+                    onChangeText={(t) => {
+                      setSearchText(t);
+                      filterClients(t);
+                    }}
+                    autoCorrect={false}
+                    autoCapitalize="characters"
+                    returnKeyType="search"
                   />
                   <Image
                     source={require("../assets/icons/search.png")}
-                    style={[
-                      styles.searchIcon,
-                      {
-                        width: 24,
-                        height: 24,
-                        tintColor: "#2c2c2c",
-                      },
-                    ]}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      tintColor: isBannedMatch ? "#b91c1c" : "#888787",
+                      marginLeft: 8,
+                    }}
                   />
                 </View>
 
-                {searchText.length > 0 && filteredClients.length > 0 && (
+                {isBannedMatch && (
+                  <Text style={styles.bannedHint}>
+                    ⚠️ Correspond à un client banni — sélection désactivée.
+                  </Text>
+                )}
+
+                {/* —— SUGGESTIONS —— */}
+                {searchText?.trim()?.length > 0 && (
+                  <FlatList
+                    data={(filteredClients || []).slice(0, 10)}
+                    keyExtractor={(it) => String(it.id)}
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.suggestionsBox}
+                    renderItem={({ item }) => {
+                      const isBanned = item?.banned === true;
+
+                      const onPick = () => {
+                        if (isBanned) {
+                          openBannedAlert(item);
+                          return;
+                        }
+                        navigation.navigate("ClientInterventionsPage", {
+                          clientId: item.id,
+                        });
+                      };
+
+                      return (
+                        <TouchableOpacity
+                          onPress={onPick}
+                          activeOpacity={isBanned ? 1 : 0.8}
+                          style={[
+                            {
+                              paddingVertical: 10,
+                              paddingHorizontal: 12,
+                              borderBottomWidth: 1,
+                              borderBottomColor: "#f3f4f6",
+                              backgroundColor: "#fff",
+                            },
+                            isBanned && styles.sugRowBanned, // fond rosé si banni
+                          ]}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.sugName,
+                              isBanned && styles.sugNameBanned,
+                            ]} // nom en rouge
+                          >
+                            {item?.name || "—"}
+                          </Text>
+
+                          <Text
+                            style={{ color: "#6b7280", fontSize: 12 }}
+                            numberOfLines={1}
+                          >
+                            {item?.phone
+                              ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
+                              : "—"}
+                            {typeof item?.ficheNumber !== "undefined"
+                              ? `  ·  Fiche ${item.ficheNumber}`
+                              : ""}
+                          </Text>
+
+                          {isBanned && (
+                            <View style={styles.sugBadgeBanned}>
+                              <Text style={styles.sugBadgeBannedText}>
+                                BANNI
+                                {item?.ban_reason
+                                  ? ` — ${item.ban_reason}`
+                                  : ""}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    }}
+                  />
+                )}
+
+                {/*                 {searchText.length > 0 && filteredClients.length > 0 && (
                   <View style={styles.suggestionBox}>
                     {filteredClients.slice(0, 5).map((client) => (
                       <TouchableOpacity
@@ -2105,7 +2251,7 @@ interventions(
                       </TouchableOpacity>
                     ))}
                   </View>
-                )}
+                )} */}
               </View>
 
               <View style={styles.buttonContainerMasquer}>
@@ -2178,6 +2324,8 @@ interventions(
                         });
                       }}
                       renderItem={({ item, index }) => {
+                        const isBanned = item?.banned === true;
+
                         const latestForTint = __pickLatestActiveIntervention(
                           item?.interventions || []
                         );
@@ -2252,6 +2400,7 @@ interventions(
                               style={[
                                 styles.clientCard,
                                 getStatusStyle(status),
+                                isBanned && styles.bannedRow, // ← fond rosé si banni
                               ]}
                             >
                               <View style={styles.statusContent}>
@@ -2269,15 +2418,25 @@ interventions(
                               </View>
 
                               <TouchableOpacity
-                                onPress={() =>
-                                  toggleClientExpansion(item.id, index)
-                                }
+                                onPress={() => {
+                                  if (isBanned) {
+                                    openBannedAlert(item);
+                                    return;
+                                  }
+
+                                  toggleClientExpansion(item.id, index);
+                                }}
                                 style={styles.clientInfo}
                               >
                                 <Text style={styles.ficheNumber}>
                                   Fiche client N° {item.ficheNumber}
                                 </Text>
-                                <Text style={styles.clientText}>
+                                <Text
+                                  style={[
+                                    styles.clientText,
+                                    isBanned && styles.bannedName,
+                                  ]}
+                                >
                                   Nom : {item.name.toUpperCase()}
                                 </Text>
                                 <View style={styles.phoneContainer}>
@@ -2288,6 +2447,16 @@ interventions(
                                     {formatPhoneNumber(item.phone)}
                                   </Text>
                                 </View>
+                                {isBanned && (
+                                  <View style={styles.bannedBadge}>
+                                    <Text style={styles.bannedBadgeText}>
+                                      BANNI
+                                      {item?.ban_reason
+                                        ? ` — ${item.ban_reason}`
+                                        : ""}
+                                    </Text>
+                                  </View>
+                                )}
                                 <Text style={styles.clientText}>
                                   Montant total des interventions en cours :{" "}
                                   {item.totalAmountOngoing
@@ -2905,6 +3074,56 @@ interventions(
                   )}
                 </>
               )}
+              <Modal
+                transparent
+                visible={bannedAlert.visible}
+                animationType="fade"
+                onRequestClose={() =>
+                  setBannedAlert((v) => ({ ...v, visible: false }))
+                }
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={styles.alertBox}>
+                    <Image
+                      source={require("../assets/icons/no.png")} // ou un pictogramme “ban”
+                      style={styles.warningIcon}
+                    />
+                    <Text style={styles.alertTitle}>Client banni</Text>
+                    <Text style={styles.alertMessage}>
+                      Vous ne pouvez pas sélectionner cette fiche.
+                    </Text>
+
+                    <View style={styles.bannedCard}>
+                      <Text style={styles.bannedLine}>
+                        <Text style={styles.bannedLabel}>Nom : </Text>
+                        {bannedAlert.name?.toUpperCase()}
+                      </Text>
+                      {!!bannedAlert.phone && (
+                        <Text style={styles.bannedLine}>
+                          <Text style={styles.bannedLabel}>Téléphone : </Text>
+                          {formatPhoneNumber(bannedAlert.phone)}
+                        </Text>
+                      )}
+                      <Text style={styles.bannedReason}>
+                        <Text style={styles.bannedLabel}>Raison : </Text>
+                        {bannedAlert.reason}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { alignSelf: "stretch", marginTop: 6 },
+                      ]}
+                      onPress={() =>
+                        setBannedAlert((v) => ({ ...v, visible: false }))
+                      }
+                    >
+                      <Text style={styles.modalButtonText}>Compris</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
 
               <Modal
                 transparent
@@ -3391,152 +3610,170 @@ interventions(
           </View>
         </TouchableWithoutFeedback>
         <View pointerEvents="box-none">
-{expressList.length > 0 && (
-  <View style={stylesNS.expressWrap}>
-    {/* === ACCORDÉON : EXPRESS === */}
-    <View style={stylesNS.card}>
-      <Pressable
-        style={stylesNS.cardHeader}
-        onPress={() => setOpenExpress((v) => !v)}
-        android_ripple={{ color: "#e5e7eb" }}
-      >
-        <Text style={stylesNS.cardTitle}>
-          Fiches EXPRESS en cours : {expressList.length}
-        </Text>
-        <Image
-          source={require("../assets/icons/chevrond.png")}
-          style={[
-            stylesNS.cardChevron,
-            { transform: [{ rotate: openExpress ? "90deg" : "-90deg" }] },
-          ]}
-        />
-      </Pressable>
+          {expressList.length > 0 && (
+            <View style={stylesNS.expressWrap}>
+              {/* === ACCORDÉON : EXPRESS === */}
+              <View style={stylesNS.card}>
+                <Pressable
+                  style={stylesNS.cardHeader}
+                  onPress={() => setOpenExpress((v) => !v)}
+                  android_ripple={{ color: "#e5e7eb" }}
+                >
+                  <Text style={stylesNS.cardTitle}>
+                    Fiches EXPRESS en cours : {expressList.length}
+                  </Text>
+                  <Image
+                    source={require("../assets/icons/chevrond.png")}
+                    style={[
+                      stylesNS.cardChevron,
+                      {
+                        transform: [
+                          { rotate: openExpress ? "90deg" : "-90deg" },
+                        ],
+                      },
+                    ]}
+                  />
+                </Pressable>
 
-      {openExpress && (
-        <View style={stylesNS.cardBody}>
-          {expressList.slice(0, 5).map((it) => (
-            <Pressable
-              key={it.id}
-              onPress={() =>
-                navigation.navigate("ExpressListPage", {
-                  initialSearch: it.phone || it.name || "",
-                  initialType: it.type || "all",
-                })
-              }
-              onLongPress={() =>
-                navigation.navigate("EditClientPage", { clientId: it.client_id })
-              }
-              android_ripple={{ color: "#f1f5f9" }}
-              style={stylesNS.row}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={stylesNS.rowMain} numberOfLines={1}>
-                  {(it.name || "CLIENT").toUpperCase()} —{" "}
-                  {it.type && it.type.toLowerCase().startsWith("vid")
-                    ? "Transferts"
-                    : it.product || it.device || "Produit"}
-                </Text>
-                <Text style={stylesNS.rowSub} numberOfLines={1}>
-                  {it.price ? `${Number(it.price).toFixed(2)} €` : "—"} ·{" "}
-                  {it.created_at ? new Date(it.created_at).toLocaleDateString("fr-FR") : "—"}
-                </Text>
+                {openExpress && (
+                  <View style={stylesNS.cardBody}>
+                    {expressList.slice(0, 5).map((it) => (
+                      <Pressable
+                        key={it.id}
+                        onPress={() =>
+                          navigation.navigate("ExpressListPage", {
+                            initialSearch: it.phone || it.name || "",
+                            initialType: it.type || "all",
+                          })
+                        }
+                        onLongPress={() =>
+                          navigation.navigate("EditClientPage", {
+                            clientId: it.client_id,
+                          })
+                        }
+                        android_ripple={{ color: "#f1f5f9" }}
+                        style={stylesNS.row}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={stylesNS.rowMain} numberOfLines={1}>
+                            {(it.name || "CLIENT").toUpperCase()} —{" "}
+                            {it.type && it.type.toLowerCase().startsWith("vid")
+                              ? "Transferts"
+                              : it.product || it.device || "Produit"}
+                          </Text>
+                          <Text style={stylesNS.rowSub} numberOfLines={1}>
+                            {it.price
+                              ? `${Number(it.price).toFixed(2)} €`
+                              : "—"}{" "}
+                            ·{" "}
+                            {it.created_at
+                              ? new Date(it.created_at).toLocaleDateString(
+                                  "fr-FR"
+                                )
+                              : "—"}
+                          </Text>
+                        </View>
+
+                        <Text
+                          style={[
+                            stylesNS.pill,
+                            it?.notified ? stylesNS.pillOk : stylesNS.pillDue,
+                          ]}
+                        >
+                          {it?.notified ? "Notifié" : "À notifier"}
+                        </Text>
+                      </Pressable>
+                    ))}
+
+                    {expressList.length > 5 && (
+                      <Text style={stylesNS.moreText}>
+                        … et {expressList.length - 5} de plus
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
 
-              <Text
-                style={[
-                  stylesNS.pill,
-                  it?.notified ? stylesNS.pillOk : stylesNS.pillDue,
-                ]}
-              >
-                {it?.notified ? "Notifié" : "À notifier"}
-              </Text>
-            </Pressable>
-          ))}
-
-          {expressList.length > 5 && (
-            <Text style={stylesNS.moreText}>
-              … et {expressList.length - 5} de plus
-            </Text>
-          )}
-        </View>
-      )}
-    </View>
-
-    {/* === ACCORDÉON : Commandes en cours === */}
-    {ordersList.length > 0 && (
-      <View style={stylesNS.card}>
-        <Pressable
-          style={stylesNS.cardHeader}
-          onPress={() => setOpenOrders((v) => !v)}
-          android_ripple={{ color: "#e5e7eb" }}
-        >
-          <Text style={stylesNS.cardTitle}>
-            Commandes en cours : {ordersList.length}
-          </Text>
-          <Image
-            source={require("../assets/icons/chevrond.png")}
-            style={[
-              stylesNS.cardChevron,
-              { transform: [{ rotate: openOrders ? "90deg" : "-90deg" }] },
-            ]}
-          />
-        </Pressable>
-
-        {openOrders && (
-          <View style={stylesNS.cardBody}>
-            {ordersList.slice(0, 5).map((o) => {
-              const cli = o.__client || {};
-              const price = Number(o.price || 0);
-              const deposit = Number(o.deposit || 0);
-              const rest = Math.max(0, price - deposit);
-
-              return (
-                <Pressable
-                  key={o.id}
-                  onPress={() =>
-                    navigation.navigate("OrdersPage", {
-                      clientId: cli.id || o.client_id,
-                      clientName: cli.name,
-                      clientPhone: cli.phone,
-                      clientNumber: cli.ficheNumber,
-                    })
-                  }
-                  android_ripple={{ color: "#e9efff" }}
-                  style={stylesNS.row}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={stylesNS.rowMain} numberOfLines={1}>
-                      {(cli.name || "CLIENT").toUpperCase()} — {o.product || "Produit"}
-                    </Text>
-                    <Text style={stylesNS.rowSub} numberOfLines={1}>
-                      {price ? `${price.toFixed(2)} €` : "—"} · Fiche {cli.ficheNumber ?? "—"}
-                    </Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      stylesNS.pill,
-                      rest > 0 ? stylesNS.pillDue : stylesNS.pillOk,
-                    ]}
+              {/* === ACCORDÉON : Commandes en cours === */}
+              {ordersList.length > 0 && (
+                <View style={stylesNS.card}>
+                  <Pressable
+                    style={stylesNS.cardHeader}
+                    onPress={() => setOpenOrders((v) => !v)}
+                    android_ripple={{ color: "#e5e7eb" }}
                   >
-                    {rest > 0 ? `reste ${rest.toFixed(2)} €` : "OK"}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text style={stylesNS.cardTitle}>
+                      Commandes en cours : {ordersList.length}
+                    </Text>
+                    <Image
+                      source={require("../assets/icons/chevrond.png")}
+                      style={[
+                        stylesNS.cardChevron,
+                        {
+                          transform: [
+                            { rotate: openOrders ? "90deg" : "-90deg" },
+                          ],
+                        },
+                      ]}
+                    />
+                  </Pressable>
 
-            {ordersList.length > 5 && (
-              <Text style={stylesNS.moreText}>
-                … et {ordersList.length - 5} de plus
-              </Text>
-            )}
-          </View>
-        )}
-      </View>
-    )}
-  </View>
-)}
+                  {openOrders && (
+                    <View style={stylesNS.cardBody}>
+                      {ordersList.slice(0, 5).map((o) => {
+                        const cli = o.__client || {};
+                        const price = Number(o.price || 0);
+                        const deposit = Number(o.deposit || 0);
+                        const rest = Math.max(0, price - deposit);
 
+                        return (
+                          <Pressable
+                            key={o.id}
+                            onPress={() =>
+                              navigation.navigate("OrdersPage", {
+                                clientId: cli.id || o.client_id,
+                                clientName: cli.name,
+                                clientPhone: cli.phone,
+                                clientNumber: cli.ficheNumber,
+                              })
+                            }
+                            android_ripple={{ color: "#e9efff" }}
+                            style={stylesNS.row}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={stylesNS.rowMain} numberOfLines={1}>
+                                {(cli.name || "CLIENT").toUpperCase()} —{" "}
+                                {o.product || "Produit"}
+                              </Text>
+                              <Text style={stylesNS.rowSub} numberOfLines={1}>
+                                {price ? `${price.toFixed(2)} €` : "—"} · Fiche{" "}
+                                {cli.ficheNumber ?? "—"}
+                              </Text>
+                            </View>
+
+                            <Text
+                              style={[
+                                stylesNS.pill,
+                                rest > 0 ? stylesNS.pillDue : stylesNS.pillOk,
+                              ]}
+                            >
+                              {rest > 0 ? `reste ${rest.toFixed(2)} €` : "OK"}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+
+                      {ordersList.length > 5 && (
+                        <Text style={stylesNS.moreText}>
+                          … et {ordersList.length - 5} de plus
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.paginationContainer}>
@@ -4581,6 +4818,119 @@ const styles = StyleSheet.create({
     borderColor: "#cfd4da",
     color: "#5f6368",
   },
+  bannedName: {
+    color: "#b91c1c", // rouge soutenu
+    fontWeight: "800",
+  },
+  bannedRow: {
+    backgroundColor: "#fff1f2", // léger rose
+  },
+  bannedBadge: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: "#fee2e2",
+    borderColor: "#b91c1c",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  bannedBadgeText: {
+    color: "#7f1d1d",
+    fontWeight: "800",
+    fontSize: 11,
+  },
+  suggestionsBox: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    marginTop: 6,
+    maxHeight: 280,
+  },
+
+  // ligne + nom “banni”
+  sugRowBanned: { backgroundColor: "#fff1f2" },
+  sugName: { fontWeight: "800", color: "#111827" },
+  sugNameBanned: { color: "#b91c1c" },
+
+  // badge “BANNI”
+  sugBadgeBanned: {
+    alignSelf: "flex-start",
+    marginTop: 2,
+    backgroundColor: "#fee2e2",
+    borderColor: "#b91c1c",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  sugBadgeBannedText: { color: "#7f1d1d", fontWeight: "800", fontSize: 11 },
+
+  // si pas déjà présents
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#888787",
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    backgroundColor: "#cacaca",
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
+    color: "#242424",
+    paddingHorizontal: 10,
+  },
+  searchContainerBanned: {
+    borderColor: "#b91c1c",
+    backgroundColor: "#fff1f2",
+  },
+  searchInputBanned: {
+    color: "#7f1d1d",
+  },
+  bannedHint: {
+    marginTop: 4,
+    color: "#7f1d1d",
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+  warningIcon: {
+    width: 44,
+    height: 44,
+    tintColor: "#b91c1c",
+    marginBottom: 8,
+  },
+
+  bannedCard: {
+    alignSelf: "stretch",
+    backgroundColor: "#fff1f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 6,
+  },
+
+  bannedLine: {
+    fontSize: 15,
+    color: "#111827",
+    marginBottom: 4,
+  },
+
+  bannedLabel: {
+    fontWeight: "700",
+    color: "#374151",
+  },
+
+  bannedReason: {
+    fontSize: 15,
+    color: "#7f1d1d",
+    marginTop: 6,
+  },
 });
 const stylesNS = StyleSheet.create({
   backdrop: {
@@ -4776,99 +5126,98 @@ const stylesNS = StyleSheet.create({
     color: "#1e3a8a",
   },
   card: {
-  marginHorizontal: 15,
-  marginTop: 10,
-  marginBottom: 10,
-  backgroundColor: "#ffffff",
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: "#e5e7eb",
-  shadowColor: "#000",
-  shadowOpacity: 0.06,
-  shadowRadius: 6,
-  elevation: 2,
-},
+    marginHorizontal: 15,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
 
-cardHeader: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingVertical: 10,
-  paddingHorizontal: 12,
-  backgroundColor: "#ccd9ec",
-  borderTopLeftRadius: 10,
-  borderTopRightRadius: 10,
-  borderRadius: 10,
-},
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#ccd9ec",
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderRadius: 10,
+  },
 
-cardTitle: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#111827",
-},
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
 
-cardChevron: {
-  width: 20,
-  height: 20,
-  tintColor: "#6b7280",
-},
+  cardChevron: {
+    width: 20,
+    height: 20,
+    tintColor: "#6b7280",
+  },
 
-cardBody: {
-  paddingHorizontal: 12,
-  paddingBottom: 10,
-  backgroundColor: "#ffffff",
-  borderBottomLeftRadius: 10,
-  borderBottomRightRadius: 10,
-},
+  cardBody: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    backgroundColor: "#ffffff",
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
 
-row: {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingVertical: 8,
-  borderBottomWidth: 1,
-  borderBottomColor: "rgba(0,0,0,0.06)",
-  gap: 10,
-},
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.06)",
+    gap: 10,
+  },
 
-rowMain: {
-  fontSize: 14,
-  color: "#111827",
-  fontWeight: "700",
-},
+  rowMain: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "700",
+  },
 
-rowSub: {
-  marginTop: 2,
-  fontSize: 13,
-  color: "#6b7280",
-},
+  rowSub: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#6b7280",
+  },
 
-pill: {
-  paddingHorizontal: 8,
-  paddingVertical: 2,
-  borderRadius: 999,
-  borderWidth: 1,
-  fontSize: 11,
-  fontWeight: "700",
-  overflow: "hidden",
-},
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    overflow: "hidden",
+  },
 
-pillOk: {
-  backgroundColor: "#ecfdf5",
-  borderColor: "#34d399",
-  color: "#059669",
-},
+  pillOk: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#34d399",
+    color: "#059669",
+  },
 
-pillDue: {
-  backgroundColor: "#fff1f2",
-  borderColor: "#fb7185",
-  color: "#be123c",
-},
+  pillDue: {
+    backgroundColor: "#fff1f2",
+    borderColor: "#fb7185",
+    color: "#be123c",
+  },
 
-moreText: {
-  marginTop: 6,
-  fontSize: 13,
-  fontStyle: "italic",
-  color: "#1e3a8a",
-},
-
+  moreText: {
+    marginTop: 6,
+    fontSize: 13,
+    fontStyle: "italic",
+    color: "#1e3a8a",
+  },
 });

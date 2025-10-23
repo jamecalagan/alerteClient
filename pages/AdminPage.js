@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,25 +14,120 @@ import {
   Image,
   Modal,
   ActivityIndicator,
+  Switch,
+  Pressable,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import BottomNavigation from "../components/BottomNavigation";
 
 export default function AdminPage({ navigation, route }) {
+  // Recherche / pagination
   const [searchText, setSearchText] = useState("");
   const [filteredClients, setFilteredClients] = useState([]);
+  const [clients, setClients] = useState({ all: [] });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 4;
   const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage);
   const [showOrdersOnly, setShowOrdersOnly] = useState(false);
+  const listRef = useRef(null);
+
+  // Modale Commandes
   const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersForClient, setOrdersForClient] = useState([]);
   const [ordersClient, setOrdersClient] = useState(null);
-  const listRef = useRef(null);
 
+  // Modale Ban/Déban
+  const [banModalVisible, setBanModalVisible] = useState(false);
+  const [banClient, setBanClient] = useState(null);
+  const [banSaving, setBanSaving] = useState(false);
+  const [banForm, setBanForm] = useState({ banned: false, ban_reason: "" });
+
+  // Helpers
+  const norm = (s) =>
+    (s ?? "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  const digits = (s) => (s ?? "").toString().replace(/\D/g, "");
+  const hasWantedOrder = (orders = []) =>
+    Array.isArray(orders) && orders.length > 0;
+
+  // Chargement clients
+  const loadClients = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select(`
+          id, name, phone, ficheNumber,
+          banned, ban_reason, banned_at, banned_by,
+          interventions ( id, status ),
+          orders ( id, paid )
+        `)
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      const arr = data || [];
+      setClients({ all: arr });
+      setFilteredClients(arr);
+      setCurrentPage(1);
+      setSearchText((s) => s ?? "");
+    } catch (e) {
+      console.error("loadClients:", e);
+      Alert.alert("Erreur", "Impossible de charger la liste des clients.");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
+
+  // Rechargement fiable au retour sur la page
+  useFocusEffect(
+    useCallback(() => {
+      loadClients();
+      return () => {};
+    }, [loadClients])
+  );
+
+  // Filtrage
+  useEffect(() => {
+    const q = searchText ?? "";
+    const qNorm = norm(q);
+    const qDigits = digits(q);
+
+    const base = showOrdersOnly
+      ? (clients.all || []).filter(
+          (c) => Array.isArray(c?.orders) && hasWantedOrder(c.orders)
+        )
+      : clients.all || [];
+
+    if (q.trim() === "") {
+      setFilteredClients(base);
+      setCurrentPage(1);
+      return;
+    }
+
+    const filtered = base.filter((c) => {
+      const nameNorm = norm(c?.name);
+      const ficheStr = (c?.ficheNumber ?? "").toString().toLowerCase();
+      const phoneDigit = digits(c?.phone);
+      const hitName = nameNorm.includes(qNorm);
+      const hitFiche = ficheStr.includes(qNorm);
+      const hitPhone = qDigits.length > 0 && phoneDigit.includes(qDigits);
+      return hitName || hitFiche || hitPhone;
+    });
+
+    const safe = filtered.length === 0 && q.trim() !== "" ? base : filtered;
+    setFilteredClients(safe);
+    setCurrentPage(1);
+  }, [searchText, clients, showOrdersOnly]);
+
+  // Pagination
   const currentData = (filteredClients || []).slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -40,16 +135,19 @@ export default function AdminPage({ navigation, route }) {
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= Math.max(totalPages, 1)) {
       setCurrentPage(newPage);
+      try {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      } catch {}
     }
   };
   const resetToFirstPage = () => {
     setCurrentPage(1);
-    // Remonter en haut de la liste
     try {
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch {}
   };
 
+  // Commandes d'un client
   const showClientOrders = async (client) => {
     setOrdersClient(client);
     setOrdersModalVisible(true);
@@ -57,108 +155,82 @@ export default function AdminPage({ navigation, route }) {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select(`*, created_at:createdat`) // alias si ta colonne est "createdat"
+        .select(`*, created_at:createdat`)
         .eq("client_id", client.id)
-        .order("createdat", { ascending: false }); // trie sur le vrai nom
+        .order("createdat", { ascending: false });
 
       if (error) throw error;
       setOrdersForClient(data || []);
     } catch (e) {
       console.error("Erreur chargement commandes:", e);
-      Alert.alert(
-        "Erreur",
-        "Impossible de charger les commandes de ce client."
-      );
+      Alert.alert("Erreur", "Impossible de charger les commandes.");
       setOrdersForClient([]);
     } finally {
       setOrdersLoading(false);
     }
   };
 
-  // Helpers recherche
-  const norm = (s) =>
-    (s ?? "")
-      .toString()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // sans accents
-      .toLowerCase()
-      .trim();
+  // BAN / DEBAN
+  const openBanModal = (client) => {
+    setBanClient(client);
+    setBanForm({
+      banned: client?.banned === true,
+      ban_reason: client?.ban_reason || "",
+    });
+    setBanModalVisible(true);
+  };
 
-  const digits = (s) => (s ?? "").toString().replace(/\D/g, "");
-
-  const [clients, setClients] = useState({
-    all: [],
-  });
-  // ✅ True si le client a au moins UNE commande (passée ou en cours)
-  const hasWantedOrder = (orders = []) =>
-    Array.isArray(orders) && orders.length > 0;
-
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
+  const getCurrentUserId = async () => {
     try {
-      const { data, error } = await supabase.from("clients").select(`
-                *,
-                interventions (
-                    id,
-                    status
-                ),
-                orders ( id, paid )
-            `);
-
-      if (error) throw error;
-
-      if (data) {
-        setClients({ all: data });
-        setFilteredClients(data);
-        setCurrentPage(1);
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement des clients :", error);
-      Alert.alert(
-        "Erreur",
-        "Une erreur est survenue lors du chargement des clients."
-      );
+      const { data } = await supabase.auth.getUser();
+      return data?.user?.id || null;
+    } catch {
+      return null;
     }
   };
 
-  useEffect(() => {
-    const q = searchText ?? "";
-    const qNorm = norm(q);
-    const qDigits = digits(q);
-
-    // 1) Point de départ : soit tous, soit seulement ceux avec commandes éligibles
-    const base = showOrdersOnly
-      ? (clients.all || []).filter(
-          (c) => Array.isArray(c?.orders) && hasWantedOrder(c.orders)
-        )
-      : clients.all || [];
-
-    // 2) Si saisie vide -> on affiche la base “telle quelle”
-    if (q.trim() === "") {
-      setFilteredClients(base);
-      setCurrentPage(1);
+  const saveBan = async () => {
+    if (!banClient?.id) {
+      setBanModalVisible(false);
       return;
     }
+    try {
+      setBanSaving(true);
+      const userId = await getCurrentUserId();
 
-    // 3) Filtre texte (nom, fiche, téléphone)
-    const filtered = base.filter((c) => {
-      const nameNorm = norm(c?.name);
-      const ficheStr = (c?.ficheNumber ?? "").toString().toLowerCase();
-      const phoneDigit = digits(c?.phone);
+      const payload = banForm.banned
+        ? {
+            banned: true,
+            ban_reason: (banForm.ban_reason || "").trim(),
+            banned_at: new Date().toISOString(),
+            banned_by: userId,
+          }
+        : {
+            banned: false,
+            ban_reason: null,
+            banned_at: null,
+            banned_by: null,
+          };
 
-      const hitName = nameNorm.includes(qNorm);
-      const hitFiche = ficheStr.includes(qNorm);
-      const hitPhone = qDigits.length > 0 && phoneDigit.includes(qDigits);
+      const { error } = await supabase
+        .from("clients")
+        .update(payload)
+        .eq("id", banClient.id);
 
-      return hitName || hitFiche || hitPhone;
-    });
+      if (error) throw error;
 
-    setFilteredClients(filtered);
-    setCurrentPage(1);
-  }, [searchText, clients, showOrdersOnly]);
+      await loadClients();
+      setBanModalVisible(false);
+      setBanClient(null);
+      setBanForm({ banned: false, ban_reason: "" });
+      Alert.alert("OK", banForm.banned ? "Client banni." : "Client débanni.");
+    } catch (e) {
+      console.error("saveBan:", e);
+      Alert.alert("Erreur", "Impossible d'enregistrer le bannissement.");
+    } finally {
+      setBanSaving(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -168,9 +240,8 @@ export default function AdminPage({ navigation, route }) {
       <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.container}>
-            {/* -------------------- Barre de boutons actions -------------------- */}
+            {/* --- Barre d'actions --- */}
             <View style={styles.row}>
-              {/* Recherche multi-critères */}
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("SearchClientsPage")}
@@ -182,7 +253,6 @@ export default function AdminPage({ navigation, route }) {
                 <Text style={styles.buttonText}>Recherche multi-critères</Text>
               </TouchableOpacity>
 
-              {/* Gestion produits, marques, modèles */}
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("ArticlesPage")}
@@ -196,7 +266,6 @@ export default function AdminPage({ navigation, route }) {
                 </Text>
               </TouchableOpacity>
 
-              {/* Ajouter un produit */}
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("AddProductPage")}
@@ -208,7 +277,6 @@ export default function AdminPage({ navigation, route }) {
                 <Text style={styles.buttonText}>Ajouter un produit</Text>
               </TouchableOpacity>
 
-              {/* ➕ Nouveau bouton Barème des réparations */}
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("RepairPrices")}
@@ -221,7 +289,7 @@ export default function AdminPage({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            {/* -------------------- Recherche + Liste clients -------------------- */}
+            {/* --- Recherche + Liste --- */}
             <Text style={styles.sectionTitle}>
               Recherche dans la liste complète des clients
             </Text>
@@ -242,11 +310,17 @@ export default function AdminPage({ navigation, route }) {
               />
             </View>
 
-            {/* Titre + bouton filtre commandes */}
             <View style={styles.titleRow}>
-              <Text style={styles.sectionTitle}>
-                Liste complète des clients
-              </Text>
+              <Text style={styles.sectionTitle}>Liste complète des clients</Text>
+
+              <TouchableOpacity
+              style={styles.smallActionButton}
+                onPress={() => navigation.navigate("ArchivesInterventionsPage")}
+                activeOpacity={0.8}
+              >
+              <MaterialIcons name="receipt-long" size={18} color="#fff" />
+                <Text style={styles.smallActionText}>Archives (Non réparables)</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.smallActionButton}
@@ -265,8 +339,8 @@ export default function AdminPage({ navigation, route }) {
             {currentData.length > 0 ? (
               <FlatList
                 ref={listRef}
-                data={currentData || []}
-                keyExtractor={(item) => item.id?.toString()}
+                data={currentData}
+                keyExtractor={(item) => String(item.id)}
                 contentContainerStyle={{ paddingBottom: 80 }}
                 renderItem={({ item, index }) => {
                   const hasAnyOrder =
@@ -275,10 +349,8 @@ export default function AdminPage({ navigation, route }) {
                   return (
                     <TouchableOpacity
                       onPress={() => {
-                        const hasAnyOrder =
-                          Array.isArray(item?.orders) && item.orders.length > 0;
                         if (hasAnyOrder) {
-                          showClientOrders(item); // 👉 ouvre la modale commandes
+                          showClientOrders(item);
                         } else {
                           navigation.navigate("ClientInterventionsPage", {
                             clientId: item.id,
@@ -286,32 +358,35 @@ export default function AdminPage({ navigation, route }) {
                         }
                       }}
                       style={[
-                        styles.clientItem, // ✅ indispensable (position: "relative", padding, bordures…)
-                        {
-                          backgroundColor:
-                            index % 2 === 0 ? "#d3d3d3" : "#b1b1b1",
-                        },
+                        styles.clientItem,
+                        { backgroundColor: index % 2 === 0 ? "#d3d3d3" : "#b1b1b1" },
                       ]}
                     >
-                      {/* ✅ Icône + badge si commande(s) */}
-                      {Array.isArray(item?.orders) &&
-                        item.orders.length > 0 && (
-                          <>
-                            <View style={styles.orderBadge}>
-                              <Text style={styles.orderBadgeText}>
-                                {item.orders.length > 1
-                                  ? `${item.orders.length} commandes`
-                                  : "Commande"}
-                              </Text>
-                            </View>
-                            <MaterialIcons
-                              name="shopping-cart"
-                              size={20}
-                              color="#1f4d1f"
-                              style={styles.orderIcon}
-                            />
-                          </>
-                        )}
+                      {/* Badge Commandes */}
+                      {hasAnyOrder && (
+                        <>
+                          <View style={styles.orderBadge}>
+                            <Text style={styles.orderBadgeText}>
+                              {item.orders.length > 1
+                                ? `${item.orders.length} commandes`
+                                : "Commande"}
+                            </Text>
+                          </View>
+                          <MaterialIcons
+                            name="shopping-cart"
+                            size={20}
+                            color="#1f4d1f"
+                            style={styles.orderIcon}
+                          />
+                        </>
+                      )}
+
+                      {/* Badge BANNI */}
+                      {item?.banned === true && (
+                        <View style={styles.banBadge}>
+                          <Text style={styles.banBadgeText}>BANNI</Text>
+                        </View>
+                      )}
 
                       <Text style={styles.clientText}>
                         Fiche client N°: {item?.ficheNumber || "Non disponible"}
@@ -325,6 +400,36 @@ export default function AdminPage({ navigation, route }) {
                           ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
                           : "Non disponible"}
                       </Text>
+
+                      {/* Actions client */}
+                      <View style={styles.clientActionsRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.banBtn,
+                            item?.banned ? { backgroundColor: "#7f1d1d" } : { backgroundColor: "#0f766e" },
+                          ]}
+                          onPress={() => openBanModal(item)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.banBtnText}>
+                            {item?.banned ? "Débannir" : "Bannir"}
+                          </Text>
+                        </TouchableOpacity>
+
+<Pressable
+  onPress={() =>
+    navigation.navigate("ClientInterventionsPage", { clientId: item.id })
+  }
+  android_ripple={{ color: "rgba(255,255,255,0.25)" }}
+  style={({ pressed }) => [
+    styles.primaryBtn,
+    pressed && styles.primaryBtnPressed,
+  ]}
+>
+  <Text style={styles.primaryBtnText}>Voir</Text>
+</Pressable>
+
+                      </View>
                     </TouchableOpacity>
                   );
                 }}
@@ -333,7 +438,7 @@ export default function AdminPage({ navigation, route }) {
               <Text style={styles.noDataText}>Aucun client à afficher.</Text>
             )}
 
-            {/* -------------------- Boutons actions bas de page -------------------- */}
+            {/* Bas de page */}
             <TouchableOpacity
               onPress={() => navigation.navigate("ImageBackup")}
               style={styles.backupButton}
@@ -354,12 +459,10 @@ export default function AdminPage({ navigation, route }) {
 
             {/* Pagination */}
             <View style={styles.paginationContainer}>
-              <TouchableOpacity
-                onPress={resetToFirstPage}
-                style={styles.chevronButton}
-              >
+              <TouchableOpacity onPress={resetToFirstPage} style={styles.chevronButton}>
                 <MaterialIcons name="first-page" size={40} color="#08d14b" />
               </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -387,9 +490,7 @@ export default function AdminPage({ navigation, route }) {
                   source={require("../assets/icons/chevrond.png")}
                   style={[
                     styles.chevronIcon,
-                    {
-                      tintColor: currentPage === totalPages ? "gray" : "white",
-                    },
+                    { tintColor: currentPage === totalPages ? "gray" : "white" },
                   ]}
                 />
               </TouchableOpacity>
@@ -398,22 +499,18 @@ export default function AdminPage({ navigation, route }) {
         </TouchableWithoutFeedback>
 
         <BottomNavigation navigation={navigation} currentRoute={route.name} />
-        {/* ===== Modale Détails Commandes ===== */}
-        {/* ===== Modale Détails Commandes ===== */}
+
+        {/* Modale Commandes */}
         <Modal
           visible={ordersModalVisible}
           animationType="slide"
           transparent
           onRequestClose={() => setOrdersModalVisible(false)}
         >
-          {/* Fond semi-transparent (ferme en tapant dehors) */}
-          <TouchableWithoutFeedback
-            onPress={() => setOrdersModalVisible(false)}
-          >
+          <TouchableWithoutFeedback onPress={() => setOrdersModalVisible(false)}>
             <View style={styles.modalOverlay} />
           </TouchableWithoutFeedback>
 
-          {/* Carte du bas */}
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
               Commandes — {ordersClient?.name || "Client"}
@@ -422,9 +519,7 @@ export default function AdminPage({ navigation, route }) {
             {ordersLoading ? (
               <View style={{ paddingVertical: 20, alignItems: "center" }}>
                 <ActivityIndicator size="large" />
-                <Text style={{ marginTop: 10, color: "#444" }}>
-                  Chargement…
-                </Text>
+                <Text style={{ marginTop: 10, color: "#444" }}>Chargement…</Text>
               </View>
             ) : ordersForClient.length === 0 ? (
               <Text style={styles.noDataText}>Aucune commande.</Text>
@@ -464,9 +559,7 @@ export default function AdminPage({ navigation, route }) {
                           null;
                         const total =
                           o?.total ??
-                          (unitPrice != null
-                            ? Number(unitPrice) * Number(qty)
-                            : null);
+                          (unitPrice != null ? Number(unitPrice) * Number(qty) : null);
 
                         return (
                           <Text style={styles.orderLine}>
@@ -483,9 +576,7 @@ export default function AdminPage({ navigation, route }) {
                           o?.paid ? styles.statusPaid : styles.statusUnpaid,
                         ]}
                       >
-                        {o?.paid
-                          ? "Terminée (réglée)"
-                          : "En cours (non réglée)"}
+                        {o?.paid ? "Terminée (réglée)" : "En cours (non réglée)"}
                       </Text>
                     </View>
                   </View>
@@ -517,6 +608,65 @@ export default function AdminPage({ navigation, route }) {
             </View>
           </View>
         </Modal>
+
+        {/* Modale Bannir / Débannir */}
+        <Modal
+          visible={banModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setBanModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setBanModalVisible(false)}>
+            <View style={styles.modalOverlay} />
+          </TouchableWithoutFeedback>
+
+          <View style={styles.banModalCard}>
+            <Text style={styles.modalTitle}>
+              {banForm.banned ? "Bannir le client" : "Débannir le client"}
+            </Text>
+
+            <View style={styles.banRow}>
+              <Text style={styles.banLabel}>Client banni</Text>
+              <Switch
+                value={banForm.banned}
+                onValueChange={(v) => setBanForm((prev) => ({ ...prev, banned: v }))}
+              />
+            </View>
+
+            {banForm.banned && (
+              <TextInput
+                style={styles.input}
+                value={banForm.ban_reason}
+                onChangeText={(t) =>
+                  setBanForm((prev) => ({ ...prev, ban_reason: t }))
+                }
+                placeholder="Raison du bannissement (facultatif)"
+              />
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => setBanModalVisible(false)}
+                disabled={banSaving}
+              >
+                <Text style={styles.secondaryBtnText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, banSaving && { opacity: 0.6 }]}
+                onPress={saveBan}
+                disabled={banSaving}
+              >
+                {banSaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Enregistrer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -524,10 +674,8 @@ export default function AdminPage({ navigation, route }) {
 
 // -------------------- Styles --------------------
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
+  container: { flex: 1, padding: 20 },
+
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -545,24 +693,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     height: 100,
   },
-  iconSearch: {
-    width: 24,
-    height: 24,
-    tintColor: "#fff",
-    marginBottom: 8,
-  },
+  iconSearch: { width: 24, height: 24, tintColor: "#fff", marginBottom: 8 },
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 12,
     textAlign: "center",
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#242424",
-    marginVertical: 10,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#242424", marginVertical: 10 },
+
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -574,17 +713,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#cacaca",
   },
   searchInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 16,
-    color: "#242424",
+    flex: 1, height: 40, fontSize: 16, color: "#242424", paddingHorizontal: 10,
+  },
+  searchIcon: { marginLeft: 10 },
+
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  smallActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#191f2f",
     paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#888787",
   },
-  searchIcon: {
-    marginLeft: 10,
-  },
+  smallActionText: { color: "#fff", marginLeft: 6, fontSize: 12, fontWeight: "bold" },
+
   clientItem: {
-    position: "relative", // <— important pour positionner le badge/icone
+    position: "relative",
     padding: 15,
     borderColor: "#888787",
     backgroundColor: "#f0f0f0",
@@ -593,6 +746,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     elevation: 5,
   },
+
+  // Badges
   orderBadge: {
     position: "absolute",
     top: -8,
@@ -606,27 +761,32 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 5,
     zIndex: 2,
   },
-  orderBadgeText: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#3a3120",
-  },
-  orderIcon: {
-    position: "absolute",
-    top: 8,
-    right: 80, // écart du ruban; ajuste si besoin
-    opacity: 0.9,
-  },
+  orderBadgeText: { fontSize: 11, fontWeight: "bold", color: "#3a3120" },
+  orderIcon: { position: "absolute", top: 8, right: 80, opacity: 0.9 },
 
-  clientText: {
-    fontSize: 16,
-    color: "#242424",
+  banBadge: {
+    position: "absolute",
+    top: -8,
+    left: -8,
+    backgroundColor: "#fee2e2",
+    borderColor: "#b91c1c",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderTopLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    zIndex: 2,
   },
-  noDataText: {
-    textAlign: "center",
-    color: "#888888",
-    marginTop: 20,
-  },
+  banBadgeText: { fontSize: 11, fontWeight: "bold", color: "#7f1d1d" },
+
+  clientText: { fontSize: 16, color: "#242424" },
+  clientActionsRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+
+  banBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  banBtnText: { color: "#fff", fontWeight: "bold" },
+
+  noDataText: { textAlign: "center", color: "#888888", marginTop: 20 },
+
   backupButton: {
     backgroundColor: "#24435c",
     padding: 12,
@@ -642,6 +802,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 5,
   },
+
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -649,52 +810,17 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     marginBottom: 40,
   },
-  chevronButton: {
-    padding: 5,
-  },
-  chevronIcon: {
-    width: 22,
-    height: 22,
-  },
-  paginationText: {
-    marginHorizontal: 10,
-    color: "#242424",
-    fontSize: 20,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 10,
-    marginBottom: 6,
-  },
+  chevronButton: { padding: 5 },
+  chevronIcon: { width: 22, height: 22 },
+  paginationText: { marginHorizontal: 10, color: "#242424", fontSize: 20 },
 
-  smallActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#191f2f", // sobre, dans la continuité
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#888787",
-  },
+  // Modales (fond)
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
 
-  smallActionText: {
-    color: "#fff",
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
+  // Modale commandes
   modalCard: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     backgroundColor: "#f7f7f7",
     borderTopLeftRadius: 14,
     borderTopRightRadius: 14,
@@ -703,61 +829,58 @@ const styles = StyleSheet.create({
     padding: 14,
     maxHeight: "75%",
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#242424",
-    marginBottom: 10,
-  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#242424", marginBottom: 10 },
   orderRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d0d0d0",
-    backgroundColor: "#ffffff",
-    marginBottom: 8,
+    paddingVertical: 10, paddingHorizontal: 10,
+    borderRadius: 8, borderWidth: 1, borderColor: "#d0d0d0",
+    backgroundColor: "#ffffff", marginBottom: 8,
   },
-  orderLine: {
-    fontSize: 14,
-    color: "#333",
-    marginBottom: 2,
-  },
-  orderStatus: {
-    marginTop: 6,
-    fontWeight: "bold",
-  },
-  statusPaid: {
-    color: "#0a6b0a",
-  },
-  statusUnpaid: {
-    color: "#7a1b1b",
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
-  },
-  primaryBtn: {
-    backgroundColor: "#191f2f",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  primaryBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
+  orderLine: { fontSize: 14, color: "#333", marginBottom: 2 },
+  orderStatus: { marginTop: 6, fontWeight: "bold" },
+  statusPaid: { color: "#0a6b0a" },
+  statusUnpaid: { color: "#7a1b1b" },
+  modalActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  primaryBtn: { backgroundColor: "#191f2f", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  primaryBtnText: { color: "#fff", fontWeight: "bold" },
   secondaryBtn: {
     backgroundColor: "#e6e6e6",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#bdbdbd",
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 8, borderWidth: 1, borderColor: "#bdbdbd",
   },
-  secondaryBtnText: {
-    color: "#333",
-    fontWeight: "bold",
+  secondaryBtnText: { color: "#333", fontWeight: "bold" },
+
+  // Modale Ban/Déban
+  banModalCard: {
+    position: "absolute",
+    top: "20%",
+    left: 16,
+    right: 16,
+    backgroundColor: "#f7f7f7",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#cfcfcf",
+    padding: 14,
+  },
+  banRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderColor: "#e5e7eb",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    backgroundColor: "#f9fafb",
+  },
+  banLabel: { fontSize: 16, fontWeight: "600", color: "#111827" },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginBottom: 12,
+    borderRadius: 6,
+    backgroundColor: "#fff",
   },
 });

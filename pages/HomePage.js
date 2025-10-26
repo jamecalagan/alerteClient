@@ -181,6 +181,11 @@ export default function HomePage({ navigation, route, setUser }) {
   const [isBannedMatch, setIsBannedMatch] = useState(false);
   const [openExpress, setOpenExpress] = useState(true);
   const [openOrders, setOpenOrders] = useState(true);
+// —— Note ultra simple
+const [noteVisible, setNoteVisible] = useState(false);
+const [noteText, setNoteText] = useState("");
+const [noteIntervId, setNoteIntervId] = useState(null);
+const [noteClientId, setNoteClientId] = useState(null);
 
   const [notifySheetVisible, setNotifySheetVisible] = useState(false);
   const [notifySheetCtx, setNotifySheetCtx] = useState(null); // { client, latest }
@@ -192,6 +197,49 @@ export default function HomePage({ navigation, route, setUser }) {
     phone: "",
     reason: "",
   });
+// Ouvre la modale pour la dernière intervention de la fiche
+const openNote = (clientItem) => {
+  const li = clientItem?.latestIntervention;
+  if (!li?.id) {
+    Alert.alert("Aucune intervention", "Cette fiche n'a pas d'intervention active.");
+    return;
+  }
+  setNoteIntervId(li.id);
+  setNoteClientId(clientItem.id);
+  setNoteText(li.info_note || "");
+  setNoteVisible(true);
+};
+
+// Sauvegarde en base + patch local super simple
+const saveNote = async () => {
+  if (!noteIntervId) return;
+  const { error } = await supabase
+    .from("interventions")
+    .update({ info_note: noteText })
+    .eq("id", noteIntervId);
+
+  if (error) {
+    Alert.alert("Erreur", "Impossible d’enregistrer la note.");
+    return;
+  }
+
+  // Patch local minimal
+  const patch = (c) => {
+    if (c.id !== noteClientId) return c;
+    const interventions = (c.interventions || []).map((it) =>
+      it.id === noteIntervId ? { ...it, info_note: noteText } : it
+    );
+    const latest =
+      c.latestIntervention?.id === noteIntervId
+        ? { ...c.latestIntervention, info_note: noteText }
+        : c.latestIntervention;
+    return { ...c, interventions, latestIntervention: latest };
+  };
+  setClients((prev) => prev.map(patch));
+  setFilteredClients((prev) => prev.map(patch));
+
+  setNoteVisible(false);
+};
 
   const openBannedAlert = (item) => {
     setBannedAlert({
@@ -519,7 +567,7 @@ export default function HomePage({ navigation, route, setUser }) {
           `
         *,
         interventions(
-          id, status, createdAt, solderestant, cost, commande
+          id, status, createdAt, solderestant, cost, commande, info_note
         ),
         orders(
           id, price, deposit, paid, saved, product
@@ -889,7 +937,8 @@ export default function HomePage({ navigation, route, setUser }) {
  estimate_min,
  estimate_max,
  estimate_type,
- estimate_accepted
+ estimate_accepted,
+ info_note
         ),
         orders(
             id,
@@ -1273,7 +1322,7 @@ const formatDateTime = (value) => {
 interventions(
   id, status, deviceType, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
 )
 
         `
@@ -1306,7 +1355,7 @@ interventions(
 interventions(
   id, status, deviceType, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
 )
 
         `
@@ -1323,7 +1372,7 @@ interventions(
 interventions(
   id, status, deviceType, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
 )
 
         `
@@ -2999,7 +3048,7 @@ interventions(
                                             borderRadius: 8,
                                             alignItems: "center",
                                             backgroundColor: "#fff",
-                                            marginRight: 10,
+                                          
                                           }}
                                         >
                                           <TouchableOpacity
@@ -3017,9 +3066,22 @@ interventions(
                                             )}
                                           </TouchableOpacity>
                                         </View>
+                                                                        {(() => {
+  const li = item.latestIntervention;
+  const hasNote = Boolean(li?.info_note && li.info_note.trim().length > 0);
+  return (
+    <IconSquare
+      source={require("../assets/icons/infos.png")} // mets une icône dispo, sinon remplace par sms.png
+      tintColor={hasNote ? "#ff3603" : "#c3c4c5"} // vert si note, bleu sinon
+      onPress={() => openNote(item)}
+    />
+  );
+})()}
                                       </View>
                                     ))}
                                 </View>
+
+
                               </View>
 
                               {isExpanded && (
@@ -4052,6 +4114,61 @@ interventions(
           </View>
         </View>
       </Modal>
+      <Modal
+  transparent
+  visible={noteVisible}
+  animationType="fade"
+  onRequestClose={() => setNoteVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.alertBox}>
+      <Text style={styles.alertTitle}>Note d'information</Text>
+
+      <TextInput
+        value={noteText}
+        onChangeText={setNoteText}
+        placeholder="Ex: commande imprévue, détail à ne pas oublier…"
+        placeholderTextColor="#888"
+        style={{
+          alignSelf: "stretch",
+          minHeight: 100,
+          borderWidth: 1,
+          borderColor: "#ddd",
+          borderRadius: 10,
+          padding: 10,
+          textAlignVertical: "top",
+          color: "#111",
+          marginTop: 8,
+        }}
+        multiline
+      />
+
+      <View style={styles.modalButtons}>
+        <TouchableOpacity
+          style={[styles.modalButton, { backgroundColor: "#4CAF50" }]}
+          onPress={saveNote}
+        >
+          <Text style={styles.modalButtonText}>Enregistrer</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.modalButton, styles.modalButtonSecondary]}
+          onPress={() => setNoteVisible(false)}
+        >
+          <Text style={styles.modalButtonTextSecondary}>Annuler</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.modalButton, { backgroundColor: "#ef4444" }]}
+          onPress={() => setNoteText("")}
+        >
+          <Text style={styles.modalButtonText}>Effacer</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 }

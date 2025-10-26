@@ -547,7 +547,7 @@ export default function EditInterventionPage({ route, navigation }) {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -619,7 +619,8 @@ export default function EditInterventionPage({ route, navigation }) {
             setLabelPhoto(labelResolved);
             setCommande(inter.commande || "");
             setRemarks(inter.remarks || "");
-            setPaymentStatus(inter.paymentStatus || "non_regle");
+            setNoCostButRestitution(!!inter.no_cost_but_restitution);
+            setPaymentStatus(inter.no_cost_but_restitution ? "" : (inter.paymentStatus || "non_regle"));
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
             setLabelPhotoDB(
@@ -965,12 +966,13 @@ const pickAdditionalImage = async () => {
         // --- Montants
         const costValue = parseFloat(cost) || 0;
         const partialPaymentValue = parseFloat(partialPayment) || 0;
-        const solderestantValue =
-            paymentStatus === "reglement_partiel"
-                ? Math.max(costValue - partialPaymentValue, 0)
-                : paymentStatus === "solde"
-                ? 0
-                : costValue;
+ const solderestantValue = noCostButRestitution
+   ? 0
+   : paymentStatus === "reglement_partiel"
+     ? Math.max(costValue - partialPaymentValue, 0)
+     : paymentStatus === "solde"
+       ? 0
+       : costValue;
 
         const isEstimateMode = status === "Devis en cours";
 
@@ -1597,6 +1599,11 @@ const pickAdditionalImage = async () => {
                             onValueChange={(itemValue) => {
                                 setStatus(itemValue);
                                 if (itemValue === "Devis en cours") setCost("");
+                                 if (itemValue === "Non réparable") {
+   setNoCostButRestitution(true);
+   setPaymentStatus("");
+   setPartialPayment("");
+ }
                             }}
                         >
                             <Picker.Item

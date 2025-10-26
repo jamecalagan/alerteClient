@@ -137,6 +137,7 @@ export default function ClientPreviewPage() {
         const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${clientInfo.name} ${clientInfo.ficheNumber}`;
         const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(clientInfo.name)}%20`;
         const itv = clientInfo.latestIntervention;
+        const ficheDate = itv?.createdAt ?? clientInfo.createdAt;
         const priceBlock = buildPriceBlockHTML(itv);
 
         const htmlContent = `
@@ -177,7 +178,9 @@ export default function ClientPreviewPage() {
         <div class="info"><strong>Nom:</strong> ${clientInfo.name}</div>
         <div class="info"><strong>Téléphone:</strong> ${formatPhoneNumber(clientInfo.phone)}</div>
         <div class="info"><strong>Numéro de client:</strong> ${clientInfo.ficheNumber}</div>
-        <div class="info"><strong>Date de création:</strong> ${new Date(clientInfo.createdAt).toLocaleDateString("fr-FR")}</div>
+        <div class="info"><strong>Date de création de la fiche:</strong> ${fmtDate(ficheDate)}</div>
+
+
       </div>
       <div class="box">
         <div class="info"><strong>Type:</strong> ${itv.deviceType}</div>
@@ -301,7 +304,8 @@ export default function ClientPreviewPage() {
     <div class="info"><strong>Nom:</strong> ${clientInfo.name}</div>
     <div class="info"><strong>Téléphone:</strong> ${formatPhone(clientInfo.phone)}</div>
     <div class="info"><strong>Numéro de client:</strong> ${clientInfo.ficheNumber}</div>
-    <div class="info"><strong>Date de création:</strong> ${new Date(clientInfo.createdAt).toLocaleDateString("fr-FR")}</div>
+    <div class="info"><strong>Date de création de la fiche:</strong> ${fmtDate(ficheDate)}</div>
+
   </div>
   <div class="box">
     <div class="info"><strong>Type:</strong> ${intervention.deviceType}</div>
@@ -386,9 +390,10 @@ ${!intervention.is_estimate && intervention.solderestant ? `<div class="costAcom
                 <Text style={styles.ficheNumber}>
                     Numéro de Fiche: {clientInfo.ficheNumber}
                 </Text>
-                <Text>
-                    Date de création: {new Date(clientInfo.createdAt).toLocaleDateString("fr-FR")}
-                </Text>
+<Text>
+  Date de création de la fiche: {fmtDate(clientInfo.latestIntervention?.createdAt ?? clientInfo.createdAt)}
+</Text>
+
                 <Text style={styles.sectionTitle}>Informations du Client</Text>
                 <Text style={styles.nameText}>Nom: {clientInfo.name}</Text>
                 <Text style={styles.phoneText}>

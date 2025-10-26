@@ -414,7 +414,7 @@ export default function HomePage({ navigation, route, setUser }) {
       </TouchableOpacity>
     );
 
-    /*     useEffect(() => {
+        useEffect(() => {
       const loop = Animated.loop(
         Animated.sequence([
           Animated.timing(opacity, {
@@ -433,7 +433,7 @@ export default function HomePage({ navigation, route, setUser }) {
       );
       loop.start();
       return () => loop.stop();
-    }, []); */
+    }, []);
 
     return (
       <Animated.Image
@@ -1203,23 +1203,37 @@ export default function HomePage({ navigation, route, setUser }) {
       console.error("Erreur lors de la suppression du client :", error);
     }
   };
-  const formatDateTime = (dateString) => {
-    try {
-      return new Date(dateString).toLocaleString("fr-FR", {
-        timeZone: "Europe/Paris",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-    } catch (error) {
-      console.error("Erreur de formatage de la date :", error);
-      return "Date invalide";
-    }
-  };
+// 🔧 Remplace TOUT ton formatDateTime actuel par ce bloc :
+const parseAsUTC = (s) => {
+  if (!s) return null;
+  if (s instanceof Date) return s;
+  // Déjà avec fuseau ? (Z ou ±HH(:)MM)
+  const hasTZ = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(s);
+  // Normalise séparateur ' ' -> 'T' pour ISO
+  const iso = s.includes('T') ? s : s.replace(' ', 'T');
+  // Si pas de fuseau -> on force UTC en ajoutant 'Z'
+  return new Date(hasTZ ? iso : iso + 'Z');
+};
+
+const formatDateTime = (value) => {
+  try {
+    const d = parseAsUTC(value);
+    if (!d || isNaN(d)) return "Date invalide";
+    return new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(d);
+  } catch {
+    return "Date invalide";
+  }
+};
+
 
   const filterClients = async (text) => {
     setSearchText(text);
@@ -2592,34 +2606,44 @@ interventions(
                                     : "Aucune commande"}
                                 </Text>
 
-                                <View>
-                                  <HorizontalSeparator />
-                                </View>
-                                {latestIntervention?.accept_screen_risk && (
-                                  <Text style={styles.acceptRiskText}>
-                                    Le client a accepté le risque de casse. Oui
-                                  </Text>
-                                )}
-                                <Text style={styles.clientText}>
-                                  Date de création :{" "}
-                                  {formatDateTime(item.createdAt)}
-                                </Text>
-                                {item.updatedAt && (
-                                  <Text style={styles.clientText}>
-                                    Infos client modifiées le :{" "}
-                                    {formatDateTime(item.updatedAt)}
-                                  </Text>
-                                )}
-                                {item.interventions?.[0]
-                                  ?.interventionUpdatedAt && (
-                                  <Text style={styles.clientText}>
-                                    Intervention mise à jour le :{" "}
-                                    {formatDateTime(
-                                      item.interventions[0]
-                                        .interventionUpdatedAt
-                                    )}
-                                  </Text>
-                                )}
+<View>
+  <HorizontalSeparator />
+</View>
+
+{latestIntervention?.accept_screen_risk && (
+  <Text style={styles.acceptRiskText}>
+    Le client a accepté le risque de casse. Oui
+  </Text>
+)}
+
+{/* ⬇️ Date de création du client (comme avant) */}
+<Text style={styles.clientText}>
+  Date de création fiche : {formatDateTime(item.createdAt)}
+</Text>
+
+{/* ⬇️ NOUVEAU : Date de création de l’intervention */}
+{item.latestIntervention?.createdAt && (
+  <Text style={styles.clientText}>
+    Intervention créée le : {formatDateTime(item.latestIntervention.createdAt)}
+  </Text>
+)}
+
+{/* ⬇️ Déjà présent : MAJ client */}
+{item.updatedAt && (
+  <Text style={styles.clientText}>
+    Infos client modifiées le : {formatDateTime(item.updatedAt)}
+  </Text>
+)}
+
+{/* ⬇️ Déjà présent : MAJ intervention */}
+{item.interventions?.[0]?.interventionUpdatedAt && (
+  <Text style={styles.clientText}>
+    Intervention mise à jour le : {formatDateTime(
+      item.interventions[0].interventionUpdatedAt
+    )}
+  </Text>
+)}
+
                               </TouchableOpacity>
 
                               <View style={styles.topRightButtons}>

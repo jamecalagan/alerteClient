@@ -13,68 +13,15 @@ import {
   Modal,
   Alert,
 } from "react-native";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
-// --------- Storage utils : liste → URLs publiques dédupliquées (plus récent d'abord) ---------
-const listFolderPublicUrls = async (folder, interventionId) => {
-  try {
-    const listPath = `${folder}/${interventionId}`;
-    const { data: files, error } = await supabase.storage
-      .from("images")
-      .list(listPath);
 
-    if (error || !files || files.length === 0) return [];
+/* ─────────── Helpers format ─────────── */
+const formatPhone = (p) => (p ? String(p).replace(/(\d{2})(?=\d)/g, "$1 ") : "");
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString("fr-FR") : "");
 
-    // Trier le plus récent d'abord (created_at si dispo, sinon par nom décroissant)
-    const sorted = [...files].sort((a, b) => {
-      const da = new Date(a.created_at || 0).getTime();
-      const db = new Date(b.created_at || 0).getTime();
-      if (da !== db) return db - da;
-      return (b.name || "").localeCompare(a.name || "");
-    });
-
-    // Mapper → publicUrl
-    const urls = sorted
-      .map((f) => {
-        const full = `${folder}/${interventionId}/${f.name}`;
-        const { data: pub } = supabase.storage.from("images").getPublicUrl(full);
-        return pub?.publicUrl || "";
-      })
-      .filter(Boolean);
-
-    // Dédupliquer par clé bucket (ignore domaine + ?token)
-    const seen = new Set();
-    const out = [];
-    for (const u of urls) {
-      const k = bucketKey(u);
-      if (k && !seen.has(k)) {
-        seen.add(k);
-        out.push(u);
-      }
-    }
-    return out;
-  } catch {
-    return [];
-  }
-};
-
-// --------- Comparaison “même fichier” (ignore domaine + ?token) ---------
-const sameBucketKey = (a, b) => {
-  const key = (s) => {
-    if (!s) return "";
-    s = String(s);
-    const q = s.indexOf("?");
-    if (q > -1) s = s.slice(0, q);
-    const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i);
-    if (m && m[1]) return m[1];
-    if (s.toLowerCase().startsWith("images/")) return s.slice(7);
-    return s;
-  };
-  return !!a && !!b && key(a) === key(b);
-};
-
-// -------------------- Helpers image (UNIQUE) --------------------
-// ——— Helpers nettoyage refs images ———
+/* ─────────── Helpers images (nettoyage / URLs / fusion) ─────────── */
 const stripQuotes = (s) =>
   s &&
   ((s.startsWith('"') && s.endsWith('"')) ||
@@ -82,43 +29,14 @@ const stripQuotes = (s) =>
     ? s.slice(1, -1)
     : s;
 
-// On garde le ?token ici (utile si URL déjà signée/publique)
 const cleanRefKeepToken = (raw) => {
   if (!raw) return "";
   let s =
     typeof raw === "string" ? raw : raw?.url || raw?.path || raw?.uri || "";
   s = String(s);
-  // guillemets + espaces + antislash(s) de fin
-  s = stripQuotes(s).trim().replace(/\\+$/g, "");
-  return s; // ⚠️ on GARDE le ?token si présent
+  return stripQuotes(s).trim().replace(/\\+$/g, "");
 };
 
-// Convertit le champ "photos" (array, string JSON, string brute) → array propre
-const normalizePhotosField = (photos) => {
-  if (Array.isArray(photos)) {
-    return photos.map(cleanRefKeepToken).filter(Boolean);
-  }
-  if (typeof photos === "string") {
-    const raw = photos.trim();
-    // cas JSON array
-    if (raw.startsWith("[") && raw.endsWith("]")) {
-      try {
-        const arr = JSON.parse(raw);
-        return Array.isArray(arr)
-          ? arr.map(cleanRefKeepToken).filter(Boolean)
-          : [];
-      } catch {
-        // retombera en “brut”
-      }
-    }
-    // cas string brute → une seule ref
-    const one = cleanRefKeepToken(raw);
-    return one ? [one] : [];
-  }
-  return [];
-};
-
-// — comparer 2 refs en ignorant ?token et formats (url publique / signée / clé bucket)
 const cleanRefNoToken = (raw) => {
   if (!raw) return "";
   let s =
@@ -130,25 +48,111 @@ const cleanRefNoToken = (raw) => {
   return s;
 };
 
-const bucketKey = (s) => {
+const toUrl = async (raw) => {
+  const s = cleanRefKeepToken(raw);
   if (!s) return "";
-  s = String(s);
-  // extrait la partie après “…/images/”
-  const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i);
-  if (m && m[1]) return m[1];
-  if (s.toLowerCase().startsWith("images/")) return s.slice(7);
-  return s; // déjà une clé relative du bucket (ex: "supplementaires/…")
+  if (
+    /^https?:\/\//i.test(s) ||
+    s.startsWith("data:image") ||
+    s.startsWith("file:") ||
+    s.startsWith("content:")
+  ) {
+    return s;
+  }
+  const key = s.startsWith("images/") ? s.slice(7) : s;
+
+  const pub = supabase.storage.from("images").getPublicUrl(key)?.data?.publicUrl;
+  if (pub) return pub;
+
+  try {
+    const signed = await supabase.storage
+      .from("images")
+      .createSignedUrl(key, 60 * 60 * 24 * 7);
+    if (signed?.data?.signedUrl) return signed.data.signedUrl;
+  } catch {}
+  return "";
 };
 
-const sameImage = (a, b) => {
-  const A = bucketKey(cleanRefNoToken(a));
-  const B = bucketKey(cleanRefNoToken(b));
-  return !!A && !!B && A === B;
+const listFolderUrls = async (folder, interventionId) => {
+  try {
+    const prefix = `${folder}/${interventionId}`;
+    const out = [];
+    const LIMIT = 100;
+    let offset = 0;
+
+    while (true) {
+      const { data: files, error } = await supabase.storage
+        .from("images")
+        .list(prefix, { limit: LIMIT, offset });
+      if (error) throw error;
+      if (!files || files.length === 0) break;
+
+      for (const f of files) {
+        if (!f?.name) continue; // ignore “dossiers”
+        const full = `${prefix}/${f.name}`;
+        const url = await toUrl(full);
+        if (url) out.push(url);
+      }
+      if (files.length < LIMIT) break;
+      offset += LIMIT;
+    }
+
+    out.sort((a, b) => b.localeCompare(a));
+    return out;
+  } catch {
+    return [];
+  }
 };
 
+const normalizePhotosField = (photos) => {
+  if (Array.isArray(photos)) {
+    return photos.map(cleanRefKeepToken).filter(Boolean);
+  }
+  if (typeof photos === "string") {
+    const raw = photos.trim();
+    if (raw.startsWith("[") && raw.endsWith("]")) {
+      try {
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr)
+          ? arr.map(cleanRefKeepToken).filter(Boolean)
+          : [];
+      } catch {}
+    }
+    const one = cleanRefKeepToken(raw);
+    return one ? [one] : [];
+  }
+  return [];
+};
 
+const listLocalBackupImages = async (ficheNumber, interventionId) => {
+  try {
+    if (!ficheNumber || !interventionId)
+      return { labelLocal: "", photosLocal: [], sigLocal: "" };
 
-// ---------------------------------------------------------------
+    const base = `${FileSystem.documentDirectory}backup/${ficheNumber}/`;
+    const info = await FileSystem.getInfoAsync(base);
+    if (!info.exists)
+      return { labelLocal: "", photosLocal: [], sigLocal: "" };
+
+    const files = await FileSystem.readDirectoryAsync(base);
+
+    const labelName = `etiquette_${interventionId}.jpg`;
+    const labelLocal = files.includes(labelName) ? `${base}${labelName}` : "";
+
+    const sigName = `signature_${interventionId}.jpg`;
+    const sigLocal = files.includes(sigName) ? `${base}${sigName}` : "";
+
+    const photosLocal = files
+      .filter((n) => n.startsWith(`photo_${interventionId}_`))
+      .map((n) => `${base}${n}`);
+
+    return { labelLocal, photosLocal, sigLocal };
+  } catch {
+    return { labelLocal: "", photosLocal: [], sigLocal: "" };
+  }
+};
+
+/* ─────────── Page ─────────── */
 
 export default function ClientInterventionsPage({ route, navigation }) {
   const { clientId } = route.params;
@@ -158,85 +162,133 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
 
-  // Charger le client courant
+  // Charger le client courant (incl. createdAt)
   useEffect(() => {
     const fetchClient = async () => {
       try {
         const { data: clientData, error } = await supabase
           .from("clients")
-          .select("id, name, phone, ficheNumber")
+          .select("id, name, phone, ficheNumber, createdAt")
           .eq("id", clientId)
           .single();
 
-        if (error) throw error;
+      if (error) throw error;
         setSelectedClient(clientData);
       } catch (e) {
         console.error("Erreur lors du chargement du client :", e);
       }
     };
-
     fetchClient();
   }, [clientId]);
 
-  // Charger les interventions du client + nettoyer les refs
-useEffect(() => {
-  if (!selectedClient) return;
+  // Charger interventions + fusion images
+  useEffect(() => {
+    if (!selectedClient) return;
 
-const fetchClientInterventions = async () => {
-  try {
-    const { data, error } = await supabase
-      .from("interventions")
-      .select("*, photos, label_photo")
-      .eq("client_id", selectedClient.id)
-      .order("createdAt", { ascending: false });
+    const fetchClientInterventions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("interventions")
+          .select("*, photos, label_photo, signatureIntervention")
+          .eq("client_id", selectedClient.id)
+          .order("createdAt", { ascending: false });
 
-    if (error) throw error;
+        if (error) throw error;
 
-    const enriched = await Promise.all(
-      (data || []).map(async (it) => {
-        // 1) Nettoyage simple
-        const labelFromDB = typeof it.label_photo === "string" ? it.label_photo.trim() : "";
-        let photosFromDB = Array.isArray(it.photos)
-          ? it.photos.filter(Boolean)
-          : (typeof it.photos === "string" && it.photos.trim().startsWith("["))
-              ? (JSON.parse(it.photos) || []).filter(Boolean)
-              : [];
+        const enriched = await Promise.all(
+          (data || []).map(async (it) => {
+            // Label : BDD/Storage puis fallback local
+            let label =
+              (typeof it.label_photo === "string"
+                ? it.label_photo.trim()
+                : "") || "";
+            label = label ? await toUrl(label) : "";
+            if (!label) {
+              const labels = await listFolderUrls("etiquettes", it.id);
+              label = labels[0] || "";
+            }
 
-        // 2) Si la BDD est vide → on récupère du bucket (comme StoredImagesPage)
-        let label = labelFromDB;
-        if (!label) {
-          const labels = await listFolderPublicUrls("etiquettes", it.id);
-          label = labels[0] || "";
-        }
+            // Photos BDD
+            const photosDBRaw = normalizePhotosField(it.photos);
+            const photosDB = await Promise.all(photosDBRaw.map((p) => toUrl(p)));
 
-        let photos = photosFromDB;
-        if (!photos || photos.length === 0) {
-          // Essaie d’abord "supplementaires", puis "intervention_images"
-          const supp = await listFolderPublicUrls("supplementaires", it.id);
-          const alt  = await listFolderPublicUrls("intervention_images", it.id);
-          photos = [...supp, ...alt];
-        }
+            // Table intervention_images (au cas où)
+            let photosTable = [];
+            try {
+              const { data: rows, error: imgErr } = await supabase
+                .from("intervention_images")
+                .select("image_data, image_url, url, path")
+                .eq("intervention_id", it.id);
 
-        // 3) Évite le doublon “étiquette” dans les photos
-        photos = photos.filter(u => !sameBucketKey(u, label));
+              if (!imgErr && Array.isArray(rows)) {
+                const raws = rows.map(
+                  (r) => r?.image_data || r?.image_url || r?.url || r?.path || ""
+                );
+                photosTable = await Promise.all(raws.map((p) => toUrl(p)));
+              }
+            } catch {}
 
-        return { ...it, label_photo: label, photos };
-      })
-    );
+            // Storage
+            const fromSupp = await listFolderUrls("supplementaires", it.id);
+            const fromAlt = await listFolderUrls("intervention_images", it.id);
 
-    setInterventions(enriched);
-  } catch (err) {
-    console.error("Erreur lors du chargement des interventions :", err);
-  }
-};
+            // Local
+            const { labelLocal, photosLocal, sigLocal } =
+              await listLocalBackupImages(selectedClient?.ficheNumber, it.id);
 
+            const finalLabel = label || labelLocal || "";
 
-  fetchClientInterventions();
-}, [selectedClient]);
+            // Fusion & dédup
+            const pool = [
+              ...photosDB,
+              ...photosTable,
+              ...fromSupp,
+              ...fromAlt,
+              ...photosLocal,
+            ].filter(Boolean);
 
+            const seen = new Set();
+            const uniq = [];
+            for (const u of pool) {
+              const key = cleanRefNoToken(u);
+              if (!key) continue;
+              if (!seen.has(key)) {
+                seen.add(key);
+                uniq.push(u);
+              }
+            }
 
+            // Retirer l’étiquette des photos
+            const photos =
+              finalLabel
+                ? uniq.filter(
+                    (u) => cleanRefNoToken(u) !== cleanRefNoToken(finalLabel)
+                  )
+                : uniq;
 
-  // Charger la liste des clients (pour la recherche)
+            // Signature
+            const sig = it.signatureIntervention
+              ? cleanRefKeepToken(it.signatureIntervention)
+              : "";
+            const photosWithSig = sig ? [...photos, sig] : photos;
+            const photosWithSigLocal = sigLocal
+              ? [...photosWithSig, sigLocal]
+              : photosWithSig;
+
+            return { ...it, label_photo: finalLabel, photos: photosWithSigLocal };
+          })
+        );
+
+        setInterventions(enriched);
+      } catch (err) {
+        console.error("Erreur lors du chargement des interventions :", err);
+      }
+    };
+
+    fetchClientInterventions();
+  }, [selectedClient]);
+
+  // Liste clients pour recherche
   useEffect(() => {
     const fetchClients = async () => {
       try {
@@ -254,7 +306,6 @@ const fetchClientInterventions = async () => {
     fetchClients();
   }, []);
 
-  // Filtre de recherche
   const filteredClients =
     (clients || []).filter(
       (client) =>
@@ -264,9 +315,7 @@ const fetchClientInterventions = async () => {
         (client?.phone || "").includes(searchQuery || "")
     ) || [];
 
-  const handleImagePress = (imageUri) => {
-    setSelectedImage(imageUri);
-  };
+  const handleImagePress = (imageUri) => setSelectedImage(imageUri);
 
   const handleDeleteIntervention = async (interventionId) => {
     try {
@@ -274,16 +323,11 @@ const fetchClientInterventions = async () => {
         .from("interventions")
         .delete()
         .eq("id", interventionId);
-
       if (error) {
-        Alert.alert(
-          "Erreur",
-          "Une erreur est survenue lors de la suppression."
-        );
+        Alert.alert("Erreur", "Une erreur est survenue lors de la suppression.");
         console.error("Erreur de suppression :", error);
         return;
       }
-
       Alert.alert("Succès", "L'intervention a été supprimée avec succès.");
       setInterventions((prev) =>
         prev.filter((intervention) => intervention.id !== interventionId)
@@ -318,112 +362,118 @@ const fetchClientInterventions = async () => {
           onChangeText={setSearchQuery}
         />
 
-        {/* Liste des interventions du client sélectionné (si pas de recherche en cours) */}
+        {/* Liste des interventions (si pas de recherche en cours) */}
         {selectedClient && searchQuery === "" && (
           <View style={{ flex: 1 }}>
-            <Text style={styles.clientInfo}>
-              Client : {selectedClient.name} -{" "}
-              {selectedClient.phone.replace(/(\d{2})(?=\d)/g, "$1 ")}
-            </Text>
-
             <FlatList
               data={interventions}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => (
                 <View style={styles.interventionCard}>
+                  {/* ───── Bloc INFOS (client + intervention) ───── */}
                   <View style={styles.interventionDetails}>
-                    <Text style={styles.updatedAt}>
-                      Référence : {item.reference || "N/A"}
+                    {/* Client */}
+                    <Text style={styles.clientLine}>
+                      <Text style={styles.bold}>Client :</Text> {selectedClient.name}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Produit : {item.deviceType || "N/A"}
+                    <Text style={styles.clientLine}>
+                      <Text style={styles.bold}>Téléphone :</Text> {formatPhone(selectedClient.phone)}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Marque : {item.brand || "N/A"}
+                    <Text style={styles.clientLine}>
+                      <Text style={styles.bold}>N° de fiche :</Text> {selectedClient.ficheNumber}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Modèle : {item.model || "N/A"}
+                    <Text style={styles.clientLine}>
+                      <Text style={styles.bold}>Création client :</Text> {fmtDate(selectedClient.createdAt)}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Description : {item.description}
+
+                    {/* Intervention */}
+                    <View style={styles.sep} />
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Référence :</Text> {item.reference || "N/A"}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Mot de passe: {item.password}
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Type :</Text> {item.deviceType || "N/A"}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Statut : {item.status}
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Marque :</Text> {item.brand || "N/A"}
                     </Text>
-                    <Text style={styles.updatedAt}>Coût : {item.cost} €</Text>
-                    <Text style={styles.updatedAt}>
-                      Montant restant dû : {item.solderestant} €
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Modèle :</Text> {item.model || "N/A"}
                     </Text>
-                    <Text style={styles.updatedAt}>
-                      Date :{" "}
-                      {new Date(item.createdAt).toLocaleDateString("fr-FR")}
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Description :</Text> {item.description}
                     </Text>
                     {!!item.detailIntervention && (
-                      <Text style={styles.updatedAt}>
-                        Détail de l'intervention: {item.detailIntervention}
+                      <Text style={styles.infoLine}>
+                        <Text style={styles.bold}>Détail intervention :</Text> {item.detailIntervention}
                       </Text>
                     )}
-
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Mot de passe :</Text> {item.password || "—"}
+                    </Text>
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Statut :</Text> {item.status}
+                    </Text>
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Coût :</Text> {item.cost} €
+                    </Text>
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Reste dû :</Text> {item.solderestant} €
+                    </Text>
+                    <Text style={styles.infoLine}>
+                      <Text style={styles.bold}>Création intervention :</Text>{" "}
+                      {fmtDate(item.createdAt)}
+                    </Text>
                     {item.status === "Récupéré" && (
-                      <Text style={styles.updatedAt}>
-                        Date de récupération :{" "}
-                        {item.updatedAt
-                          ? new Date(item.updatedAt).toLocaleDateString(
-                              "fr-FR"
-                            )
-                          : "Non disponible"}
+                      <Text style={styles.infoLine}>
+                        <Text style={styles.bold}>Récupéré le :</Text>{" "}
+                        {item.updatedAt ? fmtDate(item.updatedAt) : "Non disponible"}
                       </Text>
                     )}
+                    {item.accept_screen_risk ? (
+                      <Text style={styles.acceptRiskText}>
+                        Le client a accepté le risque de casse.
+                      </Text>
+                    ) : null}
                   </View>
 
-                  <View style={styles.deleteButtonContainer}>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => confirmDeleteIntervention(item.id)}
-                    >
-                      <Text style={styles.deleteButtonText}>Supprimer</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* ───── Bloc IMAGES (label + photos + signature) ───── */}
+                  <View style={styles.mediaColumn}>
+                    {/* Étiquette (ou fallback texte) */}
+                    <View style={styles.labelContainer}>
+                      {(() => {
+                        const label =
+                          typeof item.label_photo === "string"
+                            ? item.label_photo.trim()
+                            : "";
+                        if (!label) {
+                          return (
+                            <Text style={styles.referenceText}>
+                              {item.reference || "Référence manquante"}
+                            </Text>
+                          );
+                        }
+                        return (
+                          <TouchableOpacity onPress={() => handleImagePress(label)}>
+                            <SmartImage
+                              uri={label}
+                              ficheNumber={selectedClient?.ficheNumber}
+                              interventionId={item.id}
+                              type="label"
+                              size={90}
+                              borderRadius={10}
+                              borderWidth={2}
+                              badge
+                            />
+                          </TouchableOpacity>
+                        );
+                      })()}
+                    </View>
 
-                  {/* Étiquette */}
-<View style={styles.labelContainer}>
-  {(() => {
-    const label =
-      typeof item.label_photo === "string" ? item.label_photo.trim() : "";
-    if (!label) {
-      return (
-        <Text style={styles.referenceText}>
-          {item.reference || "Référence manquante"}
-        </Text>
-      );
-    }
-    return (
-      <TouchableOpacity onPress={() => handleImagePress(label)}>
-        <SmartImage
-          uri={label}                       // ← toujours une string non vide
-          ficheNumber={selectedClient?.ficheNumber}
-          interventionId={item.id}
-          type="label"
-          size={80}
-          borderRadius={8}
-          borderWidth={2}
-          badge
-        />
-      </TouchableOpacity>
-    );
-  })()}
-</View>
-
-
-                  {/* Photos supplémentaires */}
-                  <View style={styles.photosContainer}>
-                    {Array.isArray(item.photos) && item.photos.length > 0 ? (
-                      item.photos
-                        .filter((u) => !sameImage(u, item.label_photo))
-                        .map((uri, index) => (
+                    {/* Photos supplémentaires (fusionnées/dédupliquées) */}
+                    <View style={styles.photosContainer}>
+                      {Array.isArray(item.photos) && item.photos.length > 0 ? (
+                        item.photos.map((uri, index) => (
                           <TouchableOpacity
                             key={`${item.id}-${index}`}
                             onPress={() => handleImagePress(uri)}
@@ -434,18 +484,29 @@ const fetchClientInterventions = async () => {
                               interventionId={item.id}
                               index={index}
                               type="photo"
-                              size={60}
+                              size={64}
                               borderRadius={8}
                               borderWidth={1}
                               badge
                             />
                           </TouchableOpacity>
                         ))
-                    ) : (
-                      <Text style={styles.noPhotosText}>
-                        Pas d'images disponibles
-                      </Text>
-                    )}
+                      ) : (
+                        <Text style={styles.noPhotosText}>
+                          Pas d'images disponibles
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Bouton supprimer */}
+                    <View style={styles.deleteButtonContainer}>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => confirmDeleteIntervention(item.id)}
+                      >
+                        <Text style={styles.deleteButtonText}>Supprimer</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               )}
@@ -453,7 +514,7 @@ const fetchClientInterventions = async () => {
           </View>
         )}
 
-        {/* Résultats de recherche (liste des clients) */}
+        {/* Résultats recherche (liste clients) */}
         {searchQuery !== "" && (
           <FlatList
             data={filteredClients}
@@ -466,21 +527,18 @@ const fetchClientInterventions = async () => {
                 }}
                 style={styles.clientCard}
               >
-                <Text style={styles.updatedAt}>
-                  {item.name} - {item.phone}
+                <Text style={styles.infoLine}>
+                  {item.name} - {formatPhone(item.phone)}
                 </Text>
               </TouchableOpacity>
             )}
           />
         )}
 
-        <BottomNavigation
-          navigation={navigation}
-          currentRoute={route.name}
-        />
+        <BottomNavigation navigation={navigation} currentRoute={route.name} />
       </View>
 
-      {/* Modale d'aperçu image */}
+      {/* Modale image */}
       {selectedImage && (
         <Modal
           transparent={true}
@@ -505,7 +563,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#242424",
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: "center",
   },
   searchBar: {
@@ -514,7 +572,7 @@ const styles = StyleSheet.create({
     borderColor: "#777676",
     borderWidth: 1,
     paddingLeft: 8,
-    marginBottom: 20,
+    marginBottom: 16,
     borderRadius: 20,
     fontSize: 16,
     color: "#242424",
@@ -527,44 +585,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#888787",
   },
-  clientInfo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#242424",
-    marginBottom: 10,
-  },
+
   interventionCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 15,
-    marginBottom: 10,
+    gap: 12,
+    padding: 12,
+    marginBottom: 12,
     backgroundColor: "#cacaca",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#888787",
   },
-  recuperedStatusCard: {
-    borderColor: "red",
-    borderWidth: 2,
-  },
-  updatedAt: {
-    fontWeight: "500",
-    color: "#242424",
-  },
-  interventionDetails: {
-    flex: 3,
-  },
+
+  /* Infos bloc */
+  interventionDetails: { flex: 2 },
+  bold: { fontWeight: "bold" },
+  clientLine: { color: "#242424", marginBottom: 2 },
+  infoLine: { color: "#242424", marginBottom: 2 },
+  sep: { height: 8 },
+
+  /* Images bloc */
+  mediaColumn: { flex: 1, alignItems: "center" },
   labelContainer: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  labelImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#49f760",
+    marginBottom: 8,
   },
   referenceText: {
     fontSize: 14,
@@ -572,54 +617,46 @@ const styles = StyleSheet.create({
     color: "#242424",
     textAlign: "center",
   },
+  photosContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "center",
+  },
+  noPhotosText: {
+    fontSize: 12,
+    fontStyle: "italic",
+    color: "#555",
+    marginTop: 4,
+    textAlign: "center",
+  },
+
+  /* Divers */
+  acceptRiskText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "green",
+    fontWeight: "700",
+  },
+  deleteButtonContainer: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  deleteButton: {
+    backgroundColor: "#fd0000",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#888787",
+  },
+  deleteButtonText: { color: "#ffffff", fontWeight: "bold", fontSize: 14 },
+
   modalBackground: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#191f2f",
   },
-  fullImage: {
-    width: "90%",
-    height: "90%",
-    resizeMode: "contain",
-  },
-  photosContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 40,
-  },
-  photo: {
-    width: 60,
-    height: 60,
-    margin: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#888787",
-  },
-  noPhotosText: {
-    fontSize: 14,
-    fontStyle: "italic",
-    color: "#888787",
-    marginTop: 10,
-  },
-  deleteButtonContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "flex-end",
-    marginTop: 10,
-  },
-  deleteButton: {
-    backgroundColor: "#fd0000",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#888787",
-  },
-  deleteButtonText: {
-    color: "#ffffff",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
+  fullImage: { width: "90%", height: "90%", resizeMode: "contain" },
 });

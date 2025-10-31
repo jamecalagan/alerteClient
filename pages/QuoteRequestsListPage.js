@@ -1,3 +1,4 @@
+// pages/QuoteRequestsListPage.js
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
@@ -9,18 +10,69 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Linking,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 
 const STORAGE_BUCKET = "quote-request-photos";
+const QUOTES_PDF_BUCKET = "quotes-pdf";
 
-/** Extrait le path Storage depuis une URL publique du bucket */
+/** Extrait le path Storage depuis une URL publique du bucket images */
 const pathFromPublicUrl = (url) => {
   if (!url) return null;
-  // …/storage/v1/object/public/quote-request-photos/<CHEMIN>
   const m = url.match(/\/storage\/v1\/object\/public\/quote-request-photos\/([^?]+)/);
   return m ? decodeURIComponent(m[1]) : null;
+};
+
+/** Civilité traditionnelle */
+const withCivilite = (name) => {
+  const n = (name || "").trim();
+  return n ? `M. ${n}` : "—";
+};
+
+/** Public URL pour un path Storage (PDF) */
+const publicUrlFromStoragePath = (path) => {
+  if (!path) return null;
+  const { data } = supabase.storage.from(QUOTES_PDF_BUCKET).getPublicUrl(path);
+  return data?.publicUrl || null;
+};
+
+/** Récupère l’URL publique du PDF d’un devis */
+const fetchQuotePdfPublicUrl = async (quoteId) => {
+  if (!quoteId) return null;
+  const { data, error } = await supabase
+    .from("quotes")
+    .select("pdf_url, pdf_storage_path")
+    .eq("id", quoteId)
+    .single();
+
+  if (error) {
+    console.log("⚠️ fetchQuotePdfPublicUrl:", error);
+    return null;
+  }
+
+  if (data?.pdf_url && String(data.pdf_url).startsWith("http")) {
+    return data.pdf_url;
+  }
+  if (data?.pdf_storage_path) {
+    return publicUrlFromStoragePath(data.pdf_storage_path);
+  }
+  return null;
+};
+
+/** Message SMS (incluant lien PDF si fourni) */
+const buildSmsBody = (req, pdfUrl) => {
+  const who = req.client_name ? `Bonjour M. ${req.client_name},` : `Bonjour,`;
+  const deviceParts = [req.device_type, req.brand, req.model].filter(Boolean).join(" ");
+  const refTxt = req.quote_id ? ` (réf. devis ${req.quote_id})` : "";
+  const base =
+    `${who} votre devis${refTxt} est prêt chez AVENIR INFORMATIQUE` +
+    `${deviceParts ? ` pour ${deviceParts}` : ""}. `;
+  return pdfUrl
+    ? `${base}Voici le lien : ${pdfUrl}\nMerci de nous répondre pour valider.`
+    : `${base}Merci de nous répondre pour valider ou pour toute question.`;
 };
 
 export default function QuoteRequestsListPage({ navigation }) {
@@ -41,7 +93,9 @@ export default function QuoteRequestsListPage({ navigation }) {
            client_name, phone, email,
            device_type, brand, model, serial,
            problem, condition, accessories, notes,
-           photos_count, photos, quote_id`
+           photos_count, photos, quote_id,
+           sms_notified_at, sms_notify_count, notified_by,
+           sms_last_pdf_url`
         )
         .order("created_at", { ascending: false });
 
@@ -75,7 +129,62 @@ export default function QuoteRequestsListPage({ navigation }) {
     return hay.includes(q);
   });
 
-  /* ───────── Actions ───────── */
+  /** Envoi / Renvoi du SMS + persist BDD (et inclusion du PDF si dispo) */
+  const notifyBySMS = async (req) => {
+    if (!req?.phone) {
+      Alert.alert("Information manquante", "Aucun numéro de téléphone n’est renseigné.");
+      return;
+    }
+    try {
+      // Lien PDF si devis lié
+      let pdfUrl = req.sms_last_pdf_url || null;
+      if (!pdfUrl && req.quote_id) {
+        pdfUrl = await fetchQuotePdfPublicUrl(req.quote_id);
+      }
+
+      const body = buildSmsBody(req, pdfUrl);
+      const smsUrl = `sms:${encodeURIComponent(req.phone)}${body ? `?body=${encodeURIComponent(body)}` : ""}`;
+
+      const can = await Linking.canOpenURL("sms:");
+      if (can) {
+        await Linking.openURL(smsUrl);
+      } else {
+        await Clipboard.setStringAsync(String(req.phone));
+        Alert.alert("Numéro copié", "Le numéro a été copié. Ouverture de Messages Web…");
+        await Linking.openURL("https://messages.google.com/web");
+      }
+
+      // Persist
+      const now = new Date().toISOString();
+      const newCount = (Number(req.sms_notify_count) || 0) + 1;
+
+      const { error: updErr } = await supabase
+        .from("quote_requests")
+        .update({
+          sms_notified_at: now,
+          sms_notify_count: newCount,
+          notified_by: "SMS",
+          sms_last_pdf_url: pdfUrl || null,
+        })
+        .eq("id", req.id);
+
+      if (updErr) {
+        console.error("⚠️ update sms fields:", updErr);
+        Alert.alert("Avertissement", "SMS envoyé, mais impossible d’enregistrer l’indication en base.");
+      } else {
+        await loadRequests();
+      }
+    } catch (e) {
+      console.log("❌ notifyBySMS:", e);
+      try { await Clipboard.setStringAsync(String(req.phone ?? "")); } catch {}
+      Alert.alert(
+        "Impossible d’ouvrir l’envoi SMS",
+        "Le numéro a été copié dans le presse-papiers. Vous pouvez l’utiliser dans votre application de messagerie."
+      );
+    }
+  };
+
+  // Actions existantes
   const prepareQuote = async (req) => {
     try {
       if ((req.status || "") === "nouvelle") {
@@ -120,11 +229,7 @@ export default function QuoteRequestsListPage({ navigation }) {
       : "Supprimer définitivement cette demande de devis ?";
     Alert.alert("Supprimer la demande", warning, [
       { text: "Annuler", style: "cancel" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: () => doDelete(req),
-      },
+      { text: "Supprimer", style: "destructive", onPress: () => doDelete(req) },
     ]);
   };
 
@@ -138,15 +243,12 @@ export default function QuoteRequestsListPage({ navigation }) {
         const { error: remErr } = await supabase.storage.from(STORAGE_BUCKET).remove(paths);
         if (remErr) console.log("⚠️ remove storage error:", remErr);
       }
-
       // 2) supprimer la ligne de la table
       const { error: delErr } = await supabase.from("quote_requests").delete().eq("id", req.id);
       if (delErr) {
         Alert.alert("Erreur", "Impossible de supprimer : " + delErr.message);
         return;
       }
-
-      // 3) rafraîchir la liste
       await loadRequests();
     } catch (e) {
       console.log("❌ doDelete:", e);
@@ -160,10 +262,13 @@ export default function QuoteRequestsListPage({ navigation }) {
   const RenderItem = ({ item }) => {
     const hasQuote = !!item.quote_id;
     const firstPhoto = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
+    const showSmsZone = !item.email && !!item.phone; // zone dédiée au SMS
+    const notifiedAt = item.sms_notified_at;         // champ persistant
+    const count = Number(item.sms_notify_count) || 0;
 
     return (
       <View style={styles.card}>
-        {/* En-tête avec miniature si dispo */}
+        {/* En-tête */}
         <View style={styles.headerRow}>
           {firstPhoto ? (
             <Image source={{ uri: firstPhoto }} style={styles.thumb} />
@@ -175,7 +280,7 @@ export default function QuoteRequestsListPage({ navigation }) {
 
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.titleLine}>
-              {item.client_name || "—"} {item.phone ? `· ${item.phone}` : ""} {item.email ? `· ${item.email}` : ""}
+              {withCivilite(item.client_name)} {item.phone ? `· ${item.phone}` : ""} {item.email ? `· ${item.email}` : ""}
             </Text>
             <Text style={styles.subLine}>
               {item.device_type || "—"} {item.brand ? `· ${item.brand}` : ""} {item.model ? `· ${item.model}` : ""}
@@ -200,48 +305,58 @@ export default function QuoteRequestsListPage({ navigation }) {
         </View>
 
         {/* Actions */}
-<View style={styles.actionsGrid}>
-  <TouchableOpacity
-    style={[styles.gridBtn, styles.btnNeutral]}
-    onPress={() => editRequest(item)}
-  >
-    <Text style={styles.gridBtnTextDark}>✏️ Modifier la demande</Text>
-  </TouchableOpacity>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity style={[styles.gridBtn, styles.btnNeutral]} onPress={() => editRequest(item)}>
+            <Text style={styles.gridBtnTextDark}>✏️ Modifier la demande</Text>
+          </TouchableOpacity>
 
-  {!hasQuote ? (
-    <TouchableOpacity
-      style={[styles.gridBtn, styles.btnPrimary]}
-      onPress={() => prepareQuote(item)}
-    >
-      <Text style={styles.gridBtnText}>🧾 Préparer le devis</Text>
-    </TouchableOpacity>
-  ) : (
-    <TouchableOpacity
-      style={[styles.gridBtn, styles.btnSecondary]}
-      onPress={() => editExistingQuote(item)}
-    >
-      <Text style={styles.gridBtnText}>✏️ Modifier le devis</Text>
-    </TouchableOpacity>
-  )}
+          {!hasQuote ? (
+            <TouchableOpacity style={[styles.gridBtn, styles.btnPrimary]} onPress={() => prepareQuote(item)}>
+              <Text style={styles.gridBtnText}>🧾 Préparer le devis</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[styles.gridBtn, styles.btnSecondary]} onPress={() => editExistingQuote(item)}>
+              <Text style={styles.gridBtnText}>✏️ Modifier le devis</Text>
+            </TouchableOpacity>
+          )}
 
-  <TouchableOpacity
-    style={[styles.gridBtn, styles.btnLight]}
-    onPress={() => navigation.navigate("QuoteRequestDetailsPage", { id: item.id })}
-  >
-    <Text style={styles.gridBtnTextLight}>Détails</Text>
-  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gridBtn, styles.btnLight]}
+            onPress={() => navigation.navigate("QuoteRequestDetailsPage", { id: item.id })}
+          >
+            <Text style={styles.gridBtnTextLight}>Détails</Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    style={[styles.gridBtn, styles.btnDanger, deletingId === item.id && { opacity: 0.6 }]}
-    onPress={() => deleteRequest(item)}
-    disabled={deletingId === item.id}
-  >
-    <Text style={styles.gridBtnText}>
-      {deletingId === item.id ? "Suppression..." : "🗑️ Supprimer"}
-    </Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            style={[styles.gridBtn, styles.btnDanger, deletingId === item.id && { opacity: 0.6 }]}
+            onPress={() => deleteRequest(item)}
+            disabled={deletingId === item.id}
+          >
+            <Text style={styles.gridBtnText}>{deletingId === item.id ? "Suppression..." : "🗑️ Supprimer"}</Text>
+          </TouchableOpacity>
 
+          {/* 📲 Zone SMS : bouton initial OU indication + renvoi (persistants) */}
+          {showSmsZone && !notifiedAt && (
+            <TouchableOpacity style={[styles.gridBtn, styles.btnSms]} onPress={() => notifyBySMS(item)}>
+              <Text style={styles.gridBtnText}>📲 Notifier par SMS</Text>
+            </TouchableOpacity>
+          )}
+
+          {showSmsZone && notifiedAt && (
+            <View style={[styles.gridBtn, styles.smsInfoWrap]}>
+              <View style={styles.smsInfoLeft}>
+                <Text style={styles.smsInfoTitle}>📨 SMS notifié</Text>
+                <Text style={styles.smsInfoSub}>
+                  {new Date(notifiedAt).toLocaleString()} · {count} envoi{count > 1 ? "s" : ""} · {item.notified_by || "—"}
+                </Text>
+                {item.quote_id ? <Text style={styles.smsInfoSub}>📎 Lien PDF inclus (si disponible)</Text> : null}
+              </View>
+              <TouchableOpacity style={styles.btnSmsGhost} onPress={() => notifyBySMS(item)}>
+                <Text style={styles.btnSmsGhostText}>↻ Renotifier</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     );
   };
@@ -376,22 +491,55 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
   btnTextDark: { color: "#111827", fontSize: 14, fontWeight: "800" },
   btnTextLight: { color: "#1f2937", fontSize: 14, fontWeight: "800" },
-  actionsGrid: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  justifyContent: "space-between",
-  marginTop: 12,
-},
-gridBtn: {
-  width: "48%",          // 2 colonnes
-  height: 44,            // hauteur fixe -> tous identiques
-  borderRadius: 10,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 8,
-},
-gridBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
-gridBtnTextLight: { color: "#1f2937", fontSize: 14, fontWeight: "800" },
-gridBtnTextDark: { color: "#111827", fontSize: 14, fontWeight: "800" },
 
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  gridBtn: {
+    width: "48%",
+    height: 44,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  gridBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  gridBtnTextLight: { color: "#1f2937", fontSize: 14, fontWeight: "800" },
+  gridBtnTextDark: { color: "#111827", fontSize: 14, fontWeight: "800" },
+
+  // SMS
+  btnSms: { backgroundColor: "#2563eb" },
+
+  // Indicateurs
+  smsInfoWrap: {
+    width: "100%",
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: "#ecfdf5",
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    justifyContent: "space-between",
+  },
+  smsInfoLeft: { flexDirection: "column" },
+  smsInfoTitle: { color: "#065f46", fontWeight: "800", fontSize: 14 },
+  smsInfoSub: { color: "#047857", fontWeight: "600", fontSize: 12 },
+
+  pillDanger: { backgroundColor: "#fee2e2", borderColor: "#fecaca" },
+
+  // Petit bouton pour renvoyer
+  btnSmsGhost: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#34d399",
+    backgroundColor: "#ffffff",
+  },
+  btnSmsGhostText: { color: "#065f46", fontWeight: "800", fontSize: 12 },
 });

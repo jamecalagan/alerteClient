@@ -27,49 +27,29 @@ export default function BottomMenu({
 useEffect(() => {
   if (!isFocused) return;
 
-  const commandeStatuses = ["Commande en cours", "En attente de pièces"]; // ← adapte à tes libellés exacts
-
   (async () => {
     try {
-      // 1) commandes depuis "orders" encore en cours = paid = false
-      const { count: ordersCount, error: err1 } = await supabase
+      // Définition « commandes en cours » :
+      // - non supprimées (deleted IS NULL/FALSE)
+      // - non récupérées (recovered IS NULL/FALSE)
+      const { count, error } = await supabase
         .from("orders")
         .select("*", { count: "exact", head: true })
-        .eq("paid", false);
+        // deleted = false OR NULL
+        .or("deleted.is.null,deleted.eq.false")
+        // recovered = false OR NULL
+        .or("recovered.is.null,recovered.eq.false");
 
-      if (err1) throw err1;
+      if (error) throw error;
 
-      // 2) "commandes" logées dans la table "interventions"
-      //    → si tes statuts sont différents, modifie la liste ci-dessus.
-      const { count: interCount, error: err2 } = await supabase
-        .from("interventions")
-        .select("*", { count: "exact", head: true })
-        .in("status", commandeStatuses);
-
-      if (err2) throw err2;
-
-      setOngoingCount((ordersCount ?? 0) + (interCount ?? 0));
+      setOngoingCount(count ?? 0);
     } catch (e) {
       console.error("Erreur comptage commandes en cours:", e);
-      // Fallback plus permissif si tes libellés ne matchent pas :
-      try {
-        const { count: ordersCount2 } = await supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("paid", false);
-
-        const { count: interCount2 } = await supabase
-          .from("interventions")
-          .select("*", { count: "exact", head: true })
-          .ilike("status", "%commande%"); // attrape "commande", "commandes", etc.
-
-        setOngoingCount((ordersCount2 ?? 0) + (interCount2 ?? 0));
-      } catch {
-        setOngoingCount(0);
-      }
+      setOngoingCount(0);
     }
   })();
 }, [isFocused]);
+
 
 
     const handlePress = (status, action) => {

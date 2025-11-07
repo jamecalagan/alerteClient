@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     TextInput,
@@ -234,6 +234,17 @@ export default function EditInterventionPage({ route, navigation }) {
     const [openBrand, setOpenBrand] = useState(false);
     const [openModel, setOpenModel] = useState(false);
     const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
+	// --- AJOUTS D'ÉTATS POUR LA COMMANDE RAPIDE ---
+const [orderModalVisible, setOrderModalVisible] = useState(false);
+const [orderProduct, setOrderProduct] = useState("");   // ex: "BATTERIE"
+const [orderBrand, setOrderBrand] = useState("");
+const [orderModel, setOrderModel] = useState("");
+const [orderUnitPrice, setOrderUnitPrice] = useState("");
+const [orderQty,   setOrderQty]   = useState("1");
+const [orderDeposit, setOrderDeposit] = useState("");
+
+// pour détecter la transition de statut
+const prevStatusRef = useRef(status);
     const repairBrokenPhotoUrlsForCurrentIntervention = async () => {
         try {
             const { data: inter, error } = await supabase
@@ -734,6 +745,94 @@ export default function EditInterventionPage({ route, navigation }) {
             console.error("❌ Erreur loadIntervention :", e);
         }
     };
+useEffect(() => {
+  const prev = prevStatusRef.current;
+  if (prev === "Réparation en cours" && status === "En attente de pièces") {
+    // Pré-remplis intelligemment
+    const defProd =
+      reference?.trim()
+        ? reference.trim()
+        : (deviceType ? deviceType.toUpperCase() + " " : "") +
+          (brand ? String(brand).toUpperCase() + " " : "") +
+          (model ? String(model).toUpperCase() : "");
+
+    setOrderProduct(defProd || "PIÈCE À COMMANDER");
+    setOrderBrand(brand || "");
+    setOrderModel(model || "");
+    setOrderUnitPrice("");  // à saisir
+    setOrderQty("1");
+    setOrderDeposit("");
+
+    setOrderModalVisible(true);
+  }
+  prevStatusRef.current = status;
+}, [status]);
+const toNum = (v, def = 0) => {
+  const x = parseFloat(String(v ?? "").replace(",", "."));
+  return Number.isFinite(x) ? x : def;
+};
+
+const handleCreateOrderFromStatus = async () => {
+  try {
+    const product = orderProduct?.trim();
+    const brandStr = orderBrand?.trim() || null;
+    const modelStr = orderModel?.trim() || null;
+    const price = toNum(orderUnitPrice, NaN);
+    const qty = Math.max(1, Math.floor(toNum(orderQty, 1)));
+    const deposit = Math.max(0, toNum(orderDeposit, 0));
+
+    if (!product) {
+      Alert.alert("Champs manquants", "Le produit est requis.");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      Alert.alert("Montant invalide", "Saisis un prix unitaire valide (> 0).");
+      return;
+    }
+
+    const total = Math.round((price * qty + Number.EPSILON) * 100) / 100;
+
+    const payload = {
+      client_id: clientId,          // ⚠️ tu as déjà clientId dans la page
+      product,
+      brand: brandStr,
+      model: modelStr,
+      price,
+      quantity: qty,
+      total,
+      deposit,
+      received: false,
+      paid: false,
+      recovered: false,
+      deleted: false,
+      createdat: new Date().toISOString(),
+      // option : intervention_id si tu as ajouté cette colonne pour le lien
+      // intervention_id: interventionId,
+    };
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert([payload])
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("❌ Insertion order:", error);
+      Alert.alert("Erreur", "Impossible de créer la commande.");
+      return;
+    }
+
+    // (facultatif) mémoriser le libellé côté intervention
+    // ex: setCommande(product); ou update immédiat en BDD si tu préfères
+
+    setOrderModalVisible(false);
+    Alert.alert("✅ Commande", "Commande créée avec succès.");
+
+  } catch (e) {
+    console.error("❌ handleCreateOrderFromStatus:", e);
+    Alert.alert("Erreur", "Création de la commande impossible.");
+  }
+};
 
     const deleteLabelPhoto = async (photoRefRaw) => {
         const photoRef = extractRefString(photoRefRaw);
@@ -2277,6 +2376,93 @@ const pickAdditionalImage = async () => {
                     </View>
                 </View>
             </Modal>
+			<Modal
+  visible={orderModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setOrderModalVisible(false)}
+>
+  <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.5)", justifyContent:"center", alignItems:"center" }}>
+    <View style={{ width:"92%", backgroundColor:"#fff", borderRadius:10, padding:14 }}>
+      <Text style={{ fontSize:18, fontWeight:"700", textAlign:"center", marginBottom:10 }}>
+        Créer la commande
+      </Text>
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Produit à commander</Text>
+      <TextInput
+        style={styles.input}
+        value={orderProduct}
+        onChangeText={setOrderProduct}
+        placeholder="Ex: BATTERIE ASUS X512"
+        placeholderTextColor="#777"
+      />
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Marque</Text>
+      <TextInput
+        style={styles.input}
+        value={orderBrand}
+        onChangeText={setOrderBrand}
+        placeholder="(facultatif)"
+        placeholderTextColor="#777"
+      />
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Modèle</Text>
+      <TextInput
+        style={styles.input}
+        value={orderModel}
+        onChangeText={setOrderModel}
+        placeholder="(facultatif)"
+        placeholderTextColor="#777"
+      />
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Prix unitaire (€)</Text>
+      <TextInput
+        style={styles.input}
+        value={orderUnitPrice}
+        onChangeText={setOrderUnitPrice}
+        keyboardType="decimal-pad"
+        placeholder="Ex: 80"
+        placeholderTextColor="#777"
+      />
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Quantité</Text>
+      <TextInput
+        style={styles.input}
+        value={orderQty}
+        onChangeText={(t) => setOrderQty(t.replace(/[^\d]/g, ""))}
+        keyboardType="number-pad"
+        placeholder="1"
+        placeholderTextColor="#777"
+      />
+
+      <Text style={{ fontWeight:"600", marginBottom:4 }}>Acompte (€)</Text>
+      <TextInput
+        style={styles.input}
+        value={orderDeposit}
+        onChangeText={setOrderDeposit}
+        keyboardType="decimal-pad"
+        placeholder="0"
+        placeholderTextColor="#777"
+      />
+
+      <View style={{ flexDirection:"row", gap:10, marginTop:8 }}>
+        <TouchableOpacity
+          onPress={() => setOrderModalVisible(false)}
+          style={{ flex:1, backgroundColor:"#6c757d", padding:12, borderRadius:8, alignItems:"center" }}
+        >
+          <Text style={{ color:"#fff", fontWeight:"700" }}>Annuler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleCreateOrderFromStatus}
+          style={{ flex:1, backgroundColor:"#0d6efd", padding:12, borderRadius:8, alignItems:"center" }}
+        >
+          <Text style={{ color:"#fff", fontWeight:"700" }}>Créer</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
         </KeyboardAvoidingView>
     );
 }

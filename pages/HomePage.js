@@ -3828,8 +3828,9 @@ interventions(
                           >
                             <View style={{ flex: 1 }}>
                               <Text style={stylesNS.rowMain} numberOfLines={1}>
-                                {(cli.name || "CLIENT").toUpperCase()} —{" "}
-                                {o.product || "Produit"}
+                                {(cli.name || "CLIENT").toUpperCase()} {" "}
+                                {o.product || "Produit"} —{" "}
+								{o.brand || "Marque"}
                               </Text>
                               <Text style={stylesNS.rowSub} numberOfLines={1}>
                                 {price ? `${price.toFixed(2)} €` : "—"} · Fiche{" "}

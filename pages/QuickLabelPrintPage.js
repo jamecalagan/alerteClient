@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
+import { useRoute } from "@react-navigation/native";
 
 export default function QuickLabelPrintPage({ navigation }) {
-    // --- état du formulaire -----------------------------
+    const route = useRoute();
+
     const emptyForm = {
         name: "",
         phone: "",
@@ -25,21 +27,40 @@ export default function QuickLabelPrintPage({ navigation }) {
     const [allClients, setAllClients] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // --- liste et état d’édition ------------------------
     const [labels, setLabels] = useState([]);
-    const [editingId, setEditingId] = useState(null); // null = création
+    const [editingId, setEditingId] = useState(null);
     const isEditing = editingId !== null;
 
-    // ----------------------------------------------------
+    const [autoPrinted, setAutoPrinted] = useState(false); // 👉 pour ne pas imprimer plusieurs fois
+
     useEffect(() => {
         fetchLabels();
-        fetchClients(); // 👈 nouveau
+        fetchClients();
     }, []);
+
+    // Pré-remplissage depuis ExpressVideoPage
+    useEffect(() => {
+        const initialLabel = route.params?.initialLabel;
+        if (initialLabel) {
+            setForm((prev) => ({
+                ...prev,
+                ...initialLabel,
+            }));
+        }
+    }, [route.params?.initialLabel]);
+
+    // Si autoPrint demandé : dès que nom + tél sont là, on lance handleSave une fois
+    useEffect(() => {
+        const autoPrint = route.params?.autoPrint;
+        if (autoPrint && !autoPrinted && form.name && form.phone) {
+            setAutoPrinted(true);
+            handleSave();
+        }
+    }, [route.params?.autoPrint, autoPrinted, form.name, form.phone]);
 
     const fetchClients = async () => {
         const results = [];
-
-        const tables = ["clients", "intervention", "orders", "express"]; // adapte à tes tables
+        const tables = ["clients", "intervention", "orders", "express"];
 
         for (const table of tables) {
             const { data, error } = await supabase
@@ -51,7 +72,6 @@ export default function QuickLabelPrintPage({ navigation }) {
             }
         }
 
-        // Supprimer les doublons (même nom + téléphone)
         const unique = [];
         const seen = new Set();
 
@@ -79,7 +99,6 @@ export default function QuickLabelPrintPage({ navigation }) {
         setForm({ ...form, [key]: value });
     };
 
-    // ---------- génération HTML pour impression ----------
     const generateHTML = (label) => {
         const today = new Date().toLocaleDateString("fr-FR");
         return `
@@ -124,7 +143,7 @@ export default function QuickLabelPrintPage({ navigation }) {
     </html>
   `;
     };
-    // ------------------- impression ----------------------
+
     const printLabel = async (label) => {
         try {
             await Print.printAsync({ html: generateHTML(label) });
@@ -143,14 +162,12 @@ export default function QuickLabelPrintPage({ navigation }) {
         }
     };
 
-    // ------------------- sauvegarde / mise à jour --------
     const handleSave = async () => {
         if (!form.name || !form.phone) {
             Alert.alert("Champs requis", "Nom et téléphone sont obligatoires.");
             return;
         }
 
-        // Vérifie doublon (hors édition)
         let query = supabase
             .from("quick_labels")
             .select("*")
@@ -174,7 +191,6 @@ export default function QuickLabelPrintPage({ navigation }) {
 
         let finalLabel = null;
 
-        // --- insert ou update ---
         if (isEditing) {
             const { error: updateError } = await supabase
                 .from("quick_labels")
@@ -199,16 +215,15 @@ export default function QuickLabelPrintPage({ navigation }) {
                 return;
             }
 
-            finalLabel = inserted; // contient id !
+            finalLabel = inserted;
         }
 
-        await printLabel(finalLabel); // ✅ avec un vrai ID
-        fetchLabels(); // recharge
-        setForm(emptyForm); // reset
+        await printLabel(finalLabel);
+        fetchLabels();
+        setForm(emptyForm);
         setEditingId(null);
     };
 
-    // ------------------- actions liste ------------------
     const startEdit = (label) => {
         setForm({
             name: label.name,
@@ -225,6 +240,7 @@ export default function QuickLabelPrintPage({ navigation }) {
         setForm(emptyForm);
         setEditingId(null);
     };
+
     const confirmDelete = (id) => {
         Alert.alert(
             "Supprimer cette étiquette ?",
@@ -251,20 +267,20 @@ export default function QuickLabelPrintPage({ navigation }) {
         }
         fetchLabels();
     };
+
     const formatPhone = (phone) => {
         return (
             phone
-                .replace(/\D/g, "") // enlève tout sauf chiffres
-                .match(/.{1,2}/g) // groupe par 2 chiffres
+                .replace(/\D/g, "")
+                .match(/.{1,2}/g)
                 ?.join(" ") || ""
-        ); // rejoint avec espace ou vide si null
+        );
     };
-    // ====================================================
+
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>🎫 Étiquette rapide</Text>
 
-            {/* ---------- formulaire ------------------------ */}
             <TextInput
                 style={styles.input}
                 placeholder="Nom"
@@ -285,7 +301,7 @@ export default function QuickLabelPrintPage({ navigation }) {
                         )
                         .map((client) => (
                             <TouchableOpacity
-                                key={`${client.name}_${client.phone}`} // ✅ clé unique sûre
+                                key={`${client.name}_${client.phone}`}
                                 onPress={() => {
                                     setForm({
                                         ...form,
@@ -355,7 +371,6 @@ export default function QuickLabelPrintPage({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {/* ---------- liste des étiquettes -------------- */}
             <Text style={styles.subTitle}>🗂 Étiquettes enregistrées</Text>
 
             {labels.map((lbl) => (
@@ -429,23 +444,22 @@ export default function QuickLabelPrintPage({ navigation }) {
                     </View>
                 </View>
             ))}
-			<View style={{ alignItems: "center", marginTop: 16 }}>
-				<TouchableOpacity
-					style={[
-						styles.optionButton,
-						styles.shadowBox,
-						{ backgroundColor: "#a7a7a7", width: "60%" }, // Largeur fixe pour centrage
-					]}
-					onPress={() => navigation.goBack()}
-				>
-					<Text style={styles.buttonText}>⬅ Retour</Text>
-				</TouchableOpacity>
-			</View>
+            <View style={{ alignItems: "center", marginTop: 16 }}>
+                <TouchableOpacity
+                    style={[
+                        styles.optionButton,
+                        styles.shadowBox,
+                        { backgroundColor: "#a7a7a7", width: "60%" },
+                    ]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.buttonText}>⬅ Retour</Text>
+                </TouchableOpacity>
+            </View>
         </ScrollView>
     );
 }
 
-// -------------------- styles ---------------------------
 const styles = StyleSheet.create({
     container: {
         padding: 16,
@@ -523,42 +537,6 @@ const styles = StyleSheet.create({
     },
     smallTxt: { color: "#ffffff", fontSize: 16 },
     optionButton: {
-        padding: 12,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 10,
-    },
-
-    shadowBox: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-
-    buttonText: {
-        color: "#fff",
-        fontSize: 16,
-    },
-    suggestionBox: {
-        backgroundColor: "#fff",
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        maxHeight: 150,
-        marginBottom: 10,
-        elevation: 4,
-    },
-
-    suggestionItem: {
-        paddingVertical: 10,
-        borderBottomColor: "#ccc",
-        borderBottomWidth: 1,
-        color: "#222",
-    },
-	    optionButton: {
         width: 310,
         paddingVertical: 15,
         backgroundColor: "#3e4c69",
@@ -569,5 +547,27 @@ const styles = StyleSheet.create({
     optionText: {
         fontSize: 18,
         color: "#ffffff",
+    },
+    shadowBox: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    suggestionBox: {
+        backgroundColor: "#fff",
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        maxHeight: 150,
+        marginBottom: 10,
+        elevation: 4,
+    },
+    suggestionItem: {
+        paddingVertical: 10,
+        borderBottomColor: "#ccc",
+        borderBottomWidth: 1,
+        color: "#222",
     },
 });

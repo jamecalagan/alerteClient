@@ -51,7 +51,7 @@ export default function ExpressVideoPage() {
         if (isEdit && editData.price && editData.cassettecount) {
             const cassetteTotal = editData.cassettecount
                 .split(", ")
-                .reduce((acc, val) => acc + parseInt(val), 0);
+                .reduce((acc, val) => acc + parseInt(val, 10), 0);
 
             let correctedPrice = parseFloat(editData.price || 0);
 
@@ -83,7 +83,7 @@ export default function ExpressVideoPage() {
             .select("name, phone")
             .or(`name.ilike.%${text}%,phone.ilike.%${text}%`);
 
-        if (!error) {
+        if (!error && data) {
             setFilteredClients(data);
         }
     };
@@ -98,7 +98,7 @@ export default function ExpressVideoPage() {
     const calculateFinalPrice = () => {
         let totalCassettes = 0;
         Object.values(cassetteCounts).forEach((val) => {
-            const count = parseInt(val);
+            const count = parseInt(val, 10);
             if (!isNaN(count)) totalCassettes += count;
         });
         let basePrice = parseFloat(unitPrice || 0) * totalCassettes;
@@ -111,106 +111,141 @@ export default function ExpressVideoPage() {
         return basePrice.toFixed(2);
     };
 
-const handleSubmit = async () => {
-  try {
-    if (!name || !phone || !description || !unitPrice) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires.");
-      return;
-    }
+    // 👉 Bouton "Étiquette rapide" : prépare les données + autoPrint
+    const handleGoToQuickLabel = () => {
+        if (!name || !phone) {
+            Alert.alert(
+                "Information manquante",
+                "Veuillez saisir au minimum le nom et le téléphone."
+            );
+            return;
+        }
 
-    // 1) Construire le résumé des cassettes
-    const cassetteSummary = Object.entries(cassetteCounts)
-      .filter(([_, count]) => {
-        const v = parseInt(String(count).trim(), 10);
-        return Number.isFinite(v) && v > 0;
-      })
-      .map(([type, count]) => `${parseInt(count, 10)} ${type}`)
-      .join(", ");
+        const cassetteSummary = Object.entries(cassetteCounts)
+            .filter(([_, count]) => {
+                const v = parseInt(String(count).trim(), 10);
+                return Number.isFinite(v) && v > 0;
+            })
+            .map(([type, count]) => `${parseInt(String(count).trim(), 10)} ${type}`)
+            .join(", ");
 
-    // 2) Calcul du total (en nombre) et du prix final (numérique)
-    let totalCassettes = 0;
-    for (const val of Object.values(cassetteCounts)) {
-      const v = parseInt(String(val).trim(), 10);
-      if (Number.isFinite(v)) totalCassettes += v;
-    }
-    const pu = parseFloat(String(unitPrice).replace(",", "."));
-    let basePrice = Number.isFinite(pu) ? pu * totalCassettes : 0;
+        const noteParts = [];
+        if (description) noteParts.push(description);
+        if (cassetteSummary) noteParts.push(cassetteSummary);
+        const note = noteParts.join(" - ");
 
-    if (supportFournis) {
-      if (outputtype === "Clé USB") basePrice += 20;
-      if (outputtype === "Disque dur") basePrice += 45;
-    }
-    const finalPrice = Math.round((basePrice + Number.EPSILON) * 100) / 100;
-
-    // 3) Payload de mise à jour (avec types corrects)
-    const updateData = {
-      name: String(name).trim(),
-      phone: String(phone).trim(),
-      type: "video",
-      description: String(description).trim(),
-      price: finalPrice,                 // ✅ number
-      cassettecount: cassetteSummary,    // ex: "3 VHS, 1 Hi8"
-      cassettetype: "multiple",
-      outputtype: outputtype || null,    // "Clé USB" | "CD" | "DVD" | "Disque dur"
-      support_fournis: !!supportFournis, // ✅ boolean
-      paid: !!isPaid,                    // ✅ boolean
+        navigation.navigate("QuickLabelPrintPage", {
+            initialLabel: {
+                name: String(name).trim(),
+                phone: String(phone).trim(),
+                device: "Transfert vidéo",
+                model: outputtype || "",
+                note,
+            },
+            autoPrint: true,
+        });
     };
 
-    // 4) Insert vs Update
-    if (isEdit && editData?.id) {
-      const { data, error } = await supabase
-        .from("express")
-        .update(updateData)
-        .eq("id", editData.id)
-        .select("id");                    // ✅ force le retour (et donc l’erreur si RLS)
+    const handleSubmit = async () => {
+        try {
+            if (!name || !phone || !description || !unitPrice) {
+                Alert.alert(
+                    "Erreur",
+                    "Veuillez remplir tous les champs obligatoires."
+                );
+                return;
+            }
 
-      if (error) {
-        console.error("Update express error:", error);
-        Alert.alert("Erreur", error.message);
-        return;
-      }
+            const cassetteSummary = Object.entries(cassetteCounts)
+                .filter(([_, count]) => {
+                    const v = parseInt(String(count).trim(), 10);
+                    return Number.isFinite(v) && v > 0;
+                })
+                .map(([type, count]) => `${parseInt(count, 10)} ${type}`)
+                .join(", ");
 
-      Alert.alert("✅", "Fiche modifiée avec succès.");
-      // 👉 Revenir sur la liste en lui donnant un signal de rafraîchissement
-      navigation.navigate("ExpressListPage", { refresh: Date.now() });
-    } else {
-      const { data, error } = await supabase
-        .from("express")
-        .insert([{ ...updateData, created_at: new Date().toISOString() }])
-        .select("id");
+            let totalCassettes = 0;
+            for (const val of Object.values(cassetteCounts)) {
+                const v = parseInt(String(val).trim(), 10);
+                if (Number.isFinite(v)) totalCassettes += v;
+            }
+            const pu = parseFloat(String(unitPrice).replace(",", "."));
+            let basePrice = Number.isFinite(pu) ? pu * totalCassettes : 0;
 
-      if (error) {
-        console.error("Insert express error:", error);
-        Alert.alert("Erreur", error.message);
-        return;
-      }
+            if (supportFournis) {
+                if (outputtype === "Clé USB") basePrice += 20;
+                if (outputtype === "Disque dur") basePrice += 45;
+            }
+            const finalPrice =
+                Math.round((basePrice + Number.EPSILON) * 100) / 100;
 
-      const insertedId = data?.[0]?.id;
-      // Tu peux garder la navigation vers l’impression si tu veux
-      navigation.navigate("PrintExpressPage", {
-        id: insertedId,
-        name,
-        phone,
-        type: "video",
-        description: updateData.description,
-        price: finalPrice,
-        cassettecount: cassetteSummary,
-        cassettetype: "multiple",
-        outputtype,
-        support_fournis: !!supportFournis,
-        supportLabel:
-          supportFournis && (outputtype === "Clé USB" || outputtype === "Disque dur")
-            ? `${outputtype} (fourni par la boutique +${outputtype === "Clé USB" ? "20" : "45"}€)`
-            : outputtype,
-        date: new Date().toLocaleDateString(),
-      });
-    }
-  } catch (e) {
-    console.error("handleSubmit fatal:", e);
-    Alert.alert("Erreur", "Impossible d’enregistrer la fiche.");
-  }
-};
+            const updateData = {
+                name: String(name).trim(),
+                phone: String(phone).trim(),
+                type: "video",
+                description: String(description).trim(),
+                price: finalPrice,
+                cassettecount: cassetteSummary,
+                cassettetype: "multiple",
+                outputtype: outputtype || null,
+                support_fournis: !!supportFournis,
+                paid: !!isPaid,
+            };
 
+            if (isEdit && editData?.id) {
+                const { data, error } = await supabase
+                    .from("express")
+                    .update(updateData)
+                    .eq("id", editData.id)
+                    .select("id");
+
+                if (error) {
+                    console.error("Update express error:", error);
+                    Alert.alert("Erreur", error.message);
+                    return;
+                }
+
+                Alert.alert("✅", "Fiche modifiée avec succès.");
+                navigation.navigate("ExpressListPage", { refresh: Date.now() });
+            } else {
+                const { data, error } = await supabase
+                    .from("express")
+                    .insert([{ ...updateData, created_at: new Date().toISOString() }])
+                    .select("id");
+
+                if (error) {
+                    console.error("Insert express error:", error);
+                    Alert.alert("Erreur", error.message);
+                    return;
+                }
+
+                const insertedId = data?.[0]?.id;
+                navigation.navigate("PrintExpressPage", {
+                    id: insertedId,
+                    name,
+                    phone,
+                    type: "video",
+                    description: updateData.description,
+                    price: finalPrice,
+                    cassettecount: cassetteSummary,
+                    cassettetype: "multiple",
+                    outputtype,
+                    support_fournis: !!supportFournis,
+                    supportLabel:
+                        supportFournis &&
+                        (outputtype === "Clé USB" || outputtype === "Disque dur")
+                            ? `${outputtype} (fourni par la boutique +${
+                                  outputtype === "Clé USB" ? "20" : "45"
+                              }€)`
+                            : outputtype,
+                    date: new Date().toLocaleDateString(),
+                });
+            }
+        } catch (e) {
+            console.error("handleSubmit fatal:", e);
+            Alert.alert("Erreur", "Impossible d’enregistrer la fiche.");
+        }
+    };
 
     return (
         <KeyboardAvoidingView
@@ -297,40 +332,35 @@ const handleSubmit = async () => {
                         />
 
                         <Text style={styles.label}>Support de sortie</Text>
-                        {["Clé USB", "CD", "DVD", "Disque dur"].map(
-                            (option) => (
-                                <TouchableOpacity
-                                    key={option}
-                                    style={[
-                                        styles.supportOption,
-                                        outputtype === option &&
-                                            styles.supportSelected,
-                                    ]}
-                                    onPress={() => setOutputtype(option)}
-                                >
-                                    <Text>
-                                        {outputtype === option ? "✅ " : "▫️ "}
-                                        {option}
-                                    </Text>
-                                </TouchableOpacity>
-                            )
-                        )}
+                        {["Clé USB", "CD", "DVD", "Disque dur"].map((option) => (
+                            <TouchableOpacity
+                                key={option}
+                                style={[
+                                    styles.supportOption,
+                                    outputtype === option && styles.supportSelected,
+                                ]}
+                                onPress={() => setOutputtype(option)}
+                            >
+                                <Text>
+                                    {outputtype === option ? "✅ " : "▫️ "}
+                                    {option}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
 
                         {(outputtype === "Clé USB" ||
                             outputtype === "Disque dur") && (
                             <TouchableOpacity
-                                onPress={() =>
-                                    setSupportFournis(!supportFournis)
-                                }
+                                onPress={() => setSupportFournis(!supportFournis)}
                                 style={{ marginTop: 10 }}
                             >
                                 <Text>
-                                    {supportFournis ? "☑️" : "⬜"} Support
-                                    fourni par la boutique
+                                    {supportFournis ? "☑️" : "⬜"} Support fourni par
+                                    la boutique
                                 </Text>
                             </TouchableOpacity>
                         )}
-                        {/* Statut de paiement */}
+
                         <View style={{ marginTop: 14, marginBottom: 6 }}>
                             <Text style={styles.label}>Facture réglée</Text>
                             <TouchableOpacity
@@ -358,9 +388,6 @@ const handleSubmit = async () => {
                             Montant total calculé : {calculateFinalPrice()} €
                         </Text>
 
-                        {/*             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>{isEdit ? "💾 Enregistrer" : "🖋️ Faire signer la fiche"}</Text>
-            </TouchableOpacity> */}
                         <View
                             style={{
                                 flexDirection: "row",
@@ -405,10 +432,7 @@ const handleSubmit = async () => {
                                             .update({ paid: !isPaid })
                                             .eq("id", editData.id);
                                         if (error) {
-                                            Alert.alert(
-                                                "Erreur",
-                                                error.message
-                                            );
+                                            Alert.alert("Erreur", error.message);
                                         } else {
                                             setIsPaid(!isPaid);
                                             Alert.alert(
@@ -438,6 +462,21 @@ const handleSubmit = async () => {
                                 </TouchableOpacity>
                             )}
                         </View>
+
+                        {/* 👉 Bouton étiquette rapide */}
+                        <View style={{ marginTop: 20 }}>
+                            <TouchableOpacity
+                                onPress={handleGoToQuickLabel}
+                                style={[
+                                    styles.button,
+                                    { backgroundColor: "#046b1e" },
+                                ]}
+                            >
+                                <Text style={styles.buttonText}>
+                                    🖨️ Imprimer une étiquette rapide
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 }
             />
@@ -456,7 +495,7 @@ const styles = StyleSheet.create({
     label: {
         fontWeight: "600",
         marginBottom: 4,
-        marginTop: 10, // tu peux réduire à 6 si tu veux encore moins
+        marginTop: 10,
         color: "#333",
     },
     input: {
@@ -464,10 +503,9 @@ const styles = StyleSheet.create({
         borderColor: "#ccc",
         borderRadius: 6,
         padding: 8,
-        marginBottom: 10, // réduit ici aussi si besoin
+        marginBottom: 10,
         width: "100%",
     },
-
     textArea: {
         borderWidth: 1,
         borderColor: "#ccc",

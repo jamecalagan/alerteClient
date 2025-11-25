@@ -35,6 +35,7 @@ export default function ImageGallery({ route, navigation }) {
         .eq("id", clientId)
         .single();
       if (clientErr) throw clientErr;
+
       const localBase = `${FileSystem.documentDirectory}backup/${client.ficheNumber}/`;
 
       // 2️⃣ interventions avec photos / étiquettes
@@ -46,26 +47,45 @@ export default function ImageGallery({ route, navigation }) {
 
       // 3️⃣ pour chaque photo ➜ prend le fichier local s'il existe
       const pickUri = async (remote, localName) => {
+        if (!remote) return null; // sécurité si remote est null
         const localPath = `${localBase}${localName}`;
-        const info = await FileSystem.getInfoAsync(localPath);
-        return info.exists ? localPath : remote;
+        try {
+          const info = await FileSystem.getInfoAsync(localPath);
+          return info.exists ? localPath : remote;
+        } catch {
+          return remote;
+        }
       };
 
       const enriched = await Promise.all(
         (data || []).map(async (it) => {
-          const { id, photos = [], label_photo } = it;
+          const { id, label_photo } = it;
+          // ⚠️ Sécurisation : si photos est null ou non-tableau, on force un tableau vide
+          const remotePhotos = Array.isArray(it.photos) ? it.photos : [];
+
           const list = [];
-          if (label_photo) list.push(await pickUri(label_photo, `etiquette_${id}.jpg`));
-          for (let i = 0; i < photos.length; i++) {
-            list.push(await pickUri(photos[i], `photo_${id}_${i + 1}.jpg`));
+
+          // Étiquette
+          if (label_photo) {
+            const picked = await pickUri(label_photo, `etiquette_${id}.jpg`);
+            if (picked) list.push(picked);
           }
+
+          // Photos
+          for (let i = 0; i < remotePhotos.length; i++) {
+            const remote = remotePhotos[i];
+            const picked = await pickUri(remote, `photo_${id}_${i + 1}.jpg`);
+            if (picked) list.push(picked);
+          }
+
           return { id, photos: list };
         })
       );
 
-      setInterventions(enriched);
+      setInterventions(Array.isArray(enriched) ? enriched : []);
     } catch (err) {
       console.error("Erreur chargement images :", err);
+      setInterventions([]); // évite tout null
     } finally {
       setLoading(false);
     }
@@ -79,12 +99,14 @@ export default function ImageGallery({ route, navigation }) {
   /*                               ACTIONS                              */
   /* ------------------------------------------------------------------ */
   const handleImagePress = (uri) => setSelectedImage(uri);
+
   const handleDeleteRequest = (uri, interventionId, index) => {
     setImageToDelete({ uri, interventionId, index });
     setAlertVisible(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (!imageToDelete) return;
     const { uri, interventionId, index } = imageToDelete;
     try {
       if (uri.startsWith("file://")) {
@@ -98,18 +120,25 @@ export default function ImageGallery({ route, navigation }) {
           .eq("id", interventionId)
           .single();
         if (interErr) throw interErr;
-        const newPhotos = (inter?.photos || []).filter((_, i) => i !== index);
+
+        const currentPhotos = Array.isArray(inter?.photos)
+          ? inter.photos
+          : [];
+        const newPhotos = currentPhotos.filter((_, i) => i !== index);
+
         const { error } = await supabase
           .from("interventions")
           .update({ photos: newPhotos })
           .eq("id", interventionId);
         if (error) throw error;
       }
+
       await loadImages(); // rafraîchit (remontée éventuelle du cloud)
     } catch (e) {
       console.error("Suppression image :", e);
     } finally {
       setAlertVisible(false);
+      setImageToDelete(null);
     }
   };
 
@@ -125,7 +154,13 @@ export default function ImageGallery({ route, navigation }) {
         <Text style={styles.refreshTxt}>🔄 Recharger</Text>
       </TouchableOpacity>
 
-      {loading && <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />}
+      {loading && (
+        <ActivityIndicator
+          size="large"
+          color="#000"
+          style={{ marginTop: 20 }}
+        />
+      )}
 
       {interventions.length ? (
         <ScrollView>
@@ -133,18 +168,30 @@ export default function ImageGallery({ route, navigation }) {
             <View key={inter.id} style={styles.section}>
               <Text style={styles.sectionTitle}>Intervention {idx + 1}</Text>
               <View style={styles.rowWrap}>
-                {inter.photos.length ? (
+                {inter.photos && inter.photos.length ? (
                   inter.photos.map((uri, ix) => {
                     const isLocal = uri.startsWith("file://");
                     return (
                       <View key={ix} style={styles.imageBox}>
-                        <TouchableOpacity onPress={() => handleImagePress(uri)}>
+                        <TouchableOpacity
+                          onPress={() => handleImagePress(uri)}
+                        >
                           <Image source={{ uri }} style={styles.thumb} />
                         </TouchableOpacity>
-                        <Text style={[styles.badge, { color: isLocal ? "green" : "blue" }]}> 
+                        <Text
+                          style={[
+                            styles.badge,
+                            { color: isLocal ? "green" : "blue" },
+                          ]}
+                        >
                           {isLocal ? "📁 Local" : "☁️ Cloud"}
                         </Text>
-                        <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteRequest(uri, inter.id, ix)}>
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
+                          onPress={() =>
+                            handleDeleteRequest(uri, inter.id, ix)
+                          }
+                        >
                           <Text style={styles.deleteTxt}>Supprimer</Text>
                         </TouchableOpacity>
                       </View>
@@ -157,12 +204,19 @@ export default function ImageGallery({ route, navigation }) {
             </View>
           ))}
         </ScrollView>
-      ) : !loading && <Text style={styles.empty}>Aucune image disponible.</Text>}
+      ) : (
+        !loading && (
+          <Text style={styles.empty}>Aucune image disponible.</Text>
+        )
+      )}
 
       {/* 🔍 Zoom */}
       {selectedImage && (
         <Modal transparent onRequestClose={() => setSelectedImage(null)}>
-          <TouchableOpacity style={styles.modalBg} onPress={() => setSelectedImage(null)}>
+          <TouchableOpacity
+            style={styles.modalBg}
+            onPress={() => setSelectedImage(null)}
+          >
             <Image source={{ uri: selectedImage }} style={styles.full} />
           </TouchableOpacity>
         </Modal>
@@ -187,18 +241,52 @@ export default function ImageGallery({ route, navigation }) {
 /* -------------------------------- STYLES ------------------------------- */
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#e9e9e9" },
-  title: { fontSize: 24, fontWeight: "500", textAlign: "center", marginBottom: 10 },
-  refreshBtn: { alignSelf: "center", backgroundColor: "#4a90e2", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, marginBottom: 10 },
+  title: {
+    fontSize: 24,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  refreshBtn: {
+    alignSelf: "center",
+    backgroundColor: "#4a90e2",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
   refreshTxt: { color: "#fff", fontWeight: "bold" },
   section: { marginBottom: 25 },
   sectionTitle: { fontSize: 18, fontWeight: "500", marginBottom: 10 },
   rowWrap: { flexDirection: "row", flexWrap: "wrap" },
   imageBox: { margin: 6, alignItems: "center" },
-  thumb: { width: 100, height: 100, borderRadius: 10, borderWidth: 2, borderColor: "#555" },
+  thumb: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#555",
+  },
   badge: { fontSize: 12, marginTop: 2 },
-  deleteBtn: { marginTop: 4, backgroundColor: "#f44336", borderRadius: 6, paddingVertical: 3, paddingHorizontal: 10 },
+  deleteBtn: {
+    marginTop: 4,
+    backgroundColor: "#f44336",
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+  },
   deleteTxt: { color: "#fff", fontSize: 12, fontWeight: "bold" },
-  empty: { color: "#888", fontSize: 14, textAlign: "center", marginTop: 30 },
-  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center" },
+  empty: {
+    color: "#888",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 30,
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   full: { width: "90%", height: "90%", resizeMode: "contain" },
 });

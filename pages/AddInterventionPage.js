@@ -23,10 +23,12 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import * as ImageManipulator from "expo-image-manipulator";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+
 const normalizeNumber = (v) => {
   if (v === null || v === undefined) return "";
   return String(v).replace(",", ".").trim();
 };
+
 const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
   const folder = isLabel ? "etiquettes" : "supplementaires";
   const fileName = `${Date.now()}.jpg`;
@@ -56,14 +58,25 @@ const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
   return data.publicUrl;
 };
 
+// Helper: détecte une URI locale
+const isLocalRef = (s) => typeof s === "string" && s.startsWith("file://");
+
+// Normalisations sûres (virgule/point acceptées)
+const parseEu = (v) => {
+  const s = (v ?? "").toString().replace(",", ".").trim();
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params || {};
+
   const [reference, setReference] = useState("");
   const [brand, setBrand] = useState("");
   const [serial_number, setSerial_number] = useState("");
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("");
- 
+
   const [devisCost, setDevisCost] = useState(""); // Ajout du champ devisCost
   const [estimateMin, setEstimateMin] = useState("");
   const [estimateMax, setEstimateMax] = useState("");
@@ -99,36 +112,39 @@ export default function AddInterventionPage({ route, navigation }) {
   const [openModel, setOpenModel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cameraBusy, setCameraBusy] = useState(false);
-  // ⬇️ ajoute ceci avec les autres useState
+
+  // rappel mot de passe
   const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
   const [alertType, setAlertType] = useState("info"); // "success" | "danger" | "info"
+
+  const [partialPayment, setPartialPayment] = useState(""); // Montant de l'acompte
+
+  // 👉 NOUVEAU : gestion “même matériel”
+  const [useSameDevice, setUseSameDevice] = useState(false);
+  const [lastDevice, setLastDevice] = useState(null);
+  const [loadingLastDevice, setLoadingLastDevice] = useState(false);
+
   const openAlert = (type, title, message) => {
     setAlertType(type); // "danger" | "success"
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertVisible(true);
   };
-  
-  // Helper: détecte une URI locale
-  const isLocalRef = (s) => typeof s === "string" && s.startsWith("file://");
 
-  const [partialPayment, setPartialPayment] = useState(""); // Montant de l'acompte
   useEffect(() => {
     loadProducts();
   }, []);
+
   useEffect(() => {
     const fetchClientName = async () => {
       const { data, error } = await supabase
-        .from("clients") // Assurez-vous que la table s'appelle 'clients'
-        .select("name") // Ajustez 'name' au nom réel de la colonne pour le nom du client
+        .from("clients")
+        .select("name")
         .eq("id", clientId)
         .single();
 
       if (error) {
-        console.error(
-          "Erreur lors de la récupération du nom du client:",
-          error
-        );
+        console.error("Erreur lors de la récupération du nom du client:", error);
       } else {
         setClientName(data.name);
       }
@@ -138,6 +154,45 @@ export default function AddInterventionPage({ route, navigation }) {
       fetchClientName();
     }
   }, [clientId]);
+
+  // 👉 NOUVEAU : on récupère la dernière intervention de ce client
+  useEffect(() => {
+    const fetchLastDevice = async () => {
+      if (!clientId) return;
+      try {
+        setLoadingLastDevice(true);
+        const { data, error } = await supabase
+          .from("interventions")
+          .select("*")
+          .eq("client_id", clientId)
+          .order("createdAt", { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error(
+            "Erreur lors de la récupération du dernier matériel :",
+            error
+          );
+          setLastDevice(null);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          setLastDevice(data[0]);
+        } else {
+          setLastDevice(null);
+        }
+      } catch (e) {
+        console.error("Exception lors de la récupération du dernier matériel :", e);
+        setLastDevice(null);
+      } finally {
+        setLoadingLastDevice(false);
+      }
+    };
+
+    fetchLastDevice();
+  }, [clientId]);
+
   const loadProducts = async () => {
     const { data, error } = await supabase.from("article").select("*");
     if (error) {
@@ -154,8 +209,10 @@ export default function AddInterventionPage({ route, navigation }) {
       .eq("article_id", articleId);
     if (error) {
       console.error("Erreur lors du chargement des marques :", error);
+      return [];
     } else {
       setBrands(data);
+      return data;
     }
   };
 
@@ -166,8 +223,10 @@ export default function AddInterventionPage({ route, navigation }) {
       .eq("marque_id", brandId);
     if (error) {
       console.error("Erreur lors du chargement des modèles :", error);
+      return [];
     } else {
       setModels(data);
+      return data;
     }
   };
 
@@ -190,35 +249,27 @@ export default function AddInterventionPage({ route, navigation }) {
 
         const compressedUri = compressedImage.uri;
 
-// ✅ Téléverser directement l'image dans Supabase
-const publicUrl = await uploadImageToStorage(
-  compressedUri,
-  clientId || "tmp",   // on utilise le clientId comme dossier provisoire
-  true                 // isLabel = true → dossier 'etiquettes'
-);
+        // ✅ Téléverser directement l'image dans Supabase
+        const publicUrl = await uploadImageToStorage(
+          compressedUri,
+          clientId || "tmp", // on utilise le clientId comme dossier provisoire
+          true // isLabel = true → dossier 'etiquettes'
+        );
 
-if (!publicUrl) {
-  Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
-  return;
-}
+        if (!publicUrl) {
+          Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+          return;
+        }
 
-// ✅ étiquette = URL cloud (visible sur A et B)
-setLabelPhoto(publicUrl);
-setIsPhotoTaken(true);
-
-// (on n’ajoute toujours pas l’étiquette dans 'photos', pour éviter les doublons)
-if (!reference) {
-  setReference("Voir photo pour référence produit");
-}
-
-console.log("✅ Image d'étiquette (URL):", publicUrl);
-
+        // ✅ étiquette = URL cloud (visible sur A et B)
+        setLabelPhoto(publicUrl);
+        setIsPhotoTaken(true);
 
         if (!reference) {
           setReference("Voir photo pour référence produit");
         }
 
-        console.log("✅ Image d'étiquette (URI) :", compressedUri);
+        console.log("✅ Image d'étiquette (URL):", publicUrl);
       } else {
         console.log("Aucune image capturée ou opération annulée.");
       }
@@ -245,25 +296,24 @@ console.log("✅ Image d'étiquette (URL):", publicUrl);
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-const compressedUri = compressedImage.uri;
+        const compressedUri = compressedImage.uri;
 
-// ✅ Téléverser directement l'image dans Supabase
-const publicUrl = await uploadImageToStorage(
-  compressedUri,
-  clientId || "tmp",   // dossier provisoire basé sur le client
-  false                // isLabel = false → dossier 'supplementaires'
-);
+        // ✅ Téléverser directement l'image dans Supabase
+        const publicUrl = await uploadImageToStorage(
+          compressedUri,
+          clientId || "tmp", // dossier provisoire basé sur le client
+          false // isLabel = false → dossier 'supplementaires'
+        );
 
-if (!publicUrl) {
-  Alert.alert("Erreur", "Échec de l'upload de la photo.");
-  return;
-}
+        if (!publicUrl) {
+          Alert.alert("Erreur", "Échec de l'upload de la photo.");
+          return;
+        }
 
-// ✅ on stocke l'URL cloud (visible sur A et B)
-setPhotos((prev) => [...prev, publicUrl]);
+        // ✅ on stocke l'URL cloud (visible sur A et B)
+        setPhotos((prev) => [...prev, publicUrl]);
 
-console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
-
+        console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
       } else {
         console.log("Aucune image capturée ou opération annulée.");
       }
@@ -271,6 +321,7 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
       console.error("Erreur lors de la capture d'image :", error);
     }
   };
+
   const confirmDeletePhoto = (uri) => {
     Alert.alert(
       "Supprimer la photo",
@@ -351,7 +402,7 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
         return null;
       }
       if (data && data[0]) {
-        setBrands((prev) => [...prev, data[0]]); // ✅ correct spread
+        setBrands((prev) => [...prev, data[0]]);
         return data[0].id;
       }
     }
@@ -378,7 +429,7 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
         return null;
       }
       if (data && data[0]) {
-        setModels((prev) => [...prev, data[0]]); // ✅ correct spread
+        setModels((prev) => [...prev, data[0]]);
         return data[0].id;
       }
     }
@@ -387,6 +438,60 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
 
   const handlePaymentStatusChange = (status) => {
     setPaymentStatus(status);
+  };
+
+  // 👉 NOUVEAU : applique le dernier matériel sur la fiche
+  const applyLastDevice = async () => {
+    if (!lastDevice) {
+      Alert.alert(
+        "Aucun matériel précédant",
+        "Aucune intervention précédente trouvée pour ce client."
+      );
+      setUseSameDevice(false);
+      return;
+    }
+
+    try {
+      setLoadingLastDevice(true);
+
+      // Type de produit
+      if (lastDevice.deviceType) {
+        await handleDeviceTypeChange(lastDevice.deviceType);
+      } else if (lastDevice.article_id && products && products.length > 0) {
+        const art = products.find((p) => p.id === lastDevice.article_id);
+        if (art) {
+          await handleDeviceTypeChange(art.nom);
+        }
+      }
+
+      // Marque
+      if (lastDevice.marque_id) {
+        // on s'assure que les marques sont chargées
+        if (lastDevice.article_id) {
+          await loadBrands(lastDevice.article_id);
+        }
+        setBrand(lastDevice.marque_id);
+        await loadModels(lastDevice.marque_id);
+      }
+
+      // Modèle
+      if (lastDevice.modele_id) {
+        setModel(lastDevice.modele_id);
+      }
+
+      // Référence / n° de série
+      if (lastDevice.reference) setReference(lastDevice.reference);
+      if (lastDevice.serial_number) setSerial_number(lastDevice.serial_number);
+    } catch (err) {
+      console.error("Erreur lors de la reprise du matériel :", err);
+      Alert.alert(
+        "Erreur",
+        "Impossible de reprendre automatiquement le matériel précédent."
+      );
+      setUseSameDevice(false);
+    } finally {
+      setLoadingLastDevice(false);
+    }
   };
 
   const handleSaveIntervention = async () => {
@@ -435,11 +540,13 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
       );
       return;
     }
+
     // 🔔 Rappel non bloquant si mot de passe vide
     if (!password) {
       setPwdReminderVisible(true);
       return; // on attend le choix dans la modale
     }
+
     // 🔹 Gestion du montant du devis (champ existant, conservé)
     const formattedDevisCost =
       status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null; // null si vide
@@ -451,8 +558,6 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
     // Solde restant dû
     let solderestant = costValue - partialPaymentValue;
     if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
-
-    // … (créations liées aux listes marque/modèle si besoin — inchangé) …
 
     const uploadedPhotoUrls = photos; // suppose que tu gères déjà l’upload
     const labelPhotoUrl = labelPhoto; // idem
@@ -527,23 +632,17 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
         .insert(interventionData);
       if (error) {
         console.error("❌ Erreur d'insertion intervention :", error.message);
-        setAlertTitle("Erreur");
         openAlert(
           "danger",
           "Erreur",
           "Une erreur est survenue lors de l'enregistrement."
         );
-        setAlertVisible(true);
         return;
       }
-      setAlertTitle("Succès");
       openAlert("success", "Succès", "Intervention enregistrée avec succès.");
-      setAlertVisible(true);
     } catch (e) {
       console.error("❌ Exception insertion :", e);
-      setAlertTitle("Erreur");
-      setAlertMessage("Impossible d'enregistrer l'intervention.");
-      setAlertVisible(true);
+      openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");
     }
   };
 
@@ -551,25 +650,17 @@ console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
     setAlertVisible(false);
     if (alertTitle === "Succès") navigation.navigate("Home");
   };
+
   const performAddIntervention = async () => {
     // 🔹 Gestion du montant du devis (champ existant, conservé)
     const formattedDevisCost =
       status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null;
 
-// Normalisations sûres (virgule/point acceptées)
-const parseEu = (v) => {
-  const s = (v ?? "").toString().replace(",", ".").trim();
-  const n = parseFloat(s);
-  return isNaN(n) ? 0 : n;
-};
+    const costValue = parseEu(cost); // ← on enregistre le TOTAL tel que saisi
+    const partialPaymentValue = parseEu(partialPayment);
 
-const costValue = parseEu(cost);            // ← on enregistre le TOTAL tel que saisi
-const partialPaymentValue = parseEu(partialPayment);
-
-let solderestant = costValue - partialPaymentValue;
-if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
-
-
+    let solderestant = costValue - partialPaymentValue;
+    if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
 
     const uploadedPhotoUrls = photos;
     const labelPhotoUrl = labelPhoto;
@@ -636,23 +727,26 @@ if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
       interventionData.devis_cost = formattedDevisCost;
     }
 
-try {
-  const { error } = await supabase
-    .from("interventions")
-    .insert(interventionData);
+    try {
+      const { error } = await supabase
+        .from("interventions")
+        .insert(interventionData);
 
-  if (error) {
-    console.error("❌ Erreur d'insertion intervention :", error.message);
-    openAlert("danger", "Erreur", "Une erreur est survenue lors de l'enregistrement.");
-    return;
-  }
+      if (error) {
+        console.error("❌ Erreur d'insertion intervention :", error.message);
+        openAlert(
+          "danger",
+          "Erreur",
+          "Une erreur est survenue lors de l'enregistrement."
+        );
+        return;
+      }
 
-  openAlert("success", "Succès", "Intervention enregistrée avec succès.");
-} catch (e) {
-  console.error("❌ Exception insertion :", e);
-  openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");
-}
-
+      openAlert("success", "Succès", "Intervention enregistrée avec succès.");
+    } catch (e) {
+      console.error("❌ Exception insertion :", e);
+      openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");
+    }
   };
 
   return (
@@ -663,6 +757,7 @@ try {
       {clientName && (
         <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>
       )}
+
       <ScrollView
         contentContainerStyle={{
           paddingBottom: 20,
@@ -670,6 +765,54 @@ try {
         }}
         keyboardShouldPersistTaps="always"
       >
+        {/* 👉 NOUVEAU : case "même matériel" */}
+        {lastDevice && (
+          <View style={styles.sameDeviceRow}>
+            <TouchableOpacity
+              onPress={async () => {
+                const newVal = !useSameDevice;
+                setUseSameDevice(newVal);
+                if (newVal) {
+                  await applyLastDevice();
+                }
+              }}
+              style={styles.sameDeviceCheckbox}
+            >
+              {useSameDevice && (
+                <Image
+                  source={require("../assets/icons/checked.png")}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    tintColor: "#007bff",
+                  }}
+                  resizeMode="contain"
+                />
+              )}
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.checkboxLabel}>
+                Même matériel que la dernière intervention
+              </Text>
+              {lastDevice.deviceType || lastDevice.brand || lastDevice.model ? (
+                <Text style={styles.sameDeviceHint}>
+                  {[
+                    lastDevice.deviceType,
+                    lastDevice.brand,
+                    lastDevice.model,
+                  ]
+                    .filter(Boolean)
+                    .join(" - ")}
+                </Text>
+              ) : (
+                <Text style={styles.sameDeviceHint}>
+                  Dernier matériel enregistré pour ce client.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* SÉLECTEURS COMPACTS (ouvrent les modales) */}
         <View style={styles.pickersRow}>
           {/* Type */}
@@ -1066,66 +1209,68 @@ try {
               </>
             )}
 
-{status !== "Devis en cours" && (
-  <View style={styles.halfWidthContainer}>
-    <Text style={styles.label}>Coût de la réparation (€)</Text>
-    <TextInput
-      style={styles.input}
-      placeholder="Coût total (€)"
-      placeholderTextColor="#202020"
-      keyboardType="numeric"
-      value={cost}
-      onChangeText={setCost}
-    />
-  </View>
-)}
-
-
+            {status !== "Devis en cours" && (
+              <View className="halfWidthContainer">
+                <Text style={styles.label}>Coût de la réparation (€)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Coût total (€)"
+                  placeholderTextColor="#202020"
+                  keyboardType="numeric"
+                  value={cost}
+                  onChangeText={setCost}
+                />
+              </View>
+            )}
           </View>
         </View>
-{status === "En attente de pièces" && (
-  <View style={styles.halfWidthContainer}>
-    <Text style={styles.label}>Commande</Text>
 
-    {/* Conteneur limité à 90% de la page */}
-    <View style={styles.commandeRowContainer}>
-      <View style={styles.sameLineRow}>
-        <TextInput
-          style={styles.inlineInput}
-          value={commande.toUpperCase()}
-          onChangeText={(text) => setCommande(text.toUpperCase())}
-          autoCapitalize="characters"
-          placeholder="Pièce ou produit à commander"
-          placeholderTextColor="#202020"
-        />
+        {status === "En attente de pièces" && (
+          <View style={styles.halfWidthContainer}>
+            <Text style={styles.label}>Commande</Text>
 
-        <TouchableOpacity
-          style={[styles.inlineButton, !commande?.trim() && styles.inlineButtonDisabled]}
-          activeOpacity={0.8}
-          disabled={!commande?.trim()}
-          onPress={() => {
-            if (!clientId) {
-              Alert.alert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
-              return;
-            }
-navigation.navigate("OrdersPage", {
-  clientId,
-  clientName: clientName || "",
-  prefillProduct: (commande || "").trim(),
-  autoReturnOnCreate: true,
-  fromIntervention: true, // 👈 nouvel indicateur
-});
+            {/* Conteneur limité à 90% de la page */}
+            <View style={styles.commandeRowContainer}>
+              <View style={styles.sameLineRow}>
+                <TextInput
+                  style={styles.inlineInput}
+                  value={commande.toUpperCase()}
+                  onChangeText={(text) => setCommande(text.toUpperCase())}
+                  autoCapitalize="characters"
+                  placeholder="Pièce ou produit à commander"
+                  placeholderTextColor="#202020"
+                />
 
-          }}
-        >
-          <Text style={styles.inlineButtonText}>Créer commande</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-)}
-
-
+                <TouchableOpacity
+                  style={[
+                    styles.inlineButton,
+                    !commande?.trim() && styles.inlineButtonDisabled,
+                  ]}
+                  activeOpacity={0.8}
+                  disabled={!commande?.trim()}
+                  onPress={() => {
+                    if (!clientId) {
+                      Alert.alert(
+                        "Client manquant",
+                        "Impossible d'ouvrir les commandes sans client."
+                      );
+                      return;
+                    }
+                    navigation.navigate("OrdersPage", {
+                      clientId,
+                      clientName: clientName || "",
+                      prefillProduct: (commande || "").trim(),
+                      autoReturnOnCreate: true,
+                      fromIntervention: true, // 👈 nouvel indicateur
+                    });
+                  }}
+                >
+                  <Text style={styles.inlineButtonText}>Créer commande</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         <Text style={styles.label}>Remarques</Text>
         <TextInput
@@ -1251,6 +1396,7 @@ navigation.navigate("OrdersPage", {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
       {/* === MODALE TYPE === */}
       <Modal
         visible={openType}
@@ -1667,10 +1813,36 @@ const styles = StyleSheet.create({
   },
   clientName: {
     fontSize: 20,
-    fontWeight: "medium",
+    fontWeight: "500",
     textAlign: "center",
     marginVertical: 10,
     color: "#242424",
+  },
+
+  // 👉 NOUVEAU : ligne "même matériel"
+  sameDeviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "90%",
+    alignSelf: "center",
+    marginBottom: 10,
+    marginTop: 5,
+  },
+  sameDeviceCheckbox: {
+    width: 28,
+    height: 28,
+    borderWidth: 2,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+    backgroundColor: "#fff",
+  },
+  sameDeviceHint: {
+    fontSize: 13,
+    color: "#555",
+    marginTop: 2,
   },
 
   input: {
@@ -1681,7 +1853,7 @@ const styles = StyleSheet.create({
     width: "90%",
     alignSelf: "center",
     fontSize: 16,
-    fontWeight: "medium",
+    fontWeight: "500",
     color: "#191f2f",
     height: 50,
   },
@@ -1716,7 +1888,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#cacaca",
     width: "90%",
     fontSize: 16,
-    fontWeight: "medium",
+    fontWeight: "500",
     marginBottom: 5,
     color: "#888787",
   },
@@ -1748,7 +1920,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "medium",
+    fontWeight: "500",
   },
   saveButton: {
     backgroundColor: "#04852b",
@@ -1765,7 +1937,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#888787",
     fontSize: 16,
-    fontWeight: "mediums",
+    fontWeight: "500",
   },
   modalOverlay: {
     flex: 1,
@@ -1846,7 +2018,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
     justifyContent: "center",
-
     alignSelf: "center",
     marginTop: 20,
     marginBottom: 20,
@@ -1865,17 +2036,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#191f2f",
     width: "90%",
     alignSelf: "center",
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    marginVertical: 10,
-  },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-    marginRight: 10,
-    marginLeft: 40,
   },
   checkboxContainer: {
     flexDirection: "row",
@@ -1907,11 +2067,7 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     color: "#242424",
     fontSize: 16,
-    fontWeight: "medium",
-  },
-  checkboxCheckedBlue: {
-    borderColor: "blue",
-    backgroundColor: "blue",
+    fontWeight: "500",
   },
   checkboxCheckedBlue: {
     borderColor: "blue",
@@ -1920,7 +2076,7 @@ const styles = StyleSheet.create({
   interventionText: {
     fontSize: 16,
     color: "#ff4500", // Rouge orangé pour attirer l'attention
-    fontWeight: "medium",
+    fontWeight: "500",
     marginBottom: 15,
     width: "90%",
     alignSelf: "center",
@@ -1976,12 +2132,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: "underline",
   },
-  reopenButton: {
-    backgroundColor: "#007bff",
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: 15,
-  },
   reopenButtonText: {
     color: "#fff",
     fontWeight: "bold",
@@ -2018,12 +2168,6 @@ const styles = StyleSheet.create({
     height: 100,
     margin: 5,
   },
-  thumbnail: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
-  },
-
   deleteBadge: {
     position: "absolute",
     top: -6,
@@ -2141,89 +2285,78 @@ const styles = StyleSheet.create({
   modalButtonTextDanger: { color: "#b71c1c", fontWeight: "700" },
   modalButtonTextSuccess: { color: "#1b5e20", fontWeight: "700" },
   smallActionButton: {
-  backgroundColor: "#191f2f",
-  paddingVertical: 10,
-  paddingHorizontal: 12,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: "#424242",
-},
-smallActionButtonText: {
-  color: "#ffffff",
-  fontWeight: "700",
-  fontSize: 12,
-},
-// Conteneur limité à 90% de la largeur de la page
-commandeRowContainer: {
-  width: "90%",
-  alignSelf: "center",
-},
-// ——— Aligne le champ + bouton sur une ligne, pleine largeur ———
-sameLineRow: {
-  width: "100%",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8, // si RN < 0.71, remplace par marginRight sur le champ
-},
+    backgroundColor: "#191f2f",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#424242",
+  },
+  smallActionButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  commandeRowContainer: {
+    width: "90%",
+    alignSelf: "center",
+  },
+  sameLineRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  inlineInput: {
+    flex: 1,
+    height: 46,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#424242",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    color: "#111827",
+  },
+  inlineButton: {
+    height: 46,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#424242",
+    backgroundColor: "#191f2f",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-// ——— Champ "Commande" harmonisé ———
-inlineInput: {
-  flex: 1,
-  height: 46,               // ← hauteur identique au bouton
-  paddingHorizontal: 12,
-  borderWidth: 1,
-  borderColor: "#424242",
-  borderRadius: 8,
-  backgroundColor: "#ffffff",
-  color: "#111827",
-  // Si ton styles.input a déjà des réglages précis, tu peux partir de lui :
-  // ...styles.input, puis override uniquement height/borderRadius/etc.
-},
+  inlineButtonDisabled: {
+    opacity: 0.5,
+  },
 
-// ——— Bouton "Créer commande" harmonisé ———
-inlineButton: {
-  height: 46,               // ← même hauteur que le champ
-  paddingHorizontal: 12,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: "#424242",
-  backgroundColor: "#191f2f",
-  alignItems: "center",
-  justifyContent: "center",
-  // largeur auto : s’adapte au texte sans casser l’alignement
-},
+  inlineButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  costRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
 
-inlineButtonDisabled: {
-  opacity: 0.5,
-},
+  costInput: {
+    height: 46,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#424242",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    color: "#111827",
+  },
 
-inlineButtonText: {
-  color: "#ffffff",
-  fontWeight: "700",
-  fontSize: 12,
-},
-costRow: {
-  width: "100%",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8, // si non supporté, enlève et mets marginLeft sur orderCostInput
-},
-
-costInput: {
-  height: 46,
-  paddingHorizontal: 12,
-  borderWidth: 1,
-  borderColor: "#424242",
-  borderRadius: 8,
-  backgroundColor: "#ffffff",
-  color: "#111827",
-},
-
-orderCostInput: {
-  width: 160, // largeur fixe lisible pour le champ "Coût commande"
-},
-
-
+  orderCostInput: {
+    width: 160,
+  },
 });

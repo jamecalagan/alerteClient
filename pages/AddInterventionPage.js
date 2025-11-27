@@ -965,36 +965,42 @@ export default function AddInterventionPage({ route, navigation }) {
           )}
         </View>
 
-        <Text style={styles.label}>Description de la panne</Text>
-        <TextInput
-          style={styles.input}
-          value={description.toUpperCase()}
-          onChangeText={(text) => setDescription(text.toUpperCase())}
-          multiline
-          autoCapitalize="characters"
-        />
+<FloatingField label="Description de la panne">
+  <TextInput
+    style={styles.input}
+    value={description.toUpperCase()}
+    onChangeText={(text) => setDescription(text.toUpperCase())}
+    multiline
+    autoCapitalize="characters"
+  />
+</FloatingField>
 
-        <Text style={styles.label}>Mot de passe (si applicable)</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-        />
 
-        <Text style={styles.label}>Coût de la réparation (€)</Text>
-        <TextInput
-          style={styles.input}
-          value={cost ? cost.toString() : ""}
-          onChangeText={setCost}
-          keyboardType="numeric"
-          placeholderTextColor="#191f2f"
-          editable={status !== "Devis en cours"} // Désactiver si "Devis en cours" est sélectionné
-          placeholder={
-            status === "Devis en cours"
-              ? "Indisponible en mode Devis"
-              : "Entrez le coût"
-          }
-        />
+<FloatingField label="Mot de passe (si applicable)">
+  <TextInput
+    style={styles.input}
+    value={password}
+    onChangeText={setPassword}
+  />
+</FloatingField>
+
+
+<FloatingField label="Coût de la réparation (€)">
+  <TextInput
+    style={styles.input}
+    value={cost ? cost.toString() : ""}
+    onChangeText={setCost}
+    keyboardType="numeric"
+    placeholderTextColor="#191f2f"
+    editable={status !== "Devis en cours"} // Désactiver si "Devis en cours" est sélectionné
+    placeholder={
+      status === "Devis en cours"
+        ? "Indisponible en mode Devis"
+        : "Entrez le coût"
+    }
+  />
+</FloatingField>
+
 
         <View>
           <View>
@@ -1090,34 +1096,37 @@ export default function AddInterventionPage({ route, navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-          {paymentStatus === "reglement_partiel" && (
-            <View>
-              <Text style={styles.label}>Montant de l'acompte (€)</Text>
-              <TextInput
-                style={styles.input}
-                value={partialPayment}
-                onChangeText={(value) => {
-                  if (parseFloat(value) > parseFloat(cost)) {
-                    Alert.alert(
-                      "Erreur",
-                      "L'acompte ne peut pas dépasser le montant total."
-                    );
-                  } else {
-                    setPartialPayment(value);
-                  }
-                }}
-                keyboardType="numeric"
-                placeholder="Entrez le montant de l'acompte"
-              />
-              <Text style={styles.label}>
-                Solde restant :{" "}
-                {cost && partialPayment
-                  ? (cost - partialPayment).toFixed(2)
-                  : cost}{" "}
-                €
-              </Text>
-            </View>
-          )}
+{paymentStatus === "reglement_partiel" && (
+  <View>
+    <FloatingField label="Montant de l'acompte (€)">
+      <TextInput
+        style={styles.input}
+        value={partialPayment}
+        onChangeText={(value) => {
+          if (parseFloat(value) > parseFloat(cost)) {
+            Alert.alert(
+              "Erreur",
+              "L'acompte ne peut pas dépasser le montant total."
+            );
+          } else {
+            setPartialPayment(value);
+          }
+        }}
+        keyboardType="numeric"
+        placeholder="Entrez le montant de l'acompte"
+      />
+    </FloatingField>
+
+    <Text style={styles.label}>
+      Solde restant :{" "}
+      {cost && partialPayment
+        ? (cost - partialPayment).toFixed(2)
+        : cost}{" "}
+      €
+    </Text>
+  </View>
+)}
+
         </View>
         <View
           style={[
@@ -1128,7 +1137,7 @@ export default function AddInterventionPage({ route, navigation }) {
           ]}
         >
           <View style={styles.fullwidthContainer}>
-            <Text style={styles.label}>Statut</Text>
+            <FloatingField label="Statut">
             <Picker
               selectedValue={status}
               style={styles.input}
@@ -1153,7 +1162,7 @@ export default function AddInterventionPage({ route, navigation }) {
               <Picker.Item label="Réparé" value="Réparé" />
               <Picker.Item label="Non réparable" value="Non réparable" />
             </Picker>
-
+				</FloatingField>
             {status === "Devis en cours" && (
               <TextInput
                 style={styles.input}
@@ -1168,25 +1177,27 @@ export default function AddInterventionPage({ route, navigation }) {
             {/* 👉 NOUVEAU : fourchette + type quand Devis en cours */}
             {status === "Devis en cours" && (
               <>
-                <Text style={styles.label}>Fourchette de devis (€)</Text>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder="De ..."
-                    placeholderTextColor="#202020"
-                    keyboardType="numeric"
-                    value={estimateMin}
-                    onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
-                  />
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder="À ..."
-                    placeholderTextColor="#202020"
-                    keyboardType="numeric"
-                    value={estimateMax}
-                    onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
-                  />
-                </View>
+<Text style={styles.label}>Fourchette de devis (€)</Text>
+<View style={{ flexDirection: "row", gap: 10 }}>
+  <FloatingField label="De (€)" style={{ flex: 1 }}>
+    <TextInput
+      style={[styles.input, { flex: 1 }]}
+      keyboardType="numeric"
+      value={estimateMin}
+      onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
+    />
+  </FloatingField>
+
+  <FloatingField label="À (€)" style={{ flex: 1 }}>
+    <TextInput
+      style={[styles.input, { flex: 1 }]}
+      keyboardType="numeric"
+      value={estimateMax}
+      onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
+    />
+  </FloatingField>
+</View>
+
                 <Text style={styles.label}>Type de fourchette</Text>
                 <Picker
                   selectedValue={estimateType}
@@ -1209,19 +1220,21 @@ export default function AddInterventionPage({ route, navigation }) {
               </>
             )}
 
-            {status !== "Devis en cours" && (
-              <View className="halfWidthContainer">
-                <Text style={styles.label}>Coût de la réparation (€)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Coût total (€)"
-                  placeholderTextColor="#202020"
-                  keyboardType="numeric"
-                  value={cost}
-                  onChangeText={setCost}
-                />
-              </View>
-            )}
+{status !== "Devis en cours" && (
+  <View className="halfWidthContainer">
+    <FloatingField label="Coût de la réparation (€)">
+      <TextInput
+        style={styles.input}
+        placeholder="Coût total (€)"
+        placeholderTextColor="#202020"
+        keyboardType="numeric"
+        value={cost}
+        onChangeText={setCost}
+      />
+    </FloatingField>
+  </View>
+)}
+
           </View>
         </View>
 
@@ -1272,25 +1285,29 @@ export default function AddInterventionPage({ route, navigation }) {
           </View>
         )}
 
-        <Text style={styles.label}>Remarques</Text>
-        <TextInput
-          style={styles.input}
-          value={remarks}
-          onChangeText={setRemarks}
-          placeholderTextColor="#191f2f"
-          placeholder="Ajoutez des remarques ici..."
-          multiline
-        />
+<FloatingField label="Remarques">
+  <TextInput
+    style={styles.input}
+    value={remarks}
+    onChangeText={setRemarks}
+    placeholderTextColor="#191f2f"
+    placeholder="Ajoutez des remarques ici..."
+    multiline
+  />
+</FloatingField>
 
-        <Text style={styles.label}>Chargeur</Text>
-        <Picker
-          selectedValue={chargeur}
-          style={styles.input}
-          onValueChange={(itemValue) => setChargeur(itemValue)}
-        >
-          <Picker.Item label="Non" value="Non" />
-          <Picker.Item label="Oui" value="Oui" />
-        </Picker>
+
+<FloatingField label="Chargeur">
+  <Picker
+    selectedValue={chargeur}
+    style={styles.input}
+    onValueChange={(itemValue) => setChargeur(itemValue)}
+  >
+    <Picker.Item label="Non" value="Non" />
+    <Picker.Item label="Oui" value="Oui" />
+  </Picker>
+</FloatingField>
+
 
         {photos.length > 0 && (
           <ScrollView
@@ -1804,6 +1821,15 @@ export default function AddInterventionPage({ route, navigation }) {
     </KeyboardAvoidingView>
   );
 }
+// Petit wrapper pour avoir un label "à cheval" sur le champ
+function FloatingField({ label, children, style }) {
+  return (
+    <View style={[styles.fieldWrapper, style]}>
+      {children}
+      <Text style={styles.floatingLabel}>{label}</Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -1845,18 +1871,45 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  input: {
-    padding: 10,
-    marginBottom: 20,
-    borderRadius: 10,
-    backgroundColor: "#cacaca",
-    width: "90%",
-    alignSelf: "center",
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#191f2f",
-    height: 50,
-  },
+input: {
+  height: 50,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  marginBottom: 16,
+  borderRadius: 10,
+  backgroundColor: "#cacaca",
+  width: "90%",
+  alignSelf: "center",
+  fontSize: 16,
+  fontWeight: "500",
+  color: "#191f2f",
+},
+fieldWrapper: {
+  width: "100%",
+  alignItems: "center",
+  marginTop: 18,
+  marginBottom: 8,
+  position: "relative",
+  overflow: "visible",
+},
+
+floatingLabel: {
+  position: "absolute",
+  left: "8%",          // aligné avec l'input (90% centré)
+  top: -12,            // le label “mord” sur le bord du champ
+  paddingHorizontal: 8,
+  paddingVertical: 2,
+  backgroundColor: "#e0e0e0", // même fond que la page
+  borderRadius: 6,
+  borderWidth: 1,
+  borderColor: "#999",
+  fontSize: 12,
+  fontWeight: "600",
+  color: "#222",
+  zIndex: 10,
+  elevation: 3,        // Android : passer devant le champ
+},
+
   label: {
     fontSize: 16,
     fontWeight: "bold",

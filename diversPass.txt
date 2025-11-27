@@ -8,7 +8,7 @@ https://fncgffajwabqrnhumgzd.supabase.co
 
 envoyer
 git add .
-git commit -m "complet avec icone infos  26102025 19h29"
+git commit -m "complet nex style 25112025"
 git push origin main
 
 recupérer

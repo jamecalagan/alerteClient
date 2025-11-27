@@ -65,7 +65,7 @@ export default function EditClientPage({ route, navigation }) {
     return (
       <Animated.Image
         source={source}
-        style={{ width: 28, height: 28, tintColor: "#f54242", opacity }}
+        style={{ width: 20, height: 20, tintColor: "#f54242", opacity }}
       />
     );
   };
@@ -198,6 +198,7 @@ export default function EditClientPage({ route, navigation }) {
     return str.replace(/(\d{2})(?=\d)/g, "$1 ");
   }
   const formattedPhone = formatWithSpaces(phone);
+
   function formatDateFR(dateString) {
     if (!dateString) return "Date inconnue";
     return new Date(dateString).toLocaleDateString("fr-FR");
@@ -206,19 +207,38 @@ export default function EditClientPage({ route, navigation }) {
   const getStatusStyle = (status) => {
     switch (status) {
       case "En attente de pièces":
-        return { borderColor: "#270381", borderWidth: 4 };
+        return { borderColor: "#270381", borderWidth: 2 };
       case "Devis accepté":
-        return { borderColor: "#FFD700", borderWidth: 4 };
+        return { borderColor: "#FFD700", borderWidth: 2 };
       case "Réparation en cours":
-        return { borderColor: "#528fe0", borderWidth: 4 };
+        return { borderColor: "#528fe0", borderWidth: 2 };
       case "Réparé":
-        return { borderColor: "#98fb98", borderWidth: 4 };
+        return { borderColor: "#98fb98", borderWidth: 2 };
       case "Non réparable":
-        return { borderColor: "#e9967a", borderWidth: 4 };
+        return { borderColor: "#e9967a", borderWidth: 2 };
       case "Devis en cours":
-        return { borderColor: "#f37209", borderWidth: 4 };
+        return { borderColor: "#f37209", borderWidth: 2 };
       default:
-        return { borderColor: "#e0e0e0", borderWidth: 4 };
+        return { borderColor: "#e0e0e0", borderWidth: 2 };
+    }
+  };
+
+  const getStatusBadgeColors = (status) => {
+    switch (status) {
+      case "En attente de pièces":
+        return { bgColor: "#ede9ff", textColor: "#4c1d95" };
+      case "Devis accepté":
+        return { bgColor: "#fef3c7", textColor: "#92400e" };
+      case "Réparation en cours":
+        return { bgColor: "#dbeafe", textColor: "#1d4ed8" };
+      case "Réparé":
+        return { bgColor: "#dcfce7", textColor: "#166534" };
+      case "Non réparable":
+        return { bgColor: "#fee2e2", textColor: "#b91c1c" };
+      case "Devis en cours":
+        return { bgColor: "#fff7ed", textColor: "#9a3412" };
+      default:
+        return { bgColor: "#e5e7eb", textColor: "#374151" };
     }
   };
 
@@ -352,257 +372,328 @@ export default function EditClientPage({ route, navigation }) {
         <FlatList
           data={interventions}
           keyExtractor={(item, idx) => idx.toString()}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              style={[styles.interventionCard, getStatusStyle(item.status)]}
-              onPress={() =>
-                navigation.navigate("EditIntervention", {
-                  clientId: client.id,
-                  interventionId: item.id,
-                })
-              }
-            >
-              <Text style={styles.interventionText}>
-                Intervention N° {index + 1}
-              </Text>
-              <Text style={styles.interventionText}>
-                Type d'appareil: {item.deviceType || "Non renseignée"}
-              </Text>
-              <Text style={styles.interventionText}>
-                Marque: {item.brand || "Non renseignée"}
-              </Text>
-              <Text style={styles.interventionText}>
-                Modèle: {item.model || "Non renseignée"}
-              </Text>
-              {item.serial_number && (
-                <Text style={styles.interventionText}>
-                  Numéro de série: {item.serial_number}
-                </Text>
-              )}
-              <Text style={styles.interventionText}>
-                Référence: {item.reference || "Non renseignée"}
-              </Text>
-              <Text style={styles.interventionText}>
-                Description de l'intervention :{" "}
-                {item.description || "Aucune description"}
-              </Text>
-              {item.cost && (
-                <Text style={styles.interventionText}>
-                  Coût total: {item.cost} €
-                </Text>
-              )}
-              <Text style={styles.interventionText}>
-                Etat du règlement: {item.paymentStatus || "Non précisé"}
-              </Text>
-              {item.paymentStatus === "reglement_partiel" &&
-                item.partialPayment && (
-                  <Text style={styles.interventionText}>
-                    Acompte de: {item.partialPayment} €
-                  </Text>
-                )}
-              {item.solderestant && (
-                <Text style={styles.interventionTextReste}>
-                  Montant restant dû: {item.solderestant}€
-                </Text>
-              )}
-              <Text style={styles.interventionText}>
-                Statut: {item.status || "Inconnu"}
-              </Text>
-              <Text style={styles.interventionText}>
-                Montant du devis: {item.devis_cost} €
-              </Text>
+          renderItem={({ item, index }) => {
+            const statusBorderStyle = getStatusStyle(item.status);
+            const { bgColor, textColor } = getStatusBadgeColors(item.status);
 
-              {item?.is_estimate &&
+            const paymentLabel =
+              item.paymentStatus === "paid"
+                ? "Réglé"
+                : item.paymentStatus === "reglement_partiel"
+                ? "Règlement partiel"
+                : item.paymentStatus || "Non précisé";
+
+            const hasEstimateRange =
+              item?.is_estimate &&
               typeof item?.estimate_min === "number" &&
-              typeof item?.estimate_max === "number" ? (
-                item?.estimate_type === "PLAFOND" ? (
-                  <Text style={styles.interventionText}>
-                    Estimation approuvée par le client : de {item.estimate_min}{" "}
-                    € à {item.estimate_max} €
-                  </Text>
-                ) : (
-                  <Text style={styles.interventionText}>
-                    Estimation indicative : de {item.estimate_min} € à{" "}
-                    {item.estimate_max} €
-                  </Text>
-                )
-              ) : null}
+              typeof item?.estimate_max === "number";
 
-              <Text style={styles.interventionText}>
-                Remarques: {item.remarks || "Aucune"}
-              </Text>
-              {item.accept_screen_risk && (
-                <Text style={styles.acceptText}>
-                  Acceptation du risque de casse écran : Oui
-                </Text>
-              )}
-              {item.password && (
-                <Text style={styles.interventionText}>
-                  Mdp: {item.password}
-                </Text>
-              )}
-              <Text style={styles.interventionText}>
-                Date: {new Date(item.createdAt).toLocaleDateString("fr-FR")}
-              </Text>
-              <Text style={styles.interventionText}>
-                Chargeur: {item.chargeur ? "Oui" : "Non"}
-              </Text>
-
-              {item.status === "En attente de pièces" && (
-                <>
-                  <Text style={styles.interventionText}>
-                    Produit en commande: {item.commande || "Non précisé"}
+            const Row = ({ label, value, valueStyle }) => {
+              if (!value && value !== 0) return null;
+              return (
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>{label}</Text>
+                  <Text
+                    style={[styles.tableValue, valueStyle]}
+                    numberOfLines={2}
+                  >
+                    {value}
                   </Text>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: item.commande_effectuee
-                        ? "#d6d6d6"
-                        : "#fffde7",
-                      borderWidth: 1,
-                      borderColor: item.commande_effectuee ? "#999" : "#f9a825",
-                      padding: 10,
-                      borderRadius: 8,
-                      marginTop: 8,
-                      opacity: item.commande_effectuee ? 0.6 : 1,
-                    }}
-                    disabled={item.commande_effectuee}
-                    onPress={() => {
-                      const newValue = true;
-                      showAlert(
-                        "Confirmer",
-                        "Marquer ce produit comme commandé ?",
-                        async () => {
-                          const { error } = await supabase
-                            .from("interventions")
-                            .update({ commande_effectuee: newValue })
-                            .eq("id", item.id);
-                          if (!error) {
-                            const updatedInterventions = interventions.map(
-                              (i) =>
-                                i.id === item.id
-                                  ? { ...i, commande_effectuee: newValue }
-                                  : i
-                            );
-                            setInterventions(updatedInterventions);
-                          }
-                        }
-                      );
-                    }}
+                </View>
+              );
+            };
+
+            return (
+              <TouchableOpacity
+                style={[styles.interventionCard, statusBorderStyle]}
+                onPress={() =>
+                  navigation.navigate("EditIntervention", {
+                    clientId: client.id,
+                    interventionId: item.id,
+                  })
+                }
+              >
+                {/* En-tête */}
+                <View style={styles.cardHeader}>
+                  <View>
+                    <Text style={styles.cardTitle}>
+                      Fiche intervention n° {index + 1}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Créée le {formatDateFR(item.createdAt)}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: bgColor },
+                    ]}
                   >
                     <Text
-                      style={{
-                        textAlign: "center",
-                        color: item.commande_effectuee ? "#666" : "#f57f17",
-                        fontWeight: "bold",
-                      }}
+                      style={[styles.statusBadgeText, { color: textColor }]}
+                      numberOfLines={1}
                     >
-                      {item.commande_effectuee
-                        ? "✅ Produit commandé"
-                        : "Produit commandé ?"}
+                      {item.status || "Statut inconnu"}
                     </Text>
-                  </TouchableOpacity>
+                  </View>
+                </View>
 
-                  <TouchableOpacity
-                    style={styles.commandeRecuButton}
-                    onPress={() => {
-                      showAlert(
-                        "Confirmer la réception de la commande",
-                        'Êtes-vous sûr de vouloir passer le statut à "Réparation en cours" ?',
-                        async () => {
-                          try {
+                {/* Tableau */}
+                <View style={styles.table}>
+                  <Row
+                    label="Appareil"
+                    value={item.deviceType || "Non renseigné"}
+                  />
+                  <Row
+                    label="Marque"
+                    value={item.brand || "Non renseignée"}
+                  />
+                  <Row
+                    label="Modèle"
+                    value={item.model || "Non renseigné"}
+                  />
+                  {item.serial_number && (
+                    <Row label="N° de série" value={item.serial_number} />
+                  )}
+                  <Row
+                    label="Référence"
+                    value={item.reference || "Non renseignée"}
+                  />
+                  <Row
+                    label="Description"
+                    value={item.description || "Aucune description"}
+                  />
+                  <Row
+                    label="Chargeur"
+                    value={item.chargeur ? "Oui" : "Non"}
+                  />
+                  <Row
+                    label="Mot de passe"
+                    value={item.password || "Non communiqué"}
+                  />
+                  <Row
+                    label="Montant devis"
+                    value={`${item.devis_cost || 0} €`}
+                  />
+                  {item.cost && (
+                    <Row
+                      label="Total TTC"
+                      value={`${item.cost} €`}
+                      valueStyle={styles.tableValueStrong}
+                    />
+                  )}
+                  <Row label="Règlement" value={paymentLabel} />
+                  {item.paymentStatus === "reglement_partiel" &&
+                    item.partialPayment && (
+                      <Row
+                        label="Acompte"
+                        value={`${item.partialPayment} €`}
+                      />
+                    )}
+                  {item.solderestant && (
+                    <Row
+                      label="Reste dû"
+                      value={`${item.solderestant} €`}
+                      valueStyle={styles.resteValue}
+                    />
+                  )}
+                  {hasEstimateRange && (
+                    <Row
+                      label="Estimation"
+                      value={
+                        item.estimate_type === "PLAFOND"
+                          ? `Approuvée : de ${item.estimate_min} € à ${item.estimate_max} €`
+                          : `Indicative : de ${item.estimate_min} € à ${item.estimate_max} €`
+                      }
+                    />
+                  )}
+                  <Row
+                    label="Remarques"
+                    value={item.remarks || "Aucune"}
+                  />
+                  {item.accept_screen_risk && (
+                    <Row
+                      label="Risque écran"
+                      value="Accepté par le client"
+                      valueStyle={styles.acceptText}
+                    />
+                  )}
+                  <Row
+                    label="Date dépôt"
+                    value={formatDateFR(item.createdAt)}
+                  />
+                </View>
+
+                {/* Bloc commande / pièces */}
+                {item.status === "En attente de pièces" && (
+                  <>
+                    <View style={styles.table}>
+                      <Row
+                        label="Produit en commande"
+                        value={item.commande || "Non précisé"}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: item.commande_effectuee
+                          ? "#d6d6d6"
+                          : "#fffde7",
+                        borderWidth: 1,
+                        borderColor: item.commande_effectuee
+                          ? "#999"
+                          : "#f9a825",
+                        padding: 10,
+                        borderRadius: 8,
+                        marginTop: 8,
+                        opacity: item.commande_effectuee ? 0.6 : 1,
+                      }}
+                      disabled={item.commande_effectuee}
+                      onPress={() => {
+                        const newValue = true;
+                        showAlert(
+                          "Confirmer",
+                          "Marquer ce produit comme commandé ?",
+                          async () => {
                             const { error } = await supabase
                               .from("interventions")
-                              .update({ status: "Réparation en cours" })
+                              .update({ commande_effectuee: newValue })
                               .eq("id", item.id);
-                            if (error) return;
+                            if (!error) {
+                              const updatedInterventions = interventions.map(
+                                (i) =>
+                                  i.id === item.id
+                                    ? { ...i, commande_effectuee: newValue }
+                                    : i
+                              );
+                              setInterventions(updatedInterventions);
+                            }
+                          }
+                        );
+                      }}
+                    >
+                      <Text
+                        style={{
+                          textAlign: "center",
+                          color: item.commande_effectuee ? "#666" : "#f57f17",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {item.commande_effectuee
+                          ? "✅ Produit commandé"
+                          : "Produit commandé ?"}
+                      </Text>
+                    </TouchableOpacity>
 
-                            const updatedInterventions = interventions.map(
-                              (intervention) =>
-                                intervention.id === item.id
-                                  ? {
-                                      ...intervention,
-                                      status: "Réparation en cours",
-                                    }
-                                  : intervention
-                            );
-                            setInterventions(updatedInterventions);
-                            showAlert(
-                              "Succès",
-                              'Statut mis à jour à "Réparation en cours".'
-                            );
-                          } catch (error) {}
-                        }
-                      );
+                    <TouchableOpacity
+                      style={styles.commandeRecuButton}
+                      onPress={() => {
+                        showAlert(
+                          "Confirmer la réception de la commande",
+                          'Êtes-vous sûr de vouloir passer le statut à "Réparation en cours" ?',
+                          async () => {
+                            try {
+                              const { error } = await supabase
+                                .from("interventions")
+                                .update({ status: "Réparation en cours" })
+                                .eq("id", item.id);
+                              if (error) return;
+
+                              const updatedInterventions = interventions.map(
+                                (intervention) =>
+                                  intervention.id === item.id
+                                    ? {
+                                        ...intervention,
+                                        status: "Réparation en cours",
+                                      }
+                                    : intervention
+                              );
+                              setInterventions(updatedInterventions);
+                              showAlert(
+                                "Succès",
+                                'Statut mis à jour à "Réparation en cours".'
+                              );
+                            } catch (error) {}
+                          }
+                        );
+                      }}
+                    >
+                      <Text style={styles.commandeRecuButtonText}>
+                        Commande reçue ?
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Barre d'actions en bas */}
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteIntervention(item.id)}
+                    style={styles.cardActionItem}
+                  >
+                    <Image
+                      source={require("../assets/icons/trash.png")}
+                      style={{ width: 18, height: 18, tintColor: "#b91c1c" }}
+                    />
+                    <Text style={styles.cardActionTextDanger}>Supprimer</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.actionSeparator} />
+
+                  <TouchableOpacity
+                    style={styles.cardActionItem}
+                    onPress={() => {
+                      if (checkupExists) {
+                        Alert.alert(
+                          "Fiche déjà créée",
+                          "Une fiche de contrôle existe déjà pour ce client."
+                        );
+                        return;
+                      }
+                      const currentIntervention =
+                        Array.isArray(interventions) &&
+                        interventions.length > 0
+                          ? interventions[0]
+                          : null;
+
+                      navigation.navigate("CheckupPage", {
+                        clientName: client.name,
+                        clientPhone: client.phone,
+                        clientDate: new Date().toLocaleDateString("fr-FR"),
+                        deviceType:
+                          currentIntervention?.deviceType || "PC Portable",
+                      });
                     }}
                   >
-                    <Text style={styles.commandeRecuButtonText}>
-                      Commande reçue ?
-                    </Text>
+                    <Image
+                      source={require("../assets/icons/checklist.png")}
+                      style={{ width: 18, height: 18, tintColor: "#2563eb" }}
+                    />
+                    <Text style={styles.cardActionText}>Fiche contrôle</Text>
                   </TouchableOpacity>
-                </>
-              )}
 
-              <TouchableOpacity
-                style={styles.trashButton}
-                onPress={() => handleDeleteIntervention(item.id)}
-              >
-                <Image
-                  source={require("../assets/icons/trash.png")}
-                  style={{ width: 24, height: 24, tintColor: "#ff0000" }}
-                />
+                  <View style={styles.actionSeparator} />
+
+                  <TouchableOpacity
+                    style={styles.cardActionItem}
+                    onPress={handlePrint}
+                  >
+                    {!etiquetteImprimee ? (
+                      <BlinkingIcon
+                        source={require("../assets/icons/print.png")}
+                      />
+                    ) : (
+                      <Image
+                        source={require("../assets/icons/print.png")}
+                        style={{ width: 20, height: 20, tintColor: "#047857" }}
+                      />
+                    )}
+                    <Text style={styles.cardActionText}>Imprimer</Text>
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.printButton,
-                  {
-                    right: 90,
-                    backgroundColor: checkupExists ? "#aaa" : "#6c5ce7",
-                  },
-                ]}
-                onPress={() => {
-                  if (checkupExists) {
-                    Alert.alert(
-                      "Fiche déjà créée",
-                      "Une fiche de contrôle existe déjà pour ce client."
-                    );
-                    return;
-                  }
-                  const currentIntervention =
-                    Array.isArray(interventions) && interventions.length > 0
-                      ? interventions[0]
-                      : null;
-
-                  navigation.navigate("CheckupPage", {
-                    clientName: client.name,
-                    clientPhone: client.phone,
-                    clientDate: new Date().toLocaleDateString("fr-FR"),
-                    deviceType:
-                      currentIntervention?.deviceType || "PC Portable",
-                  });
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/checklist.png")}
-                  style={{ width: 28, height: 28, tintColor: "#ffffff" }}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.printButton}
-                onPress={handlePrint}
-              >
-                {!etiquetteImprimee ? (
-                  <BlinkingIcon source={require("../assets/icons/print.png")} />
-                ) : (
-                  <Image
-                    source={require("../assets/icons/print.png")}
-                    style={{ width: 28, height: 28, tintColor: "#ffffff" }}
-                  />
-                )}
-              </TouchableOpacity>
-            </TouchableOpacity>
-          )}
+            );
+          }}
         />
       ) : (
         <Text style={styles.buttonTextNo}>Aucune intervention trouvée.</Text>
@@ -682,8 +773,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#333",
   },
+
   interventionCard: {
-    padding: 18,
+    padding: 16,
     marginBottom: 14,
     borderRadius: 14,
     backgroundColor: "#ffffff",
@@ -695,8 +787,65 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  interventionText: { fontSize: 17, color: "#2c2c2c", marginBottom: 6 },
-  interventionTextReste: { fontSize: 17, color: "#c0392b", marginBottom: 6 },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1f2933",
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: "#7b8794",
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    alignSelf: "flex-start",
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  table: {
+    marginTop: 8,
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#f9fafb",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#edf2f7",
+  },
+  tableLabel: {
+    width: 120,
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: "600",
+  },
+  tableValue: {
+    flex: 1,
+    fontSize: 15,
+    color: "#111827",
+  },
+  tableValueStrong: {
+    fontWeight: "700",
+  },
+  resteValue: {
+    color: "#c0392b",
+    fontWeight: "700",
+  },
+
   addButton: {
     backgroundColor: "#0c0f18",
     paddingVertical: 14,
@@ -714,6 +863,7 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   addButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+
   saveButton: {
     backgroundColor: "#28a745",
     paddingVertical: 16,
@@ -723,38 +873,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  trashButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "#f8d7da",
-    borderWidth: 1,
-    borderColor: "#dc3545",
-  },
-  printButton: {
-    width: 60,
-    height: 60,
-    borderWidth: 2,
-    borderColor: "#28a745",
-    position: "absolute",
-    bottom: 24,
-    right: 24,
-    backgroundColor: "#075304",
-    padding: 12,
-    borderRadius: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 4,
-  },
+
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -781,6 +900,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
   },
+
   commandeRecuButton: {
     backgroundColor: "#e8f5e9",
     padding: 12,
@@ -795,7 +915,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 16,
   },
-  acceptText: { fontSize: 17, color: "#e67e22", fontWeight: "bold" },
+
+  acceptText: {
+    fontSize: 15,
+    color: "#e67e22",
+    fontWeight: "bold",
+  },
   emailRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -816,5 +941,37 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     tintColor: "#ffffff",
+  },
+
+  // Barre d'actions en bas de la fiche
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  cardActionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  cardActionText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  cardActionTextDanger: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#b91c1c",
+    fontWeight: "700",
+  },
+  actionSeparator: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#e5e7eb",
   },
 });

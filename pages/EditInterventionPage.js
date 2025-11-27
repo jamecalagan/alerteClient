@@ -132,6 +132,7 @@ const isHttpRef = (s) => typeof s === "string" && /^https?:\/\//i.test(s);
 const isBucketRef = (s) =>
     typeof s === "string" && !isLocalRef(s) && !isHttpRef(s); // ex: "supplementaires/..."
 
+
 // On ne conserve en BDD QUE des refs cloud (http ou chemin bucket), jamais du file://
 const normalizePhotosForDB = (arr) => {
     if (!Array.isArray(arr)) return [];
@@ -234,17 +235,19 @@ export default function EditInterventionPage({ route, navigation }) {
     const [openBrand, setOpenBrand] = useState(false);
     const [openModel, setOpenModel] = useState(false);
     const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
-	// --- AJOUTS D'ÉTATS POUR LA COMMANDE RAPIDE ---
-const [orderModalVisible, setOrderModalVisible] = useState(false);
-const [orderProduct, setOrderProduct] = useState("");   // ex: "BATTERIE"
-const [orderBrand, setOrderBrand] = useState("");
-const [orderModel, setOrderModel] = useState("");
-const [orderUnitPrice, setOrderUnitPrice] = useState("");
-const [orderQty,   setOrderQty]   = useState("1");
-const [orderDeposit, setOrderDeposit] = useState("");
 
-// pour détecter la transition de statut
-const prevStatusRef = useRef(status);
+    // --- AJOUTS D'ÉTATS POUR LA COMMANDE RAPIDE ---
+    const [orderModalVisible, setOrderModalVisible] = useState(false);
+    const [orderProduct, setOrderProduct] = useState(""); // ex: "BATTERIE"
+    const [orderBrand, setOrderBrand] = useState("");
+    const [orderModel, setOrderModel] = useState("");
+    const [orderUnitPrice, setOrderUnitPrice] = useState("");
+    const [orderQty, setOrderQty] = useState("1");
+    const [orderDeposit, setOrderDeposit] = useState("");
+
+    // pour détecter la transition de statut
+    const prevStatusRef = useRef(status);
+
     const repairBrokenPhotoUrlsForCurrentIntervention = async () => {
         try {
             const { data: inter, error } = await supabase
@@ -418,6 +421,7 @@ const prevStatusRef = useRef(status);
         };
         if (clientId) fetchClientName();
     }, [clientId]);
+
     // Répare la fiche: remplace chaque file:// par une URL publique Supabase
     const fixLocalPhotosForCurrentIntervention = async () => {
         try {
@@ -434,7 +438,7 @@ const prevStatusRef = useRef(status);
             // Utilitaire pour uploader une image locale et renvoyer une URL publique
             const reuploadLocal = async (localUri, isLabel = false) => {
                 try {
-                    // compress + upload (tu peux réutiliser ta fonction existante si tu veux)
+                    // compress + upload
                     const fileName = `${Date.now()}.jpg`;
                     const folder = isLabel ? "etiquettes" : "supplementaires";
                     const path = `${folder}/${interventionId}/${fileName}`;
@@ -579,28 +583,20 @@ const prevStatusRef = useRef(status);
                 FileSystem.documentDirectory + `backup/${client.ficheNumber}/`;
             // Remplace ta version actuelle par celle-ci
             const urlToLocal = async (anyRef, type = "photo", index = 0) => {
-                // 1) on extrait une chaîne exploitable (objets {url|path|uri} acceptés)
                 const s = extractRefString(anyRef);
                 if (!s) return null;
 
-                // 2) on tente le fallback local (mêmes noms "déterministes" qu'avant)
                 const filename =
                     type === "label"
                         ? `etiquette_${interventionId}.jpg`
                         : `photo_${interventionId}_${index + 1}.jpg`;
                 const localUri = localBase + filename;
 
-                // 3) règles :
-                // - si le local existe -> on affiche le local (rapide)
-                // - sinon -> on renvoie la ref d'origine (http ou chemin bucket)
                 const exists = await fileExists(localUri);
                 if (exists) return localUri;
 
-                // si c'est une URL http (publique ou signée) -> on renvoie l'URL
                 if (s.startsWith("http")) return s;
 
-                // sinon c'est un chemin de bucket "supplementaires/...": on renvoie tel quel
-                // (ResolvedImage/getDisplayUri fera createSignedUrl au rendu)
                 return s;
             };
 
@@ -631,7 +627,9 @@ const prevStatusRef = useRef(status);
             setCommande(inter.commande || "");
             setRemarks(inter.remarks || "");
             setNoCostButRestitution(!!inter.no_cost_but_restitution);
-            setPaymentStatus(inter.no_cost_but_restitution ? "" : (inter.paymentStatus || "non_regle"));
+            setPaymentStatus(
+                inter.no_cost_but_restitution ? "" : inter.paymentStatus || "non_regle"
+            );
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
             setLabelPhotoDB(
@@ -647,9 +645,9 @@ const prevStatusRef = useRef(status);
                 inter.estimate_max != null ? String(inter.estimate_max) : ""
             );
             setEstimateType(inter.estimate_type || "PLAFOND");
+
             // ——— Fallback si les IDs sont nuls mais qu'on a les libellés texte ———
             try {
-                // Article par nom
                 if (
                     (inter.article_id == null || inter.article_id === "") &&
                     inter.deviceType
@@ -657,13 +655,12 @@ const prevStatusRef = useRef(status);
                     const { data: artRow } = await supabase
                         .from("article")
                         .select("id")
-                        .ilike("nom", inter.deviceType) // ou .eq("nom", inter.deviceType) si nom exact
+                        .ilike("nom", inter.deviceType)
                         .limit(1)
                         .maybeSingle();
                     if (artRow?.id) inter.article_id = artRow.id;
                 }
 
-                // Marque par nom + article_id
                 if (
                     (inter.marque_id == null || inter.marque_id === "") &&
                     inter.brand &&
@@ -679,7 +676,6 @@ const prevStatusRef = useRef(status);
                     if (marRow?.id) inter.marque_id = marRow.id;
                 }
 
-                // Modèle par nom + marque_id
                 if (
                     (inter.modele_id == null || inter.modele_id === "") &&
                     inter.model &&
@@ -699,7 +695,6 @@ const prevStatusRef = useRef(status);
             }
 
             // ——— Hydratation pickers en respectant les dépendances ———
-            // Article → charger marques puis poser valeur
             if (inter.article_id != null) {
                 const art = String(inter.article_id);
                 setDeviceType(art);
@@ -709,7 +704,6 @@ const prevStatusRef = useRef(status);
                 setBrands([]);
             }
 
-            // Marque → charger modèles puis poser valeur
             if (inter.marque_id != null) {
                 const mar = String(inter.marque_id);
                 setBrand(mar);
@@ -719,10 +713,8 @@ const prevStatusRef = useRef(status);
                 setModels([]);
             }
 
-            // Modèle en dernier (liste déjà chargée)
             setModel(inter.modele_id != null ? String(inter.modele_id) : "");
 
-            // 🔎 Debug
             console.log(
                 "📦 Inter article_id:",
                 inter.article_id,
@@ -745,94 +737,93 @@ const prevStatusRef = useRef(status);
             console.error("❌ Erreur loadIntervention :", e);
         }
     };
-useEffect(() => {
-  const prev = prevStatusRef.current;
-  if (prev === "Réparation en cours" && status === "En attente de pièces") {
-    // Pré-remplis intelligemment
-    const defProd =
-      reference?.trim()
-        ? reference.trim()
-        : (deviceType ? deviceType.toUpperCase() + " " : "") +
-          (brand ? String(brand).toUpperCase() + " " : "") +
-          (model ? String(model).toUpperCase() : "");
 
-    setOrderProduct(defProd || "PIÈCE À COMMANDER");
-    setOrderBrand(brand || "");
-    setOrderModel(model || "");
-    setOrderUnitPrice("");  // à saisir
-    setOrderQty("1");
-    setOrderDeposit("");
+    useEffect(() => {
+        const prev = prevStatusRef.current;
+        if (prev === "Réparation en cours" && status === "En attente de pièces") {
+            const defProd =
+                reference?.trim()
+                    ? reference.trim()
+                    : (deviceType ? deviceType.toUpperCase() + " " : "") +
+                      (brand ? String(brand).toUpperCase() + " " : "") +
+                      (model ? String(model).toUpperCase() : "");
 
-    setOrderModalVisible(true);
-  }
-  prevStatusRef.current = status;
-}, [status]);
-const toNum = (v, def = 0) => {
-  const x = parseFloat(String(v ?? "").replace(",", "."));
-  return Number.isFinite(x) ? x : def;
-};
+            setOrderProduct(defProd || "PIÈCE À COMMANDER");
+            setOrderBrand(brand || "");
+            setOrderModel(model || "");
+            setOrderUnitPrice("");
+            setOrderQty("1");
+            setOrderDeposit("");
 
-const handleCreateOrderFromStatus = async () => {
-  try {
-    const product = orderProduct?.trim();
-    const brandStr = orderBrand?.trim() || null;
-    const modelStr = orderModel?.trim() || null;
-    const price = toNum(orderUnitPrice, NaN);
-    const qty = Math.max(1, Math.floor(toNum(orderQty, 1)));
-    const deposit = Math.max(0, toNum(orderDeposit, 0));
+            setOrderModalVisible(true);
+        }
+        prevStatusRef.current = status;
+    }, [status]);
 
-    if (!product) {
-      Alert.alert("Champs manquants", "Le produit est requis.");
-      return;
-    }
-    if (!Number.isFinite(price) || price <= 0) {
-      Alert.alert("Montant invalide", "Saisis un prix unitaire valide (> 0).");
-      return;
-    }
-
-    const total = Math.round((price * qty + Number.EPSILON) * 100) / 100;
-
-    const payload = {
-      client_id: clientId,          // ⚠️ tu as déjà clientId dans la page
-      product,
-      brand: brandStr,
-      model: modelStr,
-      price,
-      quantity: qty,
-      total,
-      deposit,
-      received: false,
-      paid: false,
-      recovered: false,
-      deleted: false,
-      createdat: new Date().toISOString(),
-      // option : intervention_id si tu as ajouté cette colonne pour le lien
-      // intervention_id: interventionId,
+    const toNum = (v, def = 0) => {
+        const x = parseFloat(String(v ?? "").replace(",", "."));
+        return Number.isFinite(x) ? x : def;
     };
 
-    const { data, error } = await supabase
-      .from("orders")
-      .insert([payload])
-      .select("id")
-      .single();
+    const handleCreateOrderFromStatus = async () => {
+        try {
+            const product = orderProduct?.trim();
+            const brandStr = orderBrand?.trim() || null;
+            const modelStr = orderModel?.trim() || null;
+            const price = toNum(orderUnitPrice, NaN);
+            const qty = Math.max(1, Math.floor(toNum(orderQty, 1)));
+            const deposit = Math.max(0, toNum(orderDeposit, 0));
 
-    if (error) {
-      console.error("❌ Insertion order:", error);
-      Alert.alert("Erreur", "Impossible de créer la commande.");
-      return;
-    }
+            if (!product) {
+                Alert.alert("Champs manquants", "Le produit est requis.");
+                return;
+            }
+            if (!Number.isFinite(price) || price <= 0) {
+                Alert.alert(
+                    "Montant invalide",
+                    "Saisis un prix unitaire valide (> 0)."
+                );
+                return;
+            }
 
-    // (facultatif) mémoriser le libellé côté intervention
-    // ex: setCommande(product); ou update immédiat en BDD si tu préfères
+            const total =
+                Math.round((price * qty + Number.EPSILON) * 100) / 100;
 
-    setOrderModalVisible(false);
-    Alert.alert("✅ Commande", "Commande créée avec succès.");
+            const payload = {
+                client_id: clientId,
+                product,
+                brand: brandStr,
+                model: modelStr,
+                price,
+                quantity: qty,
+                total,
+                deposit,
+                received: false,
+                paid: false,
+                recovered: false,
+                deleted: false,
+                createdat: new Date().toISOString(),
+            };
 
-  } catch (e) {
-    console.error("❌ handleCreateOrderFromStatus:", e);
-    Alert.alert("Erreur", "Création de la commande impossible.");
-  }
-};
+            const { data, error } = await supabase
+                .from("orders")
+                .insert([payload])
+                .select("id")
+                .single();
+
+            if (error) {
+                console.error("❌ Insertion order:", error);
+                Alert.alert("Erreur", "Impossible de créer la commande.");
+                return;
+            }
+
+            setOrderModalVisible(false);
+            Alert.alert("✅ Commande", "Commande créée avec succès.");
+        } catch (e) {
+            console.error("❌ handleCreateOrderFromStatus:", e);
+            Alert.alert("Erreur", "Création de la commande impossible.");
+        }
+    };
 
     const deleteLabelPhoto = async (photoRefRaw) => {
         const photoRef = extractRefString(photoRefRaw);
@@ -847,7 +838,6 @@ const handleCreateOrderFromStatus = async () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            // Déterminer chemin cloud
                             let path = null;
                             if (photoRef && photoRef.startsWith("http")) {
                                 path = pathFromSupabaseUrl(photoRef);
@@ -858,7 +848,6 @@ const handleCreateOrderFromStatus = async () => {
                                 path = photoRef;
                             }
 
-                            // Supprimer du bucket
                             if (path) {
                                 const { error: rmErr } = await supabase.storage
                                     .from("images")
@@ -870,10 +859,8 @@ const handleCreateOrderFromStatus = async () => {
                                     );
                             }
 
-                            // MAJ local
                             setLabelPhoto(null);
 
-                            // MAJ BDD
                             const { error: dbErr } = await supabase
                                 .from("interventions")
                                 .update({ label_photo: null })
@@ -946,136 +933,145 @@ const handleCreateOrderFromStatus = async () => {
                 const url = await uploadImageToStorage(
                     compressedImage.uri,
                     interventionId,
-                    true // dossier 'etiquettes'
+                    true
                 );
 
                 if (!url) {
-                    Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+                    Alert.alert(
+                        "Erreur",
+                        "Échec de l'upload de l’étiquette."
+                    );
                     return;
                 }
 
-                // ✅ Mettre immédiatement l’URL cloud dans l’état (visible A & B)
                 setLabelPhoto(url);
-                setLabelPhotoDB(url); // mémo DB (cloud)
+                setLabelPhotoDB(url);
             }
         } catch (error) {
             console.error("Erreur capture étiquette :", error);
         }
     };
 
-const pickAdditionalImage = async () => {
-  // ——— petits helpers locaux, auto-contenus ———
-  const toArr = (v) => {
-    if (Array.isArray(v)) return v.filter(Boolean);
-    if (v == null) return [];
-    if (typeof v === "string") {
-      const s = v.trim();
-      if (!s) return [];
-      try { const j = JSON.parse(s); if (Array.isArray(j)) return j.filter(Boolean); } catch {}
-      if (s.includes(",")) return s.split(",").map(x => x.trim()).filter(Boolean);
-      return [s];
-    }
-    return v ? [v] : [];
-  };
-  const isHttp = (s) => typeof s === "string" && /^https?:\/\//i.test(s);
-  const isLocal = (s) => typeof s === "string" && s.startsWith("file://");
+    const pickAdditionalImage = async () => {
+        const toArr = (v) => {
+            if (Array.isArray(v)) return v.filter(Boolean);
+            if (v == null) return [];
+            if (typeof v === "string") {
+                const s = v.trim();
+                if (!s) return [];
+                try {
+                    const j = JSON.parse(s);
+                    if (Array.isArray(j)) return j.filter(Boolean);
+                } catch {}
+                if (s.includes(","))
+                    return s
+                        .split(",")
+                        .map((x) => x.trim())
+                        .filter(Boolean);
+                return [s];
+            }
+            return v ? [v] : [];
+        };
 
-  try {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.5,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
+        try {
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ["images"],
+                allowsEditing: true,
+                quality: 0.5,
+            });
+            if (result.canceled || !result.assets?.[0]?.uri) return;
 
-    const imageUri = result.assets[0].uri;
+            const imageUri = result.assets[0].uri;
 
-    const compressedImage = await ImageManipulator.manipulateAsync(
-      imageUri,
-      [{ resize: { width: 800 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-    );
+            const compressedImage = await ImageManipulator.manipulateAsync(
+                imageUri,
+                [{ resize: { width: 800 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
 
-    // Upload vers Supabase (dossier 'supplementaires')
-    const url = await uploadImageToStorage(
-      compressedImage.uri,
-      interventionId,
-      false
-    );
+            const url = await uploadImageToStorage(
+                compressedImage.uri,
+                interventionId,
+                false
+            );
 
-    if (!url) {
-      Alert.alert("Erreur", "Upload impossible, photo non ajoutée.");
-      return;
-    }
+            if (!url) {
+                Alert.alert("Erreur", "Upload impossible, photo non ajoutée.");
+                return;
+            }
 
-    // ✅ MAJ état local (n'ajoute QUE l’URL cloud)
-    setPhotos((prev) => {
-      const base = toArr(prev);
-      return [...base, url];
-    });
+            setPhotos((prev) => {
+                const base = toArr(prev);
+                return [...base, url];
+            });
 
-    // ✅ MAJ BDD (lecture existant → append → update)
-    const { data: row, error: readErr } = await supabase
-      .from("interventions")
-      .select("photos")
-      .eq("id", interventionId)
-      .single();
+            const { data: row, error: readErr } = await supabase
+                .from("interventions")
+                .select("photos")
+                .eq("id", interventionId)
+                .single();
 
-    if (readErr) {
-      console.error("Lecture photos BDD :", readErr.message);
-      Alert.alert("Erreur", "Photo ajoutée localement, base non relue.");
-      return;
-    }
+            if (readErr) {
+                console.error("Lecture photos BDD :", readErr.message);
+                Alert.alert(
+                    "Erreur",
+                    "Photo ajoutée localement, base non relue."
+                );
+                return;
+            }
 
-    const prev = toArr(row?.photos);
-    const next = [...prev, url].filter(Boolean);
+            const prev = toArr(row?.photos);
+            const next = [...prev, url].filter(Boolean);
 
-    // 1re tentative : colonne JSON/JSONB
-    let { error: dbErr } = await supabase
-      .from("interventions")
-      .update({ photos: next })
-      .eq("id", interventionId);
+            let { error: dbErr } = await supabase
+                .from("interventions")
+                .update({ photos: next })
+                .eq("id", interventionId);
 
-    // Fallback : si ta colonne est TEXT/VARCHAR, on envoie une string JSON
-    if (dbErr) {
-      console.warn("Update JSONB échec, tentative en TEXT :", dbErr.message);
-      const retry = await supabase
-        .from("interventions")
-        .update({ photos: JSON.stringify(next) })
-        .eq("id", interventionId);
-      dbErr = retry.error || null;
-    }
+            if (dbErr) {
+                console.warn(
+                    "Update JSONB échec, tentative en TEXT :",
+                    dbErr.message
+                );
+                const retry = await supabase
+                    .from("interventions")
+                    .update({ photos: JSON.stringify(next) })
+                    .eq("id", interventionId);
+                dbErr = retry.error || null;
+            }
 
-    if (dbErr) {
-      console.error("MAJ BDD (photos) :", dbErr.message);
-      Alert.alert("Erreur", "Photo ajoutée localement, base non mise à jour.");
-    }
-  } catch (e) {
-    console.error("Erreur capture image :", e);
-    Alert.alert("Erreur", "Impossible d'ajouter la photo.");
-  }
-};
+            if (dbErr) {
+                console.error("MAJ BDD (photos) :", dbErr.message);
+                Alert.alert(
+                    "Erreur",
+                    "Photo ajoutée localement, base non mise à jour."
+                );
+            }
+        } catch (e) {
+            console.error("Erreur capture image :", e);
+            Alert.alert("Erreur", "Impossible d'ajouter la photo.");
+        }
+    };
 
-    // ⬇️ extrait la partie qui fait vraiment l’update (réutilisé après confirmation)
     const performSaveIntervention = async () => {
         const articleName =
             articles.find((a) => a.id === deviceType)?.nom || null;
         const brandName = brands.find((b) => b.id === brand)?.nom || null;
         const modelName = models.find((m) => m.id === model)?.nom || null;
-        // --- Montants
+
         const costValue = parseFloat(cost) || 0;
         const partialPaymentValue = parseFloat(partialPayment) || 0;
- const solderestantValue = noCostButRestitution
-   ? 0
-   : paymentStatus === "reglement_partiel"
-     ? Math.max(costValue - partialPaymentValue, 0)
-     : paymentStatus === "solde"
-       ? 0
-       : costValue;
+
+        const solderestantValue = noCostButRestitution
+            ? 0
+            : paymentStatus === "reglement_partiel"
+            ? Math.max(costValue - partialPaymentValue, 0)
+            : paymentStatus === "solde"
+            ? 0
+            : costValue;
 
         const isEstimateMode = status === "Devis en cours";
 
-        // --- Upload/normalisation des images vers le cloud
         const photosCloud = [];
         for (const p of Array.isArray(photos) ? photos : []) {
             const ref = extractRefString(p);
@@ -1123,14 +1119,13 @@ const pickAdditionalImage = async () => {
             status,
             password,
             serial_number,
-            photos: photosCloudFiltered, // ⬅️ uniquement CLOUD
-            label_photo: labelCloud, // ⬅️ uniquement CLOUD
+            photos: photosCloudFiltered,
+            label_photo: labelCloud,
             commande,
             remarks,
             paymentStatus,
             chargeur: chargeur === "Oui",
             accept_screen_risk: acceptScreenRisk,
-            // Fourchette
             estimate_min: isEstimateMode
                 ? parseFloat(normalizeNumber(estimateMin))
                 : null,
@@ -1160,22 +1155,21 @@ const pickAdditionalImage = async () => {
                 .select();
 
             if (error || !data || data.length === 0) {
-                setAlertType("danger"); // ✅
+                setAlertType("danger");
                 setAlertTitle("Erreur");
                 setAlertMessage(error?.message || "Aucune fiche mise à jour.");
                 setAlertVisible(true);
                 return;
             }
 
-            // ✅ Mets à jour l’état local avec les URLs cloud (pour voir tout de suite)
             setPhotos(photosCloudFiltered);
             setLabelPhoto(labelCloud);
-            setAlertType("success"); // ✅ AJOUT
+            setAlertType("success");
             setAlertTitle("Succès");
             setAlertMessage("Intervention mise à jour avec succès.");
             setAlertVisible(true);
         } catch (err) {
-            setAlertType("danger"); // ✅
+            setAlertType("danger");
             setAlertTitle("Erreur");
             setAlertMessage("Erreur lors de la mise à jour de l'intervention.");
             setAlertVisible(true);
@@ -1185,14 +1179,11 @@ const pickAdditionalImage = async () => {
     // ———————————————————————————————————————————
     // Sauvegarde
     // ———————————————————————————————————————————
-    // ———————————————————————————————————————————
-    // Sauvegarde (avec rappel mot de passe non bloquant)
-    // ———————————————————————————————————————————
     const handleSaveIntervention = async () => {
         console.log("▶️ handleSaveIntervention appelé");
 
         if (!interventionId) {
-            setAlertType("danger"); // 🔴 erreur
+            setAlertType("danger");
             setAlertTitle("Erreur");
             setAlertMessage("ID d'intervention manquant.");
             setAlertVisible(true);
@@ -1201,7 +1192,6 @@ const pickAdditionalImage = async () => {
 
         if (selectedImage) setSelectedImage(null);
 
-        // --- Validation de base
         const errors = [];
         if (!reference) errors.push("Référence");
         if (!deviceType) errors.push("Type de produit");
@@ -1235,7 +1225,6 @@ const pickAdditionalImage = async () => {
             errors.push("Acompte valide");
         }
 
-        // 🔴 Cas d’erreur → rouge
         if (errors.length > 0) {
             setAlertType("danger");
             setAlertTitle("Erreur");
@@ -1246,13 +1235,11 @@ const pickAdditionalImage = async () => {
             return;
         }
 
-        // 🔔 Rappel non bloquant si mot de passe vide
         if (!password) {
-            setPwdReminderVisible(true); // → modale spécifique
-            return; // on stoppe ici
+            setPwdReminderVisible(true);
+            return;
         }
 
-        // ✅ Cas de succès → vert
         await performSaveIntervention();
     };
 
@@ -1332,7 +1319,6 @@ const pickAdditionalImage = async () => {
         if (alertTitle === "Succès") navigation.goBack();
     };
 
-    // Propagation devis accepté → pré-remplir coût si vide
     useEffect(() => {
         if (status === "Devis accepté" && devisCost && !cost) {
             setCost(devisCost);
@@ -1353,6 +1339,7 @@ const pickAdditionalImage = async () => {
             ) : null}
 
             <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Ligne des 3 sélecteurs : type / marque / modèle */}
                 <View style={styles.pickersRow}>
                     <TouchableOpacity
                         style={styles.pickerBox}
@@ -1415,17 +1402,19 @@ const pickAdditionalImage = async () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Référence */}
-                <View style={styles.referenceContainer}>
-                    <TextInput
-                        style={styles.referenceInput}
-                        value={reference.toUpperCase()}
-                        onChangeText={(t) => setReference(t.toUpperCase())}
-                        autoCapitalize="characters"
-                        placeholderTextColor="#d1d0d0"
-                        placeholder="Référence du produit"
-                    />
-                </View>
+                {/* Référence avec label flottant */}
+                <FloatingField label="Référence du produit">
+                    <View style={styles.referenceContainer}>
+                        <TextInput
+                            style={styles.referenceInput}
+                            value={reference.toUpperCase()}
+                            onChangeText={(t) => setReference(t.toUpperCase())}
+                            autoCapitalize="characters"
+                            placeholder=" "
+                            placeholderTextColor="#d1d0d0"
+                        />
+                    </View>
+                </FloatingField>
 
                 {/* Médias */}
                 <View
@@ -1459,8 +1448,6 @@ const pickAdditionalImage = async () => {
                                 const labelRaw = extractRefString(
                                     labelPhotoDB ?? labelPhoto
                                 );
-                                const isLocal = isLocalRef(labelRaw);
-
                                 return (
                                     <TouchableOpacity
                                         onPress={() =>
@@ -1476,10 +1463,9 @@ const pickAdditionalImage = async () => {
                                             styles.labelWrap,
                                         ]}
                                     >
-                                        {/* Affichage robuste */}
                                         <ResolvedImage
                                             refOrPath={labelPhoto}
-                                            size={80}
+                                            size={30}
                                             style={styles.labelOutline}
                                         />
                                     </TouchableOpacity>
@@ -1489,38 +1475,46 @@ const pickAdditionalImage = async () => {
                     ) : null}
                 </View>
 
-                {/* Description */}
-                <Text style={styles.label}>Description de la panne</Text>
-                <TextInput
-                    style={styles.input}
-                    value={description.toUpperCase()}
-                    onChangeText={(t) => setDescription(t.toUpperCase())}
-                    multiline
-                    autoCapitalize="characters"
-                />
+                {/* Description avec label flottant */}
+                <FloatingField label="Description de la panne">
+                    <TextInput
+                        style={[styles.input, { height: 40 }]}
+                        value={description.toUpperCase()}
+                        onChangeText={(t) => setDescription(t.toUpperCase())}
+                        multiline
+                        autoCapitalize="characters"
+                        placeholder=" "
+                        placeholderTextColor="#d1d0d0"
+                    />
+                </FloatingField>
 
                 {/* Mot de passe */}
-                <Text style={styles.label}>Mot de passe (si applicable)</Text>
-                <TextInput
-                    style={styles.input}
-                    value={password}
-                    onChangeText={setPassword}
-                />
+                <FloatingField label="Mot de passe (si applicable)">
+                    <TextInput
+                        style={styles.input}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder=" "
+                        placeholderTextColor="#d1d0d0"
+                    />
+                </FloatingField>
 
-                {/* Coût */}
-                <Text style={styles.label}>Coût de la réparation (€)</Text>
-                <TextInput
-                    style={styles.input}
-                    value={cost ? String(cost) : ""}
-                    onChangeText={setCost}
-                    keyboardType="numeric"
-                    editable={status !== "Devis en cours"}
-                    placeholder={
-                        status === "Devis en cours"
-                            ? "Indisponible en mode Devis"
-                            : "Entrez le coût"
-                    }
-                />
+                {/* Coût (version bloquée en mode devis) */}
+                <FloatingField label="Coût de la réparation (€)">
+                    <TextInput
+                        style={styles.input}
+                        value={cost ? String(cost) : ""}
+                        onChangeText={setCost}
+                        keyboardType="numeric"
+                        editable={status !== "Devis en cours"}
+                        placeholder={
+                            status === "Devis en cours"
+                                ? "Indisponible en mode Devis"
+                                : " "
+                        }
+                        placeholderTextColor="#d1d0d0"
+                    />
+                </FloatingField>
 
                 {/* Cases / Paiement */}
                 <View>
@@ -1545,8 +1539,8 @@ const pickAdditionalImage = async () => {
                                 )}
                             </View>
                             <Text style={styles.checkboxLabel}>
-                                J'accepte le démontage de l'écran de mon produit
-                                malgré le risque de casse.
+                                J'accepte le démontage de l'écran de mon
+                                produit malgré le risque de casse.
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -1661,14 +1655,18 @@ const pickAdditionalImage = async () => {
                 {/* Acompte */}
                 {paymentStatus === "reglement_partiel" && (
                     <>
-                        <Text style={styles.label}>Acompte (€)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={partialPayment ? String(partialPayment) : ""}
-                            onChangeText={setPartialPayment}
-                            keyboardType="numeric"
-                            placeholder="Entrez l'acompte"
-                        />
+                        <FloatingField label="Acompte (€)">
+                            <TextInput
+                                style={styles.input}
+                                value={
+                                    partialPayment ? String(partialPayment) : ""
+                                }
+                                onChangeText={setPartialPayment}
+                                keyboardType="numeric"
+                                placeholder=" "
+                                placeholderTextColor="#d1d0d0"
+                            />
+                        </FloatingField>
                         <Text style={styles.interventionText}>
                             Solde restant dû :{" "}
                             {Math.max(
@@ -1691,114 +1689,117 @@ const pickAdditionalImage = async () => {
                     ]}
                 >
                     <View style={styles.fullwidthContainer}>
-                        <Text style={styles.label}>Statut</Text>
-                        <Picker
-                            selectedValue={status}
-                            style={styles.input}
-                            onValueChange={(itemValue) => {
-                                setStatus(itemValue);
-                                if (itemValue === "Devis en cours") setCost("");
-                                 if (itemValue === "Non réparable") {
-   setNoCostButRestitution(true);
-   setPaymentStatus("");
-   setPartialPayment("");
- }
-                            }}
-                        >
-                            <Picker.Item
-                                label="Sélectionnez un statut..."
-                                value="default"
-                            />
-                            <Picker.Item
-                                label="En attente de pièces"
-                                value="En attente de pièces"
-                            />
-                            <Picker.Item
-                                label="Devis en cours"
-                                value="Devis en cours"
-                            />
-                            <Picker.Item
-                                label="Devis accepté"
-                                value="Devis accepté"
-                            />
-                            <Picker.Item
-                                label="Réparation en cours"
-                                value="Réparation en cours"
-                            />
-                            <Picker.Item label="Réparé" value="Réparé" />
-                            <Picker.Item
-                                label="Non réparable"
-                                value="Non réparable"
-                            />
-                        </Picker>
+                        {/* Statut avec label flottant */}
+                        <FloatingField label="Statut">
+                            <Picker
+                                selectedValue={status}
+                                style={[styles.input, styles.picker]}
+                                onValueChange={(itemValue) => {
+                                    setStatus(itemValue);
+                                    if (itemValue === "Devis en cours")
+                                        setCost("");
+                                    if (itemValue === "Non réparable") {
+                                        setNoCostButRestitution(true);
+                                        setPaymentStatus("");
+                                        setPartialPayment("");
+                                    }
+                                }}
+                            >
+                                <Picker.Item
+                                    label="Sélectionnez un statut..."
+                                    value="default"
+                                />
+                                <Picker.Item
+                                    label="En attente de pièces"
+                                    value="En attente de pièces"
+                                />
+                                <Picker.Item
+                                    label="Devis en cours"
+                                    value="Devis en cours"
+                                />
+                                <Picker.Item
+                                    label="Devis accepté"
+                                    value="Devis accepté"
+                                />
+                                <Picker.Item
+                                    label="Réparation en cours"
+                                    value="Réparation en cours"
+                                />
+                                <Picker.Item
+                                    label="Réparé"
+                                    value="Réparé"
+                                />
+                                <Picker.Item
+                                    label="Non réparable"
+                                    value="Non réparable"
+                                />
+                            </Picker>
+                        </FloatingField>
 
-                        <Text style={styles.label}>
-                            Montant du devis (si besoin)
-                        </Text>
+                        {/* Montant du devis */}
                         {status === "Devis en cours" && (
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Montant du devis (€)"
-                                placeholderTextColor="#000000"
-                                keyboardType="numeric"
-                                value={devisCost}
-                                onChangeText={setDevisCost}
-                            />
+                            <FloatingField label="Montant du devis (si besoin)">
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder=" "
+                                    placeholderTextColor="#000000"
+                                    keyboardType="numeric"
+                                    value={devisCost}
+                                    onChangeText={setDevisCost}
+                                />
+                            </FloatingField>
                         )}
 
                         {/* Fourchette de devis */}
                         {status === "Devis en cours" && (
                             <>
-                                <Text style={styles.label}>
-                                    Fourchette de devis (€)
-                                </Text>
-                                <View
-                                    style={{
-                                        width: "90%",
-                                        alignSelf: "center",
-                                        flexDirection: "row",
-                                        gap: 10,
-                                    }}
-                                >
-                                    <TextInput
-                                        style={[
-                                            styles.input,
-                                            { flex: 1, marginBottom: 0 },
-                                        ]}
-                                        placeholder="De ..."
-                                        placeholderTextColor="#202020"
-                                        keyboardType="numeric"
-                                        value={estimateMin}
-                                        onChangeText={(t) =>
-                                            setEstimateMin(normalizeNumber(t))
-                                        }
-                                    />
-                                    <TextInput
-                                        style={[
-                                            styles.input,
-                                            { flex: 1, marginBottom: 0 },
-                                        ]}
-                                        placeholder="À ..."
-                                        placeholderTextColor="#202020"
-                                        keyboardType="numeric"
-                                        value={estimateMax}
-                                        onChangeText={(t) =>
-                                            setEstimateMax(normalizeNumber(t))
-                                        }
-                                    />
-                                </View>
-                                <Text style={styles.label}>
-                                    Type de fourchette
-                                </Text>
-                                <View
-                                    style={{
-                                        width: "100%",
-                                        alignSelf: "center",
-                                    }}
-                                >
+                                <FloatingField label="Fourchette de devis (€)">
+                                    <View
+                                        style={{
+                                            width: "90%",
+                                            alignSelf: "center",
+                                            flexDirection: "row",
+                                            gap: 10,
+                                        }}
+                                    >
+                                        <TextInput
+                                            style={[
+                                                styles.input,
+                                                { flex: 1, marginBottom: 0 },
+                                            ]}
+                                            placeholder="De ..."
+                                            placeholderTextColor="#202020"
+                                            keyboardType="numeric"
+                                            value={estimateMin}
+                                            onChangeText={(t) =>
+                                                setEstimateMin(
+                                                    normalizeNumber(t)
+                                                )
+                                            }
+                                        />
+                                        <TextInput
+                                            style={[
+                                                styles.input,
+                                                { flex: 1, marginBottom: 0 },
+                                            ]}
+                                            placeholder="À ..."
+                                            placeholderTextColor="#202020"
+                                            keyboardType="numeric"
+                                            value={estimateMax}
+                                            onChangeText={(t) =>
+                                                setEstimateMax(
+                                                    normalizeNumber(t)
+                                                )
+                                            }
+                                        />
+                                    </View>
+                                </FloatingField>
+
+                                {/* Type de fourchette */}
+                                <FloatingField label="Type de fourchette">
                                     <Picker
                                         selectedValue={estimateType}
-                                        style={styles.input}
+                                        style={[styles.input, styles.picker]}
                                         onValueChange={setEstimateType}
                                     >
                                         <Picker.Item
@@ -1810,11 +1811,15 @@ const pickAdditionalImage = async () => {
                                             value="INDICATIF"
                                         />
                                     </Picker>
-                                </View>
+                                </FloatingField>
+
                                 <Text
                                     style={[
                                         styles.interventionText,
-                                        { width: "90%", alignSelf: "center" },
+                                        {
+                                            width: "90%",
+                                            alignSelf: "center",
+                                        },
                                     ]}
                                 >
                                     Si “plafond” est choisi, le client accepte
@@ -1825,10 +1830,7 @@ const pickAdditionalImage = async () => {
                         )}
 
                         {status !== "Devis en cours" && (
-                            <View style={styles.halfWidthContainer}>
-                                <Text style={styles.label}>
-                                    Coût de la réparation (€)
-                                </Text>
+                            <FloatingField label="Coût de la réparation (€)">
                                 <TextInput
                                     style={styles.input}
                                     value={cost}
@@ -1837,49 +1839,54 @@ const pickAdditionalImage = async () => {
                                     placeholder="Coût total (€)"
                                     placeholderTextColor="#202020"
                                 />
-                            </View>
+                            </FloatingField>
                         )}
                     </View>
 
+                    {/* Champ commande si en attente de pièces */}
                     {status === "En attente de pièces" && (
                         <View style={styles.halfWidthContainer}>
-                            <Text style={styles.label}>Commande</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={commande.toUpperCase()}
-                                onChangeText={(t) =>
-                                    setCommande(t.toUpperCase())
-                                }
-                                autoCapitalize="characters"
-                            />
+                            <FloatingField label="Commande">
+                                <TextInput
+                                    style={styles.input}
+                                    value={commande.toUpperCase()}
+                                    onChangeText={(t) =>
+                                        setCommande(t.toUpperCase())
+                                    }
+                                    autoCapitalize="characters"
+                                    placeholder=" "
+                                    placeholderTextColor="#202020"
+                                />
+                            </FloatingField>
                         </View>
                     )}
                 </View>
 
-                {/* Remarques & chargeur */}
-                <Text style={styles.label}>Remarques</Text>
-                <TextInput
-                    style={styles.input}
-                    value={remarks}
-                    onChangeText={setRemarks}
-                    placeholder="Ajoutez des remarques ici..."
-                    multiline
-                />
+                {/* Remarques */}
+                <FloatingField label="Remarques">
+                    <TextInput
+                        style={[styles.input, { height: 40 }]}
+                        value={remarks}
+                        onChangeText={setRemarks}
+                        placeholder="Ajoutez des remarques ici..."
+                        placeholderTextColor="#9f9f9f"
+                        multiline
+                    />
+                </FloatingField>
 
-                <Text style={styles.label}>Chargeur</Text>
-                <Picker
-                    selectedValue={chargeur}
-                    style={styles.input}
-                    onValueChange={setChargeur}
-                >
-                    <Picker.Item label="Non" value="Non" />
-                    <Picker.Item label="Oui" value="Oui" />
-                </Picker>
-                {/* <TouchableOpacity onPress={fixLocalPhotosForCurrentIntervention} style={{padding:8, backgroundColor:"#1976d2", borderRadius:6, alignSelf:"center"}}>
-  <Text style={{color:"#fff", fontWeight:"700"}}>Corriger les photos locales → cloud</Text>
-</TouchableOpacity> */}
+                {/* Chargeur */}
+                <FloatingField label="Chargeur">
+                    <Picker
+                        selectedValue={chargeur}
+                        style={[styles.input, styles.picker]}
+                        onValueChange={setChargeur}
+                    >
+                        <Picker.Item label="Non" value="Non" />
+                        <Picker.Item label="Oui" value="Oui" />
+                    </Picker>
+                </FloatingField>
 
-                {/* Galerie (carrousel horizontal centré) */}
+                {/* Galerie photos supplémentaires */}
                 {Array.isArray(photos) && photos.filter(Boolean).length > 0 && (
                     <>
                         <Text style={[styles.label, { marginTop: 8 }]}>
@@ -1891,7 +1898,6 @@ const pickAdditionalImage = async () => {
                             style={styles.galleryScroll}
                             contentContainerStyle={styles.galleryContent}
                         >
-                            {/* Galerie */}
                             {Array.isArray(photos) &&
                                 _uniqPhotosForView(
                                     photos,
@@ -1933,8 +1939,6 @@ const pickAdditionalImage = async () => {
                                                         <ResolvedImage
                                                             refOrPath={refStr}
                                                             size={100}
-                                                            // le badge est désormais géré dedans, et l'image
-                                                            // disparaît si non résolue (pas de cadre vide)
                                                         />
                                                     </Pressable>
                                                 </View>
@@ -2009,39 +2013,17 @@ const pickAdditionalImage = async () => {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-            {/* === MODALE TYPE (4 colonnes) === */}
+
+            {/* === MODALE TYPE === */}
             <Modal
                 visible={openType}
                 transparent
                 animationType="fade"
                 onRequestClose={() => setOpenType(false)}
             >
-                <View
-                    style={{
-                        flex: 1,
-                        backgroundColor: "rgba(0,0,0,0.45)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <View
-                        style={{
-                            width: "90%",
-                            maxHeight: "80%",
-                            backgroundColor: "#fff",
-                            borderRadius: 12,
-                            padding: 12,
-                            borderWidth: 1,
-                            borderColor: "#585858",
-                        }}
-                    >
-                        <Text
-                            style={{
-                                fontWeight: "bold",
-                                fontSize: 18,
-                                marginBottom: 8,
-                            }}
-                        >
+                <View style={styles.modalOverlayFull}>
+                    <View style={styles.modalPickerBox}>
+                        <Text style={styles.modalPickerTitle}>
                             Type de produit
                         </Text>
                         <FlatList
@@ -2090,18 +2072,9 @@ const pickAdditionalImage = async () => {
                         />
                         <TouchableOpacity
                             onPress={() => setOpenType(false)}
-                            style={{
-                                marginTop: 10,
-                                alignSelf: "flex-end",
-                                paddingVertical: 8,
-                                paddingHorizontal: 12,
-                            }}
+                            style={styles.modalCloseBtn}
                         >
-                            <Text
-                                style={{ fontWeight: "600", color: "#007bff" }}
-                            >
-                                Fermer
-                            </Text>
+                            <Text style={styles.modalCloseText}>Fermer</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -2114,32 +2087,9 @@ const pickAdditionalImage = async () => {
                 animationType="fade"
                 onRequestClose={() => setOpenBrand(false)}
             >
-                <View
-                    style={{
-                        flex: 1,
-                        backgroundColor: "rgba(0,0,0,0.45)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <View
-                        style={{
-                            width: "90%",
-                            maxHeight: "80%",
-                            backgroundColor: "#fff",
-                            borderRadius: 12,
-                            padding: 12,
-                            borderWidth: 1,
-                            borderColor: "#585858",
-                        }}
-                    >
-                        <Text
-                            style={{
-                                fontWeight: "bold",
-                                fontSize: 18,
-                                marginBottom: 8,
-                            }}
-                        >
+                <View style={styles.modalOverlayFull}>
+                    <View style={styles.modalPickerBox}>
+                        <Text style={styles.modalPickerTitle}>
                             Marque du produit
                         </Text>
                         <FlatList
@@ -2188,18 +2138,9 @@ const pickAdditionalImage = async () => {
                         />
                         <TouchableOpacity
                             onPress={() => setOpenBrand(false)}
-                            style={{
-                                marginTop: 10,
-                                alignSelf: "flex-end",
-                                paddingVertical: 8,
-                                paddingHorizontal: 12,
-                            }}
+                            style={styles.modalCloseBtn}
                         >
-                            <Text
-                                style={{ fontWeight: "600", color: "#007bff" }}
-                            >
-                                Fermer
-                            </Text>
+                            <Text style={styles.modalCloseText}>Fermer</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -2212,32 +2153,9 @@ const pickAdditionalImage = async () => {
                 animationType="fade"
                 onRequestClose={() => setOpenModel(false)}
             >
-                <View
-                    style={{
-                        flex: 1,
-                        backgroundColor: "rgba(0,0,0,0.45)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <View
-                        style={{
-                            width: "90%",
-                            maxHeight: "80%",
-                            backgroundColor: "#fff",
-                            borderRadius: 12,
-                            padding: 12,
-                            borderWidth: 1,
-                            borderColor: "#585858",
-                        }}
-                    >
-                        <Text
-                            style={{
-                                fontWeight: "bold",
-                                fontSize: 18,
-                                marginBottom: 8,
-                            }}
-                        >
+                <View style={styles.modalOverlayFull}>
+                    <View style={styles.modalPickerBox}>
+                        <Text style={styles.modalPickerTitle}>
                             Modèle du produit
                         </Text>
                         <FlatList
@@ -2286,18 +2204,9 @@ const pickAdditionalImage = async () => {
                         />
                         <TouchableOpacity
                             onPress={() => setOpenModel(false)}
-                            style={{
-                                marginTop: 10,
-                                alignSelf: "flex-end",
-                                paddingVertical: 8,
-                                paddingHorizontal: 12,
-                            }}
+                            style={styles.modalCloseBtn}
                         >
-                            <Text
-                                style={{ fontWeight: "600", color: "#007bff" }}
-                            >
-                                Fermer
-                            </Text>
+                            <Text style={styles.modalCloseText}>Fermer</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -2331,7 +2240,7 @@ const pickAdditionalImage = async () => {
                 </View>
             </Modal>
 
-            {/* Modale rappel mot de passe — cadre rouge */}
+            {/* Modale rappel mot de passe */}
             <Modal
                 transparent
                 visible={pwdReminderVisible}
@@ -2360,7 +2269,7 @@ const pickAdditionalImage = async () => {
                                 style={[styles.modalButton, styles.btnContinue]}
                                 onPress={() => {
                                     setPwdReminderVisible(false);
-                                    performSaveIntervention(); // on sauvegarde quand même
+                                    performSaveIntervention();
                                 }}
                             >
                                 <Text
@@ -2376,105 +2285,163 @@ const pickAdditionalImage = async () => {
                     </View>
                 </View>
             </Modal>
-			<Modal
-  visible={orderModalVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setOrderModalVisible(false)}
->
-  <View style={{ flex:1, backgroundColor:"rgba(0,0,0,0.5)", justifyContent:"center", alignItems:"center" }}>
-    <View style={{ width:"92%", backgroundColor:"#fff", borderRadius:10, padding:14 }}>
-      <Text style={{ fontSize:18, fontWeight:"700", textAlign:"center", marginBottom:10 }}>
-        Créer la commande
-      </Text>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Produit à commander</Text>
-      <TextInput
-        style={styles.input}
-        value={orderProduct}
-        onChangeText={setOrderProduct}
-        placeholder="Ex: BATTERIE ASUS X512"
-        placeholderTextColor="#777"
-      />
+            {/* Modale création commande rapide */}
+            <Modal
+                visible={orderModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOrderModalVisible(false)}
+            >
+                <View
+                    style={{
+                        flex: 1,
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <View
+                        style={{
+                            width: "92%",
+                            backgroundColor: "#fff",
+                            borderRadius: 10,
+                            padding: 14,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                fontSize: 18,
+                                fontWeight: "700",
+                                textAlign: "center",
+                                marginBottom: 10,
+                            }}
+                        >
+                            Créer la commande
+                        </Text>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Marque</Text>
-      <TextInput
-        style={styles.input}
-        value={orderBrand}
-        onChangeText={setOrderBrand}
-        placeholder="(facultatif)"
-        placeholderTextColor="#777"
-      />
+                        <FloatingField label="Produit à commander">
+                            <TextInput
+                                style={styles.input}
+                                value={orderProduct}
+                                onChangeText={setOrderProduct}
+                                placeholder="Ex: BATTERIE ASUS X512"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Modèle</Text>
-      <TextInput
-        style={styles.input}
-        value={orderModel}
-        onChangeText={setOrderModel}
-        placeholder="(facultatif)"
-        placeholderTextColor="#777"
-      />
+                        <FloatingField label="Marque">
+                            <TextInput
+                                style={styles.input}
+                                value={orderBrand}
+                                onChangeText={setOrderBrand}
+                                placeholder="(facultatif)"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Prix unitaire (€)</Text>
-      <TextInput
-        style={styles.input}
-        value={orderUnitPrice}
-        onChangeText={setOrderUnitPrice}
-        keyboardType="decimal-pad"
-        placeholder="Ex: 80"
-        placeholderTextColor="#777"
-      />
+                        <FloatingField label="Modèle">
+                            <TextInput
+                                style={styles.input}
+                                value={orderModel}
+                                onChangeText={setOrderModel}
+                                placeholder="(facultatif)"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Quantité</Text>
-      <TextInput
-        style={styles.input}
-        value={orderQty}
-        onChangeText={(t) => setOrderQty(t.replace(/[^\d]/g, ""))}
-        keyboardType="number-pad"
-        placeholder="1"
-        placeholderTextColor="#777"
-      />
+                        <FloatingField label="Prix unitaire (€)">
+                            <TextInput
+                                style={styles.input}
+                                value={orderUnitPrice}
+                                onChangeText={setOrderUnitPrice}
+                                keyboardType="decimal-pad"
+                                placeholder="Ex: 80"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
-      <Text style={{ fontWeight:"600", marginBottom:4 }}>Acompte (€)</Text>
-      <TextInput
-        style={styles.input}
-        value={orderDeposit}
-        onChangeText={setOrderDeposit}
-        keyboardType="decimal-pad"
-        placeholder="0"
-        placeholderTextColor="#777"
-      />
+                        <FloatingField label="Quantité">
+                            <TextInput
+                                style={styles.input}
+                                value={orderQty}
+                                onChangeText={(t) =>
+                                    setOrderQty(t.replace(/[^\d]/g, ""))
+                                }
+                                keyboardType="number-pad"
+                                placeholder="1"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
-      <View style={{ flexDirection:"row", gap:10, marginTop:8 }}>
-        <TouchableOpacity
-          onPress={() => setOrderModalVisible(false)}
-          style={{ flex:1, backgroundColor:"#6c757d", padding:12, borderRadius:8, alignItems:"center" }}
-        >
-          <Text style={{ color:"#fff", fontWeight:"700" }}>Annuler</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleCreateOrderFromStatus}
-          style={{ flex:1, backgroundColor:"#0d6efd", padding:12, borderRadius:8, alignItems:"center" }}
-        >
-          <Text style={{ color:"#fff", fontWeight:"700" }}>Créer</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+                        <FloatingField label="Acompte (€)">
+                            <TextInput
+                                style={styles.input}
+                                value={orderDeposit}
+                                onChangeText={setOrderDeposit}
+                                keyboardType="decimal-pad"
+                                placeholder="0"
+                                placeholderTextColor="#777"
+                            />
+                        </FloatingField>
 
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                gap: 10,
+                                marginTop: 8,
+                            }}
+                        >
+                            <TouchableOpacity
+                                onPress={() => setOrderModalVisible(false)}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: "#6c757d",
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: "700",
+                                    }}
+                                >
+                                    Annuler
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleCreateOrderFromStatus}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: "#0d6efd",
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: "700",
+                                    }}
+                                >
+                                    Créer
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </KeyboardAvoidingView>
     );
 }
+
 // ———————————————————————————————————————————
-// Helper: retourne une URI affichable (local → direct, http → direct, bucket → URL signée)
-// ———————————————————————————————————————————
-// ———————————————————————————————————————————
-// Helper: retourne une URI affichable (local → direct, http → direct, bucket → URL signée/public)
-// Durci : supprime guillemets, espaces, backslashes de fin, garde ?token si présent
+// Helper d’URI affichable
 // ———————————————————————————————————————————
 const getDisplayUri = async (refOrPath) => {
-    // normalisation de base
     const stripQuotes = (s) =>
         typeof s === "string" &&
         s.length >= 2 &&
@@ -2488,11 +2455,10 @@ const getDisplayUri = async (refOrPath) => {
         raw = raw.path || raw.url || raw.uri || "";
     raw = stripQuotes(String(raw || ""))
         .trim()
-        .replace(/\\+$/g, ""); // ⬅ backslashes de fin
+        .replace(/\\+$/g, "");
 
     if (!raw) return null;
 
-    // 1) local direct (et vérifie l’existence)
     if (raw.startsWith("file://")) {
         try {
             const info = await FileSystem.getInfoAsync(raw);
@@ -2502,14 +2468,12 @@ const getDisplayUri = async (refOrPath) => {
         }
     }
 
-    // 2) déjà une URL http(s) (on la garde telle quelle, y compris ?token)
     if (/^https?:\/\//i.test(raw)) return raw;
 
-    // 3) chemin bucket -> tente URL signée puis publique
-    const clean = raw.replace(/^\/+/, ""); // enlève les "/" de tête
+    const clean = raw.replace(/^\/+/, "");
     const variants = clean.toLowerCase().startsWith("images/")
-        ? [clean.slice("images/".length), clean] // relatif + complet
-        : [clean, "images/" + clean]; // relatif + complet
+        ? [clean.slice("images/".length), clean]
+        : [clean, "images/" + clean];
 
     for (const p of variants) {
         try {
@@ -2517,13 +2481,11 @@ const getDisplayUri = async (refOrPath) => {
                 ? p.slice("images/".length)
                 : p;
 
-            // a) signée (si bucket privé)
             const { data: sdata, error: serr } = await supabase.storage
                 .from("images")
-                .createSignedUrl(rel, 3600); // 1h
+                .createSignedUrl(rel, 3600);
             if (!serr && sdata?.signedUrl) return sdata.signedUrl;
 
-            // b) publique (si bucket public)
             const { data: pub } = supabase.storage
                 .from("images")
                 .getPublicUrl(rel);
@@ -2534,6 +2496,8 @@ const getDisplayUri = async (refOrPath) => {
     return null;
 };
 
+// ———————————————————————————————————————————
+// Image résolue (local/cloud + badge)
 // ———————————————————————————————————————————
 function ResolvedImage({
     refOrPath,
@@ -2560,7 +2524,6 @@ function ResolvedImage({
     const isLocal =
         typeof refOrPath === "string" && refOrPath.startsWith("file://");
 
-    // Tant qu’on n’a pas d’URI résolue → ne rien rendre (pas de cadre, pas de badge)
     if (!uri) return null;
 
     const Img = (
@@ -2570,7 +2533,7 @@ function ResolvedImage({
                 onLoad={() => setLoaded(true)}
                 onError={() => {
                     setLoaded(false);
-                    setUri(null); // force disparition si l’URL ne charge pas
+                    setUri(null);
                 }}
                 style={[
                     {
@@ -2580,23 +2543,24 @@ function ResolvedImage({
                         borderRadius: 10,
                         borderColor: loaded ? "#aaaaaa" : "transparent",
                         borderWidth: loaded ? 2 : 0,
-                        backgroundColor: loaded ? "transparent" : "transparent",
+                        backgroundColor: loaded
+                            ? "transparent"
+                            : "transparent",
                     },
                     style,
                 ]}
                 resizeMode="cover"
             />
 
-            {/* Badge seulement si l’image a VRAIMENT chargé */}
             {loaded && showBadge && (
                 <View
                     style={{
                         position: "absolute",
                         bottom: 6,
                         right: 6,
-                        paddingHorizontal: 6,
+                        paddingHorizontal: 2,
                         paddingVertical: 2,
-                        borderRadius: 4,
+                        borderRadius: 2,
                         backgroundColor: isLocal
                             ? "rgba(92,184,92,0.95)"
                             : "rgba(217,83,79,0.95)",
@@ -2623,6 +2587,19 @@ function ResolvedImage({
     );
 }
 
+// ———————————————————————————————————————————
+// Petit wrapper pour labels flottants
+// ———————————————————————————————————————————
+function FloatingField({ label, children, style }) {
+    return (
+        <View style={[styles.fieldWrapper, style]}>
+            {children}
+            <Text style={styles.floatingLabel}>{label}</Text>
+        </View>
+    );
+}
+
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#e0e0e0", paddingHorizontal: 20 },
     clientName: {
@@ -2632,15 +2609,44 @@ const styles = StyleSheet.create({
         marginVertical: 10,
         color: "#242424",
     },
-    input: {
-        height: 50,
-        padding: 10,
-        marginBottom: 20,
-        borderRadius: 10,
-        backgroundColor: "#cacaca",
-        width: "90%",
-        alignSelf: "center",
-    },
+
+    // Wrapper + label flottant
+fieldWrapper: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 18,
+    marginBottom: 8,
+    position: "relative",
+    overflow: "visible",
+},
+
+floatingLabel: {
+    position: "absolute",
+    left: "8%",
+    top: -18,                 // un peu plus haut
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: "#e0e0e0", // même fond que la page
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#999",      // contour visible
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#222",
+    zIndex: 10,               // passe devant le champ
+    elevation: 3,             // Android
+},
+input: {
+    height: 50,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderRadius: 10,
+    backgroundColor: "#cacaca",
+    width: "90%",
+    alignSelf: "center",
+},
+
     label: {
         fontSize: 16,
         fontWeight: "bold",
@@ -2657,9 +2663,6 @@ const styles = StyleSheet.create({
     },
     halfWidthContainer: { flex: 1 },
     referenceContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
         width: "90%",
         alignSelf: "center",
     },
@@ -2707,6 +2710,34 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
     },
+    modalOverlayFull: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalPickerBox: {
+        width: "90%",
+        maxHeight: "80%",
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#585858",
+    },
+    modalPickerTitle: {
+        fontWeight: "bold",
+        fontSize: 18,
+        marginBottom: 8,
+    },
+    modalCloseBtn: {
+        marginTop: 10,
+        alignSelf: "flex-end",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+    },
+    modalCloseText: { fontWeight: "600", color: "#007bff" },
+
     alertBox: {
         width: 300,
         padding: 20,
@@ -2810,12 +2841,12 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#191f2f",
-        paddingVertical: 10,
+        paddingVertical: 5,
         paddingHorizontal: 12,
         borderRadius: 8,
         flexShrink: 1,
     },
-    iconRight: { width: 41, height: 41 },
+    iconRight: { width: 30, height: 30 },
     buttonTextLabel: {
         color: "#fff",
         fontSize: 14,
@@ -2831,8 +2862,8 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 6,
         right: 6,
-        zIndex: 999, // iOS
-        elevation: 6, // Android
+        zIndex: 999,
+        elevation: 6,
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 4,
@@ -2876,7 +2907,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#f3f3f3",
         borderColor: "#bbb",
         borderWidth: 1,
-        borderRadius: 6,
+        borderRadius: 2,
     },
 
     btnContinue: {
@@ -2884,28 +2915,24 @@ const styles = StyleSheet.create({
         backgroundColor: "#d32f2f",
         borderColor: "#b71c1c",
         borderWidth: 1,
-        borderRadius: 6,
+        borderRadius: 1,
     },
-    badgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-    badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" }, // vert
-    badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" }, // rouge
-    labelWrap: { borderWidth: 2, borderColor: "green" },
-    labelOutline: { borderColor: "green", borderWidth: 2 },
+    badgeText: { color: "#fff", fontSize: 6, fontWeight: "700" },
+    badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" },
+    badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" },
+    labelWrap: { borderWidth: 1, borderColor: "green" },
+    labelOutline: { borderColor: "green", borderWidth: 1 },
     galleryScroll: {
         width: "100%",
         alignSelf: "center",
     },
-
-    // remplace l'ancienne galleryContent si tu l'avais déjà ajoutée
     galleryContent: {
-        flexGrow: 1, // ← rempli toute la largeur dispo
+        flexGrow: 1,
         flexDirection: "row",
-        justifyContent: "center", // ← centre sur l’axe principal (horizontal)
-        alignItems: "center", // ← centre sur l’axe secondaire (vertical)
+        justifyContent: "center",
+        alignItems: "center",
         paddingHorizontal: 10,
     },
-
-    // tu peux garder ceux-ci tels quels (ou les ajouter si absents)
     thumbItem: {
         marginHorizontal: 6,
         alignItems: "center",
@@ -2926,13 +2953,13 @@ const styles = StyleSheet.create({
         marginHorizontal: 8,
     },
     picker: {
-        width: "100%",
-        height: "100%", // occupe toute la hauteur
+        width: "90%",
+        alignSelf: "center",
         paddingVertical: 0,
         color: "#333",
         ...Platform.select({
             android: {
-                marginTop: -2, // petit ajustement visuel Android
+                marginTop: -2,
             },
         }),
     },

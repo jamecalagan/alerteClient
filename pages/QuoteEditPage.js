@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Linking,
+  Switch,
 } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -53,6 +54,10 @@ export default function QuoteEditPage() {
   const [convertedOrderId, setConvertedOrderId] = useState(null);
   const [converting, setConverting] = useState(false); // anti double-tap
 
+  // 👉 Nouveau : mode “coût global” (sans détail de prix)
+  const [useGlobalTotal, setUseGlobalTotal] = useState(false);
+  const [globalTotal, setGlobalTotal] = useState("");
+
   // === Helpers calcul ===
   const getTotalTTC = () =>
     items.reduce(
@@ -70,18 +75,39 @@ export default function QuoteEditPage() {
   const getTotalDue = () =>
     getTotalTTCApresRemise() - parseFloat(deposit || 0);
 
+  // 👉 Nouveau : total TTC et total à payer en tenant compte du mode “coût global”
+  const getEffectiveTotalTTC = () => {
+    if (useGlobalTotal) {
+      const v = parseFloat(globalTotal || 0);
+      return Number.isFinite(v) ? v : 0;
+    }
+    return getTotalTTCApresRemise();
+  };
+
+  const getEffectiveTotalDue = () => {
+    const total = getEffectiveTotalTTC();
+    const acompte = parseFloat(deposit || 0) || 0;
+    return total - acompte;
+  };
+
   const getQuoteData = () => ({
     name,
     phone,
     email,
     items,
     remarks,
-    total: getTotalTTC().toFixed(2),
+    // total stocké = soit coût global, soit total TTC classique
+    total: useGlobalTotal
+      ? (parseFloat(globalTotal || 0) || 0).toFixed(2)
+      : getTotalTTC().toFixed(2),
     quote_number: quoteNumber,
     valid_until: validUntil,
     discount: parseFloat(discount || 0),
     deposit: parseFloat(deposit || 0),
     status,
+    // champs BDD pour le mode “coût global”
+    use_global_total: useGlobalTotal,
+    global_total: useGlobalTotal ? parseFloat(globalTotal || 0) || 0 : null,
   });
 
   // === Chargement ===
@@ -124,6 +150,14 @@ export default function QuoteEditPage() {
       setConvertedOrderId(
         data.converted_to_order_id ? String(data.converted_to_order_id) : null
       );
+      // 👉 Récupération du mode “coût global”
+      setUseGlobalTotal(!!data.use_global_total);
+      setGlobalTotal(
+        data.global_total !== null && data.global_total !== undefined
+          ? String(data.global_total)
+          : ""
+      );
+
       setIsSaved(true);
     } else {
       Alert.alert("Erreur", "Impossible de charger le devis.");
@@ -363,6 +397,14 @@ export default function QuoteEditPage() {
           "Erreur",
           "Le nom du client et une ligne de devis au moins sont requis."
         );
+
+      if (useGlobalTotal && !globalTotal) {
+        return Alert.alert(
+          "Montant manquant",
+          "Renseigne le coût total TTC pour ce devis."
+        );
+      }
+
       const id = await ensureSavedAndGetId();
       const quoteRequestId = route.params?.presetFromIntake?.quoteRequestId;
       if (quoteRequestId && id) {
@@ -385,24 +427,51 @@ export default function QuoteEditPage() {
 
   // === PDF sobre ===
   const buildQuoteHtml = () => {
+    const useGlobal = useGlobalTotal;
+
+    const tableHeader = useGlobal
+      ? `
+      <tr>
+        <th style="padding:6px;border:1px solid #ddd;width:36px;">#</th>
+        <th style="padding:6px;border:1px solid #ddd;">Désignation</th>
+        <th style="padding:6px;border:1px solid #ddd;width:60px;">Qté</th>
+      </tr>`
+      : `
+      <tr>
+        <th style="padding:6px;border:1px solid #ddd;width:36px;">#</th>
+        <th style="padding:6px;border:1px solid #ddd;">Désignation</th>
+        <th style="padding:6px;border:1px solid #ddd;width:60px;">Qté</th>
+        <th style="padding:6px;border:1px solid #ddd;width:90px;">PU TTC</th>
+        <th style="padding:6px;border:1px solid #ddd;width:110px;">Total TTC</th>
+      </tr>`;
+
     const rows = items
       .map((it, idx) => {
         const q = parseFloat(it.quantity) || 0;
-        const pu = parseFloat(it.unitPrice) || 0;
-        const tt = (q * pu).toFixed(2);
-        return `
+        const labelPart = it.label ? `<strong>${it.label}</strong> - ` : "";
+        const designation = labelPart + (it.description || "");
+
+        if (useGlobal) {
+          return `
         <tr>
           <td style="padding:6px;border:1px solid #ddd;">${idx + 1}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${
-            (it.label ? `<strong>${it.label}</strong> - ` : "") +
-            (it.description || "")
-          }</td>
+          <td style="padding:6px;border:1px solid #ddd;">${designation}</td>
+          <td style="padding:6px;border:1px solid #ddd;text-align:center;">${q}</td>
+        </tr>`;
+        } else {
+          const pu = parseFloat(it.unitPrice) || 0;
+          const tt = (q * pu).toFixed(2);
+          return `
+        <tr>
+          <td style="padding:6px;border:1px solid #ddd;">${idx + 1}</td>
+          <td style="padding:6px;border:1px solid #ddd;">${designation}</td>
           <td style="padding:6px;border:1px solid #ddd;text-align:center;">${q}</td>
           <td style="padding:6px;border:1px solid #ddd;text-align:right;">${pu.toFixed(
             2
           )} €</td>
           <td style="padding:6px;border:1px solid #ddd;text-align:right;"><strong>${tt} €</strong></td>
         </tr>`;
+        }
       })
       .join("");
 
@@ -412,6 +481,10 @@ export default function QuoteEditPage() {
     const totalTTC = getTotalTTCApresRemise().toFixed(2);
     const acompte = (parseFloat(deposit || 0) || 0).toFixed(2);
     const du = getTotalDue().toFixed(2);
+
+    const globalTTC = getEffectiveTotalTTC().toFixed(2);
+    const globalDu = getEffectiveTotalDue().toFixed(2);
+
     const civiliteNom = name ? `M. ${name}` : "—";
     const today = new Date().toLocaleDateString();
 
@@ -436,29 +509,42 @@ export default function QuoteEditPage() {
 
   <table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;">
     <thead>
-      <tr>
-        <th style="padding:6px;border:1px solid #ddd;width:36px;">#</th>
-        <th style="padding:6px;border:1px solid #ddd;">Désignation</th>
-        <th style="padding:6px;border:1px solid #ddd;width:60px;">Qté</th>
-        <th style="padding:6px;border:1px solid #ddd;width:90px;">PU TTC</th>
-        <th style="padding:6px;border:1px solid #ddd;width:110px;">Total TTC</th>
-      </tr>
+      ${tableHeader}
     </thead>
-    <tbody>${rows || `<tr><td colspan="5" style="padding:10px;border:1px solid #ddd;">(Aucune ligne)</td></tr>`}</tbody>
+    <tbody>${
+      rows ||
+      `<tr><td colspan="${useGlobal ? 3 : 5}" style="padding:10px;border:1px solid #ddd;">(Aucune ligne)</td></tr>`
+    }</tbody>
   </table>
 
   <section style="display:flex; justify-content:flex-end; margin-top:12px;">
     <table style="border-collapse:collapse; font-size:12px;">
+      ${
+        useGlobal
+          ? `
+      <tr><td style="padding:6px;border:1px solid #ddd;">Coût total TTC</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${globalTTC} €</td></tr>
+      <tr><td style="padding:6px;border:1px solid #ddd;">Acompte</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${acompte} €</td></tr>
+      <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total à payer</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${globalDu} €</strong></td></tr>
+      `
+          : `
       <tr><td style="padding:6px;border:1px solid #ddd;">Total HT</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${totalHT} €</td></tr>
       <tr><td style="padding:6px;border:1px solid #ddd;">Remise</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${remise} €</td></tr>
       <tr><td style="padding:6px;border:1px solid #ddd;">TVA (20%)</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${tva} €</td></tr>
       <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total TTC</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${totalTTC} €</strong></td></tr>
       <tr><td style="padding:6px;border:1px solid #ddd;">Acompte</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${acompte} €</td></tr>
       <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total à payer</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${du} €</strong></td></tr>
+      `
+      }
     </table>
   </section>
 
-  ${remarks ? `<section style="margin-top:14px; font-size:12px;"><strong>Remarques :</strong><br/>${String(remarks).replace(/\n/g, "<br/>")}</section>` : ""}
+  ${
+    remarks
+      ? `<section style="margin-top:14px; font-size:12px;"><strong>Remarques :</strong><br/>${String(
+          remarks
+        ).replace(/\n/g, "<br/>")}</section>`
+      : ""
+  }
 
   <footer style="margin-top:18px; font-size:11px; color:#444;">Merci pour votre confiance. Devis valable sous réserve de disponibilité des pièces. Les délais de réparation sont indicatifs.</footer>
 </body></html>`;
@@ -470,6 +556,15 @@ export default function QuoteEditPage() {
         Alert.alert("Erreur", "Nom client et au moins une ligne sont requis.");
         return;
       }
+
+      if (useGlobalTotal && !globalTotal) {
+        Alert.alert(
+          "Montant manquant",
+          "Renseigne le coût total TTC pour ce devis."
+        );
+        return;
+      }
+
       const html = buildQuoteHtml();
       const { uri } = await Print.printToFileAsync({ html });
       if (!uri) {
@@ -533,7 +628,10 @@ export default function QuoteEditPage() {
   // === Convertir le devis en commande (garde-fous UI + BDD) ===
   const handleConvertToOrder = async () => {
     if (convertedOrderId) {
-      return Alert.alert("Déjà converti", "Ce devis a déjà été transformé en commande.");
+      return Alert.alert(
+        "Déjà converti",
+        "Ce devis a déjà été transformé en commande."
+      );
     }
     if (converting) return; // anti double-tap
     setConverting(true);
@@ -567,8 +665,8 @@ export default function QuoteEditPage() {
         setStatus("accepte");
       }
 
-      // 4) Montants
-      const totalTTCnum = Number(getTotalTTCApresRemise().toFixed(2));
+      // 4) Montants (prend en compte le mode “coût global”)
+      const totalTTCnum = Number(getEffectiveTotalTTC().toFixed(2));
       const acompteNum = Number(parseFloat(deposit || 0).toFixed(2));
 
       // 5) Désignation / brand/model sûrs
@@ -670,14 +768,14 @@ export default function QuoteEditPage() {
         "✅ Converti",
         `Le devis a été transformé en commande #${shortId(newOrderId)}.`
       );
-navigation.navigate("OrdersPage", {
-  clientId: clientId || null,
-  clientName: name || "",
-  clientPhone: phone || "",
-  clientNumber: null,        // si tu l’as, mets-le ici
-  focusId: inserted?.id,     // la commande nouvellement créée
-  refreshAt: Date.now(),     // force un rechargement
-});
+      navigation.navigate("OrdersPage", {
+        clientId: clientId || null,
+        clientName: name || "",
+        clientPhone: phone || "",
+        clientNumber: null, // si tu l’as, mets-le ici
+        focusId: inserted?.id, // la commande nouvellement créée
+        refreshAt: Date.now(), // force un rechargement
+      });
     } catch (e) {
       console.log("❌ handleConvertToOrder:", e);
       Alert.alert("Erreur", String(e.message || e));
@@ -820,14 +918,37 @@ navigation.navigate("OrdersPage", {
         <Text style={styles.addButtonText}>➕ Ajouter une ligne</Text>
       </TouchableOpacity>
 
-      <Text style={styles.label}>Remise globale (%)</Text>
-      <TextInput
-        style={styles.input}
-        value={discount}
-        onChangeText={setDiscount}
-        keyboardType="decimal-pad"
-        placeholder="ex : 10"
-      />
+      {/* 👉 Choix du mode de calcul */}
+      <View style={styles.switchRow}>
+        <Text style={styles.labelInline}>
+          Devis avec coût total unique (sans détailler les prix)
+        </Text>
+        <Switch value={useGlobalTotal} onValueChange={setUseGlobalTotal} />
+      </View>
+
+      {useGlobalTotal ? (
+        <>
+          <Text style={styles.label}>Coût total TTC (€)</Text>
+          <TextInput
+            style={styles.input}
+            value={globalTotal}
+            onChangeText={setGlobalTotal}
+            keyboardType="decimal-pad"
+            placeholder="ex : 250"
+          />
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>Remise globale (%)</Text>
+          <TextInput
+            style={styles.input}
+            value={discount}
+            onChangeText={setDiscount}
+            keyboardType="decimal-pad"
+            placeholder="ex : 10"
+          />
+        </>
+      )}
 
       <Text style={styles.label}>Acompte versé (€)</Text>
       <TextInput
@@ -838,20 +959,40 @@ navigation.navigate("OrdersPage", {
         placeholder="ex : 100"
       />
 
-      <Text style={styles.total}>Total HT : {getTotalHT().toFixed(2)} €</Text>
-      <Text style={styles.total}>
-        Remise : -{getDiscountValue().toFixed(2)} €
-      </Text>
-      <Text style={styles.total}>TVA (20%) : {getTVA().toFixed(2)} €</Text>
-      <Text style={styles.total}>
-        Total TTC : {getTotalTTCApresRemise().toFixed(2)} €
-      </Text>
-      <Text style={styles.total}>
-        Acompte : -{parseFloat(deposit || 0).toFixed(2)} €
-      </Text>
-      <Text style={styles.total}>
-        Total à payer : {getTotalDue().toFixed(2)} €
-      </Text>
+      {useGlobalTotal ? (
+        <>
+          <Text style={styles.total}>
+            Coût total TTC : {getEffectiveTotalTTC().toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Acompte : -{parseFloat(deposit || 0).toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Total à payer : {getEffectiveTotalDue().toFixed(2)} €
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.total}>
+            Total HT : {getTotalHT().toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Remise : -{getDiscountValue().toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            TVA (20%) : {getTVA().toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Total TTC : {getTotalTTCApresRemise().toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Acompte : -{parseFloat(deposit || 0).toFixed(2)} €
+          </Text>
+          <Text style={styles.total}>
+            Total à payer : {getTotalDue().toFixed(2)} €
+          </Text>
+        </>
+      )}
 
       <Text style={styles.label}>Remarques ou conditions particulières</Text>
       <TextInput
@@ -997,5 +1138,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "800",
+  },
+  // 👉 Styles pour le mode “coût global”
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  labelInline: {
+    fontWeight: "bold",
+    fontSize: 14,
+    flex: 1,
+    marginRight: 8,
   },
 });

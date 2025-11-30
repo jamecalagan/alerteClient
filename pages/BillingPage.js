@@ -940,17 +940,9 @@ const BillingPage = () => {
           />
         </View>
 
-        {/* Acompte */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "acompte" || acompte) &&
-                styles.floatingLabelFocused,
-            ]}
-          >
-            Acompte versé (€)
-          </Text>
+        {/* Acompte versé */}
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Acompte versé (€)</Text>
           <TextInput
             value={acompte}
             onChangeText={setAcompte}
@@ -958,9 +950,6 @@ const BillingPage = () => {
             placeholder="0"
             style={[
               styles.input,
-              (focusedField === "acompte" || acompte) && {
-                paddingTop: 18,
-              },
               focusedField === "acompte" && styles.inputFocused,
             ]}
             onFocus={() => setFocusedField("acompte")}
@@ -970,10 +959,8 @@ const BillingPage = () => {
 
         {/* Montant global TTC si mode "coût total" */}
         {useGlobalTotal && (
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontWeight: "bold", marginBottom: 5 }}>
-              Montant total TTC du devis (€)
-            </Text>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Montant total TTC du devis (€)</Text>
             <TextInput
               value={globalTotal}
               onChangeText={setGlobalTotal}
@@ -985,7 +972,7 @@ const BillingPage = () => {
         )}
 
         {/* En-tête colonnes */}
-        <View style={[styles.lineRow, { marginBottom: 6 }]}>
+        <View style={styles.linesHeaderRow}>
           <Text style={[styles.cellHeader, { flex: 2 }]}>Prestation</Text>
           <Text
             style={[
@@ -1021,125 +1008,120 @@ const BillingPage = () => {
         {/* Lignes */}
         {lines.map((line, index) => {
           const lineTotal = n(line.quantity) * n(line.price);
+
           return (
-            <View key={index} style={{ marginBottom: 12 }}>
-              <View
+            <View key={index} style={styles.lineCard}>
+              {/* Ligne titre + croix */}
+              <View style={styles.lineTopRow}>
+                <Text style={styles.lineLabel}>Ligne {index + 1}</Text>
+                <TouchableOpacity
+                  onPress={() => removeLine(index)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.lineDeleteText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Description prestation */}
+              <TextInput
+                placeholder="Prestation / produit (désignation)"
+                value={line.designation}
+                onChangeText={(text) =>
+                  updateLine(index, "designation", text)
+                }
+                multiline
+                numberOfLines={2}
                 style={[
-                  styles.lineRow,
-                  { alignItems: "flex-start" },
+                  styles.input,
+                  styles.lineDesignationInput,
+                  focusedField === `designation-${index}` &&
+                    styles.inputFocused,
                 ]}
-              >
-                {/* Prestation */}
-                <TextInput
-                  placeholder="Désignation"
-                  value={line.designation}
-                  onChangeText={(text) =>
-                    updateLine(index, "designation", text)
-                  }
-                  multiline
-                  numberOfLines={2}
-                  style={[
-                    styles.input,
-                    {
-                      flex: 2,
-                      minHeight: 50,
-                      textAlignVertical: "top",
-                    },
-                    focusedField === `designation-${index}` &&
-                      styles.inputFocused,
-                  ]}
-                  onFocus={() =>
-                    setFocusedField(`designation-${index}`)
-                  }
-                  onBlur={() => setFocusedField(null)}
-                />
+                onFocus={() =>
+                  setFocusedField(`designation-${index}`)
+                }
+                onBlur={() => setFocusedField(null)}
+              />
 
+              {/* Qté / PU / Total */}
+              <View style={styles.lineInputsRow}>
                 {/* Qté */}
-                <TextInput
-                  placeholder="Qté"
-                  value={line.quantity}
-                  onChangeText={(text) =>
-                    updateLine(index, "quantity", text)
-                  }
-                  keyboardType="numeric"
-                  style={[
-                    styles.input,
-                    { flex: 1, textAlign: "center" },
-                    focusedField === `quantity-${index}` &&
-                      styles.inputFocused,
-                  ]}
-                  onFocus={() =>
-                    setFocusedField(`quantity-${index}`)
-                  }
-                  onBlur={() => setFocusedField(null)}
-                />
+                <View style={styles.lineInputBlock}>
+                  <Text style={styles.smallLabel}>Qté</Text>
+                  <TextInput
+                    placeholder="1"
+                    value={line.quantity}
+                    onChangeText={(text) =>
+                      updateLine(index, "quantity", text)
+                    }
+                    keyboardType="numeric"
+                    style={[
+                      styles.input,
+                      styles.lineSmallInput,
+                      { textAlign: "center" },
+                      focusedField === `quantity-${index}` &&
+                        styles.inputFocused,
+                    ]}
+                    onFocus={() =>
+                      setFocusedField(`quantity-${index}`)
+                    }
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
 
-                {/* P.U. TTC & Total TTC uniquement si pas en mode global */}
                 {!useGlobalTotal && (
                   <>
-                    <TextInput
-                      placeholder="P.U. TTC"
-                      value={line.price}
-                      onChangeText={(text) =>
-                        updateLine(index, "price", text)
-                      }
-                      keyboardType="numeric"
-                      style={[
-                        styles.input,
-                        { flex: 1, textAlign: "center" },
-                        focusedField === `price-${index}` &&
-                          styles.inputFocused,
-                      ]}
-                      onFocus={() =>
-                        setFocusedField(`price-${index}`)
-                      }
-                      onBlur={() => setFocusedField(null)}
-                    />
+                    {/* P.U. TTC */}
+                    <View style={styles.lineInputBlock}>
+                      <Text style={styles.smallLabel}>P.U. TTC</Text>
+                      <TextInput
+                        placeholder="0"
+                        value={line.price}
+                        onChangeText={(text) =>
+                          updateLine(index, "price", text)
+                        }
+                        keyboardType="numeric"
+                        style={[
+                          styles.input,
+                          styles.lineSmallInput,
+                          { textAlign: "center" },
+                          focusedField === `price-${index}` &&
+                            styles.inputFocused,
+                        ]}
+                        onFocus={() =>
+                          setFocusedField(`price-${index}`)
+                        }
+                        onBlur={() => setFocusedField(null)}
+                      />
+                    </View>
 
                     {/* Total TTC (lecture seule) */}
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={{
-                          height: 42,
-                          borderWidth: 1,
-                          borderColor: "#ccc",
-                          borderRadius: 5,
-                          backgroundColor: "#f6f6f6",
-                          textAlign: "right",
-                          paddingHorizontal: 8,
-                          paddingTop: 10,
-                          fontSize: 14,
-                        }}
-                      >
+                    <View style={styles.lineInputBlock}>
+                      <Text style={styles.smallLabel}>Total TTC</Text>
+                      <Text style={styles.readonlyCell}>
                         {lineTotal.toFixed(2)} €
                       </Text>
                     </View>
                   </>
                 )}
-
-                {/* Supprimer */}
-                <TouchableOpacity
-                  onPress={() => removeLine(index)}
-                  style={styles.deleteButton}
-                >
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
-                </TouchableOpacity>
               </View>
 
               {/* N° de série (optionnel) */}
               <TextInput
-                placeholder="Numéro de série"
+                placeholder="Numéro de série (optionnel)"
                 value={line.serial || ""}
                 onChangeText={(text) =>
                   updateLine(index, "serial", text)
                 }
                 style={[
                   styles.input,
+                  styles.lineSerialInput,
                   focusedField === `serial-${index}` &&
                     styles.inputFocused,
-                  { marginTop: 4 },
                 ]}
-                onFocus={() => setFocusedField(`serial-${index}`)}
+                onFocus={() =>
+                  setFocusedField(`serial-${index}`)
+                }
                 onBlur={() => setFocusedField(null)}
               />
             </View>
@@ -1147,9 +1129,8 @@ const BillingPage = () => {
         })}
 
         {/* Ajouter une ligne */}
-        <View style={styles.addButtonContainer}>
+        <View style={styles.addLineRow}>
           <TouchableOpacity
-            style={styles.addButton}
             onPress={() =>
               setLines([
                 ...lines,
@@ -1162,143 +1143,140 @@ const BillingPage = () => {
               ])
             }
           >
-            <Text style={styles.addButtonText}>
-              ➕ Ajouter une ligne
-            </Text>
+            <Text style={styles.addLineText}>➕ Ajouter une ligne</Text>
           </TouchableOpacity>
         </View>
 
+
         {/* Paiement */}
-        <Text style={styles.subtitle}>Mode de paiement :</Text>
+        <Text style={styles.subtitle}>Mode de paiement</Text>
         <View style={styles.paymentRow}>
           <TouchableOpacity
             style={[
-              styles.paymentButton,
-              paymentmethod === "CB" &&
-                styles.paymentButtonSelected,
+              styles.paymentChip,
+              paymentmethod === "CB" && styles.paymentChipSelected,
             ]}
             onPress={() => setPaymentMethod("CB")}
           >
-            <Text style={styles.paymentButtonText}>
-              💳 CARTE BANCAIRE
+            <Text
+              style={[
+                styles.paymentChipText,
+                paymentmethod === "CB" && styles.paymentChipTextSelected,
+              ]}
+            >
+              Carte bancaire
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[
-              styles.paymentButton,
-              paymentmethod === "Espèces" &&
-                styles.paymentButtonSelected,
+              styles.paymentChip,
+              paymentmethod === "Espèces" && styles.paymentChipSelected,
             ]}
             onPress={() => setPaymentMethod("Espèces")}
           >
-            <Text style={styles.paymentButtonText}>💵 ESPÈCES</Text>
+            <Text
+              style={[
+                styles.paymentChipText,
+                paymentmethod === "Espèces" &&
+                  styles.paymentChipTextSelected,
+              ]}
+            >
+              Espèces
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Marquer payée */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginTop: 10,
-          }}
-        >
+        <View style={styles.paidRow}>
+          <Text style={styles.paidLabel}>État du règlement</Text>
           <TouchableOpacity
             onPress={() => setPaid(!paid)}
-            style={{
-              backgroundColor: paid ? "#28a745" : "#ccc",
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              borderRadius: 6,
-            }}
+            style={[
+              styles.paidPill,
+              paid ? styles.paidPillOn : styles.paidPillOff,
+            ]}
           >
             <Text
-              style={{ color: "#fff", fontWeight: "bold" }}
+              style={[
+                styles.paidPillText,
+                paid ? styles.paidPillTextOn : styles.paidPillTextOff,
+              ]}
             >
-              {paid ? "✅ Payée" : "Marquer comme payée"}
+              {paid ? "Payée" : "Non payée"}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* État sauvegarde */}
-        {isSaved ? (
-          <Text
-            style={{
-              textAlign: "center",
-              color: "#28a745",
-              fontWeight: "bold",
-              marginBottom: 8,
-            }}
-          >
-            ✅ Facture enregistrée et prête à être imprimée
-          </Text>
-        ) : (
-          <Text
-            style={{
-              textAlign: "center",
-              color: "#888",
-              marginBottom: 8,
-            }}
-          >
-            🔒 Veuillez sauvegarder la facture avant impression
-          </Text>
-        )}
+        <Text
+          style={[
+            styles.saveStateText,
+            isSaved ? styles.saveStateOk : styles.saveStateWarn,
+          ]}
+        >
+          {isSaved
+            ? "Facture enregistrée et prête à être imprimée."
+            : "Veuillez sauvegarder la facture avant impression."}
+        </Text>
 
         {/* Actions */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor:
-                  isSaved && paid ? "#28a745" : "#ccc",
-              },
-            ]}
-            onPress={() => {
-              if (!paid)
-                return alert(
-                  "❌ Impossible d'imprimer : la facture n'est pas encore payée."
-                );
-              if (!isSaved)
-                return alert(
-                  "❌ Merci de sauvegarder la facture avant d'imprimer."
-                );
-              handlePrint();
-            }}
-            disabled={!isSaved || !paid}
-          >
-            <Text style={styles.buttonText}>🖨️ Imprimer</Text>
-          </TouchableOpacity>
+        <View style={styles.actionsBlock}>
+          <View style={styles.actionsSeparator} />
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { backgroundColor: isSaved ? "#aaa" : "#007bff" },
-            ]}
-            onPress={handleSave}
-            disabled={isSaved}
-          >
-            <Text style={styles.buttonText}>
-              {isSaved
-                ? "✅ Déjà sauvegardée"
-                : "💾 Sauvegarder"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionsTextRow}>
+            <TouchableOpacity
+              onPress={() => {
+                if (!paid) {
+                  return alert(
+                    "Impossible d'imprimer : la facture n'est pas encore payée."
+                  );
+                }
+                if (!isSaved) {
+                  return alert(
+                    "Merci de sauvegarder la facture avant d'imprimer."
+                  );
+                }
+                handlePrint();
+              }}
+              disabled={!isSaved || !paid}
+            >
+              <Text
+                style={[
+                  styles.actionsTextPrimary,
+                  (!isSaved || !paid) && styles.actionsTextDisabled,
+                ]}
+              >
+                Imprimer
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { backgroundColor: "#555" },
-            ]}
-            onPress={() =>
-              navigation.navigate("BillingListPage")
-            }
-          >
-            <Text style={styles.buttonText}>
-              📄 Liste des Factures
-            </Text>
-          </TouchableOpacity>
+            <Text style={styles.actionsDivider}>|</Text>
+
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={isSaved}
+            >
+              <Text
+                style={[
+                  styles.actionsText,
+                  isSaved && styles.actionsTextDisabled,
+                ]}
+              >
+                {isSaved ? "Déjà sauvegardée" : "Sauvegarder"}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.actionsDivider}>|</Text>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate("BillingListPage")}
+            >
+              <Text style={styles.actionsText}>Liste des factures</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
       </ScrollView>
 
       {/* Retour fixe */}
@@ -1468,6 +1446,222 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
+    fieldBlock: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 4,
+  },
+
+  linesHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  cellHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4b5563",
+  },
+
+  readonlyCell: {
+    height: 42,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 6,
+    backgroundColor: "#f9fafb",
+    textAlign: "right",
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    fontSize: 13,
+    color: "#111827",
+  },
+
+  addLineRow: {
+    alignItems: "flex-end",
+    marginBottom: 16,
+  },
+  addLineText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+
+  // Paiement
+  paymentRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  paymentChip: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    paddingVertical: 6,
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  paymentChipSelected: {
+    backgroundColor: "#2563eb",
+    borderColor: "#1d4ed8",
+  },
+  paymentChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  paymentChipTextSelected: {
+    color: "#ffffff",
+  },
+
+  // Payée / non payée
+  paidRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  paidLabel: {
+    fontSize: 13,
+    color: "#4b5563",
+  },
+  paidPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  paidPillOn: {
+    backgroundColor: "#ecfdf5",
+    borderColor: "#bbf7d0",
+  },
+  paidPillOff: {
+    backgroundColor: "#f9fafb",
+    borderColor: "#e5e7eb",
+  },
+  paidPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  paidPillTextOn: {
+    color: "#15803d",
+  },
+  paidPillTextOff: {
+    color: "#6b7280",
+  },
+
+  // État sauvegarde
+  saveStateText: {
+    textAlign: "center",
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  saveStateOk: {
+    color: "#15803d",
+    fontWeight: "600",
+  },
+  saveStateWarn: {
+    color: "#6b7280",
+  },
+
+  // Actions texte
+  actionsBlock: {
+    marginTop: 8,
+  },
+  actionsSeparator: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 4,
+  },
+  actionsTextRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 4,
+  },
+  actionsText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  actionsTextPrimary: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  actionsTextDisabled: {
+    color: "#9ca3af",
+  },
+  actionsDivider: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+  lineCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#f9fafb",
+    padding: 8,
+    marginBottom: 10,
+  },
+  lineTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  lineLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4b5563",
+  },
+  lineDeleteText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#9ca3af",
+  },
+
+  lineDesignationInput: {
+    minHeight: 48,
+    textAlignVertical: "top",
+    fontSize: 13,
+    marginBottom: 6,
+  },
+
+  lineInputsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 6,
+  },
+  lineInputBlock: {
+    flex: 1,
+  },
+  smallLabel: {
+    fontSize: 11,
+    color: "#6b7280",
+    marginBottom: 2,
+  },
+  lineSmallInput: {
+    height: 40,
+    fontSize: 13,
+    paddingVertical: 6,
+  },
+
+  lineSerialInput: {
+    fontSize: 13,
+  },
+
 });
 
 export default BillingPage;

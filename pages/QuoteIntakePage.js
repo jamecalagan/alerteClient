@@ -441,11 +441,15 @@ const QuoteIntakePage = () => {
       <View style={styles.group}>
         <Text style={styles.legend}>Photos du produit</Text>
 
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={requestCameraAndOpen}>
-            <Text style={styles.btnText}>📷 Prendre une photo</Text>
+        <View style={styles.photoActionsRow}>
+          <TouchableOpacity
+            style={styles.photoButton}
+            onPress={requestCameraAndOpen}
+          >
+            <Text style={styles.photoButtonText}>Prendre une photo</Text>
           </TouchableOpacity>
         </View>
+
 
         {photos.length > 0 ? (
           <View style={styles.photosGrid}>
@@ -464,21 +468,28 @@ const QuoteIntakePage = () => {
       </View>
 
       {/* Actions */}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          disabled={saving || uploading}
-          style={[
-            styles.btn,
-            styles.btnPrimary,
-            (saving || uploading) && { opacity: 0.5 },
-          ]}
-          onPress={handleSaveRequest}
-        >
-          <Text style={styles.btnText}>
-            {saving ? "Enregistrement..." : uploading ? "Téléversement..." : "Enregistrer la demande"}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.actionsBlock}>
+        <View style={styles.actionsSeparator} />
 
+        <View style={styles.actionsTextRow}>
+          <TouchableOpacity
+            disabled={saving || uploading}
+            onPress={handleSaveRequest}
+          >
+            <Text
+              style={[
+                styles.actionsText,
+                (saving || uploading) && styles.actionsTextDisabled,
+              ]}
+            >
+              {saving
+                ? "Enregistrement..."
+                : uploading
+                ? "Téléversement..."
+                : "Enregistrer la demande"}
+            </Text>
+          </TouchableOpacity>
+</View>
         {lastSavedId ? (
           <View style={{ width: "100%", gap: 8 }}>
             <TouchableOpacity
@@ -545,6 +556,66 @@ const styles = StyleSheet.create({
   photoWrap: { width: "30%", aspectRatio: 1, borderRadius: 10, overflow: "hidden", position: "relative", backgroundColor: "#e5e7eb" },
   photo: { width: "100%", height: "100%" },
   photoRemove: { position: "absolute", top: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, paddingHorizontal: 6, paddingVertical: 0 },
+    photoActionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginBottom: 8,
+  },
+  photoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
+  },
+  photoButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  actionsRow: {
+    marginTop: 16,
+  },
+  primaryActionButton: {
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+  primaryActionDisabled: {
+    backgroundColor: "#9ca3af",
+  },
+  primaryActionText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  actionsBlock: {
+    marginTop: 12,
+  },
+  actionsSeparator: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 10,
+  },
+  actionsTextRow: {
+    flexDirection: "row",
+    justifyContent: "flex-center",
+    marginBottom: 20,
+  },
+  actionsText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  actionsTextDisabled: {
+    color: "#9ca3af",
+  },
+
 });
 
 export default QuoteIntakePage;

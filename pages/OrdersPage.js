@@ -24,29 +24,38 @@ const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
 const ORDER_PHOTOS_FOLDER = "orders"; // sous-dossier pour les commandes
 
 export default function OrdersPage({ route, navigation, order }) {
-    const { clientId, clientName, clientPhone, clientNumber } =
-        route?.params || {};
+    const {
+        clientId,
+        clientName,
+        clientPhone,
+        clientNumber,
+        prefillProduct,     // 👈 texte venant de "commande"
+        fromIntervention,   // (déjà envoyé, on le garde pour plus tard si besoin)
+        autoReturnOnCreate, // (idem, dispo si tu veux l'utiliser)
+    } = route?.params || {};
+
 
     const [orders, setOrders] = useState([]);
     const [expandedOrders, setExpandedOrders] = useState([]);
     const [uploadingOrderId, setUploadingOrderId] = useState(null);
-    const [showForm, setShowForm] = useState(false); // formulaire création commande masqué par défaut
+    const [showForm, setShowForm] = useState(!!prefillProduct);
 
     const [imageModalVisible, setImageModalVisible] = useState(false);
     const [imageModalUrl, setImageModalUrl] = useState(null);
 
-    const [newOrder, setNewOrder] = useState({
-        product: "",
-        brand: "",
-        model: "",
-        serial: "",
-        price: "",
-        quantity: "1",
-        deposit: "",
-        paid: false,
-        client_id: null,
-        include_in_intervention: false, // 🆕
-    });
+const [newOrder, setNewOrder] = useState({
+    product: prefillProduct || "",  // 👈 prérempli si tu viens d'une intervention
+    brand: "",
+    model: "",
+    serial: "",
+    price: "",
+    quantity: "1",
+    deposit: "",
+    paid: false,
+    client_id: clientId || null,    // 👈 on met aussi le client direct
+    include_in_intervention: false,
+});
+
 
     // 🆕 Édition d'une commande existante
     const [editingIds, setEditingIds] = useState([]); // ids en édition

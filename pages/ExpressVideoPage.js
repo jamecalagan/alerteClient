@@ -388,95 +388,64 @@ export default function ExpressVideoPage() {
                             Montant total calculé : {calculateFinalPrice()} €
                         </Text>
 
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                justifyContent: "space-between",
-                                marginTop: 20,
-                            }}
-                        >
-                            <TouchableOpacity
-                                onPress={() => navigation.goBack()}
-                                style={[
-                                    styles.button,
-                                    {
-                                        flex: 1,
-                                        backgroundColor: "#6c757d",
-                                        marginRight: 8,
-                                    },
-                                ]}
-                            >
-                                <Text style={styles.buttonText}>⬅️ Retour</Text>
-                            </TouchableOpacity>
+<View style={styles.actionsRow}>
+  {/* 1 — Retour */}
+  <TouchableOpacity
+    style={styles.actionItem}
+    onPress={() => navigation.goBack()}
+  >
+    <Text style={styles.actionText}>Retour</Text>
+  </TouchableOpacity>
 
-                            <TouchableOpacity
-                                onPress={handleSubmit}
-                                style={[
-                                    styles.button,
-                                    {
-                                        flex: 1,
-                                        backgroundColor: "#007bff",
-                                        marginLeft: 8,
-                                    },
-                                ]}
-                            >
-                                <Text style={styles.buttonText}>
-                                    💾 Enregistrer
-                                </Text>
-                            </TouchableOpacity>
-                            {isEdit && editData?.id && (
-                                <TouchableOpacity
-                                    onPress={async () => {
-                                        const { error } = await supabase
-                                            .from("express")
-                                            .update({ paid: !isPaid })
-                                            .eq("id", editData.id);
-                                        if (error) {
-                                            Alert.alert("Erreur", error.message);
-                                        } else {
-                                            setIsPaid(!isPaid);
-                                            Alert.alert(
-                                                "OK",
-                                                `Fiche ${
-                                                    !isPaid
-                                                        ? "marquée réglée"
-                                                        : "remise en dû"
-                                                }.`
-                                            );
-                                        }
-                                    }}
-                                    style={[
-                                        styles.button,
-                                        {
-                                            backgroundColor: isPaid
-                                                ? "#6c757d"
-                                                : "#28a745",
-                                        },
-                                    ]}
-                                >
-                                    <Text style={styles.buttonText}>
-                                        {isPaid
-                                            ? "💱 Remettre en dû"
-                                            : "✅ Marquer comme réglée"}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+  {/* 2 — Enregistrer */}
+  <TouchableOpacity
+    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    onPress={handleSubmit}
+  >
+    <Text style={styles.actionText}>Enregistrer</Text>
+  </TouchableOpacity>
 
-                        {/* 👉 Bouton étiquette rapide */}
-                        <View style={{ marginTop: 20 }}>
-                            <TouchableOpacity
-                                onPress={handleGoToQuickLabel}
-                                style={[
-                                    styles.button,
-                                    { backgroundColor: "#046b1e" },
-                                ]}
-                            >
-                                <Text style={styles.buttonText}>
-                                    🖨️ Imprimer une étiquette rapide
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+  {/* 3 — Réglée / Remettre en dû (toujours présent pour garder 25 %) */}
+  <TouchableOpacity
+    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    disabled={!isEdit || !editData?.id}
+    onPress={async () => {
+      if (!isEdit || !editData?.id) return; // sécurité
+      const { error } = await supabase
+        .from("express")
+        .update({ paid: !isPaid })
+        .eq("id", editData.id);
+
+      if (error) {
+        Alert.alert("Erreur", error.message);
+      } else {
+        setIsPaid(!isPaid);
+        Alert.alert(
+          "OK",
+          `Fiche ${!isPaid ? "marquée réglée" : "remise en dû"}.`
+        );
+      }
+    }}
+  >
+    <Text
+      style={[
+        styles.actionText,
+        (!isEdit || !editData?.id) && styles.actionTextDisabled,
+      ]}
+    >
+      {isPaid ? "Remettre en dû" : "Marquer comme réglée"}
+    </Text>
+  </TouchableOpacity>
+
+  {/* 4 — Étiquette rapide */}
+  <TouchableOpacity
+    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    onPress={handleGoToQuickLabel}
+  >
+    <Text style={styles.actionText}>Étiquette rapide</Text>
+  </TouchableOpacity>
+</View>
+
                     </View>
                 }
             />
@@ -568,4 +537,36 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4,
     },
+    actionsRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginTop: 20,
+  paddingTop: 10,
+  borderTopWidth: 1,      // barre horizontale au-dessus
+  borderTopColor: "#ccc",
+},
+
+actionItem: {
+  flex: 1,                // ➜ 4 blocs = 4 × 25 %
+  alignItems: "center",
+  justifyContent: "center",
+  paddingHorizontal: 4,
+},
+
+actionItemWithLeftBorder: {
+  borderLeftWidth: 1,     // barre verticale entre les blocs
+  borderLeftColor: "#ccc",
+},
+
+actionText: {
+  fontSize: 14,
+  fontWeight: "600",
+  color: "#1f2933",
+  textAlign: "center",
+},
+
+actionTextDisabled: {
+  color: "#9ca3af",       // gris plus clair quand désactivé
+},
+
 });

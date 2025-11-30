@@ -114,64 +114,124 @@ const QuoteListPage = () => {
 
     return (
       <View style={styles.card}>
-        <Text style={styles.number}>🧾 {item.quote_number}</Text>
-        <Text style={styles.client}>👤 {item.name}</Text>
+        {/* En-tête : numéro + dates + total */}
+        <View style={styles.cardHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardNumber}>
+               {item.quote_number || "—"}
+            </Text>
+            <Text style={styles.cardDate}>
+               {formatDate(item.created_at)} • valide jusqu’au{" "}
+              {formatDate(item.valid_until)}
+            </Text>
+          </View>
 
-        {item.email ? <Text style={styles.meta}>📧 {item.email}</Text> : null}
-        {item.phone ? <Text style={styles.meta}>📞 {item.phone}</Text> : null}
+          <View style={styles.cardAmountPill}>
+            <Text style={styles.cardAmountLabel}>Total TTC</Text>
+            <Text style={styles.cardAmountValue}>
+              {parseFloat(item.total || 0).toFixed(2)} €
+            </Text>
+          </View>
+        </View>
 
-        <Text style={styles.date}>
-          🗓️ {formatDate(item.created_at)} • Valide jusqu’au {formatDate(item.valid_until)}
-        </Text>
+        {/* Bloc client sous forme de petit tableau */}
+        <View style={styles.cardClientBlock}>
+          <View style={styles.cardClientRow}>
+            <Text style={styles.cardClientLabelCol}>Client</Text>
+            <Text style={styles.cardClientValue}>
+              {item.name || "Client inconnu"}
+            </Text>
+          </View>
 
-        {/* Statuts existants */}
+          {item.phone ? (
+            <View style={styles.cardClientRow}>
+              <Text style={styles.cardClientLabelCol}>Tél</Text>
+              <Text style={styles.cardClientValue}>{item.phone}</Text>
+            </View>
+          ) : null}
+
+          {item.email ? (
+            <View style={styles.cardClientRow}>
+              <Text style={styles.cardClientLabelCol}>E-mail</Text>
+              <Text
+                style={styles.cardClientValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.email}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+
+
+        {/* Statuts / badges */}
         <View style={styles.labelsRow}>
           {item.deja_imprime ? (
-            <Text style={[styles.statusLabel, { backgroundColor: "#565657" }]}>🖨️ Imprimé</Text>
-          ) : null}
-          {item.deja_envoye ? (
-            <Text style={[styles.statusLabel, { backgroundColor: "#045015" }]}>📤 Envoyé</Text>
-          ) : null}
-          {!item.deja_imprime && !item.deja_envoye ? (
-            <Text style={[styles.statusLabel, { backgroundColor: "#68685c", color: "#fff" }]}>⚠️ Non traité</Text>
+            <Text style={[styles.statusLabel, styles.statusPrinted]}>
+              🖨️ Imprimé
+            </Text>
           ) : null}
 
-          {/* Badge si demande liée */}
+          {item.deja_envoye ? (
+            <Text style={[styles.statusLabel, styles.statusSent]}>
+              📤 Envoyé
+            </Text>
+          ) : null}
+
+          {!item.deja_imprime && !item.deja_envoye ? (
+            <Text style={[styles.statusLabel, styles.statusPending]}>
+              ⚠️ Non traité
+            </Text>
+          ) : null}
+
           {linkedReq ? (
-            <Text style={[styles.statusLabel, { backgroundColor: "#6b4e16" }]}>
+            <Text style={[styles.statusLabel, styles.statusLinked]}>
               📝 Demande liée • #{shortReqId}
             </Text>
           ) : null}
         </View>
+        {/* Séparation horizontale */}
+        <View style={styles.cardActionsSeparator} />
 
-        <Text style={styles.total}>💶 {parseFloat(item.total || 0).toFixed(2)} € TTC</Text>
-
-        <View style={styles.actionRow}>
+        <View style={styles.actionTextRow}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#828283" }]}
-            onPress={() => navigation.navigate("QuotePrintPage", { id: item.id })}
+            style={styles.actionTextCol}
+            onPress={() =>
+              navigation.navigate("QuotePrintPage", { id: item.id })
+            }
           >
-            <Text style={styles.buttonText}>🖨️ Imprimer</Text>
+            <Text style={styles.actionTextLink}>Imprimer</Text>
           </TouchableOpacity>
 
+          <View style={styles.actionTextVertical} />
+
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#505050" }]}
+            style={styles.actionTextCol}
             onPress={() => navigation.navigate("QuoteEditPage", { id: item.id })}
           >
-            <Text style={styles.buttonText}>✏️ Modifier</Text>
+            <Text style={styles.actionTextLink}>Modifier</Text>
           </TouchableOpacity>
 
+          <View style={styles.actionTextVertical} />
+
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#dc3545" }]}
+            style={styles.actionTextCol}
             onPress={() => {
               setSelectedId(item.id);
               setShowConfirm(true);
             }}
           >
-            <Text style={styles.buttonText}>🗑️ Supprimer</Text>
+            <Text style={[styles.actionTextLink, styles.actionTextDanger]}>
+              Supprimer
+            </Text>
           </TouchableOpacity>
         </View>
+
+
       </View>
+
     );
   };
 
@@ -278,6 +338,194 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: "#fff", padding: 24, borderRadius: 10, width: "85%", elevation: 8, alignItems: "center" },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginTop: 16 },
   modalButton: { flex: 1, padding: 12, borderRadius: 6, alignItems: "center", backgroundColor: "#b0b0b0" },
+    card: {
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  cardNumber: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  cardDate: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#6b7280",
+  },
+  cardAmountPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#eef2ff",
+    alignItems: "flex-end",
+    minWidth: 90,
+  },
+  cardAmountLabel: {
+    fontSize: 10,
+    color: "#4b5563",
+  },
+  cardAmountValue: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1d4ed8",
+  },
+  cardClientBlock: {
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  cardClient: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  cardMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  metaChip: {
+    fontSize: 11,
+    color: "#374151",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 999,
+    backgroundColor: "#f3f4f6",
+  },
+  labelsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  statusLabel: {
+    fontSize: 11,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 999,
+    color: "#f9fafb",
+    overflow: "hidden",
+  },
+  statusPrinted: {
+    backgroundColor: "#4b5563",
+  },
+  statusSent: {
+    backgroundColor: "#15803d",
+  },
+  statusPending: {
+    backgroundColor: "#b45309",
+  },
+  statusLinked: {
+    backgroundColor: "#6b4e16",
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+    marginTop: 4,
+  },
+  actionButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 999,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  actionButtonLight: {
+    backgroundColor: "#e5e7eb",
+  },
+  actionButtonDark: {
+    backgroundColor: "#4b5563",
+  },
+  actionButtonDanger: {
+    backgroundColor: "#b91c1c",
+  },
+  buttonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#f9fafb",
+  },
+  cardClientLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  cardClientName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 2,
+  },
+  metaLabel: {
+    fontWeight: "600",
+    color: "#374151",
+  },
+  cardClientBlock: {
+    marginTop: 6,
+    marginBottom: 4,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  cardClientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 2,
+  },
+  cardClientLabelCol: {
+    width: 60,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#6b7280",
+  },
+  cardClientValue: {
+    flex: 1,
+    fontSize: 13,
+    color: "#111827",
+  },
+  actionTextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  actionTextCol: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  actionTextVertical: {
+    width: 1,
+    height: 16,
+    backgroundColor: "#e5e7eb",
+  },
+  actionTextLink: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  actionTextDanger: {
+    color: "#b91c1c",
+  },
+  cardActionsSeparator: {
+    marginTop: 6,
+    marginBottom: 4,
+    height: 1,
+    backgroundColor: "#e5e7eb", // gris clair visible
+  },
+
 });
 
 export default QuoteListPage;

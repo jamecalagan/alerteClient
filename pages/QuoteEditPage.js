@@ -812,187 +812,371 @@ export default function QuoteEditPage() {
         </Text>
       ) : null}
 
-      <Text style={styles.label}>Numéro de devis</Text>
-      <TextInput
-        style={styles.input}
-        value={quoteNumber}
-        onChangeText={setQuoteNumber}
-        placeholder="DEV-AI-2025-10-0001"
-      />
+      {/* Carte : infos de devis */}
+      <View style={styles.cardSection}>
+        <Text style={styles.cardSectionTitle}>Informations devis</Text>
 
-      <Text style={styles.label}>Valable jusqu'au</Text>
-      <TextInput
-        style={styles.input}
-        value={validUntil}
-        onChangeText={setValidUntil}
-        placeholder="2025-12-31"
-      />
-
-      <Text style={styles.label}>Nom du client</Text>
-      <TextInput
-        style={[styles.input, focusedField === "name" && styles.inputFocused]}
-        value={name}
-        onChangeText={setName}
-        onFocus={() => setFocusedField("name")}
-        onBlur={() => setFocusedField(null)}
-        placeholder="JEAN DUPONT"
-      />
-
-      {clientSuggestions.length > 0 && (
-        <View style={styles.suggestionBox}>
-          {clientSuggestions.map((it, idx) => (
-            <TouchableOpacity
-              key={idx}
-              onPress={() => selectClient(it)}
-              style={styles.suggestionItem}
-            >
-              <Text>
-                {it.name} - {it.phone}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <Text style={styles.label}>Téléphone</Text>
-      <TextInput
-        style={[styles.input, focusedField === "phone" && styles.inputFocused]}
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        onFocus={() => setFocusedField("phone")}
-        onBlur={() => setFocusedField(null)}
-        placeholder="06 xx xx xx xx"
-      />
-
-      <Text style={styles.label}>Adresse e-mail</Text>
-      <TextInput
-        style={[styles.input, focusedField === "email" && styles.inputFocused]}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        onFocus={() => setFocusedField("email")}
-        onBlur={() => setFocusedField(null)}
-        placeholder="exemple@client.com"
-      />
-
-      <Text style={styles.subtitle}>Prestations / Produits :</Text>
-
-      {items.map((item, index) => (
-        <View key={index} style={styles.itemRow}>
-          {item.label && <Text style={styles.itemLabel}>{item.label}</Text>}
-
-          <View style={styles.rowLine}>
+        <View style={styles.cardRow}>
+          <View style={styles.cardField}>
+            <Text style={styles.fieldLabel}>Numéro</Text>
             <TextInput
-              style={[styles.input, { flex: 2 }]}
-              placeholder="Marque / modèle / détails"
-              value={item.description}
-              onChangeText={(t) => updateItem(index, "description", t)}
+              style={styles.input}
+              value={quoteNumber}
+              onChangeText={setQuoteNumber}
+              placeholder="DEV-AI-2025-10-0001"
             />
+          </View>
 
+          <View style={styles.cardField}>
+            <Text style={styles.fieldLabel}>Valable jusqu'au</Text>
             <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Qté"
-              keyboardType="numeric"
-              value={item.quantity}
-              onChangeText={(t) => updateItem(index, "quantity", t)}
+              style={styles.input}
+              value={validUntil}
+              onChangeText={setValidUntil}
+              placeholder="2025-12-31"
             />
-
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Prix"
-              keyboardType="decimal-pad"
-              value={item.unitPrice}
-              onChangeText={(t) => updateItem(index, "unitPrice", t)}
-            />
-
-            <TouchableOpacity onPress={() => removeItem(index)}>
-              <Text style={styles.removeButton}>❌</Text>
-            </TouchableOpacity>
           </View>
         </View>
-      ))}
-
-      <TouchableOpacity style={styles.addButton} onPress={addItem}>
-        <Text style={styles.addButtonText}>➕ Ajouter une ligne</Text>
-      </TouchableOpacity>
-
-      {/* 👉 Choix du mode de calcul */}
-      <View style={styles.switchRow}>
-        <Text style={styles.labelInline}>
-          Devis avec coût total unique (sans détailler les prix)
-        </Text>
-        <Switch value={useGlobalTotal} onValueChange={setUseGlobalTotal} />
       </View>
 
-      {useGlobalTotal ? (
-        <>
-          <Text style={styles.label}>Coût total TTC (€)</Text>
+      {/* Carte : client */}
+      <View style={styles.cardSection}>
+        <Text style={styles.cardSectionTitle}>Client</Text>
+
+        <View style={styles.cardFieldFull}>
+          <Text style={styles.fieldLabel}>Nom</Text>
+          <TextInput
+            style={[
+              styles.input,
+              focusedField === "name" && styles.inputFocused,
+            ]}
+            value={name}
+            onChangeText={setName}
+            onFocus={() => setFocusedField("name")}
+            onBlur={() => setFocusedField(null)}
+            placeholder="JEAN DUPONT"
+          />
+        </View>
+
+        {clientSuggestions.length > 0 && (
+          <View style={styles.suggestionBox}>
+            {clientSuggestions.map((it, idx) => (
+              <TouchableOpacity
+                key={idx}
+                onPress={() => selectClient(it)}
+                style={styles.suggestionItem}
+              >
+                <Text>
+                  {it.name} - {it.phone}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.cardRow}>
+          <View style={styles.cardField}>
+            <Text style={styles.fieldLabel}>Téléphone</Text>
+            <TextInput
+              style={[
+                styles.input,
+                focusedField === "phone" && styles.inputFocused,
+              ]}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              onFocus={() => setFocusedField("phone")}
+              onBlur={() => setFocusedField(null)}
+              placeholder="06 xx xx xx xx"
+            />
+          </View>
+
+          <View style={styles.cardField}>
+            <Text style={styles.fieldLabel}>E-mail</Text>
+            <TextInput
+              style={[
+                styles.input,
+                focusedField === "email" && styles.inputFocused,
+              ]}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              onFocus={() => setFocusedField("email")}
+              onBlur={() => setFocusedField(null)}
+              placeholder="exemple@client.com"
+            />
+          </View>
+        </View>
+      </View>
+
+
+      
+      <View style={styles.pcHelperRow}>
+        <TouchableOpacity
+          style={styles.pcHelperButton}
+          onPress={() =>
+            navigation.navigate("PcComponentsTablePage", {
+              fromQuote: true,
+              quoteId: editingId || quoteId || null,
+              clientName: name || "",
+            })
+          }
+        >
+          <Text style={styles.pcHelperButtonText}>
+            ⚙️ Préparer une configuration PC gamer
+          </Text>
+          <Text style={styles.pcHelperButtonSub}>
+            Ouvre la page composants, remplis marque / modèle / détails, copie
+            le texte et colle-le ensuite dans les lignes ci-dessous.
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+            {/* Carte : Prestations / Produits */}
+      <View style={styles.cardSection}>
+        <View style={styles.cardSectionHeaderRow}>
+          <Text style={styles.cardSectionTitle}>Prestations / Produits</Text>
+
+          <TouchableOpacity style={styles.addMiniButton} onPress={addItem}>
+            <Text style={styles.addMiniButtonText}>➕ Ligne</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* En-tête du tableau */}
+        <View style={styles.itemsHeaderRow}>
+          <Text style={[styles.itemsHeaderText, { flex: 2 }]}>Désignation</Text>
+          <Text
+            style={[
+              styles.itemsHeaderText,
+              { flex: 0.7, textAlign: "center" },
+            ]}
+          >
+            Qté
+          </Text>
+          <Text
+            style={[
+              styles.itemsHeaderText,
+              { flex: 1, textAlign: "right" },
+            ]}
+          >
+            PU TTC
+          </Text>
+          <View style={{ width: 26 }} />
+        </View>
+
+        {items.map((item, index) => (
+          <View key={index} style={styles.itemRowCard}>
+            {item.label && (
+              <Text style={styles.itemLabel}>{item.label}</Text>
+            )}
+
+            <View style={styles.rowLine}>
+              <TextInput
+                style={[styles.input, styles.itemInputDescription]}
+                placeholder="Marque / modèle / détails"
+                value={item.description}
+                onChangeText={(t) => updateItem(index, "description", t)}
+              />
+
+              <TextInput
+                style={[styles.input, styles.itemInputQty]}
+                placeholder="Qté"
+                keyboardType="numeric"
+                value={item.quantity}
+                onChangeText={(t) => updateItem(index, "quantity", t)}
+              />
+
+              <TextInput
+                style={[styles.input, styles.itemInputPrice]}
+                placeholder="Prix"
+                keyboardType="decimal-pad"
+                value={item.unitPrice}
+                onChangeText={(t) => updateItem(index, "unitPrice", t)}
+              />
+
+              <TouchableOpacity
+                style={styles.itemRemoveButton}
+                onPress={() => removeItem(index)}
+              >
+                <Text style={styles.removeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
+
+      </View>
+
+      {/* Carte : Montant du devis */}
+      <View style={styles.cardSection}>
+        <Text style={styles.cardSectionTitle}>Montant du devis</Text>
+
+        <View style={styles.switchRow}>
+          <Text style={styles.labelInline}>
+            Coût global (un seul montant TTC)
+          </Text>
+          <Switch value={useGlobalTotal} onValueChange={setUseGlobalTotal} />
+        </View>
+
+        {useGlobalTotal ? (
+          <View style={styles.cardFieldFull}>
+            <Text style={styles.fieldLabel}>Coût total TTC (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={globalTotal}
+              onChangeText={setGlobalTotal}
+              keyboardType="decimal-pad"
+              placeholder="ex : 250"
+            />
+          </View>
+        ) : (
+          <View style={styles.cardFieldFull}>
+            <Text style={styles.fieldLabel}>Remise globale (%)</Text>
+            <TextInput
+              style={styles.input}
+              value={discount}
+              onChangeText={setDiscount}
+              keyboardType="decimal-pad"
+              placeholder="ex : 10"
+            />
+          </View>
+        )}
+
+        <View style={styles.cardFieldFull}>
+          <Text style={styles.fieldLabel}>Acompte versé (€)</Text>
           <TextInput
             style={styles.input}
-            value={globalTotal}
-            onChangeText={setGlobalTotal}
+            value={deposit}
+            onChangeText={setDeposit}
             keyboardType="decimal-pad"
-            placeholder="ex : 250"
+            placeholder="ex : 100"
           />
-        </>
-      ) : (
-        <>
-          <Text style={styles.label}>Remise globale (%)</Text>
-          <TextInput
-            style={styles.input}
-            value={discount}
-            onChangeText={setDiscount}
-            keyboardType="decimal-pad"
-            placeholder="ex : 10"
-          />
-        </>
-      )}
+        </View>
+      </View>
 
-      <Text style={styles.label}>Acompte versé (€)</Text>
-      <TextInput
-        style={styles.input}
-        value={deposit}
-        onChangeText={setDeposit}
-        keyboardType="decimal-pad"
-        placeholder="ex : 100"
-      />
 
-      {useGlobalTotal ? (
-        <>
-          <Text style={styles.total}>
-            Coût total TTC : {getEffectiveTotalTTC().toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Acompte : -{parseFloat(deposit || 0).toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Total à payer : {getEffectiveTotalDue().toFixed(2)} €
-          </Text>
-        </>
-      ) : (
-        <>
-          <Text style={styles.total}>
-            Total HT : {getTotalHT().toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Remise : -{getDiscountValue().toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            TVA (20%) : {getTVA().toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Total TTC : {getTotalTTCApresRemise().toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Acompte : -{parseFloat(deposit || 0).toFixed(2)} €
-          </Text>
-          <Text style={styles.total}>
-            Total à payer : {getTotalDue().toFixed(2)} €
-          </Text>
-        </>
-      )}
+{useGlobalTotal ? (
+  <View style={styles.totalsCard}>
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Total TTC</Text>
+      <Text style={styles.totalsValueStrong}>
+        {getEffectiveTotalTTC().toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Acompte</Text>
+      <Text style={styles.totalsValueNegative}>
+        -{parseFloat(deposit || 0).toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={[styles.totalsRow, styles.totalsRowHighlight]}>
+      <Text style={[styles.totalsLabel, styles.totalsLabelStrong]}>
+        Total à payer
+      </Text>
+      <Text style={styles.totalsValueBig}>
+        {getEffectiveTotalDue().toFixed(2)} €
+      </Text>
+    </View>
+  </View>
+) : (
+
+  <View style={styles.totalsCard}>
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Total HT</Text>
+      <Text style={styles.totalsValue}>
+        {getTotalHT().toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Remise</Text>
+      <Text style={styles.totalsValueNegative}>
+        -{getDiscountValue().toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>TVA (20%)</Text>
+      <Text style={styles.totalsValue}>
+        {getTVA().toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Total TTC</Text>
+      <Text style={styles.totalsValueStrong}>
+        {getTotalTTCApresRemise().toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={styles.totalsRow}>
+      <Text style={styles.totalsLabel}>Acompte</Text>
+      <Text style={styles.totalsValueNegative}>
+        -{parseFloat(deposit || 0).toFixed(2)} €
+      </Text>
+    </View>
+
+    <View style={[styles.totalsRow, styles.totalsRowHighlight]}>
+      <Text style={[styles.totalsLabel, styles.totalsLabelStrong]}>
+        Total à payer
+      </Text>
+      <Text style={styles.totalsValueBig}>
+        {getTotalDue().toFixed(2)} €
+      </Text>
+    </View>
+  </View>
+)}
+
+<View style={styles.totalsCard}>
+  <View style={styles.totalsRow}>
+    <Text style={styles.totalsLabel}>Total HT</Text>
+    <Text style={styles.totalsValue}>
+      {getTotalHT().toFixed(2)} €
+    </Text>
+  </View>
+
+  <View style={styles.totalsRow}>
+    <Text style={styles.totalsLabel}>Remise</Text>
+    <Text style={styles.totalsValueNegative}>
+      -{getDiscountValue().toFixed(2)} €
+    </Text>
+  </View>
+
+  <View style={styles.totalsRow}>
+    <Text style={styles.totalsLabel}>TVA (20%)</Text>
+    <Text style={styles.totalsValue}>
+      {getTVA().toFixed(2)} €
+    </Text>
+  </View>
+
+  <View style={styles.totalsRow}>
+    <Text style={styles.totalsLabel}>Total TTC</Text>
+    <Text style={styles.totalsValueStrong}>
+      {getTotalTTCApresRemise().toFixed(2)} €
+    </Text>
+  </View>
+
+  <View style={styles.totalsRow}>
+    <Text style={styles.totalsLabel}>Acompte</Text>
+    <Text style={styles.totalsValueNegative}>
+      -{parseFloat(deposit || 0).toFixed(2)} €
+    </Text>
+  </View>
+
+  <View style={[styles.totalsRow, styles.totalsRowHighlight]}>
+    <Text style={[styles.totalsLabel, styles.totalsLabelStrong]}>
+      Total à payer
+    </Text>
+    <Text style={styles.totalsValueBig}>
+      {getTotalDue().toFixed(2)} €
+    </Text>
+  </View>
+</View>
+
+
 
       <Text style={styles.label}>Remarques ou conditions particulières</Text>
       <TextInput
@@ -1002,10 +1186,9 @@ export default function QuoteEditPage() {
         onChangeText={setRemarks}
       />
 
-      {/* Actions en grille 2 colonnes */}
-      <View style={styles.actionsGrid}>
+            <View style={styles.actionsGrid}>
         <TouchableOpacity
-          style={[styles.gridBtn, { backgroundColor: "#007bff" }]}
+          style={[styles.gridBtn, styles.gridBtnPrimary]}
           onPress={handleSave}
         >
           <Text style={styles.gridBtnText}>💾 Enregistrer</Text>
@@ -1014,54 +1197,71 @@ export default function QuoteEditPage() {
         <TouchableOpacity
           style={[
             styles.gridBtn,
-            { backgroundColor: isSaved ? "#28a745" : "#9ca3af" },
+            isSaved ? styles.gridBtnSuccess : styles.gridBtnDisabled,
           ]}
           onPress={handlePrint}
           disabled={!isSaved}
         >
-          <Text style={styles.gridBtnText}>🖨️ Imprimer</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.gridBtn, { backgroundColor: "#6b4e16" }]}
-          onPress={handleCreatePdfAndShare}
-        >
-          <Text style={styles.gridBtnText}>📄 PDF + Partager</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.gridBtn,
-            { backgroundColor: phone ? "#4b5563" : "#9ca3af" },
-          ]}
-          onPress={handleSmsTextOnly}
-          disabled={!phone}
-        >
-          <Text style={styles.gridBtnText}>✉️ SMS (texte)</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.gridBtn,
-            {
-              backgroundColor:
-                convertedOrderId || converting ? "#9ca3af" : "#8b5cf6",
-            },
-          ]}
-          onPress={handleConvertToOrder}
-          disabled={!!convertedOrderId || converting}
-        >
-          <Text style={styles.gridBtnText}>
-            {convertedOrderId
-              ? "✅ Déjà en commande"
-              : converting
-              ? "… Conversion…"
-              : "↪️ En commande"}
+          <Text
+            style={[
+              styles.gridBtnText,
+              !isSaved && styles.gridBtnTextDisabled,
+            ]}
+          >
+            🖨️ Imprimer
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.gridBtn, { backgroundColor: "#6c757d" }]}
+          style={[styles.gridBtn, styles.gridBtnBrown]}
+          onPress={handleCreatePdfAndShare}
+        >
+          <Text style={styles.gridBtnText}>📄 PDF</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.gridBtn,
+            phone ? styles.gridBtnDark : styles.gridBtnDisabled,
+          ]}
+          onPress={handleSmsTextOnly}
+          disabled={!phone}
+        >
+          <Text
+            style={[
+              styles.gridBtnText,
+              !phone && styles.gridBtnTextDisabled,
+            ]}
+          >
+            ✉️ SMS</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.gridBtn,
+            convertedOrderId || converting
+              ? styles.gridBtnDisabled
+              : styles.gridBtnPurple,
+          ]}
+          onPress={handleConvertToOrder}
+          disabled={!!convertedOrderId || converting}
+        >
+          <Text
+            style={[
+              styles.gridBtnText,
+              (convertedOrderId || converting) && styles.gridBtnTextDisabled,
+            ]}
+          >
+            {convertedOrderId
+              ? "✅ Commande"
+              : converting
+              ? "…"
+              : "↪️ Commande"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.gridBtn, styles.gridBtnNeutral]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.gridBtnText}>⬅ Retour</Text>
@@ -1095,7 +1295,12 @@ const styles = StyleSheet.create({
   label: { fontWeight: "bold", marginBottom: 5, marginTop: 10 },
   subtitle: { fontSize: 18, fontWeight: "bold", marginVertical: 10 },
   itemRow: { marginBottom: 12 },
-  itemLabel: { fontWeight: "bold", fontSize: 13, marginBottom: 4, color: "#333" },
+  itemLabel: {
+    fontWeight: "bold",
+    fontSize: 13,
+    marginBottom: 4,
+    color: "#333",
+  },
   rowLine: { flexDirection: "row", alignItems: "center", gap: 8 },
   removeButton: { fontSize: 20, marginLeft: 8 },
   addButton: {
@@ -1152,4 +1357,215 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  // 👉 Styles pour le bouton d’accès à PcComponentsTablePage
+  pcHelperRow: {
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  pcHelperButton: {
+    backgroundColor: "#f3f4ff",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#a5b4fc",
+  },
+  pcHelperButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1d4ed8",
+    marginBottom: 2,
+  },
+  pcHelperButtonSub: {
+    fontSize: 12,
+    color: "#4b5563",
+  },
+    totalsCard: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#f9fafb",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  totalsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 3,
+  },
+  totalsRowHighlight: {
+    borderTopWidth: 1,
+    borderTopColor: "#d1d5db",
+    marginTop: 4,
+    paddingTop: 6,
+  },
+  totalsLabel: {
+    fontSize: 13,
+    color: "#4b5563",
+  },
+  totalsLabelStrong: {
+    fontWeight: "700",
+    color: "#111827",
+  },
+  totalsValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  totalsValueStrong: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  totalsValueNegative: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#b91c1c",
+  },
+  totalsValueBig: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#065f46",
+  },
+    cardSection: {
+    marginTop: 10,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  cardSectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  cardRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  cardField: {
+    flex: 1,
+  },
+  cardFieldFull: {
+    width: "100%",
+    marginBottom: 6,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4b5563",
+    marginBottom: 2,
+  },
+  cardSectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  addMiniButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e0f2fe",
+    borderWidth: 1,
+    borderColor: "#38bdf8",
+  },
+  addMiniButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369a1",
+  },
+  itemsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 4,
+  },
+  itemsHeaderText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  itemRowCard: {
+    marginTop: 4,
+    marginBottom: 4,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  itemInputDescription: {
+    flex: 2,
+  },
+  itemInputQty: {
+    flex: 0.7,
+    textAlign: "center",
+  },
+  itemInputPrice: {
+    flex: 1,
+    textAlign: "right",
+  },
+  itemRemoveButton: {
+    marginLeft: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  gridBtn: {
+    width: GRID_BTN_WIDTH,        // tu l'as déjà défini en haut
+    minHeight: 36,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#e5e7eb",
+  },
+  gridBtnPrimary: {
+    backgroundColor: "#2563eb",
+  },
+  gridBtnSuccess: {
+    backgroundColor: "#22c55e",
+  },
+  gridBtnBrown: {
+    backgroundColor: "#92400e",
+  },
+  gridBtnDark: {
+    backgroundColor: "#4b5563",
+  },
+  gridBtnPurple: {
+    backgroundColor: "#8b5cf6",
+  },
+  gridBtnNeutral: {
+    backgroundColor: "#6b7280",
+  },
+  gridBtnDisabled: {
+    backgroundColor: "#d1d5db",
+  },
+  gridBtnText: {
+    color: "#f9fafb",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  gridBtnTextDisabled: {
+    color: "#6b7280",
+  },
+
+
 });

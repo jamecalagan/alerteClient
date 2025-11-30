@@ -287,9 +287,10 @@ export default function QuoteRequestEditPage() {
       {/* Photos */}
       <View style={styles.group}>
         <Text style={styles.legend}>Photos</Text>
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={takePhoto}>
-            <Text style={styles.btnText}>📷 Prendre une photo</Text>
+
+        <View style={styles.photoActionsRow}>
+          <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+            <Text style={styles.photoButtonText}>Prendre une photo</Text>
           </TouchableOpacity>
         </View>
 
@@ -298,7 +299,10 @@ export default function QuoteRequestEditPage() {
             {remotePhotos.map((u) => (
               <View key={u} style={styles.photoWrap}>
                 <Image source={{ uri: u }} style={styles.photo} />
-                <TouchableOpacity style={styles.photoRemove} onPress={() => removeRemotePhoto(u)}>
+                <TouchableOpacity
+                  style={styles.photoRemove}
+                  onPress={() => removeRemotePhoto(u)}
+                >
                   <Text style={{ color: "#fff", fontWeight: "900" }}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -306,7 +310,10 @@ export default function QuoteRequestEditPage() {
             {localPhotos.map((p, idx) => (
               <View key={`${p.uri}-${idx}`} style={styles.photoWrap}>
                 <Image source={{ uri: p.uri }} style={styles.photo} />
-                <TouchableOpacity style={styles.photoRemove} onPress={() => removeLocalPhoto(idx)}>
+                <TouchableOpacity
+                  style={styles.photoRemove}
+                  onPress={() => removeLocalPhoto(idx)}
+                >
                   <Text style={{ color: "#fff", fontWeight: "900" }}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -317,22 +324,38 @@ export default function QuoteRequestEditPage() {
         )}
       </View>
 
-      {/* Actions */}
-      <View style={{ gap: 8 }}>
-        <TouchableOpacity
-          disabled={saving || uploading}
-          style={[styles.btn, styles.btnPrimary, (saving || uploading) && { opacity: 0.5 }]}
-          onPress={handleSave}
-        >
-          <Text style={styles.btnText}>
-            {saving ? "Enregistrement..." : uploading ? "Téléversement..." : "💾 Enregistrer la demande"}
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.btn, styles.btnLight]} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnTextLight}>⬅ Retour</Text>
-        </TouchableOpacity>
+      {/* Actions */}
+      <View style={styles.actionsBlock}>
+        <View style={styles.actionsSeparator} />
+
+        <View style={styles.actionsTextRow}>
+          <TouchableOpacity
+            disabled={saving || uploading}
+            onPress={handleSave}
+          >
+            <Text
+              style={[
+                styles.actionsTextPrimary,
+                (saving || uploading) && styles.actionsTextDisabled,
+              ]}
+            >
+              {saving
+                ? "Enregistrement..."
+                : uploading
+                ? "Téléversement..."
+                : "Enregistrer la demande"}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={styles.actionsDivider}>|</Text>
+
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.actionsText}>Retour</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
 
       <View style={{ height: 16 }} />
     </KeyboardAwareScrollView>
@@ -355,4 +378,55 @@ const styles = StyleSheet.create({
   btnLight: { backgroundColor: "#e5e7eb" },
   btnText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
   btnTextLight: { color: "#1f2937", fontSize: 15, fontWeight: "700" },
+    photoActionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    marginBottom: 8,
+  },
+  photoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
+  },
+  photoButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  actionsBlock: {
+    marginTop: 12,
+  },
+  actionsSeparator: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 4,
+  },
+  actionsTextRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 4,
+  },
+  actionsText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  actionsTextPrimary: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  actionsTextDisabled: {
+    color: "#9ca3af",
+  },
+  actionsDivider: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+
 });

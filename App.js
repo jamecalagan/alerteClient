@@ -70,6 +70,7 @@ import QuoteRequestsListPage from "./pages/QuoteRequestsListPage";
 import QuoteRequestEditPage from "./pages/QuoteRequestEditPage";
 import QuoteRequestDetailsPage from "./pages/QuoteRequestDetailsPage";
 import InterventionImagesPage from "./pages/InterventionImagesPage";
+import PcComponentsTablePage from "./pages/PcComponentsTablePage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -328,7 +329,11 @@ function MainStack({ setUser }) {
  component={ArchivesInterventionsPage}
   options={{ title: "Archives – Non réparables" }} />
 
-
+<Stack.Screen
+    name="PcComponentsTablePage"
+    component={PcComponentsTablePage}
+    options={{ title: "Config PC gamer" }}
+  />
 
 		</Stack.Navigator>
     );

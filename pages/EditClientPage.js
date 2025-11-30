@@ -662,6 +662,11 @@ export default function EditClientPage({ route, navigation }) {
                         clientDate: new Date().toLocaleDateString("fr-FR"),
                         deviceType:
                           currentIntervention?.deviceType || "PC Portable",
+                            // ✅ on récupère la signature directement depuis l’intervention
+  clientSignature: currentIntervention?.signatureIntervention || null,
+
+  // (optionnel mais recommandé) pour un fallback côté CheckupPage
+  interventionId: currentIntervention?.id || null,
                       });
                     }}
                   >

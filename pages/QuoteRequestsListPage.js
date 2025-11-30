@@ -22,7 +22,9 @@ const QUOTES_PDF_BUCKET = "quotes-pdf";
 /** Extrait le path Storage depuis une URL publique du bucket images */
 const pathFromPublicUrl = (url) => {
   if (!url) return null;
-  const m = url.match(/\/storage\/v1\/object\/public\/quote-request-photos\/([^?]+)/);
+  const m = url.match(
+    /\/storage\/v1\/object\/public\/quote-request-photos\/([^?]+)/
+  );
   return m ? decodeURIComponent(m[1]) : null;
 };
 
@@ -65,7 +67,9 @@ const fetchQuotePdfPublicUrl = async (quoteId) => {
 /** Message SMS (incluant lien PDF si fourni) */
 const buildSmsBody = (req, pdfUrl) => {
   const who = req.client_name ? `Bonjour M. ${req.client_name},` : `Bonjour,`;
-  const deviceParts = [req.device_type, req.brand, req.model].filter(Boolean).join(" ");
+  const deviceParts = [req.device_type, req.brand, req.model]
+    .filter(Boolean)
+    .join(" ");
   const refTxt = req.quote_id ? ` (réf. devis ${req.quote_id})` : "";
   const base =
     `${who} votre devis${refTxt} est prêt chez AVENIR INFORMATIQUE` +
@@ -114,17 +118,27 @@ export default function QuoteRequestsListPage({ navigation }) {
   }, [isFocused, loadRequests]);
 
   const filtered = requests.filter((r) => {
-    const okStatus = statusFilter === "toutes" ? true : (r.status || "") === statusFilter;
+    const okStatus =
+      statusFilter === "toutes" ? true : (r.status || "") === statusFilter;
     if (!okStatus) return false;
 
     const q = query.trim().toLowerCase();
     if (!q) return true;
 
     const hay = [
-      r.client_name, r.phone, r.email,
-      r.device_type, r.brand, r.model, r.serial,
-      r.problem, r.status,
-    ].filter(Boolean).join(" ").toLowerCase();
+      r.client_name,
+      r.phone,
+      r.email,
+      r.device_type,
+      r.brand,
+      r.model,
+      r.serial,
+      r.problem,
+      r.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
 
     return hay.includes(q);
   });
@@ -132,7 +146,10 @@ export default function QuoteRequestsListPage({ navigation }) {
   /** Envoi / Renvoi du SMS + persist BDD (et inclusion du PDF si dispo) */
   const notifyBySMS = async (req) => {
     if (!req?.phone) {
-      Alert.alert("Information manquante", "Aucun numéro de téléphone n’est renseigné.");
+      Alert.alert(
+        "Information manquante",
+        "Aucun numéro de téléphone n’est renseigné."
+      );
       return;
     }
     try {
@@ -143,14 +160,19 @@ export default function QuoteRequestsListPage({ navigation }) {
       }
 
       const body = buildSmsBody(req, pdfUrl);
-      const smsUrl = `sms:${encodeURIComponent(req.phone)}${body ? `?body=${encodeURIComponent(body)}` : ""}`;
+      const smsUrl = `sms:${encodeURIComponent(req.phone)}${
+        body ? `?body=${encodeURIComponent(body)}` : ""
+      }`;
 
       const can = await Linking.canOpenURL("sms:");
       if (can) {
         await Linking.openURL(smsUrl);
       } else {
         await Clipboard.setStringAsync(String(req.phone));
-        Alert.alert("Numéro copié", "Le numéro a été copié. Ouverture de Messages Web…");
+        Alert.alert(
+          "Numéro copié",
+          "Le numéro a été copié. Ouverture de Messages Web…"
+        );
         await Linking.openURL("https://messages.google.com/web");
       }
 
@@ -170,13 +192,18 @@ export default function QuoteRequestsListPage({ navigation }) {
 
       if (updErr) {
         console.error("⚠️ update sms fields:", updErr);
-        Alert.alert("Avertissement", "SMS envoyé, mais impossible d’enregistrer l’indication en base.");
+        Alert.alert(
+          "Avertissement",
+          "SMS envoyé, mais impossible d’enregistrer l’indication en base."
+        );
       } else {
         await loadRequests();
       }
     } catch (e) {
       console.log("❌ notifyBySMS:", e);
-      try { await Clipboard.setStringAsync(String(req.phone ?? "")); } catch {}
+      try {
+        await Clipboard.setStringAsync(String(req.phone ?? ""));
+      } catch {}
       Alert.alert(
         "Impossible d’ouvrir l’envoi SMS",
         "Le numéro a été copié dans le presse-papiers. Vous pouvez l’utiliser dans votre application de messagerie."
@@ -188,7 +215,10 @@ export default function QuoteRequestsListPage({ navigation }) {
   const prepareQuote = async (req) => {
     try {
       if ((req.status || "") === "nouvelle") {
-        await supabase.from("quote_requests").update({ status: "préparée" }).eq("id", req.id);
+        await supabase
+          .from("quote_requests")
+          .update({ status: "préparée" })
+          .eq("id", req.id);
       }
     } catch (e) {
       console.log("⚠️ maj status préparée:", e);
@@ -240,11 +270,16 @@ export default function QuoteRequestsListPage({ navigation }) {
       const urls = Array.isArray(req.photos) ? req.photos : [];
       const paths = urls.map(pathFromPublicUrl).filter(Boolean);
       if (paths.length > 0) {
-        const { error: remErr } = await supabase.storage.from(STORAGE_BUCKET).remove(paths);
+        const { error: remErr } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove(paths);
         if (remErr) console.log("⚠️ remove storage error:", remErr);
       }
       // 2) supprimer la ligne de la table
-      const { error: delErr } = await supabase.from("quote_requests").delete().eq("id", req.id);
+      const { error: delErr } = await supabase
+        .from("quote_requests")
+        .delete()
+        .eq("id", req.id);
       if (delErr) {
         Alert.alert("Erreur", "Impossible de supprimer : " + delErr.message);
         return;
@@ -252,7 +287,10 @@ export default function QuoteRequestsListPage({ navigation }) {
       await loadRequests();
     } catch (e) {
       console.log("❌ doDelete:", e);
-      Alert.alert("Erreur", "Une erreur est survenue pendant la suppression.");
+      Alert.alert(
+        "Erreur",
+        "Une erreur est survenue pendant la suppression."
+      );
     } finally {
       setDeletingId(null);
     }
@@ -261,10 +299,14 @@ export default function QuoteRequestsListPage({ navigation }) {
   /* ───────── UI ───────── */
   const RenderItem = ({ item }) => {
     const hasQuote = !!item.quote_id;
-    const firstPhoto = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
-    const showSmsZone = !item.email && !!item.phone; // zone dédiée au SMS
-    const notifiedAt = item.sms_notified_at;         // champ persistant
+    const firstPhoto =
+      Array.isArray(item.photos) && item.photos.length > 0
+        ? item.photos[0]
+        : null;
+    const showSmsZone = !item.email && !!item.phone;
+    const notifiedAt = item.sms_notified_at;
     const count = Number(item.sms_notify_count) || 0;
+    const smsLabel = notifiedAt ? "Renotifier par SMS" : "Notifier par SMS";
 
     return (
       <View style={styles.card}>
@@ -274,87 +316,145 @@ export default function QuoteRequestsListPage({ navigation }) {
             <Image source={{ uri: firstPhoto }} style={styles.thumb} />
           ) : (
             <View style={[styles.thumb, styles.thumbPlaceholder]}>
-              <Text style={{ color: "#9ca3af", fontSize: 11 }}>Aucune photo</Text>
+              <Text style={styles.thumbPlaceholderText}>Aucune photo</Text>
             </View>
           )}
 
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.titleLine}>
-              {withCivilite(item.client_name)} {item.phone ? `· ${item.phone}` : ""} {item.email ? `· ${item.email}` : ""}
+          <View style={styles.headerTextCol}>
+            <Text style={styles.clientName}>
+              {withCivilite(item.client_name)}
             </Text>
-            <Text style={styles.subLine}>
-              {item.device_type || "—"} {item.brand ? `· ${item.brand}` : ""} {item.model ? `· ${item.model}` : ""}
+            <Text style={styles.headerSub}>
+              {item.phone ? `${item.phone} · ` : ""}
+              {item.email || ""}
+            </Text>
+
+            <Text style={styles.deviceLine}>
+              {item.device_type || "Appareil non précisé"}
+              {item.brand ? ` · ${item.brand}` : ""}
+              {item.model ? ` · ${item.model}` : ""}
               {item.serial ? ` · SN/IMEI: ${item.serial}` : ""}
             </Text>
-            {item.problem ? <Text style={styles.problem}>Panne : {item.problem}</Text> : null}
+
+            {item.problem ? (
+              <Text style={styles.problem}>Panne : {item.problem}</Text>
+            ) : null}
 
             <View style={styles.metaRow}>
               <StatusPill status={item.status} />
-              {typeof item.photos_count === "number" && item.photos_count > 0 && (
-                <View style={[styles.pill, { backgroundColor: "#e5f3ff", borderColor: "#b6dcff" }]}>
-                  <Text style={[styles.pillText, { color: "#0b6bcb" }]}>{item.photos_count} photo(s)</Text>
-                </View>
-              )}
+
+              {typeof item.photos_count === "number" &&
+                item.photos_count > 0 && (
+                  <View
+                    style={[
+                      styles.pill,
+                      { backgroundColor: "#e5f3ff", borderColor: "#b6dcff" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pillText,
+                        { color: "#0b6bcb" },
+                      ]}
+                    >
+                      {item.photos_count} photo(s)
+                    </Text>
+                  </View>
+                )}
+
               {item.quote_id && (
-                <View style={[styles.pill, { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" }]}>
-                  <Text style={[styles.pillText, { color: "#374151" }]}>Devis lié</Text>
+                <View
+                  style={[
+                    styles.pill,
+                    { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      { color: "#374151" },
+                    ]}
+                  >
+                    Devis lié
+                  </Text>
                 </View>
               )}
             </View>
+
+            {/* Infos SMS compactes */}
+            {showSmsZone && notifiedAt && (
+              <Text style={styles.smsMeta}>
+                SMS notifié le{" "}
+                {new Date(notifiedAt).toLocaleString()} · {count} envoi
+                {count > 1 ? "s" : ""} · {item.notified_by || "—"}
+                {item.quote_id
+                  ? " • Lien PDF inclus (si disponible)"
+                  : ""}
+              </Text>
+            )}
           </View>
         </View>
 
-        {/* Actions */}
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity style={[styles.gridBtn, styles.btnNeutral]} onPress={() => editRequest(item)}>
-            <Text style={styles.gridBtnTextDark}>✏️ Modifier la demande</Text>
+        {/* Séparateur actions */}
+        <View style={styles.cardActionsSeparator} />
+
+        {/* Actions texte */}
+        <View style={styles.cardActionsRow}>
+          <TouchableOpacity onPress={() => editRequest(item)}>
+            <Text style={styles.cardActionTextPrimary}>
+              Modifier la demande
+            </Text>
           </TouchableOpacity>
 
+          <Text style={styles.cardActionDivider}>|</Text>
+
           {!hasQuote ? (
-            <TouchableOpacity style={[styles.gridBtn, styles.btnPrimary]} onPress={() => prepareQuote(item)}>
-              <Text style={styles.gridBtnText}>🧾 Préparer le devis</Text>
+            <TouchableOpacity onPress={() => prepareQuote(item)}>
+              <Text style={styles.cardActionText}>
+                Préparer le devis
+              </Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[styles.gridBtn, styles.btnSecondary]} onPress={() => editExistingQuote(item)}>
-              <Text style={styles.gridBtnText}>✏️ Modifier le devis</Text>
+            <TouchableOpacity onPress={() => editExistingQuote(item)}>
+              <Text style={styles.cardActionText}>
+                Modifier le devis
+              </Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={[styles.gridBtn, styles.btnLight]}
-            onPress={() => navigation.navigate("QuoteRequestDetailsPage", { id: item.id })}
-          >
-            <Text style={styles.gridBtnTextLight}>Détails</Text>
-          </TouchableOpacity>
+          <Text style={styles.cardActionDivider}>|</Text>
 
           <TouchableOpacity
-            style={[styles.gridBtn, styles.btnDanger, deletingId === item.id && { opacity: 0.6 }]}
+            onPress={() =>
+              navigation.navigate("QuoteRequestDetailsPage", { id: item.id })
+            }
+          >
+            <Text style={styles.cardActionText}>Détails</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.cardActionDivider}>|</Text>
+
+          <TouchableOpacity
             onPress={() => deleteRequest(item)}
             disabled={deletingId === item.id}
           >
-            <Text style={styles.gridBtnText}>{deletingId === item.id ? "Suppression..." : "🗑️ Supprimer"}</Text>
+            <Text
+              style={[
+                styles.cardActionTextDanger,
+                deletingId === item.id && styles.cardActionTextDisabled,
+              ]}
+            >
+              {deletingId === item.id ? "Suppression..." : "Supprimer"}
+            </Text>
           </TouchableOpacity>
 
-          {/* 📲 Zone SMS : bouton initial OU indication + renvoi (persistants) */}
-          {showSmsZone && !notifiedAt && (
-            <TouchableOpacity style={[styles.gridBtn, styles.btnSms]} onPress={() => notifyBySMS(item)}>
-              <Text style={styles.gridBtnText}>📲 Notifier par SMS</Text>
-            </TouchableOpacity>
-          )}
-
-          {showSmsZone && notifiedAt && (
-            <View style={[styles.gridBtn, styles.smsInfoWrap]}>
-              <View style={styles.smsInfoLeft}>
-                <Text style={styles.smsInfoTitle}>📨 SMS notifié</Text>
-                <Text style={styles.smsInfoSub}>
-                  {new Date(notifiedAt).toLocaleString()} · {count} envoi{count > 1 ? "s" : ""} · {item.notified_by || "—"}
-                </Text>
-                {item.quote_id ? <Text style={styles.smsInfoSub}>📎 Lien PDF inclus (si disponible)</Text> : null}
-              </View>
-              <TouchableOpacity style={styles.btnSmsGhost} onPress={() => notifyBySMS(item)}>
-                <Text style={styles.btnSmsGhostText}>↻ Renotifier</Text>
+          {showSmsZone && (
+            <>
+              <Text style={styles.cardActionDivider}>|</Text>
+              <TouchableOpacity onPress={() => notifyBySMS(item)}>
+                <Text style={styles.cardActionTextSms}>{smsLabel}</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </View>
       </View>
@@ -363,19 +463,27 @@ export default function QuoteRequestsListPage({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      {/* Filtres */}
+      {/* Filtres statut */}
       <View style={styles.segment}>
-        {["toutes", "nouvelle", "préparée", "convertie"].map((k) => (
-          <TouchableOpacity
-            key={k}
-            onPress={() => setStatusFilter(k)}
-            style={[styles.segBtn, statusFilter === k && styles.segBtnActive]}
-          >
-            <Text style={{ color: statusFilter === k ? "#fff" : "#374151", fontWeight: "700", textTransform: "capitalize" }}>
-              {k}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {["toutes", "nouvelle", "préparée", "convertie"].map((k) => {
+          const active = statusFilter === k;
+          return (
+            <TouchableOpacity
+              key={k}
+              onPress={() => setStatusFilter(k)}
+              style={[styles.segBtn, active && styles.segBtnActive]}
+            >
+              <Text
+                style={[
+                  styles.segBtnText,
+                  active && styles.segBtnTextActive,
+                ]}
+              >
+                {k}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Recherche */}
@@ -388,7 +496,7 @@ export default function QuoteRequestsListPage({ navigation }) {
 
       {/* Liste */}
       {loading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" />
         </View>
       ) : (
@@ -398,8 +506,8 @@ export default function QuoteRequestsListPage({ navigation }) {
           contentContainerStyle={{ paddingBottom: 24 }}
           renderItem={RenderItem}
           ListEmptyComponent={
-            <View style={{ alignItems: "center", marginTop: 40 }}>
-              <Text style={{ color: "#6b7280" }}>Aucune demande.</Text>
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>Aucune demande.</Text>
             </View>
           }
           onRefresh={loadRequests}
@@ -410,17 +518,43 @@ export default function QuoteRequestsListPage({ navigation }) {
   );
 }
 
-/* ───────── Composants auxiliaires ───────── */
+/* ───────── Composant statut ───────── */
 
 function StatusPill({ status }) {
   const map = {
-    nouvelle: { bg: "#eff6ff", brd: "#dbeafe", fg: "#1d4ed8", label: "Nouvelle" },
-    préparée: { bg: "#fff7ed", brd: "#ffedd5", fg: "#c2410c", label: "Préparée" },
-    convertie: { bg: "#ecfdf5", brd: "#d1fae5", fg: "#065f46", label: "Convertie" },
+    nouvelle: {
+      bg: "#eff6ff",
+      brd: "#dbeafe",
+      fg: "#1d4ed8",
+      label: "Nouvelle",
+    },
+    préparée: {
+      bg: "#fff7ed",
+      brd: "#ffedd5",
+      fg: "#c2410c",
+      label: "Préparée",
+    },
+    convertie: {
+      bg: "#ecfdf5",
+      brd: "#d1fae5",
+      fg: "#065f46",
+      label: "Convertie",
+    },
   };
-  const s = map[status] || { bg: "#f3f4f6", brd: "#e5e7eb", fg: "#374151", label: status || "—" };
+  const s =
+    map[status] || {
+      bg: "#f3f4f6",
+      brd: "#e5e7eb",
+      fg: "#374151",
+      label: status || "—",
+    };
   return (
-    <View style={[styles.pill, { backgroundColor: s.bg, borderColor: s.brd }]}>
+    <View
+      style={[
+        styles.pill,
+        { backgroundColor: s.bg, borderColor: s.brd },
+      ]}
+    >
       <Text style={[styles.pillText, { color: s.fg }]}>{s.label}</Text>
     </View>
   );
@@ -429,117 +563,184 @@ function StatusPill({ status }) {
 /* ───────── Styles ───────── */
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#ffffff", padding: 12 },
-  segment: { flexDirection: "row", gap: 6, marginBottom: 10 },
-  segBtn: {
+  screen: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: "#e5e7eb",
-    alignItems: "center",
-  },
-  segBtnActive: { backgroundColor: "#6b4e16" },
-  search: {
-    backgroundColor: "#fff",
-    borderColor: "#d1d5db",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    marginBottom: 10,
+    backgroundColor: "#ffffff",
+    padding: 12,
   },
 
+  /* Filtres */
+  segment: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  segBtn: {
+    flex: 1,
+    marginHorizontal: 2,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#f9fafb",
+    alignItems: "center",
+  },
+  segBtnActive: {
+    backgroundColor: "#2563eb",
+    borderColor: "#1d4ed8",
+  },
+  segBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+    textTransform: "capitalize",
+  },
+  segBtnTextActive: {
+    color: "#ffffff",
+  },
+
+  /* Recherche */
+  search: {
+    backgroundColor: "#ffffff",
+    borderColor: "#d1d5db",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 14,
+    marginBottom: 10,
+    color: "#111827",
+  },
+
+  /* Carte */
   card: {
-    backgroundColor: "#f7f7f7",
+    backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    padding: 12,
-    marginBottom: 12,
+    padding: 10,
+    marginBottom: 10,
   },
-
-  headerRow: { flexDirection: "row", alignItems: "flex-start" },
-  thumb: { width: 72, height: 72, borderRadius: 8, backgroundColor: "#e5e7eb" },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  thumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    backgroundColor: "#e5e7eb",
+  },
   thumbPlaceholder: {
     borderWidth: 1,
     borderColor: "#e5e7eb",
     alignItems: "center",
     justifyContent: "center",
   },
+  thumbPlaceholderText: {
+    color: "#9ca3af",
+    fontSize: 11,
+  },
+  headerTextCol: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  clientName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  headerSub: {
+    fontSize: 11,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+  deviceLine: {
+    fontSize: 12,
+    color: "#374151",
+    marginTop: 3,
+  },
+  problem: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 4,
+  },
 
-  titleLine: { fontSize: 16, fontWeight: "800", color: "#0f172a" },
-  subLine: { fontSize: 13, color: "#374151", marginTop: 2 },
-  problem: { fontSize: 12, color: "#6b7280", marginTop: 4 },
-
-  metaRow: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
   pill: {
     borderWidth: 1,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 999,
   },
-  pillText: { fontSize: 12, fontWeight: "700" },
+  pillText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
 
-  actionsRow: { flexDirection: "row", gap: 8, marginTop: 12, flexWrap: "wrap" },
-  btn: { flexGrow: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
-  btnPrimary: { backgroundColor: "#6b4e16" },
-  btnSecondary: { backgroundColor: "#0b6bcb" },
-  btnNeutral: { backgroundColor: "#04f892" },
-  btnLight: { backgroundColor: "#e5e7eb" },
-  btnDanger: { backgroundColor: "#b91c1c" },
-  btnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
-  btnTextDark: { color: "#111827", fontSize: 14, fontWeight: "800" },
-  btnTextLight: { color: "#1f2937", fontSize: 14, fontWeight: "800" },
+  smsMeta: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#047857",
+  },
 
-  actionsGrid: {
+  /* Actions texte */
+  cardActionsSeparator: {
+    marginTop: 8,
+    marginBottom: 4,
+    height: 1,
+    backgroundColor: "#e5e7eb",
+  },
+  cardActionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 12,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 4,
   },
-  gridBtn: {
-    width: "48%",
-    height: 44,
-    borderRadius: 10,
+  cardActionText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  cardActionTextPrimary: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  cardActionTextDanger: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#b91c1c",
+  },
+  cardActionTextSms: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#065f46",
+  },
+  cardActionTextDisabled: {
+    color: "#9ca3af",
+  },
+  cardActionDivider: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+
+  /* États liste */
+  loadingWrap: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
   },
-  gridBtnText: { color: "#fff", fontSize: 14, fontWeight: "800" },
-  gridBtnTextLight: { color: "#1f2937", fontSize: 14, fontWeight: "800" },
-  gridBtnTextDark: { color: "#111827", fontSize: 14, fontWeight: "800" },
-
-  // SMS
-  btnSms: { backgroundColor: "#2563eb" },
-
-  // Indicateurs
-  smsInfoWrap: {
-    width: "100%",
-    height: 56,
-    borderRadius: 10,
-    backgroundColor: "#ecfdf5",
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
-    flexDirection: "row",
+  emptyWrap: {
     alignItems: "center",
-    paddingHorizontal: 12,
-    justifyContent: "space-between",
+    marginTop: 40,
   },
-  smsInfoLeft: { flexDirection: "column" },
-  smsInfoTitle: { color: "#065f46", fontWeight: "800", fontSize: 14 },
-  smsInfoSub: { color: "#047857", fontWeight: "600", fontSize: 12 },
-
-  pillDanger: { backgroundColor: "#fee2e2", borderColor: "#fecaca" },
-
-  // Petit bouton pour renvoyer
-  btnSmsGhost: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#34d399",
-    backgroundColor: "#ffffff",
+  emptyText: {
+    color: "#6b7280",
   },
-  btnSmsGhostText: { color: "#065f46", fontWeight: "800", fontSize: 12 },
 });

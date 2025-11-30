@@ -206,7 +206,7 @@ export default function CommandePreviewPage({ route }) {
             {isPrinted && <Text style={styles.printedText}>🖨️ Commande imprimée</Text>}
           </>
         ) : (
-          <View style={{ height: 360, width: '100%' }}>
+          <View style={{ height: 360, width: '80%', marginLeft: -50 }}>
             <Signature
               ref={signatureRef}
               onOK={handleOK}
@@ -215,7 +215,7 @@ export default function CommandePreviewPage({ route }) {
               clearText="Effacer"
               confirmText="Valider"
               webStyle={`
-                .m-signature-pad { box-shadow: none; border: 2px solid #2ecc71; width: 100% !important; height: 80% !important; }
+                .m-signature-pad { box-shadow: none; border: 2px solid #2ecc71; width: 90% !important; height: 80% !important; }
                 .m-signature-pad--footer { display: flex; justify-content: space-between; }
               `}
             />
@@ -275,14 +275,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#dddddd",
     alignItems: "center",
   },
   signatureImage: {
     width: 220,
     height: 120,
     borderRadius: 6,
-    borderColor: "#bbb",
+    borderColor: "#bbbbbb",
     borderWidth: 1,
     marginTop: 10,
   },

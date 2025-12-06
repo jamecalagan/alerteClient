@@ -164,14 +164,14 @@ useEffect(() => {
                         styles.filterButtonRepair,
                         {
                             backgroundColor: getButtonColor(
-                                "Réparation en cours"
+                                "Intervention en cours"
                             ),
                         },
-                        getButtonBorder("Réparation en cours"),
+                        getButtonBorder("Intervention en cours"),
                     ]}
                     onPress={() =>
-                        handlePress("Réparation en cours", () =>
-                            filterByStatus("Réparation en cours")
+                        handlePress("Intervention en cours", () =>
+                            filterByStatus("Intervention en cours")
                         )
                     }
                 >

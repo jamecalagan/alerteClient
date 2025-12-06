@@ -210,7 +210,7 @@ export default function EditClientPage({ route, navigation }) {
         return { borderColor: "#270381", borderWidth: 2 };
       case "Devis accepté":
         return { borderColor: "#FFD700", borderWidth: 2 };
-      case "Réparation en cours":
+      case "Intervention en cours":
         return { borderColor: "#528fe0", borderWidth: 2 };
       case "Réparé":
         return { borderColor: "#98fb98", borderWidth: 2 };
@@ -229,7 +229,7 @@ export default function EditClientPage({ route, navigation }) {
         return { bgColor: "#ede9ff", textColor: "#4c1d95" };
       case "Devis accepté":
         return { bgColor: "#fef3c7", textColor: "#92400e" };
-      case "Réparation en cours":
+      case "Intervention en cours":
         return { bgColor: "#dbeafe", textColor: "#1d4ed8" };
       case "Réparé":
         return { bgColor: "#dcfce7", textColor: "#166534" };
@@ -590,12 +590,12 @@ export default function EditClientPage({ route, navigation }) {
                       onPress={() => {
                         showAlert(
                           "Confirmer la réception de la commande",
-                          'Êtes-vous sûr de vouloir passer le statut à "Réparation en cours" ?',
+                          'Êtes-vous sûr de vouloir passer le statut à "Intervention en cours" ?',
                           async () => {
                             try {
                               const { error } = await supabase
                                 .from("interventions")
-                                .update({ status: "Réparation en cours" })
+                                .update({ status: "Intervention en cours" })
                                 .eq("id", item.id);
                               if (error) return;
 
@@ -604,14 +604,14 @@ export default function EditClientPage({ route, navigation }) {
                                   intervention.id === item.id
                                     ? {
                                         ...intervention,
-                                        status: "Réparation en cours",
+                                        status: "Intervention en cours",
                                       }
                                     : intervention
                               );
                               setInterventions(updatedInterventions);
                               showAlert(
                                 "Succès",
-                                'Statut mis à jour à "Réparation en cours".'
+                                'Statut mis à jour à "Intervention en cours".'
                               );
                             } catch (error) {}
                           }

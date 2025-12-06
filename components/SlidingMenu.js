@@ -24,7 +24,7 @@ export default function SlidingMenu({
                 return "orange";
             case "Devis accepté":
                 return "green";
-            case "Réparation en cours":
+            case "Intervention en cours":
                 return "blue";
             case "Devis en cours":
                 return "purple";
@@ -226,19 +226,19 @@ export default function SlidingMenu({
                 style={styles.drawerItem}
                 onPress={() => {
                     toggleMenu(); // Ferme le menu
-                    filterByStatus("Réparation en cours");
+                    filterByStatus("Intervention en cours");
                 }}
             >
                 <Image
-                    source={require("../assets/icons/tools1.png")} // Icône pour "Réparation en cours"
+                    source={require("../assets/icons/tools1.png")} // Icône pour "Intervention en cours"
                     style={[
                         styles.drawerItemIcon,
                         {
-                            tintColor: getIconColor("Réparation en cours"),
+                            tintColor: getIconColor("Intervention en cours"),
                         }, // Applique la couleur en fonction du statut
                     ]}
                 />
-                <Text style={styles.drawerItemText}>RÉPARATION EN COURS</Text>
+                <Text style={styles.drawerItemText}>Intervention en cours</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -304,7 +304,8 @@ const styles = StyleSheet.create({
         left: 0, // Positionne le menu à gauche
         top: 0,
         bottom: 0,
-        width: 250,
+        width: "100%",
+        height: "100%",
         backgroundColor: "#2c2c2c",
         padding: 20,
         shadowColor: "#000", // Couleur de l'ombre

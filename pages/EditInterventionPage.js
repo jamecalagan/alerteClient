@@ -740,7 +740,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
     useEffect(() => {
         const prev = prevStatusRef.current;
-        if (prev === "Réparation en cours" && status === "En attente de pièces") {
+        if (prev === "Intervention en cours" && status === "En attente de pièces") {
             const defProd =
                 reference?.trim()
                     ? reference.trim()
@@ -1722,8 +1722,8 @@ export default function EditInterventionPage({ route, navigation }) {
                                     value="Devis accepté"
                                 />
                                 <Picker.Item
-                                    label="Réparation en cours"
-                                    value="Réparation en cours"
+                                    label="Intervention en cours"
+                                    value="Intervention en cours"
                                 />
                                 <Picker.Item
                                     label="Réparé"

@@ -806,7 +806,7 @@ const toggleBottomTab = (key) => {
   const calculateTotalOngoingCost = (clients) => {
     const allInterventions = clients.flatMap((client) =>
       client.interventions.filter((intervention) =>
-        ["Réparé", "Réparation en cours", "En attente de pièces"].includes(
+        ["Réparé", "Intervention en cours", "En attente de pièces"].includes(
           intervention.status
         )
       )
@@ -964,6 +964,7 @@ const toggleBottomTab = (key) => {
 						status,
 						deviceType,
 						brand,
+            description,
 						model,
 						cost,
 						solderestant,
@@ -1176,7 +1177,7 @@ const toggleBottomTab = (key) => {
         .in("status", [
           "Réparé",
           "En attente de pièces",
-          "Réparation en cours",
+          "Intervention en cours",
           "Devis en cours",
         ]);
 
@@ -1200,7 +1201,7 @@ const toggleBottomTab = (key) => {
           .in("status", [
             "Réparé",
             "En attente de pièces",
-            "Réparation en cours",
+            "Intervention en cours",
             "Devis en cours",
           ]);
 
@@ -1400,7 +1401,7 @@ interventions(
             `
           *,
 interventions(
-  id, status, deviceType, cost, solderestant,
+  id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
   photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
 )
@@ -1417,7 +1418,7 @@ interventions(
             `
           *,
 interventions(
-  id, status, deviceType, cost, solderestant,
+  id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
   photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
 )
@@ -1510,7 +1511,7 @@ interventions(
         return require("../assets/icons/shipping.png");
       case "Devis accepté":
         return require("../assets/icons/devisAccepte.png");
-      case "Réparation en cours":
+      case "Intervention en cours":
         return require("../assets/icons/tools1.png");
       case "Réparé":
         return require("../assets/icons/ok.png");
@@ -1531,7 +1532,7 @@ interventions(
         return "#b396f8"; // Violet
       case "Devis accepté":
         return "#FFD700"; // Doré
-      case "Réparation en cours":
+      case "Intervention en cours":
         return "#528fe0"; // Bleu
       case "Réparé":
         return "#006400"; // Vert
@@ -1550,7 +1551,7 @@ interventions(
         return { borderLeftColor: "#b396f8", borderLeftWidth: 3 };
       case "Devis accepté":
         return { borderLeftColor: "#FFD700", borderLeftWidth: 3 };
-      case "Réparation en cours":
+      case "Intervention en cours":
         return { borderLeftColor: "#528fe0", borderLeftWidth: 3 };
       case "Réparé":
         return { borderLeftColor: "#98fb98", borderLeftWidth: 3 };
@@ -2061,7 +2062,7 @@ interventions(
                 style={styles.drawerItem}
                 onPress={() => {
                   toggleMenu();
-                  filterByStatus("Réparation en cours");
+                  filterByStatus("Intervention en cours");
                 }}
               >
                 <Image
@@ -2069,11 +2070,11 @@ interventions(
                   style={[
                     styles.drawerItemIcon,
                     {
-                      tintColor: getIconColor("Réparation en cours"),
+                      tintColor: getIconColor("Intervention en cours"),
                     },
                   ]}
                 />
-                <Text style={styles.drawerItemText}>RÉPARATION EN COURS</Text>
+                <Text style={styles.drawerItemText}>Intervention en cours</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2497,28 +2498,39 @@ interventions(
                             duration={500} // Durée en millisecondes
                             delay={index * 200} // Délai basé sur l'index pour un effet "une après l'autre"
                           >
-                            <View
-                              style={[
-                                styles.clientCard,
-                                getStatusStyle(status),
-                                isBanned && styles.bannedRow, // ← fond rosé si banni
-                              ]}
-                            >
-                              <View style={styles.statusContent}>
-                                <View style={styles.iconCircle}>
-                                  <Image
-                                    source={getIconSource(status)}
-                                    style={{
-                                      width: 20,
-                                      height: 20,
-                                      tintColor: getIconColor(status), // Ajoute la couleur définie
-                                    }}
-                                  />
-                                </View>
-                                <Text style={styles.statusText}>{status}</Text>
-                              </View>
+<View
+  style={[
+    styles.clientCard,
+    getStatusStyle(status),
+    isBanned && styles.bannedRow, // ← fond rosé si banni
+  ]}
+>
+  <View style={styles.cardHeaderRow}>
+    <View style={styles.statusContent}>
+      <View style={styles.iconCircle}>
+        <Image
+          source={getIconSource(status)}
+          style={{
+            width: 20,
+            height: 20,
+            tintColor: getIconColor(status), // Ajoute la couleur définie
+          }}
+        />
+      </View>
+      <Text style={styles.statusText}>{status}</Text>
+    </View>
 
-                              {(() => {
+    {latestIntervention?.description ? (
+      <Text
+        style={styles.descriptionText}
+        numberOfLines={2}
+      >
+        {latestIntervention.description}
+      </Text>
+    ) : null}
+  </View>
+
+  {(() => {
                                 // ====== 1) Construction des lignes du tableau ======
                                 const li = latestIntervention;
 
@@ -4658,6 +4670,21 @@ const styles = StyleSheet.create({
     alignItems: "center", // Centrage vertical
     marginBottom: 10,
   },
+  cardHeaderRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 8,
+},
+
+descriptionText: {
+  flex: 1,
+  marginLeft: 8,
+  textAlign: "right",
+  fontSize: 13,
+  color: "#242424",
+},
+
   iconCircle: {
     backgroundColor: "#575757", // Couleur de fond gris
     width: 32, // Diamètre du cercle

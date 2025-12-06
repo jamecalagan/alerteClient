@@ -1156,8 +1156,8 @@ export default function AddInterventionPage({ route, navigation }) {
               <Picker.Item label="Devis en cours" value="Devis en cours" />
               <Picker.Item label="Devis accepté" value="Devis accepté" />
               <Picker.Item
-                label="Réparation en cours"
-                value="Réparation en cours"
+                label="Intervention en cours"
+                value="Intervention en cours"
               />
               <Picker.Item label="Réparé" value="Réparé" />
               <Picker.Item label="Non réparable" value="Non réparable" />

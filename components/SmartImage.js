@@ -1,7 +1,8 @@
 // SmartImage.js  (version avec gestion d’erreur)
 import React, { useEffect, useState } from "react";
 import { Image, View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 
 const fileExists = async (uri) => {
   try {

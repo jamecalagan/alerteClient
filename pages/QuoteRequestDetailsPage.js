@@ -15,7 +15,8 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import * as MailComposer from "expo-mail-composer";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 import * as Sharing from "expo-sharing";
 
 const W = Dimensions.get("window").width;

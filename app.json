@@ -39,7 +39,8 @@
       }
     },
     "plugins": [
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "expo-font"
     ]
   }
 }

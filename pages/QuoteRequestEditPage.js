@@ -6,7 +6,8 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { supabase } from "../supabaseClient";
 
 const STORAGE_BUCKET = "quote-request-photos";

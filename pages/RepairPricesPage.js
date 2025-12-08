@@ -9,11 +9,12 @@ import {
   Modal,
   TextInput,
   Alert,
-  SafeAreaView,
   Linking,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";

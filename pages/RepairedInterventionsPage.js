@@ -22,7 +22,8 @@ import CustomAlert from "../components/CustomAlert";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useRoute } from "@react-navigation/native"; // Importer useRoute
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 import BottomNavigation from "../components/BottomNavigation";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";

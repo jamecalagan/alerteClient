@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import {
@@ -16,6 +15,7 @@ import {
   useFocusEffect,
 } from "@react-navigation/native";
 import * as Print from "expo-print";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ———————————————————————————————————————————
 // Aide : formatage
@@ -158,6 +158,7 @@ export default function ClientPreviewPage() {
     )}</strong></div>`;
   };
 
+  // ⬇️ VERSION ALLÉGÉE : pas de code-barres dans la fiche d’intervention seule
   const handlePrint = async () => {
     if (!clientInfo) {
       Alert.alert(
@@ -167,9 +168,6 @@ export default function ClientPreviewPage() {
       return;
     }
 
-    const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-      clientInfo.name
-    )}%20`;
     const itv = clientInfo.latestIntervention;
     const ficheDate = itv?.createdAt ?? clientInfo.createdAt;
     const priceBlock = buildPriceBlockHTML(itv);
@@ -276,13 +274,12 @@ export default function ClientPreviewPage() {
     </div>
 
     <div class="section-title">Signature du Client</div>
-    <div style="display: flex; justify-content: center; align-items: center; margin-top: 10px; gap: 30px;">
+    <div style="display: flex; justify-content: center; align-items: center; margin-top: 10px;">
       ${
         clientInfo.latestIntervention.signatureIntervention
           ? `<img src="${clientInfo.latestIntervention.signatureIntervention}" class="signature" alt="Signature du client"/>`
           : "<p style='margin: 0;'>Aucune signature fournie</p>"
       }
-      <img src="${barcodeUrl}" alt="Code-barres" style="width: 120px; height: 50px;" />
     </div>
 
   </body>
@@ -290,13 +287,15 @@ export default function ClientPreviewPage() {
 `;
 
     try {
+      console.time("PRINT_FICHE_INTERVENTION");
       await Print.printAsync({ html: htmlContent });
+      console.timeEnd("PRINT_FICHE_INTERVENTION");
     } catch (error) {
       Alert.alert("Erreur", "Erreur lors de l'impression : " + error.message);
     }
   };
 
-  // ✅ Impression recto-verso intervention + checkup
+  // ✅ Impression recto-verso intervention + checkup (inchangée)
   const handlePrintBoth = async () => {
     try {
       if (!clientInfo || !clientInfo.latestIntervention) {
@@ -705,33 +704,34 @@ ${
                     />
                   </View>
                 </View>
-<View style={styles.bottomActionsRow}>
-  <TouchableOpacity
-    style={styles.bottomAction}
-    onPress={() => navigation.goBack()}
-  >
-    <Text style={styles.bottomActionText}>Retour</Text>
-  </TouchableOpacity>
+                <View style={styles.bottomActionsRow}>
+                  <TouchableOpacity
+                    style={styles.bottomAction}
+                    onPress={() => navigation.goBack()}
+                  >
+                    <Text style={styles.bottomActionText}>Retour</Text>
+                  </TouchableOpacity>
 
-  <View style={styles.bottomDivider} />
+                  <View style={styles.bottomDivider} />
 
-  <TouchableOpacity
-    style={styles.bottomAction}
-    onPress={handlePrint}
-  >
-    <Text style={styles.bottomActionText}>Imprimer</Text>
-  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.bottomAction}
+                    onPress={handlePrint}
+                  >
+                    <Text style={styles.bottomActionText}>Imprimer</Text>
+                  </TouchableOpacity>
 
-  <View style={styles.bottomDivider} />
+                  <View style={styles.bottomDivider} />
 
-  <TouchableOpacity
-    style={styles.bottomAction}
-    onPress={handlePrintBoth}
-  >
-    <Text style={styles.bottomActionText}>Imprimer recto-verso</Text>
-  </TouchableOpacity>
-</View>
-
+                  <TouchableOpacity
+                    style={styles.bottomAction}
+                    onPress={handlePrintBoth}
+                  >
+                    <Text style={styles.bottomActionText}>
+                      Imprimer recto-verso
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </>
             ) : (
               <>
@@ -916,7 +916,6 @@ const styles = StyleSheet.create({
   remarqueSection: {
     marginBottom: 20,
   },
-  // ✅ Nouvelle ligne d’actions texte 50% / 50%
   bottomActionsRow: {
     flexDirection: "row",
     alignItems: "center",

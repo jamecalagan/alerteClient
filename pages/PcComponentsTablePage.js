@@ -8,10 +8,10 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  SafeAreaView,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRoute } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ----------------------------
 //  Templates de composants

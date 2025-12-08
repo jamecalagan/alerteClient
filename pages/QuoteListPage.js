@@ -137,7 +137,7 @@ const QuoteListPage = () => {
         {/* Bloc client sous forme de petit tableau */}
         <View style={styles.cardClientBlock}>
           <View style={styles.cardClientRow}>
-            <Text style={styles.cardClientLabelCol}>Client</Text>
+            <Text style={styles.cardClientLabelCol}>Client:</Text>
             <Text style={styles.cardClientValue}>
               {item.name || "Client inconnu"}
             </Text>
@@ -145,14 +145,14 @@ const QuoteListPage = () => {
 
           {item.phone ? (
             <View style={styles.cardClientRow}>
-              <Text style={styles.cardClientLabelCol}>Tél</Text>
+              <Text style={styles.cardClientLabelCol}>Tél:</Text>
               <Text style={styles.cardClientValue}>{item.phone}</Text>
             </View>
           ) : null}
 
           {item.email ? (
             <View style={styles.cardClientRow}>
-              <Text style={styles.cardClientLabelCol}>E-mail</Text>
+              <Text style={styles.cardClientLabelCol}>E-mail:</Text>
               <Text
                 style={styles.cardClientValue}
                 numberOfLines={1}
@@ -402,21 +402,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#f3f4f6",
   },
-  labelsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  statusLabel: {
-    fontSize: 11,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 999,
-    color: "#f9fafb",
-    overflow: "hidden",
-  },
+labelsRow: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  alignItems: "center",   // 👈 centre verticalement les badges dans la ligne
+  gap: 6,
+  marginTop: 4,
+  marginBottom: 6,
+},
+statusLabel: {
+  fontSize: 11,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 999,
+  color: "#f9fafb",
+  overflow: "hidden",
+  marginBottom: 6,
+  textAlignVertical: "center", // 👈 Android : centre verticalement
+  includeFontPadding: false,   // 👈 enlève le padding haut/bas du font
+  lineHeight: 15,              // 👈 proche du fontSize pour un centrage visuel
+},
+
   statusPrinted: {
     backgroundColor: "#4b5563",
   },

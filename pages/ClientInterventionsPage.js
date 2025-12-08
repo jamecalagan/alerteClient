@@ -13,7 +13,8 @@ import {
   Modal,
   Alert,
 } from "react-native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
 

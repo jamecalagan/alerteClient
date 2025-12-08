@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Button, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+
 
 const uploadSignatureToStorage = async (base64Data, id, type = '') => {
   try {

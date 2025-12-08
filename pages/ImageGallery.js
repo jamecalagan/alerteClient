@@ -9,7 +9,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import BottomNavigation from "../components/BottomNavigation";

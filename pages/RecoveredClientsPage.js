@@ -18,10 +18,8 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
 import BottomNavigation from "../components/BottomNavigation";
+
 // Helper pour obtenir une URI exploitable par <Image>
-// À placer une seule fois en haut du fichier
-// Helper unique : accepte string OU objet {url|path|uri}, JSON stringifié, etc.
-// Remplace TOTALEMENT ta version par celle-ci
 const stripQuotes = (s) =>
   typeof s === "string" &&
   s.length >= 2 &&
@@ -72,7 +70,7 @@ const resolveImageUri = (input) => {
     // si on a "images/..." -> enlève le préfixe bucket
     const pathInBucket = s.startsWith("images/") ? s.slice(7) : s;
 
-    // garde le chemin avant un éventuel ?token (au cas où tu veux forcer un nouveau token)
+    // garde le chemin avant un éventuel ?token
     const q = pathInBucket.indexOf("?");
     const key = q > -1 ? pathInBucket.slice(0, q) : pathInBucket;
 
@@ -103,13 +101,13 @@ const cleanRef = (raw) => {
     return cleanRef(raw.url || raw.path || raw.uri || "");
   }
   // string simple : retirer guillemets + antislashs finaux
-  const stripQuotes = (s) =>
+  const stripQuotesInner = (s) =>
     s.length >= 2 &&
     ((s.startsWith('"') && s.endsWith('"')) ||
       (s.startsWith("'") && s.endsWith("'")))
       ? s.slice(1, -1)
       : s;
-  return stripQuotes(String(raw)).trim().replace(/\\+$/g, "");
+  return stripQuotesInner(String(raw)).trim().replace(/\\+$/g, "");
 };
 
 // Convertit le champ photos → array de strings propres
@@ -132,6 +130,7 @@ const normalizePhotosField = (photos) => {
   // objet isolé
   return [cleanRef(photos)].filter(Boolean);
 };
+
 // retire ?token et le domaine -> clé bucket stable (ex: "supplementaires/<id>/<file>.jpg")
 const bucketKey = (input) => {
   if (!input) return "";
@@ -152,22 +151,43 @@ const sameImage = (a, b) => {
   return !!A && !!B && A === B;
 };
 
+// Transforme éventuellement du base64 brut en data:image/...
 const toSignatureUri = (s) => {
   if (!s || typeof s !== "string") return null;
   if (s.startsWith("data:")) return s;
   if (/^https?:\/\//i.test(s)) return s;
+  // si c'est un long base64 brut
   return s.length > 50 ? `data:image/png;base64,${s}` : null;
 };
+
+/**
+ * Réimpression d'une intervention "Récupéré"
+ * -> charge l'intervention + client
+ * -> envoie la signature vers PrintPage
+ */
 const reprintIntervention = async (interventionId, navigation) => {
   try {
     const { data, error } = await supabase
       .from("interventions")
       .select(
         `
-        id, client_id,
-        deviceType, brand, model, reference, description,
-        guarantee, receiver_name, signature,
-        client:client_id ( name, ficheNumber, phone, email )
+        id,
+        client_id,
+        deviceType,
+        brand,
+        model,
+        reference,
+        description,
+        guarantee,
+        receiver_name,
+        signature,
+        signatureIntervention,
+        client:client_id (
+          name,
+          ficheNumber,
+          phone,
+          email
+        )
       `
       )
       .eq("id", interventionId)
@@ -187,14 +207,23 @@ const reprintIntervention = async (interventionId, navigation) => {
       brand: data.brand || "",
       model: data.model || "",
       reference: data.reference || "",
-      description: data.description || "", // ta PrintPage l’utilise aussi
+      description: data.description || "",
     };
+
+    // On privilégie la signature moderne (URL), sinon ancien champ
+    const dbSignature = data.signatureIntervention || data.signature || null;
+    const sigForRoute = toSignatureUri(dbSignature);
+
+    console.log(
+      "🔎 reprintIntervention signature (début) :",
+      sigForRoute ? sigForRoute.slice(0, 60) : "null"
+    );
 
     navigation.navigate("PrintPage", {
       clientInfo,
       receiverName: data.receiver_name || clientInfo.name || "",
       guaranteeText: data.guarantee || "",
-      signature: toSignatureUri(data.signature),
+      signature: sigForRoute,
       productInfo,
       description: data.description || "",
     });
@@ -207,6 +236,7 @@ const reprintIntervention = async (interventionId, navigation) => {
   }
 };
 
+
 export default function RecoveredClientsPage({ navigation, route }) {
   const flatListRef = useRef(null);
   const [recoveredClients, setRecoveredClients] = useState([]);
@@ -217,130 +247,136 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
   const [expandedCards, setExpandedCards] = useState({});
+
   // --- HELPERS NORMALISATION ---
-const stripEndBackslashes = (s) =>
-  typeof s === "string" ? s.replace(/\\+$/g, "") : s;
+  const stripEndBackslashes = (s) =>
+    typeof s === "string" ? s.replace(/\\+$/g, "") : s;
 
-// Déplie n'importe quel input (string, JSON stringifié, objet, array) → array plat
-const explodeRefs = (input) => {
-  if (!input) return [];
-  if (Array.isArray(input)) return input.flatMap(explodeRefs);
-  if (typeof input === "string") {
-    const t = input.trim();
-    if (
-      (t.startsWith("[") && t.endsWith("]")) ||
-      (t.startsWith("{") && t.endsWith("}"))
-    ) {
-      try {
-        const parsed = JSON.parse(t);
-        return explodeRefs(parsed);
-      } catch {
-        return [t];
-      }
-    }
-    return [t];
-  }
-  if (typeof input === "object") return [input]; // {url|path|uri...}
-  return [];
-};
-
-// retire ?token + domaine → clé bucket stable
-const bucketKey = (input) => {
-  if (!input) return "";
-  let s = String(input).trim();
-  const q = s.indexOf("?");
-  if (q > -1) s = s.slice(0, q);
-  const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i);
-  if (m && m[1]) return m[1];
-  if (s.startsWith("images/")) return s.slice(7);
-  return s;
-};
-const sameImage = (a, b) => {
-  const A = bucketKey(a);
-  const B = bucketKey(b);
-  return !!A && !!B && A === B;
-};
-
-const loadRecoveredClients = async () => {
-  try {
-    const { data: interventions, error: interventionsError } = await supabase
-      .from("interventions")
-      .select(`
-        *,
-        clients (name, ficheNumber, phone)
-      `)
-      .eq("status", "Récupéré")
-      .order("updatedAt", { ascending: false });
-
-    if (interventionsError) throw interventionsError;
-
-    const { data: images, error: imagesError } = await supabase
-      .from("intervention_images")
-      .select("intervention_id, image_data");
-
-    if (imagesError) throw imagesError;
-
-    // 1) Joindre la table intervention_images
-    const combined = (interventions || []).map((it) => ({
-      ...it,
-      intervention_images: (images || [])
-        .filter((img) => img.intervention_id === it.id)
-        .map((img) => img.image_data),
-    }));
-
-    // 2) Normaliser : label + fusion anciennes/nouvelles + dédoublonnage
-    const normalized = combined.map((it) => {
-      const labelCandidates = explodeRefs(it.label_photo);   // ← réutilise ta explodeRefs déjà définie
-const labelUri = resolveImageUri(labelCandidates[0] || null);
-
-      // anciennes (champ `photos`) → enlever \\ fin
-      const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
-      // nouvelles (table)
-      const newList = explodeRefs(it.intervention_images);
-
-      // convertir en URI affichables
-      const oldUris = oldList.map(resolveImageUri).filter(Boolean);
-      const newUris = newList.map(resolveImageUri).filter(Boolean);
-
-      // fusion + dédoublonnage via clé bucket
-      const merged = [...oldUris, ...newUris];
-      const seen = new Set();
-      const dedup = [];
-      for (const u of merged) {
-        const k = bucketKey(u);
-        if (k && !seen.has(k)) {
-          seen.add(k);
-          dedup.push(u);
+  // Déplie n'importe quel input (string, JSON stringifié, objet, array) → array plat
+  const explodeRefs = (input) => {
+    if (!input) return [];
+    if (Array.isArray(input)) return input.flatMap(explodeRefs);
+    if (typeof input === "string") {
+      const t = input.trim();
+      if (
+        (t.startsWith("[") && t.endsWith("]")) ||
+        (t.startsWith("{") && t.endsWith("}"))
+      ) {
+        try {
+          const parsed = JSON.parse(t);
+          return explodeRefs(parsed);
+        } catch {
+          return [t];
         }
       }
+      return [t];
+    }
+    if (typeof input === "object") return [input]; // {url|path|uri...}
+    return [];
+  };
 
-      // enlever l'étiquette des extras
-      const extras = dedup.filter((u) => !sameImage(u, labelUri));
-
-      return {
-        ...it,
-        _labelUri: labelUri || null,
-        _extraUris: extras, // ← ton rendu lit ça
-      };
-    });
-
-    // DEBUG utile (premières lignes)
-    console.log(
-      "✅ Normalized sample:",
-      normalized.slice(0, 5).map((x) => ({
-        id: x.id,
-        label: !!x._labelUri,
-        extras: x._extraUris.length,
-      }))
+  // retire ?token + domaine → clé bucket stable
+  const bucketKeyLocal = (input) => {
+    if (!input) return "";
+    let s = String(input).trim();
+    const q = s.indexOf("?");
+    if (q > -1) s = s.slice(0, q);
+    const m = s.match(
+      /\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i
     );
+    if (m && m[1]) return m[1];
+    if (s.startsWith("images/")) return s.slice(7);
+    return s;
+  };
+  const sameImageLocal = (a, b) => {
+    const A = bucketKeyLocal(a);
+    const B = bucketKeyLocal(b);
+    return !!A && !!B && A === B;
+  };
 
-    setRecoveredClients(normalized);
-    setFilteredClients(normalized);
-  } catch (error) {
-    console.error("Erreur lors du chargement des clients récupérés :", error);
-  }
-};
+  const loadRecoveredClients = async () => {
+    try {
+      const { data: interventions, error: interventionsError } = await supabase
+        .from("interventions")
+        .select(
+          `
+        *,
+        clients (name, ficheNumber, phone)
+      `
+        )
+        .eq("status", "Récupéré")
+        .order("updatedAt", { ascending: false });
 
+      if (interventionsError) throw interventionsError;
+
+      const { data: images, error: imagesError } = await supabase
+        .from("intervention_images")
+        .select("intervention_id, image_data");
+
+      if (imagesError) throw imagesError;
+
+      // 1) Joindre la table intervention_images
+      const combined = (interventions || []).map((it) => ({
+        ...it,
+        intervention_images: (images || [])
+          .filter((img) => img.intervention_id === it.id)
+          .map((img) => img.image_data),
+      }));
+
+      // 2) Normaliser : label + fusion anciennes/nouvelles + dédoublonnage
+      const normalized = combined.map((it) => {
+        const labelCandidates = explodeRefs(it.label_photo);
+        const labelUri = resolveImageUri(labelCandidates[0] || null);
+
+        // anciennes (champ `photos`) → enlever \\ fin
+        const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
+        // nouvelles (table)
+        const newList = explodeRefs(it.intervention_images);
+
+        // convertir en URI affichables
+        const oldUris = oldList.map(resolveImageUri).filter(Boolean);
+        const newUris = newList.map(resolveImageUri).filter(Boolean);
+
+        // fusion + dédoublonnage via clé bucket
+        const merged = [...oldUris, ...newUris];
+        const seen = new Set();
+        const dedup = [];
+        for (const u of merged) {
+          const k = bucketKeyLocal(u);
+          if (k && !seen.has(k)) {
+            seen.add(k);
+            dedup.push(u);
+          }
+        }
+
+        // enlever l'étiquette des extras
+        const extras = dedup.filter((u) => !sameImageLocal(u, labelUri));
+
+        return {
+          ...it,
+          _labelUri: labelUri || null,
+          _extraUris: extras,
+        };
+      });
+
+      console.log(
+        "✅ Normalized sample:",
+        normalized.slice(0, 5).map((x) => ({
+          id: x.id,
+          label: !!x._labelUri,
+          extras: x._extraUris.length,
+        }))
+      );
+
+      setRecoveredClients(normalized);
+      setFilteredClients(normalized);
+    } catch (error) {
+      console.error(
+        "Erreur lors du chargement des clients récupérés :",
+        error
+      );
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -387,17 +423,12 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
 
   const totalPages = Math.ceil(filteredClients.length / pageSize);
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
   const scrollToCard = (index) => {
     if (flatListRef.current && typeof index === "number") {
       flatListRef.current.scrollToIndex({
@@ -405,9 +436,12 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
         animated: true,
       });
     } else {
-      console.error("scrollToCard : index invalide ou FlatList non disponible");
+      console.error(
+        "scrollToCard : index invalide ou FlatList non disponible"
+      );
     }
   };
+
   const getDeviceIcon = (deviceType) => {
     switch (deviceType) {
       case "PC portable":
@@ -459,9 +493,6 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
     }
   };
 
-  const handleScrollError = (info) => {
-    console.warn("Scroll error:", info);
-  };
   const toggleCardExpansion = (id, index) => {
     if (typeof index !== "number") {
       console.error(`Index non valide : ${index}`);
@@ -478,21 +509,11 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
     }
   };
 
-  const toggleDetails = (id) => {
-    setExpandedCards((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
   const handleLabelClick = (e, labelPhotoUri) => {
     e.stopPropagation();
     setSelectedImage(labelPhotoUri);
   };
+
   const deleteIntervention = async (id) => {
     Alert.alert(
       "Confirmation",
@@ -535,6 +556,7 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
       ]
     );
   };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
       <View style={styles.overlay}>
@@ -654,9 +676,12 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
                     <Text style={styles.interventionInfo}>
                       Statut du règlement: {item.paymentStatus}
                     </Text>
+
                     {item.status === "Récupéré" && (
                       <TouchableOpacity
-                        onPress={() => reprintIntervention(item.id, navigation)}
+                        onPress={() =>
+                          reprintIntervention(item.id, navigation)
+                        }
                         style={{
                           marginTop: 8,
                           paddingVertical: 8,
@@ -673,6 +698,7 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
                         </Text>
                       </TouchableOpacity>
                     )}
+
                     <TouchableOpacity
                       onPress={() =>
                         navigation.navigate("InterventionImages", {
@@ -695,28 +721,37 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
                       </Text>
                     </TouchableOpacity>
 
-<View style={styles.imageContainer}>
-  {item._extraUris && item._extraUris.length > 0 ? (
-    item._extraUris.map((uri, idx) => (
-      <TouchableOpacity
-        key={`${item.id}-${uri}`}          // force un remount par URL réelle
-        onPress={() => setSelectedImage(uri)}
-        style={{ margin: 5 }}
-      >
-        <Image
-          source={{ uri }}                 // on passe l’URL finale telle quelle
-          style={{ width: 80, height: 80, borderRadius: 5 }}
-          onError={(e) => {
-            console.warn('thumb load error', uri, e?.nativeEvent?.error);
-          }}
-        />
-      </TouchableOpacity>
-    ))
-  ) : (
-    <Text style={styles.interventionInfo}>Pas d'images supplémentaires</Text>
-  )}
-</View>
-
+                    <View style={styles.imageContainer}>
+                      {item._extraUris && item._extraUris.length > 0 ? (
+                        item._extraUris.map((uri) => (
+                          <TouchableOpacity
+                            key={`${item.id}-${uri}`}
+                            onPress={() => setSelectedImage(uri)}
+                            style={{ margin: 5 }}
+                          >
+                            <Image
+                              source={{ uri }}
+                              style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: 5,
+                              }}
+                              onError={(e) => {
+                                console.warn(
+                                  "thumb load error",
+                                  uri,
+                                  e?.nativeEvent?.error
+                                );
+                              }}
+                            />
+                          </TouchableOpacity>
+                        ))
+                      ) : (
+                        <Text style={styles.interventionInfo}>
+                          Pas d'images supplémentaires
+                        </Text>
+                      )}
+                    </View>
                   </>
                 )}
               </View>
@@ -731,7 +766,7 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
             style={styles.chevronButton}
           >
             <Image
-              source={require("../assets/icons/chevrong.png")} // Icône pour chevron gauche
+              source={require("../assets/icons/chevrong.png")}
               style={[
                 styles.chevronIcon,
                 {
@@ -762,7 +797,9 @@ const labelUri = resolveImageUri(labelCandidates[0] || null);
           </TouchableOpacity>
         </View>
       </View>
+
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
+
       <Modal
         visible={!!selectedImage}
         transparent
@@ -804,7 +841,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f3f3f3",
     padding: 10,
     borderRadius: 10,
-
     marginBottom: 20,
     fontSize: 16,
     color: "#242424",
@@ -816,8 +852,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   deviceIcon: {
-    position: "absolute",
-    top: 15,
     width: 40,
     height: 40,
     resizeMode: "contain",
@@ -829,14 +863,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-
   iconContainer: {
     justifyContent: "center",
     alignItems: "flex-end",
     flex: 0,
     marginLeft: 10,
   },
-
   clientInfo: {
     fontSize: 16,
     marginBottom: 5,
@@ -847,7 +879,6 @@ const styles = StyleSheet.create({
     color: "#242424",
     marginBottom: 5,
   },
-
   icon: {
     marginRight: 10,
   },
@@ -916,7 +947,6 @@ const styles = StyleSheet.create({
     color: "#242424",
     fontSize: 20,
   },
-
   rightIconWrapper: {
     position: "absolute",
     right: 15,
@@ -925,7 +955,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-
   labelThumbnail: {
     width: 40,
     height: 40,
@@ -933,13 +962,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "green",
     resizeMode: "cover",
-  },
-
-  deviceIcon: {
-    width: 40,
-    height: 40,
-    resizeMode: "contain",
-    tintColor: "#888787",
   },
   cardHeader: {
     flexDirection: "row",
@@ -968,8 +990,5 @@ const styles = StyleSheet.create({
     color: "#888787",
     fontWeight: "bold",
     marginLeft: 10,
-  },
-  icon: {
-    marginRight: 10,
   },
 });

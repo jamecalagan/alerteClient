@@ -952,12 +952,12 @@ const closeAllModals = () => {
                           item.orders.some((o) => isTruthy(o?.notified));
 
                         return (
-                          // <View style={[styles.clientCard, { backgroundColor:backgroundColor }]}>
-                          <Animatable.View
-                            animation="zoomIn" // Type d'animation
-                            duration={500} // Durée en millisecondes
-                            delay={index * 200} // Délai basé sur l'index pour un effet "une après l'autre"
-                          >
+<Animatable.View
+  animation="fadeInUp"
+  duration={350}
+  delay={Math.min(index, 6) * 70}   // évite des délais énormes si la liste est longue
+  useNativeDriver
+>
 <View
   style={[
     styles.clientCard,

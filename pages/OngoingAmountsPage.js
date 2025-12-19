@@ -19,7 +19,7 @@ export default function OngoingAmountsPage({ navigation }) {
         try {
             const { data: interventions, error: errInt } = await supabase
                 .from("interventions")
-                .select("id, solderestant, client_id, status, updatedAt, clients(name, ficheNumber)")
+                .select("id, solderestant, client_id, status, brand, model, description, updatedAt, clients(name, ficheNumber)")
                 .neq("status", "Récupéré")
                 .neq("status", "Non réparable")
                 .gt("solderestant", 0);
@@ -59,8 +59,10 @@ export default function OngoingAmountsPage({ navigation }) {
                     clientName: i.clients?.name ?? "Inconnu",
                     ficheNumber: i.clients?.ficheNumber,
                     amountDue: i.solderestant ?? 0,
-                    label: `Intervention #${i.id}`,
+                    description: i.description,
                     status: i.status,
+					brand: i.brand,
+					model: i.model,
                     updatedAt: i.updatedAt ?? new Date().toISOString(),
                 });
             });
@@ -80,6 +82,8 @@ export default function OngoingAmountsPage({ navigation }) {
                     amountDue: remaining,
                     label: `Commande #${o.id}`,
                     status: orderStatus,
+					brand: o.brand ?? "Inconnu",
+					model: o.model ?? "Inconnu",
                     updatedAt: o.createdat ?? new Date().toISOString(),
                 });
             });
@@ -127,8 +131,9 @@ export default function OngoingAmountsPage({ navigation }) {
                                 <Text style={styles.detailHint}>({item.details.length} prestation(s))</Text>
                                 {item.details.map((detail, index) => (
                                     <View key={index} style={{ marginTop: 8 }}>
-                                        <Text style={styles.detailText}>{detail.label}</Text>
+                                        <Text style={styles.detailText}>{detail.description}</Text>
                                         <Text style={styles.detailText}>Statut : {detail.status}</Text>
+										<Text style={styles.detailText}>Marque : {detail.brand} {detail.model}</Text>
                                         <Text style={styles.detailText}>Mise à jour : {new Date(detail.updatedAt).toLocaleString("fr-FR")}</Text>
                                     </View>
                                 ))}

@@ -703,7 +703,8 @@ const toggleBottomTab = (key) => {
     message: "",
     onConfirm: null,
   });
-  const [paginatedClients, setPaginatedClients] = useState([]);
+  const [pages, setPages] = useState([]);
+  const [sliderW, setSliderW] = useState(0);
   const itemsPerPage = 2;
 
   const checkImagesToDelete = async () => {
@@ -828,16 +829,22 @@ const toggleBottomTab = (key) => {
     }
   }, [clients]);
 
+  
   useEffect(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
+    const chunks = [];
+    for (let i = 0; i < (filteredClients || []).length; i += itemsPerPage) {
+      chunks.push(filteredClients.slice(i, i + itemsPerPage));
+    }
+    setPages(chunks);
 
-    const clientsToDisplay = filteredClients.slice(startIndex, endIndex);
+    // 🔒 fiches fermées par défaut + recadrage page si besoin
+    setExpandedClientId(null);
+    const maxPage = Math.max(1, chunks.length);
+    if (currentPage > maxPage) setCurrentPage(maxPage);
+    if (currentPage < 1) setCurrentPage(1);
+  }, [filteredClients]);
 
-    setPaginatedClients(clientsToDisplay);
-  }, [filteredClients, currentPage]);
-
-  const closeAllModals = () => {
+const closeAllModals = () => {
     setAlertVisible(false);
     setNotifyModalVisible(false);
     setTransportModalVisible(false);
@@ -853,1560 +860,11 @@ const toggleBottomTab = (key) => {
     setActiveModal(null);
   };
 
-  const toggleClientExpansion = (clientId, itemIndex) => {
+  const toggleClientExpansion = (clientId) => {
     setExpandedClientId((prevId) => (prevId === clientId ? null : clientId));
-    if (
-      flatListRef.current &&
-      Number.isFinite(itemIndex) &&
-      itemIndex >= 0 &&
-      itemIndex < paginatedClients.length
-    ) {
-      flatListRef.current.scrollToIndex({
-        index: itemIndex,
-        animated: true,
-      });
-    }
   };
-  const logMessage = (message) =>
-    setProcessLogs((prevLogs) => [...prevLogs, message]);
-
-  const eligibleInterventions = [];
-  const updateClientNotification = async (client, method) => {
-    try {
-      if (!client || !client.id) return;
-
-      const latestI = __pickLatestActiveIntervention(
-        client.interventions || []
-      );
-      const latestO = __pickLatestActiveOrder(client.orders || []);
-
-      let error,
-        updated = false;
-
-      if (latestI) {
-        ({ error } = await supabase
-          .from("interventions")
-          .update({ is_notified: true, notifiedBy: method || "autre" })
-          .eq("id", latestI.id));
-        updated = true;
-      } else if (latestO) {
-        ({ error } = await supabase
-          .from("orders")
-          .update({ notified: true, notified_method: method || "autre" })
-          .eq("id", latestO.id));
-        updated = true;
-      }
-
-      if (!error && updated) {
-        await loadClients();
-        setNotifyModalVisible(false);
-      } else if (error) {
-        console.error("update notif:", error);
-      }
-    } catch (e) {
-      console.error("update notif ex:", e);
-    }
-  };
-
-  const loadRepairedNotReturnedCount = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("interventions")
-        .select("*")
-        .eq("status", "Réparé")
-        .eq("restitue", false);
-
-      if (error) throw error;
-
-      setRepairedNotReturnedCount(data.length);
-    } catch (error) {
-      console.error(
-        "Erreur lors du chargement des fiches réparées non restituées:",
-        error
-      );
-    }
-  };
-
-  const loadNotRepairedNotReturnedCount = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("interventions")
-        .select("*")
-        .eq("status", "Non réparable")
-        .eq("restitue", false);
-
-      if (error) throw error;
-
-      setNotRepairedNotReturnedCount(data.length);
-    } catch (error) {
-      console.error(
-        "Erreur lors du chargement des fiches non réparables non restituées:",
-        error
-      );
-    }
-  };
-
-  const goToImageGallery = (clientId) => {
-    navigation.navigate("ImageGallery", { clientId });
-  };
-
-  const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
-    setIsLoading(true);
-    try {
-      const { data: clientsData, error: clientsError } = await supabase
-        .from("clients")
-        .select(
-          `
-					*,
-					updatedAt,
-					interventions(
-						id,
-						status,
-						deviceType,
-						brand,
-            description,
-						model,
-						cost,
-						solderestant,
-						createdAt,
-						"updatedAt",
-						commande,
-						commande_effectuee,
-						photos,
-						label_photo, 
-						notifiedBy,
-						notify_type,
-						accept_screen_risk,
-						devis_cost,
-						imprimee,
-						print_etiquette,
-                        is_estimate,
- estimate_min,
- estimate_max,
- estimate_type,
- estimate_accepted,
- info_note
-        ),
-        orders(
-  id,
-  price,
-  deposit,
-  product,
-  brand,
-  model,
-  paid,
-  saved,
-  notified
-)
-    `
-        )
-        .order("createdAt", { ascending: false });
-
-      if (clientsError) throw clientsError;
-
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("*");
-
-      if (ordersError) throw ordersError;
-
-      const ordersByClient = {};
-
-      ordersData.forEach((order) => {
-        order.notified = toBool(order.notified);
-        const clientId = String(order.client_id);
-        if (!ordersByClient[clientId]) {
-          ordersByClient[clientId] = {
-            total: 0,
-            deposit: 0,
-            remaining: 0,
-            hasUnpaid: false,
-            hasUnsaved: false,
-            orders: ordersByClient[clientId]?.orders || [],
-          };
-        }
-        ordersByClient[clientId].orders.push(order);
-        ordersByClient[clientId].total += order.price || 0;
-        ordersByClient[clientId].deposit += order.deposit || 0;
-
-        if (!order.paid) {
-          ordersByClient[clientId].remaining +=
-            (order.price || 0) - (order.deposit || 0);
-          ordersByClient[clientId].hasUnpaid = true;
-        }
-        if (!order.saved) {
-          ordersByClient[clientId].hasUnsaved = true;
-        }
-      });
-
-      if (clientsData) {
-        const updatedData = clientsData.map((client) => {
-          const clientId = String(client.id);
-          const interventions = Array.isArray(client.interventions)
-            ? client.interventions
-            : [];
-
-          const ongoingInterventions = interventions.filter(
-            (intervention) =>
-              intervention.status !== "Réparé" &&
-              intervention.status !== "Récupéré" &&
-              intervention.status !== "Non réparable"
-          );
-
-          const totalAmountOngoing = ongoingInterventions.reduce(
-            (total, intervention) =>
-              total +
-              (parseFloat(intervention.cost) ||
-                parseFloat(intervention.solderestant) ||
-                0),
-            0
-          );
-
-          const totalDevisAmount = interventions.reduce(
-            (total, intervention) =>
-              intervention.status === "Devis en cours" &&
-              intervention.devis_cost
-                ? total + parseFloat(intervention.devis_cost)
-                : total,
-            0
-          );
-
-          const totalOrderAmount = ordersByClient[clientId]?.total || 0;
-          const totalOrderDeposit = ordersByClient[clientId]?.deposit || 0;
-          const totalOrderRemaining = ordersByClient[clientId]?.remaining || 0;
-          const clientOrders = ordersByClient[clientId]?.orders || [];
-
-          return {
-            ...client,
-            orders: clientOrders,
-            totalInterventions: interventions.length,
-            devis_cost: totalDevisAmount,
-            clientUpdatedAt: client.updatedAt,
-            interventions: interventions.map((intervention) => ({
-              ...intervention,
-              interventionUpdatedAt: intervention.updatedAt,
-            })),
-            totalAmountOngoing,
-            totalOrderAmount,
-            totalOrderDeposit,
-            totalOrderRemaining,
-            hasOrderUnsaved: ordersByClient[clientId]?.hasUnsaved || false,
-          };
-        });
-
-        setClients(updatedData);
-
-        const clientsToShow = updatedData
-          .filter((client) => {
-            const interventions = client.interventions || [];
-            const orders = client.orders || [];
-
-            const hasInterventionEnCours = interventions.some(
-              (intervention) =>
-                intervention.status !== "Réparé" &&
-                intervention.status !== "Récupéré" &&
-                intervention.status !== "Non réparable"
-            );
-
-            const hasCommandeActive =
-              orders.length > 0 &&
-              orders.some((order) => !order.saved || !order.paid);
-
-            return hasInterventionEnCours || hasCommandeActive;
-          })
-          .map((client) => {
-            client.interventions = client.interventions
-              .filter(
-                (intervention) =>
-                  intervention.status !== "Réparé" &&
-                  intervention.status !== "Récupéré" &&
-                  intervention.status !== "Non réparable"
-              )
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            client.latestIntervention = client.interventions[0];
-            return client;
-          });
-        clientsToShow.sort(
-          (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
-        );
-        setClients(clientsToShow);
-        setFilteredClients(clientsToShow);
-      }
-    } catch (error) {
-      console.error("❌ Erreur lors du chargement des clients:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("id, client_id, paid");
-      if (error) throw error;
-      setOrders(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des commandes:", error);
-    }
-  };
-  const loadExpressInProgress = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("express")
-        .select(
-          "id, client_id, name, phone, product, device, type, description, price, paid, notified, notified_at, created_at"
-        )
-        .eq("paid", false)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setExpressList(data || []);
-    } catch (e) {
-      console.error("❌ EXPRESS (table) :", e?.message || e);
-      setExpressList([]);
-    }
-  };
-
-  const loadOngoingInterventions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("interventions")
-        .select("*")
-        .in("status", [
-          "Réparé",
-          "En attente de pièces",
-          "Intervention en cours",
-          "Devis en cours",
-        ]);
-
-      if (error) throw error;
-
-      return data || [];
-    } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des interventions :",
-        error
-      );
-      return [];
-    }
-  };
-  useEffect(() => {
-    const fetchAllInterventions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("interventions")
-          .select("*")
-          .in("status", [
-            "Réparé",
-            "En attente de pièces",
-            "Intervention en cours",
-            "Devis en cours",
-          ]);
-
-        if (error) throw error;
-
-        setAllInterventions(data);
-        const total = data.reduce(
-          (sum, intervention) => sum + (intervention.solderestant || 0),
-          0
-        );
-
-        setTotalCost(total.toFixed(2));
-      } catch (error) {
-        console.error(
-          "Erreur lors de la récupération des interventions :",
-          error
-        );
-      }
-    };
-
-    fetchAllInterventions();
-  }, []);
-
-  const fetchDetails = (deviceType, marque, model) => {
-    setSelectedDevice({
-      deviceType,
-      brand: marque || "Inconnu",
-      model: model || "Inconnu",
-    });
-    setIsModalVisible(true);
-  };
-
-  useEffect(() => {
-    loadRepairedNotReturnedCount();
-    loadNotRepairedNotReturnedCount();
-  }, []);
-
-  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
-  const currentClients = filteredClients.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage((prevPage) => prevPage - 1);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage((prevPage) => prevPage + 1);
-    }
-  };
-  useFocusEffect(
-    React.useCallback(() => {
-      setSortBy("createdAt");
-      setOrderAsc(false);
-      loadClients();
-      loadOrders();
-      loadOrdersInProgress();
-      loadRepairedNotReturnedCount();
-      loadNotRepairedNotReturnedCount();
-      loadExpressInProgress(); // ← AJOUT
-      checkImagesToDelete();
-    }, [])
-  );
-
-  const confirmDeleteClient = (clientId) => {
-    setSelectedClientId(clientId);
-    setModalVisible(true);
-  };
-  const handleDeleteClient = async () => {
-    try {
-      const { data: interventions, error: interventionsError } = await supabase
-        .from("interventions")
-        .select("*")
-        .eq("client_id", selectedClientId);
-
-      if (interventionsError) throw interventionsError;
-
-      if (interventions && interventions.length > 0) {
-        setAlertVisible(true);
-        return;
-      }
-
-      const { error } = await supabase
-        .from("clients")
-        .delete()
-        .eq("id", selectedClientId);
-
-      if (error) throw error;
-
-      loadClients();
-      setModalVisible(false);
-    } catch (error) {
-      console.error("Erreur lors de la suppression du client :", error);
-    }
-  };
-  // 🔧 Remplace TOUT ton formatDateTime actuel par ce bloc :
-  const parseAsUTC = (s) => {
-    if (!s) return null;
-    if (s instanceof Date) return s;
-    // Déjà avec fuseau ? (Z ou ±HH(:)MM)
-    const hasTZ = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(s);
-    // Normalise séparateur ' ' -> 'T' pour ISO
-    const iso = s.includes("T") ? s : s.replace(" ", "T");
-    // Si pas de fuseau -> on force UTC en ajoutant 'Z'
-    return new Date(hasTZ ? iso : iso + "Z");
-  };
-
-  const formatDateTime = (value) => {
-    try {
-      const d = parseAsUTC(value);
-      if (!d || isNaN(d)) return "Date invalide";
-      return new Intl.DateTimeFormat("fr-FR", {
-        timeZone: "Europe/Paris",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).format(d);
-    } catch {
-      return "Date invalide";
-    }
-  };
-
-  const filterClients = async (text) => {
-    setSearchText(text);
-
-    // si champ vide -> on remet la liste initiale
-    if (!text || !text.trim()) {
-      setFilteredClients(clients);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // ————— normalisations de saisie —————
-      const raw = text.trim();
-      const query = raw.toUpperCase();
-      const digits = raw.replace(/\D+/g, ""); // ne garde que les chiffres
-
-      // détection des types de recherche
-      const isFicheNumber = /^\d+$/.test(query);
-      const isPhoneNumber = /^0\d{9}$/.test(digits); // tél FR "0XXXXXXXXX"
-
-      // petits helpers pour couvrir les formats
-      const toIntl = (d) => (d.startsWith("0") ? "+33" + d.slice(1) : d);
-      const to0033 = (d) => (d.startsWith("0") ? "0033" + d.slice(1) : d);
-      const wildcard = (s) => s.split("").join("%"); // "0601..." => "0%6%0%1%3%3%0%8%9%1"
-
-      // ————— 1) construire la requête clients —————
-      let clientQuery;
-      if (isFicheNumber && !isPhoneNumber) {
-        // recherche par numéro de fiche
-        clientQuery = supabase
-          .from("clients")
-          .select(
-            `
-          *,
-interventions(
-  id, status, deviceType, cost, solderestant,
-  createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
-)
-
-        `
-          )
-          .eq("ficheNumber", parseInt(query, 10));
-      } else if (isPhoneNumber) {
-        // ====== BRANCHE TÉLÉPHONE MODIFIÉE (seule vraie modif) ======
-        const dLocal = digits; // 0601330891
-        const dIntl = toIntl(digits); // +33601330891
-        const d0033 = to0033(digits); // 0033601330891
-
-        const wLocal = wildcard(dLocal); // 0%6%0%1%3%3%0%8%9%1
-        const wIntl = wildcard(dIntl).replace(/\+/g, "%+"); // tolère le +
-        const w0033 = wildcard(d0033);
-
-        const orParts = [
-          `phone.ilike.%${dLocal}%`,
-          `phone.ilike.%${dIntl}%`,
-          `phone.ilike.%${d0033}%`,
-          `phone.ilike.%${wLocal}%`,
-          `phone.ilike.%${wIntl}%`,
-          `phone.ilike.%${w0033}%`,
-        ].join(",");
-
-        clientQuery = supabase
-          .from("clients")
-          .select(
-            `
-          *,
-interventions(
-  id, status, deviceType, description, cost, solderestant,
-  createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
-)
-
-        `
-          )
-          .or(orParts);
-        // ============================================================
-      } else {
-        // recherche par NOM
-        clientQuery = supabase
-          .from("clients")
-          .select(
-            `
-          *,
-interventions(
-  id, status, deviceType, description, cost, solderestant,
-  createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
-)
-
-        `
-          )
-          .ilike("name", `%${query}%`);
-      }
-
-      const { data: clientsData, error: clientError } = await clientQuery;
-      if (clientError) {
-        console.error("❌ Erreur chargement clients :", clientError);
-        setFilteredClients([]);
-        return;
-      }
-
-      // ————— 2) enrichissement avec orders (identique à ton flux) —————
-      const combined = clientsData || [];
-      if (combined.length === 0) {
-        setFilteredClients([]);
-        return;
-      }
-
-      const { data: ordersData, error: orderError } = await supabase
-        .from("orders")
-        .select("*, client_id")
-        .in(
-          "client_id",
-          combined.map((c) => c.id)
-        );
-
-      if (orderError) {
-        console.error("❌ Erreur chargement commandes :", orderError);
-        setFilteredClients(combined);
-        return;
-      }
-
-      const ordersByClient = {};
-      (ordersData || []).forEach((o) => {
-        (ordersByClient[o.client_id] ||= []).push(o);
-      });
-
-      const enriched = combined.map((client) => {
-        const interventions = client.interventions || [];
-        const orders = ordersByClient[client.id] || [];
-
-        const ongoingInterventions = interventions.filter(
-          (i) =>
-            i.status !== "Réparé" &&
-            i.status !== "Récupéré" &&
-            i.status !== "Non réparable"
-        );
-
-        const totalAmountOngoing = interventions
-          .filter((i) => (i.solderestant || 0) > 0 && i.status !== "Récupéré")
-          .reduce((sum, i) => sum + (i.solderestant || 0), 0);
-
-        const totalOrderRemaining = orders
-          .filter((o) => !o.paid)
-          .reduce((sum, o) => sum + ((o.price || 0) - (o.deposit || 0)), 0);
-
-        return {
-          ...client,
-          interventions: ongoingInterventions,
-          orders,
-          latestIntervention:
-            ongoingInterventions.sort(
-              (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-            )[0] || null,
-          totalAmountOngoing,
-          totalOrderRemaining,
-        };
-      });
-
-      enriched.sort(
-        (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
-      );
-      setFilteredClients(enriched);
-    } catch (e) {
-      console.error("❌ Erreur lors de la recherche des clients :", e);
-      setFilteredClients([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getIconSource = (status) => {
-    switch (status) {
-      case "En attente de pièces":
-        return require("../assets/icons/shipping.png");
-      case "Devis accepté":
-        return require("../assets/icons/devisAccepte.png");
-      case "Intervention en cours":
-        return require("../assets/icons/tools1.png");
-      case "Réparé":
-        return require("../assets/icons/ok.png");
-      case "Devis en cours":
-        return require("../assets/icons/devisEnCours.png");
-      case "Non réparable":
-        return require("../assets/icons/no.png");
-      default:
-        return require("../assets/icons/order.png");
-    }
-  };
-  const HorizontalSeparator = () => {
-    return <View style={styles.separator} />;
-  };
-  const getIconColor = (status) => {
-    switch (status) {
-      case "En attente de pièces":
-        return "#b396f8"; // Violet
-      case "Devis accepté":
-        return "#FFD700"; // Doré
-      case "Intervention en cours":
-        return "#528fe0"; // Bleu
-      case "Réparé":
-        return "#006400"; // Vert
-      case "Devis en cours":
-        return "#f37209"; // Orange
-      case "Non réparable":
-        return "#ff0000"; // Orange
-      default:
-        return "#04fd57"; // Gris par défaut
-    }
-  };
-
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case "En attente de pièces":
-        return { borderLeftColor: "#b396f8", borderLeftWidth: 3 };
-      case "Devis accepté":
-        return { borderLeftColor: "#FFD700", borderLeftWidth: 3 };
-      case "Intervention en cours":
-        return { borderLeftColor: "#528fe0", borderLeftWidth: 3 };
-      case "Réparé":
-        return { borderLeftColor: "#98fb98", borderLeftWidth: 3 };
-      case "Devis en cours":
-        return { borderLeftColor: "#f37209", borderLeftWidth: 3 };
-      case "Non réparable":
-        return { borderLeftColor: "#ff0000", borderLeftWidth: 3 };
-      default:
-        return { borderLeftColor: "#868585", borderLeftWidth: 3 };
-    }
-  };
-  const deviceIcons = {
-    "PC portable": require("../assets/icons/portable.png"),
-    MacBook: require("../assets/icons/macbook_air.png"),
-    iMac: require("../assets/icons/iMac.png"),
-    "PC Fixe": require("../assets/icons/ordinateur (1).png"),
-    "PC tout en un": require("../assets/icons/allInone.png"),
-    Tablette: require("../assets/icons/tablette.png"),
-    Smartphone: require("../assets/icons/smartphone.png"),
-    Console: require("../assets/icons/console-de-jeu.png"),
-    "Disque dur": require("../assets/icons/disk.png"),
-    "Disque dur externe": require("../assets/icons/disque-dur.png"),
-    "Carte SD": require("../assets/icons/carte-memoire.png"),
-    "Cle usb": require("../assets/icons/cle-usb.png"),
-    "Casque audio": require("../assets/icons/playaudio.png"),
-    "Video-projecteur": require("../assets/icons/Projector.png"),
-    Clavier: require("../assets/icons/keyboard.png"),
-    Ecran: require("../assets/icons/screen.png"),
-    iPAD: require("../assets/icons/iPad.png"),
-    Imprimante: require("../assets/icons/printer.png"),
-    Joystick: require("../assets/icons/joystick.png"),
-    Processeur: require("../assets/icons/cpu.png"),
-    Batterie: require("../assets/icons/battery.png"),
-    Commande: require("../assets/icons/shipping_box.png"),
-    "Carte graphique": require("../assets/icons/Vga_card.png"),
-    Manette: require("../assets/icons/controller.png"),
-    Enceinte: require("../assets/icons/speaker.png"),
-    PDA: require("../assets/icons/Pda.png"),
-    default: require("../assets/icons/point-dinterrogation.png"),
-  };
-
-  const getDeviceIcon = (deviceType) => {
-    if (!deviceType)
-      return (
-        <Image
-          source={deviceIcons.default}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
-      );
-
-    const lowerCaseName = deviceType.toLowerCase();
-
-    if (lowerCaseName.includes("macbook")) {
-      return (
-        <Image
-          source={deviceIcons.MacBook}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
-      );
-    }
-
-    if (lowerCaseName.includes("imac")) {
-      return (
-        <Image
-          source={deviceIcons.iMac}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
-      );
-    }
-
-    const iconSource = deviceIcons[deviceType] || deviceIcons.default;
-    return (
-      <Image
-        source={iconSource}
-        style={{ width: 40, height: 40, tintColor: "#888787" }}
-      />
-    );
-  };
-
-  const filterByStatus = (status) => {
-    if (!showClients) {
-      const filtered = clients.filter((client) =>
-        client.interventions.some(
-          (intervention) => intervention.status === status
-        )
-      );
-      setFilteredClients(filtered);
-      setShowClients(true);
-    } else {
-      const filtered = clients.filter((client) =>
-        client.interventions.some(
-          (intervention) => intervention.status === status
-        )
-      );
-      setFilteredClients(filtered);
-    }
-  };
-
-  const resetFilter = () => {
-    setSearchText("");
-    setFilteredClients(clients);
-    setCurrentPage(1);
-  };
-
-  const formatPhoneNumber = (phoneNumber) => {
-    if (!phoneNumber) return "";
-
-    return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 ");
-  };
-  const toggleMenu = () => {
-    Animated.timing(slideAnim, {
-      toValue: menuVisible ? -250 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-    setMenuVisible(!menuVisible);
-  };
-  const closeMenu = () => {
-    if (menuVisible) {
-      toggleMenu();
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      console.log("Déconnexion en cours...");
-
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error("Erreur lors de la déconnexion :", error);
-        Alert.alert(
-          "Erreur",
-          "Impossible de se déconnecter. Veuillez réessayer."
-        );
-        return;
-      }
-
-      console.log("Déconnexion réussie ! Redirection vers Login...");
-    } catch (err) {
-      console.error("Erreur inattendue lors de la déconnexion :", err);
-      Alert.alert("Erreur", "Une erreur inattendue est survenue.");
-    }
-  };
-
-  const DateDisplay = () => {
-    const [currentDate, setCurrentDate] = useState("");
-
-    useEffect(() => {
-      const now = new Date();
-      const formattedDate = now.toLocaleDateString("fr-FR", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-
-      setCurrentDate(formattedDate);
-    }, []);
-
-    return (
-      <View style={styles.dateContainer}>
-        <Image
-          source={require("../assets/icons/calendar.png")}
-          style={styles.icon}
-        />
-        <Text style={styles.dateText}>{currentDate}</Text>
-      </View>
-    );
-  };
-  const TimeDisplay = () => {
-    const [currentTime, setCurrentTime] = useState("");
-
-    useEffect(() => {
-      const interval = setInterval(() => {
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString("fr-FR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-        setCurrentTime(formattedTime);
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }, []);
-
-    return (
-      <View style={styles.timeContainer}>
-        <Image
-          source={require("../assets/icons/clock.png")}
-          style={styles.icon}
-        />
-        <Text style={styles.timeText}>{currentTime}</Text>
-      </View>
-    );
-  };
-  const [orders, setOrders] = useState([]);
-
-  const getOrderColor = (clientOrders = []) => {
-    if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
-      return "#888787"; // ⚪ Gris, aucune commande
-    }
-
-    const hasUnsavedAndPaid = clientOrders.some(
-      (order) => order.paid && !order.saved
-    );
-    if (hasUnsavedAndPaid) {
-      return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
-    }
-
-    const hasUnpaidOrder = clientOrders.some((order) => !order.paid);
-    if (hasUnpaidOrder) {
-      return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
-    }
-
-    return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
-  };
-
-  const filterClientsWithCommandeEnCours = async () => {
-    try {
-      const { data: unpaidOrders, error: orderError } = await supabase
-        .from("orders")
-        .select(
-          "id, client_id, paid, saved, price, deposit, product, brand, model, notified"
-        )
-        .or("paid.eq.false,saved.eq.false");
-
-      const { data: interventions, error: interventionError } = await supabase
-        .from("interventions")
-        .select("*")
-        .not("commande", "is", null)
-        .neq("commande", "")
-        .not("status", "in", '("Réparé","Récupéré")');
-
-      if (orderError || interventionError) {
-        console.error("❌ Erreur Supabase :", orderError || interventionError);
-        return;
-      }
-
-      const clientIdsFromOrders = unpaidOrders
-        .map((o) => o.client_id)
-        .filter(Boolean);
-      const clientIdsFromInterventions = interventions
-        .map((i) => i.client_id)
-        .filter(Boolean);
-      const allClientIds = [
-        ...new Set([...clientIdsFromOrders, ...clientIdsFromInterventions]),
-      ];
-
-      if (allClientIds.length === 0) {
-        console.warn("Aucun client avec commande en cours.");
-        setFilteredClients([]);
-        return;
-      }
-
-      const { data: clients, error: clientError } = await supabase
-        .from("clients")
-        .select("*")
-        .in("id", allClientIds)
-        .order("createdAt", { ascending: false });
-
-      if (clientError) {
-        console.error("❌ Erreur chargement clients :", clientError.message);
-        return;
-      }
-
-      const enrichedClients = clients.map((client) => {
-        const clientOrders = unpaidOrders.filter(
-          (o) => o.client_id === client.id
-        );
-        const clientInterventions = interventions.filter(
-          (i) => i.client_id === client.id
-        );
-
-        const latestIntervention = clientInterventions.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        )[0];
-
-        const totalOrderAmount = clientOrders.reduce(
-          (sum, o) => sum + (parseFloat(o.price) || 0),
-          0
-        );
-        const totalOrderDeposit = clientOrders.reduce(
-          (sum, o) => sum + (parseFloat(o.deposit) || 0),
-          0
-        );
-        const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
-
-        return {
-          ...client,
-          orders: clientOrders,
-          interventions: clientInterventions,
-          latestIntervention,
-          totalOrderAmount,
-          totalOrderDeposit,
-          totalOrderRemaining,
-        };
-      });
-
-      setFilteredClients(enrichedClients);
-    } catch (err) {
-      console.error("❌ Erreur inattendue :", err.message);
-    }
-  };
-
-  const isOrderNotified = (client) =>
-    client.orders?.some((o) => o.notified === true) || false;
-  const repairedNotReturnedCountSafe = Number(repairedNotReturnedCount ?? 0);
-  const notRepairableCountSafe = Number(NotRepairedNotReturnedCount ?? 0);
-  const hasAny = repairedNotReturnedCountSafe + notRepairableCountSafe > 0;
-  return (
-    <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
-      <View style={styles.overlay}>
-        <TouchableWithoutFeedback onPress={closeMenu}>
-          <View style={[styles.container, { paddingHorizontal: 15 }]}>
-            <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
-              <Image
-                source={require("../assets/icons/menu.png")}
-                style={styles.menuIcon}
-              />
-            </TouchableOpacity>
-            <Animated.View
-              style={[
-                styles.drawer,
-                { transform: [{ translateX: slideAnim }] },
-              ]}
-            >
-              <Text style={styles.drawerTitle}>Menu</Text>
-
-              <Text style={styles.sectionTitle}>Navigation</Text>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("Home");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/home.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor:
-                        navigation.getState().index === 0 ? "blue" : "gray",
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>ACCUEIL</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("AddClient");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/add.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor:
-                        navigation.getState().index === 1 ? "blue" : "gray",
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>AJOUTER CLIENT</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("RepairedInterventions");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/tools1.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor:
-                        navigation.getState().index === 2 ? "blue" : "gray",
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>RÉPARÉS</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("RecoveredClients");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/ok.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor:
-                        navigation.getState().index === 2 ? "blue" : "gray",
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>RESTITUÉS</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("Admin");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/Config.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor:
-                        navigation.getState().index === 3 ? "blue" : "gray",
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>ADMINISTRATION</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  Alert.alert(
-                    "Confirmation",
-                    "Êtes-vous sûr de vouloir vous déconnecter ?",
-                    [
-                      {
-                        text: "Annuler",
-                        style: "cancel",
-                      },
-                      {
-                        text: "Déconnexion",
-                        onPress: async () => {
-                          try {
-                            await handleLogout();
-                            toggleMenu();
-                          } catch (error) {
-                            console.error("Erreur de déconnexion :", error);
-                          }
-                        },
-                        style: "destructive",
-                      },
-                    ],
-                    { cancelable: true }
-                  );
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/disconnects.png")}
-                  style={[styles.drawerItemIcon, { tintColor: "red" }]}
-                />
-                <Text style={styles.drawerItemText}>DÉCONNEXION</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.sectionTitle}>Filtres</Text>
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  filterByStatus("En attente de pièces");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/shipping.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor: getIconColor("En attente de pièces"),
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>EN ATTENTE DE PIECE</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu(); // Ferme le menu
-                  filterByStatus("Devis accepté");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/devisAccepte.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor: getIconColor("Devis accepté"),
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>DEVIS ACCEPTÉ</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  filterByStatus("Intervention en cours");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/tools1.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor: getIconColor("Intervention en cours"),
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>Intervention en cours</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  filterByStatus("Devis en cours");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/devisEnCours.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor: getIconColor("Devis en cours"),
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>DEVIS EN COURS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  navigation.navigate("MigrateOldImagesPage");
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/upload.png")}
-                  style={[styles.drawerItemIcon, { tintColor: "#4CAF50" }]}
-                />
-                <Text style={styles.drawerItemText}>MIGRATION IMAGES</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.drawerItem}
-                onPress={() => {
-                  toggleMenu();
-                  resetFilter();
-                  setCurrentPage(1);
-                }}
-              >
-                <Image
-                  source={require("../assets/icons/reload.png")}
-                  style={[
-                    styles.drawerItemIcon,
-                    {
-                      tintColor: getIconColor("Réinitialiser"),
-                    },
-                  ]}
-                />
-                <Text style={styles.drawerItemText}>RÉINITIALISER</Text>
-              </TouchableOpacity>
-            </Animated.View>
-            <View style={styles.overlay}>
-              <View style={styles.headerContainer}>
-                <View style={styles.repairedCountContainer}>
-                  {/* Bouton — Réparés en attente */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      repairedNotReturnedCountSafe > 0 &&
-                      navigation.navigate("RepairedInterventionsListPage", {
-                        initialFilter: "Réparé",
-                      })
-                    }
-                    disabled={repairedNotReturnedCountSafe === 0}
-                    style={[
-                      styles.counterBtn,
-                      styles.btnRepaired,
-                      repairedNotReturnedCountSafe === 0 && styles.btnDisabled,
-                    ]}
-                  >
-                    <Text style={styles.counterBtnText}>
-                      Produits réparés en attente de restitution :{" "}
-                      {repairedNotReturnedCountSafe}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Bouton — Non réparables */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      notRepairableCountSafe > 0 &&
-                      navigation.navigate("RepairedInterventionsListPage", {
-                        initialFilter: "Non réparable",
-                      })
-                    }
-                    disabled={notRepairableCountSafe === 0}
-                    style={[
-                      styles.counterBtn,
-                      styles.btnNR,
-                      { marginTop: 6 },
-                      notRepairableCountSafe === 0 && styles.btnDisabled,
-                    ]}
-                  >
-                    <Text style={styles.counterBtnText}>
-                      Produits non réparables : {notRepairableCountSafe}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {isLoading && <ActivityIndicator size="large" color="blue" />}
-
-                {!isLoading && hasImagesToDelete === true && (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate("ImageCleanup")}
-                    style={{
-                      marginRight: 40,
-                      marginTop: 10,
-                      padding: 12,
-                      borderRadius: 2,
-                      borderWidth: 1,
-                      borderColor: "#888787",
-                      backgroundColor: "#191f2f",
-                    }}
-                  >
-                    <Text style={{ color: "white" }}>Nettoyer les images</Text>
-                  </TouchableOpacity>
-                )}
-
-                {!isLoading && hasImagesToDelete === false && (
-                  <View style={styles.images_numberText}>
-                    <TouchableOpacity
-                      onPress={() => navigation.navigate("StoredImages")}
-                      style={{
-                        marginRight: 40,
-                        marginTop: 1,
-                        padding: 12,
-                        borderRadius: 10,
-                        backgroundColor: "#cacaca",
-                        elevation: 1,
-                      }}
-                    >
-                      <Text style={{ color: "#242424" }}>
-                        Accès à la Galerie Cloud
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() =>
-                        navigation.navigate("OngoingAmountsPage", {
-                          interventions: allInterventions,
-                        })
-                      }
-                    >
-                      <Text style={styles.totalText}>
-                        En cours : {totalCost} €
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                <Text style={styles.pageNumberText}>
-                  Page {currentPage} / {totalPages}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 20 }}>
-                {/* —— BARRE DE RECHERCHE —— */}
-                <View
-                  style={[
-                    styles.searchContainer,
-                    isBannedMatch && styles.searchContainerBanned,
-                  ]}
-                >
-                  <TextInput
-                    style={[
-                      styles.searchInput,
-                      isBannedMatch && styles.searchInputBanned,
-                    ]}
-                    placeholder="Rechercher client (nom ou téléphone)"
-                    placeholderTextColor={isBannedMatch ? "#7f1d1d" : "#575757"}
-                    value={searchText}
-                    onChangeText={(t) => {
-                      setSearchText(t);
-                      filterClients(t);
-                    }}
-                    autoCorrect={false}
-                    autoCapitalize="characters"
-                    returnKeyType="search"
-                  />
-                  <Image
-                    source={require("../assets/icons/search.png")}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      tintColor: isBannedMatch ? "#b91c1c" : "#888787",
-                      marginLeft: 8,
-                    }}
-                  />
-                </View>
-
-                {isBannedMatch && (
-                  <Text style={styles.bannedHint}>
-                    ⚠️ Correspond à un client banni — sélection désactivée.
-                  </Text>
-                )}
-
-                {/* —— SUGGESTIONS —— */}
-                {searchText?.trim()?.length > 0 && (
-                  <FlatList
-                    data={(filteredClients || []).slice(0, 10)}
-                    keyExtractor={(it) => String(it.id)}
-                    keyboardShouldPersistTaps="handled"
-                    style={styles.suggestionsBox}
-                    renderItem={({ item }) => {
-                      const isBanned = item?.banned === true;
-
-                      const onPick = () => {
-                        if (isBanned) {
-                          openBannedAlert(item);
-                          return;
-                        }
-                        navigation.navigate("ClientInterventionsPage", {
-                          clientId: item.id,
-                        });
-                      };
-
-                      return (
-                        <TouchableOpacity
-                          onPress={onPick}
-                          activeOpacity={isBanned ? 1 : 0.8}
-                          style={[
-                            {
-                              paddingVertical: 10,
-                              paddingHorizontal: 12,
-                              borderBottomWidth: 1,
-                              borderBottomColor: "#f3f4f6",
-                              backgroundColor: "#fff",
-                            },
-                            isBanned && styles.sugRowBanned, // fond rosé si banni
-                          ]}
-                        >
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.sugName,
-                              isBanned && styles.sugNameBanned,
-                            ]} // nom en rouge
-                          >
-                            {item?.name || "—"}
-                          </Text>
-
-                          <Text
-                            style={{ color: "#6b7280", fontSize: 12 }}
-                            numberOfLines={1}
-                          >
-                            {item?.phone
-                              ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
-                              : "—"}
-                            {typeof item?.ficheNumber !== "undefined"
-                              ? `  ·  Fiche ${item.ficheNumber}`
-                              : ""}
-                          </Text>
-
-                          {isBanned && (
-                            <View style={styles.sugBadgeBanned}>
-                              <Text style={styles.sugBadgeBannedText}>
-                                BANNI
-                                {item?.ban_reason
-                                  ? ` — ${item.ban_reason}`
-                                  : ""}
-                              </Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    }}
-                  />
-                )}
-
-
-              </View>
-
-              <View style={styles.buttonContainerMasquer}>
-                <TouchableOpacity
-                  style={styles.toggleButton}
-                  onPress={openPopup}
-                >
-                  <Image
-                    source={
-                      showClients
-                        ? require("../assets/icons/eye.png") // Icône pour "masquer"
-                        : require("../assets/icons/eye.png") // Icône pour "afficher"
-                    }
-                    style={styles.iconStyle}
-                  />
-                  <Text style={styles.toggleText}>Fiches en cours</Text>
-                </TouchableOpacity>
-
-                <View>
-                  <DateDisplay />
-                </View>
-
-                <View>
-                  <TimeDisplay />
-                </View>
-              </View>
-              {isLoading ? (
-                <View style={styles.loaderContainer}>
-                  <ActivityIndicator size={90} color="#e5e8eb" />
-                </View>
-              ) : currentClients.length === 0 ? (
-                <Text style={styles.noClientsText}>Aucun client trouvé</Text>
-              ) : (
-                <>
-                  {showClients && (
-                    <FlatList
-                      ref={flatListRef}
-                      initialNumToRender={10}
-                      maxToRenderPerBatch={5}
-                      showsVerticalScrollIndicator={false}
-                      scrollEnabled={true}
-                      windowSize={5}
-                      data={paginatedClients}
-                      keyExtractor={(item) => item.id.toString()}
-                      getItemLayout={(data, index) => ({
-                        length: 180, // Hauteur de chaque fiche
-                        offset: 180 * index,
-                        index,
-                      })}
-                      onScrollToIndexFailed={({
-                        index,
-                        highestMeasuredFrameIndex,
-                      }) => {
-                        flatListRef.current?.scrollToIndex({
-                          index: Math.max(0, highestMeasuredFrameIndex),
-                          animated: true,
-                        });
-                      }}
-                      renderItem={({ item, index }) => {
+  // === Carte client (réutilisée pour le slider 2 fiches/page) ===
+  const renderClientCard = ({ item, index }) => {
                         const isBanned = item?.banned === true;
 
                         const latestForTint = __pickLatestActiveIntervention(
@@ -3084,11 +1542,1617 @@ interventions(
                             </View>
                           </Animatable.View>
                         );
+                      
+  };
+
+  const logMessage = (message) =>
+    setProcessLogs((prevLogs) => [...prevLogs, message]);
+
+  const eligibleInterventions = [];
+  const updateClientNotification = async (client, method) => {
+    try {
+      if (!client || !client.id) return;
+
+      const latestI = __pickLatestActiveIntervention(
+        client.interventions || []
+      );
+      const latestO = __pickLatestActiveOrder(client.orders || []);
+
+      let error,
+        updated = false;
+
+      if (latestI) {
+        ({ error } = await supabase
+          .from("interventions")
+          .update({ is_notified: true, notifiedBy: method || "autre" })
+          .eq("id", latestI.id));
+        updated = true;
+      } else if (latestO) {
+        ({ error } = await supabase
+          .from("orders")
+          .update({ notified: true, notified_method: method || "autre" })
+          .eq("id", latestO.id));
+        updated = true;
+      }
+
+      if (!error && updated) {
+        await loadClients();
+        setNotifyModalVisible(false);
+      } else if (error) {
+        console.error("update notif:", error);
+      }
+    } catch (e) {
+      console.error("update notif ex:", e);
+    }
+  };
+
+  const loadRepairedNotReturnedCount = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("interventions")
+        .select("*")
+        .eq("status", "Réparé")
+        .eq("restitue", false);
+
+      if (error) throw error;
+
+      setRepairedNotReturnedCount(data.length);
+    } catch (error) {
+      console.error(
+        "Erreur lors du chargement des fiches réparées non restituées:",
+        error
+      );
+    }
+  };
+
+  const loadNotRepairedNotReturnedCount = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("interventions")
+        .select("*")
+        .eq("status", "Non réparable")
+        .eq("restitue", false);
+
+      if (error) throw error;
+
+      setNotRepairedNotReturnedCount(data.length);
+    } catch (error) {
+      console.error(
+        "Erreur lors du chargement des fiches non réparables non restituées:",
+        error
+      );
+    }
+  };
+
+  const goToImageGallery = (clientId) => {
+    navigation.navigate("ImageGallery", { clientId });
+  };
+
+  const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
+    setIsLoading(true);
+    try {
+      const { data: clientsData, error: clientsError } = await supabase
+        .from("clients")
+        .select(
+          `
+					*,
+					updatedAt,
+					interventions(
+						id,
+						status,
+						deviceType,
+						brand,
+            description,
+						model,
+						cost,
+						solderestant,
+						createdAt,
+						"updatedAt",
+						commande,
+						commande_effectuee,
+						photos,
+						label_photo, 
+						notifiedBy,
+						notify_type,
+						accept_screen_risk,
+						devis_cost,
+						imprimee,
+						print_etiquette,
+                        is_estimate,
+ estimate_min,
+ estimate_max,
+ estimate_type,
+ estimate_accepted,
+ info_note
+        ),
+        orders(
+  id,
+  price,
+  deposit,
+  product,
+  brand,
+  model,
+  paid,
+  saved,
+  notified
+)
+    `
+        )
+        .order("createdAt", { ascending: false });
+
+      if (clientsError) throw clientsError;
+
+      const { data: ordersData, error: ordersError } = await supabase
+        .from("orders")
+        .select("*");
+
+      if (ordersError) throw ordersError;
+
+      const ordersByClient = {};
+
+      ordersData.forEach((order) => {
+        order.notified = toBool(order.notified);
+        const clientId = String(order.client_id);
+        if (!ordersByClient[clientId]) {
+          ordersByClient[clientId] = {
+            total: 0,
+            deposit: 0,
+            remaining: 0,
+            hasUnpaid: false,
+            hasUnsaved: false,
+            orders: ordersByClient[clientId]?.orders || [],
+          };
+        }
+        ordersByClient[clientId].orders.push(order);
+        ordersByClient[clientId].total += order.price || 0;
+        ordersByClient[clientId].deposit += order.deposit || 0;
+
+        if (!order.paid) {
+          ordersByClient[clientId].remaining +=
+            (order.price || 0) - (order.deposit || 0);
+          ordersByClient[clientId].hasUnpaid = true;
+        }
+        if (!order.saved) {
+          ordersByClient[clientId].hasUnsaved = true;
+        }
+      });
+
+      if (clientsData) {
+        const updatedData = clientsData.map((client) => {
+          const clientId = String(client.id);
+          const interventions = Array.isArray(client.interventions)
+            ? client.interventions
+            : [];
+
+          const ongoingInterventions = interventions.filter(
+            (intervention) =>
+              intervention.status !== "Réparé" &&
+              intervention.status !== "Récupéré" &&
+              intervention.status !== "Non réparable"
+          );
+
+          const totalAmountOngoing = ongoingInterventions.reduce(
+            (total, intervention) =>
+              total +
+              (parseFloat(intervention.cost) ||
+                parseFloat(intervention.solderestant) ||
+                0),
+            0
+          );
+
+          const totalDevisAmount = interventions.reduce(
+            (total, intervention) =>
+              intervention.status === "Devis en cours" &&
+              intervention.devis_cost
+                ? total + parseFloat(intervention.devis_cost)
+                : total,
+            0
+          );
+
+          const totalOrderAmount = ordersByClient[clientId]?.total || 0;
+          const totalOrderDeposit = ordersByClient[clientId]?.deposit || 0;
+          const totalOrderRemaining = ordersByClient[clientId]?.remaining || 0;
+          const clientOrders = ordersByClient[clientId]?.orders || [];
+
+          return {
+            ...client,
+            orders: clientOrders,
+            totalInterventions: interventions.length,
+            devis_cost: totalDevisAmount,
+            clientUpdatedAt: client.updatedAt,
+            interventions: interventions.map((intervention) => ({
+              ...intervention,
+              interventionUpdatedAt: intervention.updatedAt,
+            })),
+            totalAmountOngoing,
+            totalOrderAmount,
+            totalOrderDeposit,
+            totalOrderRemaining,
+            hasOrderUnsaved: ordersByClient[clientId]?.hasUnsaved || false,
+          };
+        });
+
+        setClients(updatedData);
+
+        const clientsToShow = updatedData
+          .filter((client) => {
+            const interventions = client.interventions || [];
+            const orders = client.orders || [];
+
+            const hasInterventionEnCours = interventions.some(
+              (intervention) =>
+                intervention.status !== "Réparé" &&
+                intervention.status !== "Récupéré" &&
+                intervention.status !== "Non réparable"
+            );
+
+            const hasCommandeActive =
+              orders.length > 0 &&
+              orders.some((order) => !order.saved || !order.paid);
+
+            return hasInterventionEnCours || hasCommandeActive;
+          })
+          .map((client) => {
+            client.interventions = client.interventions
+              .filter(
+                (intervention) =>
+                  intervention.status !== "Réparé" &&
+                  intervention.status !== "Récupéré" &&
+                  intervention.status !== "Non réparable"
+              )
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            client.latestIntervention = client.interventions[0];
+            return client;
+          });
+        clientsToShow.sort(
+          (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
+        );
+        setClients(clientsToShow);
+        setFilteredClients(clientsToShow);
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors du chargement des clients:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, client_id, paid");
+      if (error) throw error;
+      setOrders(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des commandes:", error);
+    }
+  };
+  const loadExpressInProgress = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("express")
+        .select(
+          "id, client_id, name, phone, product, device, type, description, price, paid, notified, notified_at, created_at"
+        )
+        .eq("paid", false)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setExpressList(data || []);
+    } catch (e) {
+      console.error("❌ EXPRESS (table) :", e?.message || e);
+      setExpressList([]);
+    }
+  };
+
+  const loadOngoingInterventions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("interventions")
+        .select("*")
+        .in("status", [
+          "Réparé",
+          "En attente de pièces",
+          "Intervention en cours",
+          "Devis en cours",
+        ]);
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des interventions :",
+        error
+      );
+      return [];
+    }
+  };
+  useEffect(() => {
+    const fetchAllInterventions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("interventions")
+          .select("*")
+          .in("status", [
+            "Réparé",
+            "En attente de pièces",
+            "Intervention en cours",
+            "Devis en cours",
+          ]);
+
+        if (error) throw error;
+
+        setAllInterventions(data);
+        const total = data.reduce(
+          (sum, intervention) => sum + (intervention.solderestant || 0),
+          0
+        );
+
+        setTotalCost(total.toFixed(2));
+      } catch (error) {
+        console.error(
+          "Erreur lors de la récupération des interventions :",
+          error
+        );
+      }
+    };
+
+    fetchAllInterventions();
+  }, []);
+
+  const fetchDetails = (deviceType, marque, model) => {
+    setSelectedDevice({
+      deviceType,
+      brand: marque || "Inconnu",
+      model: model || "Inconnu",
+    });
+    setIsModalVisible(true);
+  };
+
+  useEffect(() => {
+    loadRepairedNotReturnedCount();
+    loadNotRepairedNotReturnedCount();
+  }, []);
+
+  const totalPages = Math.max(1, pages.length);
+ const sliderTotalPages = Array.isArray(pages) ? pages.length : 0;
+  const currentClients = pages[currentPage - 1] || [];
+const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      const target = currentPage - 2; // index 0-based
+      setExpandedClientId(null);
+      flatListRef.current?.scrollToIndex({ index: target, animated: true });
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      const target = currentPage; // index 0-based
+      setExpandedClientId(null);
+      flatListRef.current?.scrollToIndex({ index: target, animated: true });
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  useFocusEffect(
+    React.useCallback(() => {
+      setSortBy("createdAt");
+      setOrderAsc(false);
+      loadClients();
+      loadOrders();
+      loadOrdersInProgress();
+      loadRepairedNotReturnedCount();
+      loadNotRepairedNotReturnedCount();
+      loadExpressInProgress(); // ← AJOUT
+      checkImagesToDelete();
+    }, [])
+  );
+
+  const confirmDeleteClient = (clientId) => {
+    setSelectedClientId(clientId);
+    setModalVisible(true);
+  };
+  const handleDeleteClient = async () => {
+    try {
+      const { data: interventions, error: interventionsError } = await supabase
+        .from("interventions")
+        .select("*")
+        .eq("client_id", selectedClientId);
+
+      if (interventionsError) throw interventionsError;
+
+      if (interventions && interventions.length > 0) {
+        setAlertVisible(true);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", selectedClientId);
+
+      if (error) throw error;
+
+      loadClients();
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Erreur lors de la suppression du client :", error);
+    }
+  };
+  // 🔧 Remplace TOUT ton formatDateTime actuel par ce bloc :
+  const parseAsUTC = (s) => {
+    if (!s) return null;
+    if (s instanceof Date) return s;
+    // Déjà avec fuseau ? (Z ou ±HH(:)MM)
+    const hasTZ = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(s);
+    // Normalise séparateur ' ' -> 'T' pour ISO
+    const iso = s.includes("T") ? s : s.replace(" ", "T");
+    // Si pas de fuseau -> on force UTC en ajoutant 'Z'
+    return new Date(hasTZ ? iso : iso + "Z");
+  };
+
+  const formatDateTime = (value) => {
+    try {
+      const d = parseAsUTC(value);
+      if (!d || isNaN(d)) return "Date invalide";
+      return new Intl.DateTimeFormat("fr-FR", {
+        timeZone: "Europe/Paris",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).format(d);
+    } catch {
+      return "Date invalide";
+    }
+  };
+
+  const filterClients = async (text) => {
+    setSearchText(text);
+
+    // si champ vide -> on remet la liste initiale
+    if (!text || !text.trim()) {
+      setFilteredClients(clients);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // ————— normalisations de saisie —————
+      const raw = text.trim();
+      const query = raw.toUpperCase();
+      const digits = raw.replace(/\D+/g, ""); // ne garde que les chiffres
+
+      // détection des types de recherche
+      const isFicheNumber = /^\d+$/.test(query);
+      const isPhoneNumber = /^0\d{9}$/.test(digits); // tél FR "0XXXXXXXXX"
+
+      // petits helpers pour couvrir les formats
+      const toIntl = (d) => (d.startsWith("0") ? "+33" + d.slice(1) : d);
+      const to0033 = (d) => (d.startsWith("0") ? "0033" + d.slice(1) : d);
+      const wildcard = (s) => s.split("").join("%"); // "0601..." => "0%6%0%1%3%3%0%8%9%1"
+
+      // ————— 1) construire la requête clients —————
+      let clientQuery;
+      if (isFicheNumber && !isPhoneNumber) {
+        // recherche par numéro de fiche
+        clientQuery = supabase
+          .from("clients")
+          .select(
+            `
+          *,
+interventions(
+  id, status, deviceType, cost, solderestant,
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+)
+
+        `
+          )
+          .eq("ficheNumber", parseInt(query, 10));
+      } else if (isPhoneNumber) {
+        // ====== BRANCHE TÉLÉPHONE MODIFIÉE (seule vraie modif) ======
+        const dLocal = digits; // 0601330891
+        const dIntl = toIntl(digits); // +33601330891
+        const d0033 = to0033(digits); // 0033601330891
+
+        const wLocal = wildcard(dLocal); // 0%6%0%1%3%3%0%8%9%1
+        const wIntl = wildcard(dIntl).replace(/\+/g, "%+"); // tolère le +
+        const w0033 = wildcard(d0033);
+
+        const orParts = [
+          `phone.ilike.%${dLocal}%`,
+          `phone.ilike.%${dIntl}%`,
+          `phone.ilike.%${d0033}%`,
+          `phone.ilike.%${wLocal}%`,
+          `phone.ilike.%${wIntl}%`,
+          `phone.ilike.%${w0033}%`,
+        ].join(",");
+
+        clientQuery = supabase
+          .from("clients")
+          .select(
+            `
+          *,
+interventions(
+  id, status, deviceType, description, cost, solderestant,
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+)
+
+        `
+          )
+          .or(orParts);
+        // ============================================================
+      } else {
+        // recherche par NOM
+        clientQuery = supabase
+          .from("clients")
+          .select(
+            `
+          *,
+interventions(
+  id, status, deviceType, description, cost, solderestant,
+  createdAt, "updatedAt", commande,
+  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+)
+
+        `
+          )
+          .ilike("name", `%${query}%`);
+      }
+
+      const { data: clientsData, error: clientError } = await clientQuery;
+      if (clientError) {
+        console.error("❌ Erreur chargement clients :", clientError);
+        setFilteredClients([]);
+        return;
+      }
+
+      // ————— 2) enrichissement avec orders (identique à ton flux) —————
+      const combined = clientsData || [];
+      if (combined.length === 0) {
+        setFilteredClients([]);
+        return;
+      }
+
+      const { data: ordersData, error: orderError } = await supabase
+        .from("orders")
+        .select("*, client_id")
+        .in(
+          "client_id",
+          combined.map((c) => c.id)
+        );
+
+      if (orderError) {
+        console.error("❌ Erreur chargement commandes :", orderError);
+        setFilteredClients(combined);
+        return;
+      }
+
+      const ordersByClient = {};
+      (ordersData || []).forEach((o) => {
+        (ordersByClient[o.client_id] ||= []).push(o);
+      });
+
+      const enriched = combined.map((client) => {
+        const interventions = client.interventions || [];
+        const orders = ordersByClient[client.id] || [];
+
+        const ongoingInterventions = interventions.filter(
+          (i) =>
+            i.status !== "Réparé" &&
+            i.status !== "Récupéré" &&
+            i.status !== "Non réparable"
+        );
+
+        const totalAmountOngoing = interventions
+          .filter((i) => (i.solderestant || 0) > 0 && i.status !== "Récupéré")
+          .reduce((sum, i) => sum + (i.solderestant || 0), 0);
+
+        const totalOrderRemaining = orders
+          .filter((o) => !o.paid)
+          .reduce((sum, o) => sum + ((o.price || 0) - (o.deposit || 0)), 0);
+
+        return {
+          ...client,
+          interventions: ongoingInterventions,
+          orders,
+          latestIntervention:
+            ongoingInterventions.sort(
+              (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+            )[0] || null,
+          totalAmountOngoing,
+          totalOrderRemaining,
+        };
+      });
+
+      enriched.sort(
+        (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
+      );
+      setFilteredClients(enriched);
+    } catch (e) {
+      console.error("❌ Erreur lors de la recherche des clients :", e);
+      setFilteredClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getIconSource = (status) => {
+    switch (status) {
+      case "En attente de pièces":
+        return require("../assets/icons/shipping.png");
+      case "Devis accepté":
+        return require("../assets/icons/devisAccepte.png");
+      case "Intervention en cours":
+        return require("../assets/icons/tools1.png");
+      case "Réparé":
+        return require("../assets/icons/ok.png");
+      case "Devis en cours":
+        return require("../assets/icons/devisEnCours.png");
+      case "Non réparable":
+        return require("../assets/icons/no.png");
+      default:
+        return require("../assets/icons/order.png");
+    }
+  };
+  const HorizontalSeparator = () => {
+    return <View style={styles.separator} />;
+  };
+  const getIconColor = (status) => {
+    switch (status) {
+      case "En attente de pièces":
+        return "#b396f8"; // Violet
+      case "Devis accepté":
+        return "#FFD700"; // Doré
+      case "Intervention en cours":
+        return "#528fe0"; // Bleu
+      case "Réparé":
+        return "#006400"; // Vert
+      case "Devis en cours":
+        return "#f37209"; // Orange
+      case "Non réparable":
+        return "#ff0000"; // Orange
+      default:
+        return "#04fd57"; // Gris par défaut
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "En attente de pièces":
+        return { borderLeftColor: "#b396f8", borderLeftWidth: 3 };
+      case "Devis accepté":
+        return { borderLeftColor: "#FFD700", borderLeftWidth: 3 };
+      case "Intervention en cours":
+        return { borderLeftColor: "#528fe0", borderLeftWidth: 3 };
+      case "Réparé":
+        return { borderLeftColor: "#98fb98", borderLeftWidth: 3 };
+      case "Devis en cours":
+        return { borderLeftColor: "#f37209", borderLeftWidth: 3 };
+      case "Non réparable":
+        return { borderLeftColor: "#ff0000", borderLeftWidth: 3 };
+      default:
+        return { borderLeftColor: "#868585", borderLeftWidth: 3 };
+    }
+  };
+  const deviceIcons = {
+    "PC portable": require("../assets/icons/portable.png"),
+    MacBook: require("../assets/icons/macbook_air.png"),
+    iMac: require("../assets/icons/iMac.png"),
+    "PC Fixe": require("../assets/icons/ordinateur (1).png"),
+    "PC tout en un": require("../assets/icons/allInone.png"),
+    Tablette: require("../assets/icons/tablette.png"),
+    Smartphone: require("../assets/icons/smartphone.png"),
+    Console: require("../assets/icons/console-de-jeu.png"),
+    "Disque dur": require("../assets/icons/disk.png"),
+    "Disque dur externe": require("../assets/icons/disque-dur.png"),
+    "Carte SD": require("../assets/icons/carte-memoire.png"),
+    "Cle usb": require("../assets/icons/cle-usb.png"),
+    "Casque audio": require("../assets/icons/playaudio.png"),
+    "Video-projecteur": require("../assets/icons/Projector.png"),
+    Clavier: require("../assets/icons/keyboard.png"),
+    Ecran: require("../assets/icons/screen.png"),
+    iPAD: require("../assets/icons/iPad.png"),
+    Imprimante: require("../assets/icons/printer.png"),
+    Joystick: require("../assets/icons/joystick.png"),
+    Processeur: require("../assets/icons/cpu.png"),
+    Batterie: require("../assets/icons/battery.png"),
+    Commande: require("../assets/icons/shipping_box.png"),
+    "Carte graphique": require("../assets/icons/Vga_card.png"),
+    Manette: require("../assets/icons/controller.png"),
+    Enceinte: require("../assets/icons/speaker.png"),
+    PDA: require("../assets/icons/Pda.png"),
+    default: require("../assets/icons/point-dinterrogation.png"),
+  };
+
+  const getDeviceIcon = (deviceType) => {
+    if (!deviceType)
+      return (
+        <Image
+          source={deviceIcons.default}
+          style={{ width: 40, height: 40, tintColor: "#888787" }}
+        />
+      );
+
+    const lowerCaseName = deviceType.toLowerCase();
+
+    if (lowerCaseName.includes("macbook")) {
+      return (
+        <Image
+          source={deviceIcons.MacBook}
+          style={{ width: 40, height: 40, tintColor: "#888787" }}
+        />
+      );
+    }
+
+    if (lowerCaseName.includes("imac")) {
+      return (
+        <Image
+          source={deviceIcons.iMac}
+          style={{ width: 40, height: 40, tintColor: "#888787" }}
+        />
+      );
+    }
+
+    const iconSource = deviceIcons[deviceType] || deviceIcons.default;
+    return (
+      <Image
+        source={iconSource}
+        style={{ width: 40, height: 40, tintColor: "#888787" }}
+      />
+    );
+  };
+
+  const filterByStatus = (status) => {
+    if (!showClients) {
+      const filtered = clients.filter((client) =>
+        client.interventions.some(
+          (intervention) => intervention.status === status
+        )
+      );
+      setFilteredClients(filtered);
+      setShowClients(true);
+    } else {
+      const filtered = clients.filter((client) =>
+        client.interventions.some(
+          (intervention) => intervention.status === status
+        )
+      );
+      setFilteredClients(filtered);
+    }
+  };
+
+  const resetFilter = () => {
+    setSearchText("");
+    setFilteredClients(clients);
+    setCurrentPage(1);
+  };
+
+  const formatPhoneNumber = (phoneNumber) => {
+    if (!phoneNumber) return "";
+
+    return phoneNumber.replace(/(\d{2})(?=\d)/g, "$1 ");
+  };
+  const toggleMenu = () => {
+    Animated.timing(slideAnim, {
+      toValue: menuVisible ? -250 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    setMenuVisible(!menuVisible);
+  };
+  const closeMenu = () => {
+    if (menuVisible) {
+      toggleMenu();
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log("Déconnexion en cours...");
+
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Erreur lors de la déconnexion :", error);
+        Alert.alert(
+          "Erreur",
+          "Impossible de se déconnecter. Veuillez réessayer."
+        );
+        return;
+      }
+
+      console.log("Déconnexion réussie ! Redirection vers Login...");
+    } catch (err) {
+      console.error("Erreur inattendue lors de la déconnexion :", err);
+      Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+    }
+  };
+
+  const DateDisplay = () => {
+    const [currentDate, setCurrentDate] = useState("");
+
+    useEffect(() => {
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString("fr-FR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      setCurrentDate(formattedDate);
+    }, []);
+
+    return (
+      <View style={styles.dateContainer}>
+        <Image
+          source={require("../assets/icons/calendar.png")}
+          style={styles.icon}
+        />
+        <Text style={styles.dateText}>{currentDate}</Text>
+      </View>
+    );
+  };
+  const TimeDisplay = () => {
+    const [currentTime, setCurrentTime] = useState("");
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        setCurrentTime(formattedTime);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }, []);
+
+    return (
+      <View style={styles.timeContainer}>
+        <Image
+          source={require("../assets/icons/clock.png")}
+          style={styles.icon}
+        />
+        <Text style={styles.timeText}>{currentTime}</Text>
+      </View>
+    );
+  };
+  const [orders, setOrders] = useState([]);
+
+  const getOrderColor = (clientOrders = []) => {
+    if (!Array.isArray(clientOrders) || clientOrders.length === 0) {
+      return "#888787"; // ⚪ Gris, aucune commande
+    }
+
+    const hasUnsavedAndPaid = clientOrders.some(
+      (order) => order.paid && !order.saved
+    );
+    if (hasUnsavedAndPaid) {
+      return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
+    }
+
+    const hasUnpaidOrder = clientOrders.some((order) => !order.paid);
+    if (hasUnpaidOrder) {
+      return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
+    }
+
+    return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
+  };
+
+  const filterClientsWithCommandeEnCours = async () => {
+    try {
+      const { data: unpaidOrders, error: orderError } = await supabase
+        .from("orders")
+        .select(
+          "id, client_id, paid, saved, price, deposit, product, brand, model, notified"
+        )
+        .or("paid.eq.false,saved.eq.false");
+
+      const { data: interventions, error: interventionError } = await supabase
+        .from("interventions")
+        .select("*")
+        .not("commande", "is", null)
+        .neq("commande", "")
+        .not("status", "in", '("Réparé","Récupéré")');
+
+      if (orderError || interventionError) {
+        console.error("❌ Erreur Supabase :", orderError || interventionError);
+        return;
+      }
+
+      const clientIdsFromOrders = unpaidOrders
+        .map((o) => o.client_id)
+        .filter(Boolean);
+      const clientIdsFromInterventions = interventions
+        .map((i) => i.client_id)
+        .filter(Boolean);
+      const allClientIds = [
+        ...new Set([...clientIdsFromOrders, ...clientIdsFromInterventions]),
+      ];
+
+      if (allClientIds.length === 0) {
+        console.warn("Aucun client avec commande en cours.");
+        setFilteredClients([]);
+        return;
+      }
+
+      const { data: clients, error: clientError } = await supabase
+        .from("clients")
+        .select("*")
+        .in("id", allClientIds)
+        .order("createdAt", { ascending: false });
+
+      if (clientError) {
+        console.error("❌ Erreur chargement clients :", clientError.message);
+        return;
+      }
+
+      const enrichedClients = clients.map((client) => {
+        const clientOrders = unpaidOrders.filter(
+          (o) => o.client_id === client.id
+        );
+        const clientInterventions = interventions.filter(
+          (i) => i.client_id === client.id
+        );
+
+        const latestIntervention = clientInterventions.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        )[0];
+
+        const totalOrderAmount = clientOrders.reduce(
+          (sum, o) => sum + (parseFloat(o.price) || 0),
+          0
+        );
+        const totalOrderDeposit = clientOrders.reduce(
+          (sum, o) => sum + (parseFloat(o.deposit) || 0),
+          0
+        );
+        const totalOrderRemaining = totalOrderAmount - totalOrderDeposit;
+
+        return {
+          ...client,
+          orders: clientOrders,
+          interventions: clientInterventions,
+          latestIntervention,
+          totalOrderAmount,
+          totalOrderDeposit,
+          totalOrderRemaining,
+        };
+      });
+
+      setFilteredClients(enrichedClients);
+    } catch (err) {
+      console.error("❌ Erreur inattendue :", err.message);
+    }
+  };
+
+  const isOrderNotified = (client) =>
+    client.orders?.some((o) => o.notified === true) || false;
+  const repairedNotReturnedCountSafe = Number(repairedNotReturnedCount ?? 0);
+  const notRepairableCountSafe = Number(NotRepairedNotReturnedCount ?? 0);
+  const hasAny = repairedNotReturnedCountSafe + notRepairableCountSafe > 0;
+  
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback onPress={closeMenu}>
+          <View style={[styles.container, { paddingHorizontal: 15 }]}>
+            <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
+              <Image
+                source={require("../assets/icons/menu.png")}
+                style={styles.menuIcon}
+              />
+            </TouchableOpacity>
+            <Animated.View
+              style={[
+                styles.drawer,
+                { transform: [{ translateX: slideAnim }] },
+              ]}
+            >
+              <Text style={styles.drawerTitle}>Menu</Text>
+
+              <Text style={styles.sectionTitle}>Navigation</Text>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("Home");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/home.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor:
+                        navigation.getState().index === 0 ? "blue" : "gray",
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>ACCUEIL</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("AddClient");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/add.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor:
+                        navigation.getState().index === 1 ? "blue" : "gray",
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>AJOUTER CLIENT</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("RepairedInterventions");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/tools1.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor:
+                        navigation.getState().index === 2 ? "blue" : "gray",
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>RÉPARÉS</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("RecoveredClients");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/ok.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor:
+                        navigation.getState().index === 2 ? "blue" : "gray",
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>RESTITUÉS</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("Admin");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/Config.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor:
+                        navigation.getState().index === 3 ? "blue" : "gray",
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>ADMINISTRATION</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  Alert.alert(
+                    "Confirmation",
+                    "Êtes-vous sûr de vouloir vous déconnecter ?",
+                    [
+                      {
+                        text: "Annuler",
+                        style: "cancel",
+                      },
+                      {
+                        text: "Déconnexion",
+                        onPress: async () => {
+                          try {
+                            await handleLogout();
+                            toggleMenu();
+                          } catch (error) {
+                            console.error("Erreur de déconnexion :", error);
+                          }
+                        },
+                        style: "destructive",
+                      },
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/disconnects.png")}
+                  style={[styles.drawerItemIcon, { tintColor: "red" }]}
+                />
+                <Text style={styles.drawerItemText}>DÉCONNEXION</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.sectionTitle}>Filtres</Text>
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  filterByStatus("En attente de pièces");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/shipping.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor: getIconColor("En attente de pièces"),
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>EN ATTENTE DE PIECE</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu(); // Ferme le menu
+                  filterByStatus("Devis accepté");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/devisAccepte.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor: getIconColor("Devis accepté"),
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>DEVIS ACCEPTÉ</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  filterByStatus("Intervention en cours");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/tools1.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor: getIconColor("Intervention en cours"),
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>Intervention en cours</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  filterByStatus("Devis en cours");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/devisEnCours.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor: getIconColor("Devis en cours"),
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>DEVIS EN COURS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("MigrateOldImagesPage");
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/upload.png")}
+                  style={[styles.drawerItemIcon, { tintColor: "#4CAF50" }]}
+                />
+                <Text style={styles.drawerItemText}>MIGRATION IMAGES</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  toggleMenu();
+                  resetFilter();
+                  setCurrentPage(1);
+                }}
+              >
+                <Image
+                  source={require("../assets/icons/reload.png")}
+                  style={[
+                    styles.drawerItemIcon,
+                    {
+                      tintColor: getIconColor("Réinitialiser"),
+                    },
+                  ]}
+                />
+                <Text style={styles.drawerItemText}>RÉINITIALISER</Text>
+              </TouchableOpacity>
+            </Animated.View>
+            <View style={styles.overlay}>
+              <View style={styles.headerContainer}>
+                <View style={styles.repairedCountContainer}>
+                  {/* Bouton — Réparés en attente */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      repairedNotReturnedCountSafe > 0 &&
+                      navigation.navigate("RepairedInterventionsListPage", {
+                        initialFilter: "Réparé",
+                      })
+                    }
+                    disabled={repairedNotReturnedCountSafe === 0}
+                    style={[
+                      styles.counterBtn,
+                      styles.btnRepaired,
+                      repairedNotReturnedCountSafe === 0 && styles.btnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.counterBtnText}>
+                      Produits réparés en attente de restitution :{" "}
+                      {repairedNotReturnedCountSafe}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Bouton — Non réparables */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() =>
+                      notRepairableCountSafe > 0 &&
+                      navigation.navigate("RepairedInterventionsListPage", {
+                        initialFilter: "Non réparable",
+                      })
+                    }
+                    disabled={notRepairableCountSafe === 0}
+                    style={[
+                      styles.counterBtn,
+                      styles.btnNR,
+                      { marginTop: 6 },
+                      notRepairableCountSafe === 0 && styles.btnDisabled,
+                    ]}
+                  >
+                    <Text style={styles.counterBtnText}>
+                      Produits non réparables : {notRepairableCountSafe}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {isLoading && <ActivityIndicator size="large" color="blue" />}
+
+                {!isLoading && hasImagesToDelete === true && (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("ImageCleanup")}
+                    style={{
+                      marginRight: 40,
+                      marginTop: 10,
+                      padding: 12,
+                      borderRadius: 2,
+                      borderWidth: 1,
+                      borderColor: "#888787",
+                      backgroundColor: "#191f2f",
+                    }}
+                  >
+                    <Text style={{ color: "white" }}>Nettoyer les images</Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isLoading && hasImagesToDelete === false && (
+                  <View style={styles.images_numberText}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate("StoredImages")}
+                      style={{
+                        marginRight: 40,
+                        marginTop: 1,
+                        padding: 12,
+                        borderRadius: 10,
+                        backgroundColor: "#cacaca",
+                        elevation: 1,
                       }}
-                      contentContainerStyle={{
-                        paddingBottom: 20,
-                      }} // Ajoute un espace en bas
-                    />
+                    >
+                      <Text style={{ color: "#242424" }}>
+                        Accès à la Galerie Cloud
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate("OngoingAmountsPage", {
+                          interventions: allInterventions,
+                        })
+                      }
+                    >
+                      <Text style={styles.totalText}>
+                        En cours : {totalCost} €
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <Text style={styles.pageNumberText}>
+                  Page {currentPage} / {totalPages}
+                </Text>
+              </View>
+
+              <View style={{ marginBottom: 20 }}>
+                {/* —— BARRE DE RECHERCHE —— */}
+                <View
+                  style={[
+                    styles.searchContainer,
+                    isBannedMatch && styles.searchContainerBanned,
+                  ]}
+                >
+                  <TextInput
+                    style={[
+                      styles.searchInput,
+                      isBannedMatch && styles.searchInputBanned,
+                    ]}
+                    placeholder="Rechercher client (nom ou téléphone)"
+                    placeholderTextColor={isBannedMatch ? "#7f1d1d" : "#575757"}
+                    value={searchText}
+                    onChangeText={(t) => {
+                      setSearchText(t);
+                      filterClients(t);
+                    }}
+                    autoCorrect={false}
+                    autoCapitalize="characters"
+                    returnKeyType="search"
+                  />
+                  <Image
+                    source={require("../assets/icons/search.png")}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      tintColor: isBannedMatch ? "#b91c1c" : "#888787",
+                      marginLeft: 8,
+                    }}
+                  />
+                </View>
+
+                {isBannedMatch && (
+                  <Text style={styles.bannedHint}>
+                    ⚠️ Correspond à un client banni — sélection désactivée.
+                  </Text>
+                )}
+
+                {/* —— SUGGESTIONS —— */}
+                {searchText?.trim()?.length > 0 && (
+                  <FlatList
+                    data={(filteredClients || []).slice(0, 10)}
+                    keyExtractor={(it) => String(it.id)}
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.suggestionsBox}
+                    renderItem={({ item }) => {
+                      const isBanned = item?.banned === true;
+
+                      const onPick = () => {
+                        if (isBanned) {
+                          openBannedAlert(item);
+                          return;
+                        }
+                        navigation.navigate("ClientInterventionsPage", {
+                          clientId: item.id,
+                        });
+                      };
+
+                      return (
+                        <TouchableOpacity
+                          onPress={onPick}
+                          activeOpacity={isBanned ? 1 : 0.8}
+                          style={[
+                            {
+                              paddingVertical: 10,
+                              paddingHorizontal: 12,
+                              borderBottomWidth: 1,
+                              borderBottomColor: "#f3f4f6",
+                              backgroundColor: "#fff",
+                            },
+                            isBanned && styles.sugRowBanned, // fond rosé si banni
+                          ]}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.sugName,
+                              isBanned && styles.sugNameBanned,
+                            ]} // nom en rouge
+                          >
+                            {item?.name || "—"}
+                          </Text>
+
+                          <Text
+                            style={{ color: "#6b7280", fontSize: 12 }}
+                            numberOfLines={1}
+                          >
+                            {item?.phone
+                              ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
+                              : "—"}
+                            {typeof item?.ficheNumber !== "undefined"
+                              ? `  ·  Fiche ${item.ficheNumber}`
+                              : ""}
+                          </Text>
+
+                          {isBanned && (
+                            <View style={styles.sugBadgeBanned}>
+                              <Text style={styles.sugBadgeBannedText}>
+                                BANNI
+                                {item?.ban_reason
+                                  ? ` — ${item.ban_reason}`
+                                  : ""}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    }}
+                  />
+                )}
+
+
+              </View>
+
+              <View style={styles.buttonContainerMasquer}>
+                <TouchableOpacity
+                  style={styles.toggleButton}
+                  onPress={openPopup}
+                >
+                  <Image
+                    source={
+                      showClients
+                        ? require("../assets/icons/eye.png") // Icône pour "masquer"
+                        : require("../assets/icons/eye.png") // Icône pour "afficher"
+                    }
+                    style={styles.iconStyle}
+                  />
+                  <Text style={styles.toggleText}>Fiches en cours</Text>
+                </TouchableOpacity>
+
+                <View>
+                  <DateDisplay />
+                </View>
+
+                <View>
+                  <TimeDisplay />
+                </View>
+              </View>
+              {isLoading ? (
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size={90} color="#e5e8eb" />
+                </View>
+              ) : currentClients.length === 0 ? (
+                <Text style={styles.noClientsText}>Aucun client trouvé</Text>
+              ) : (
+                <>
+                  {showClients && (
+                    <View
+                      onLayout={(e) => {
+                        const w = e?.nativeEvent?.layout?.width || 0;
+                        if (w && w !== sliderW) setSliderW(w);
+                      }}
+                    >
+                      <FlatList
+                        ref={flatListRef}
+                        horizontal
+                        pagingEnabled
+                        bounces={false}
+                        showsHorizontalScrollIndicator={false}
+                        data={pages}
+                        keyExtractor={(_, idx) => `page-${idx}`}
+                        onScrollToIndexFailed={({ index }) => {
+                          // fallback simple
+                          flatListRef.current?.scrollToIndex({
+                            index: Math.max(0, Math.min(index, sliderTotalPages - 1)),
+                            animated: true,
+                          });
+                        }}
+                        onMomentumScrollEnd={(e) => {
+                          const w = e?.nativeEvent?.layoutMeasurement?.width || 0;
+                          const x = e?.nativeEvent?.contentOffset?.x || 0;
+                          if (!w) return;
+                          const page = Math.round(x / w);
+                          const p = page + 1;
+                          if (p !== currentPage) {
+                            setExpandedClientId(null);
+                            setCurrentPage(p);
+                          }
+                        }}
+                        renderItem={({ item: pageItems, index: pageIndex }) => (
+                          <View style={{ width: sliderW || 1, flex: 1 }}>
+                            {/* ✅ Scroll vertical DANS chaque page (sinon une fiche ouverte peut être coupée) */}
+                            <FlatList
+                              data={pageItems || []}
+                              keyExtractor={(cli) => String(cli.id)}
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator={false}
+                              renderItem={({ item: cli, index: i }) => (
+                                <View style={{ marginBottom: 12 }}>
+                                  {renderClientCard({
+                                    item: cli,
+                                    index: pageIndex * itemsPerPage + i,
+                                  })}
+                                </View>
+                              )}
+                              contentContainerStyle={{ paddingBottom: 220 }}
+                            />
+                          </View>
+                        )}
+                        contentContainerStyle={{
+                          paddingBottom: 10,
+                        }} // Ajoute un espace en bas
+                      />
+		
+
+        
+        {totalPages > 1 && currentPage === totalPages && (
+          <TouchableOpacity
+            style={styles.backToStartBtn}
+            onPress={() => {
+              setExpandedClientId(null);
+              flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+              setCurrentPage(1);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.backToStartText}>Retour aux deux premières</Text>
+          </TouchableOpacity>
+        )}
+                      {/* ✅ Indicateur de pages (● ○ ○) */}
+                      {sliderTotalPages > 1 && (
+                        <View style={styles.dotsRow}>
+                          {Array.from({ length: sliderTotalPages }).map((_, i) => (
+                            <View
+                              key={`dot-${i}`}
+                              style={[
+                                styles.dot,
+                                i === currentPage - 1 && styles.dotActive,
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
                   )}
                 </>
               )}
@@ -3627,6 +3691,7 @@ interventions(
             </View>
           </View>
         </TouchableWithoutFeedback>
+
 <View pointerEvents="box-none">
   {(expressList.length > 0 || ordersList.length > 0) && (
     <View style={stylesNS.expressWrap}>
@@ -3846,39 +3911,7 @@ interventions(
 
 
 
-        <View style={styles.paginationContainer}>
-          <TouchableOpacity
-            onPress={goToPreviousPage}
-            disabled={currentPage === 1}
-          >
-            <Image
-              source={require("../assets/icons/chevrong.png")}
-              style={{
-                width: 25,
-                height: 25,
-                tintColor: currentPage === 1 ? "gray" : "white", // Grise si première page
-              }}
-            />
-          </TouchableOpacity>
 
-          <Text style={styles.paginationText}>
-            Page {currentPage} sur {totalPages}
-          </Text>
-
-          <TouchableOpacity
-            onPress={goToNextPage}
-            disabled={currentPage === totalPages}
-          >
-            <Image
-              source={require("../assets/icons/chevrond.png")}
-              style={{
-                width: 25,
-                height: 25,
-                tintColor: currentPage === totalPages ? "gray" : "white", // Grise si dernière page
-              }}
-            />
-          </TouchableOpacity>
-        </View>
         <BottomMenu
           onFilterCommande={filterClientsWithCommandeEnCours}
           navigation={navigation}
@@ -4164,6 +4197,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingBottom: 230, // ✅ réserve de l’espace en bas (onglets + BottomMenu)
   },
   toggleButton: {
     flexDirection: "row",
@@ -4684,6 +4718,39 @@ descriptionText: {
   fontSize: 13,
   color: "#242424",
 },
+dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 50,
+    marginBottom: 6,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    marginHorizontal: 4,
+  },
+  dotActive: {
+    backgroundColor: "#2563eb",
+    transform: [{ scale: 1.15 }],
+  },
+  backToStartBtn: {
+  alignSelf: "center",
+  marginTop: 10,
+  marginBottom: 10,
+  paddingHorizontal: 14,
+  paddingVertical: 10,
+  borderRadius: 12,
+  backgroundColor: "#111827",
+},
+backToStartText: {
+  color: "#ffffff",
+  fontWeight: "800",
+  fontSize: 13,
+  letterSpacing: 0.2,
+},
 
   iconCircle: {
     backgroundColor: "#575757", // Couleur de fond gris
@@ -4882,7 +4949,7 @@ descriptionText: {
   expressCard: {
     marginHorizontal: 15,
     marginTop: 10,
-    marginBottom: 10,
+
     backgroundColor: "#fff7ed",
     borderColor: "#fdba74",
     borderWidth: 1,
@@ -5148,7 +5215,26 @@ descriptionText: {
     fontSize: 15,
     color: "#7f1d1d",
     marginTop: 6,
+  
+  // ✅ Bouton fin de slider (retour aux 2 premières fiches)
+  backToStartBtn: {
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    backgroundColor: "#191f2f",
   },
+  backToStartText: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+},
 });
 const stylesNS = StyleSheet.create({
   backdrop: {
@@ -5229,7 +5315,8 @@ const stylesNS = StyleSheet.create({
   expressWrap: {
     position: "relative",
     marginHorizontal: 15, // aligne avec ton expressCard existant
-    marginTop: 5,
+    marginTop: 100,
+	marginBottom: 130,
   },
 
   // Carte "Commandes en cours" ancrée en bas à droite
@@ -5538,5 +5625,24 @@ tabText: {
 tabTextActive: {
   color: "#111827",
 },
+
+
+  backToStartBtn: {
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    backgroundColor: "#191f2f",
+  },
+  backToStartText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 14,
+  },  
+
 
 });

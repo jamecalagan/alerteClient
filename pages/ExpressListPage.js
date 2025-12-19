@@ -19,7 +19,7 @@ import { supabase } from "../supabaseClient";
 import { printInvoice } from "../utils/printInvoice.js";
 
 // ================= Helpers =================
-const PER_PAGE = 3;
+const PER_PAGE = 4;
 
 const USB_COST = 20;
 const HDD_COST = 45;

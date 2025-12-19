@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   Easing,
   Pressable,
+  ScrollView,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -235,6 +236,7 @@ export default function HomePage({ navigation, route, setUser }) {
   const [noteIntervId, setNoteIntervId] = useState(null);
   const [noteClientId, setNoteClientId] = useState(null);
 const [bottomTab, setBottomTab] = useState(null); // null = rien affiché
+const [sliderH, setSliderH] = useState(0);
 
 const toggleBottomTab = (key) => {
   setBottomTab((prev) => (prev === key ? null : key));
@@ -3069,7 +3071,9 @@ interventions(
                     <View
                       onLayout={(e) => {
                         const w = e?.nativeEvent?.layout?.width || 0;
+						const h = e?.nativeEvent?.layout?.height || 0;
                         if (w && w !== sliderW) setSliderW(w);
+						if (h && h !== sliderH) setSliderH(h);
                       }}
                     >
                       <FlatList
@@ -3098,26 +3102,25 @@ interventions(
                             setCurrentPage(p);
                           }
                         }}
-                        renderItem={({ item: pageItems, index: pageIndex }) => (
-                          <View style={{ width: sliderW || 1, flex: 1 }}>
-                            {/* ✅ Scroll vertical DANS chaque page (sinon une fiche ouverte peut être coupée) */}
-                            <FlatList
-                              data={pageItems || []}
-                              keyExtractor={(cli) => String(cli.id)}
-                              nestedScrollEnabled
-                              showsVerticalScrollIndicator={false}
-                              renderItem={({ item: cli, index: i }) => (
-                                <View style={{ marginBottom: 12 }}>
-                                  {renderClientCard({
-                                    item: cli,
-                                    index: pageIndex * itemsPerPage + i,
-                                  })}
-                                </View>
-                              )}
-                              contentContainerStyle={{ paddingBottom: 220 }}
-                            />
-                          </View>
-                        )}
+renderItem={({ item: pageItems, index: pageIndex }) => (
+  <View style={{ width: sliderW || 1, height: sliderH || "100%" }}>
+    <ScrollView
+      nestedScrollEnabled
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
+      {(pageItems || []).map((cli, i) => (
+        <View key={String(cli.id)} style={{ marginBottom: 20 }}>
+          {renderClientCard({
+            item: cli,
+            index: pageIndex * itemsPerPage + i,
+          })}
+        </View>
+      ))}
+    </ScrollView>
+  </View>
+)}
+
                         contentContainerStyle={{
                           paddingBottom: 10,
                         }} // Ajoute un espace en bas

@@ -8,7 +8,7 @@ https://fncgffajwabqrnhumgzd.supabase.co
 
 envoyer
 git add .
-git commit -m "complet signature retitution 11122025"
+git commit -m "complet slide horizontal 19122025"
 git push origin main
 
 recupérer

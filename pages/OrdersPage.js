@@ -659,7 +659,8 @@ const [newOrder, setNewOrder] = useState({
             if (!ok) return;
 
             const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ImagePicker.MediaType.Images
+,
                 quality: 0.7,
                 base64: false,
                 allowsEditing: false,

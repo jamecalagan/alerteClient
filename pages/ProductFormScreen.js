@@ -63,7 +63,8 @@ export default function ProductFormScreen() {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ImagePicker.MediaType.Images
+,
             quality: 0.6,
         });
 
@@ -88,7 +89,7 @@ export default function ProductFormScreen() {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ImagePicker.MediaType.Images,
             quality: 0.8,
         });
 

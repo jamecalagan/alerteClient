@@ -18,8 +18,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from 'expo-file-system/legacy';
-
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 
 // -------- Helpers string image (version unique) --------
@@ -133,23 +132,12 @@ const isHttpRef = (s) => typeof s === "string" && /^https?:\/\//i.test(s);
 const isBucketRef = (s) =>
     typeof s === "string" && !isLocalRef(s) && !isHttpRef(s); // ex: "supplementaires/..."
 
-
 // On ne conserve en BDD QUE des refs cloud (http ou chemin bucket), jamais du file://
 const normalizePhotosForDB = (arr) => {
     if (!Array.isArray(arr)) return [];
     return arr
         .map((x) => (typeof x === "string" ? x : x?.ref || x?.uri || ""))
         .filter((s) => s && (isHttpRef(s) || isBucketRef(s)));
-};
-
-// Si on n'a qu'un file:// pour l'étiquette, on n'écrase PAS la BDD.
-const normalizeLabelForDB = (current, previous) => {
-    const s =
-        typeof current === "string"
-            ? current
-            : current?.ref || current?.uri || "";
-    if (!s) return previous || null;
-    return isLocalRef(s) ? previous || null : s;
 };
 
 const normalizeNumber = (v) => {
@@ -188,6 +176,7 @@ const toDBId = (v) =>
 export default function EditInterventionPage({ route, navigation }) {
     const { clientId } = route.params || {};
     const { interventionId } = route.params;
+
     // Champs intervention
     const [reference, setReference] = useState("");
     const [description, setDescription] = useState("");
@@ -226,7 +215,9 @@ export default function EditInterventionPage({ route, navigation }) {
     const [photos, setPhotos] = useState([]);
     const [labelPhoto, setLabelPhoto] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
-    const [labelPhotoDB, setLabelPhotoDB] = useState(null);
+    const [labelPhotoDB, setLabelPhotoDB] = useState(null); // ref cloud DB (stable)
+    const [takeLabelPhoto, setTakeLabelPhoto] = useState(false); // ✅ NOUVEAU : option étiquette
+
     const [alertType, setAlertType] = useState("danger");
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
@@ -396,6 +387,8 @@ export default function EditInterventionPage({ route, navigation }) {
 
             setPhotos(newPhotos);
             setLabelPhoto(newLabel);
+            setLabelPhotoDB(newLabel);
+            setTakeLabelPhoto(!!newLabel);
             Alert.alert("OK", "Photos réparées (cloud) pour cette fiche.");
         } catch (e) {
             console.error("repairBrokenPhotoUrlsForCurrentIntervention:", e);
@@ -511,6 +504,8 @@ export default function EditInterventionPage({ route, navigation }) {
             // 4) MAJ UI + reload
             setPhotos(fixedPhotos);
             setLabelPhoto(newLabel);
+            setLabelPhotoDB(newLabel);
+            setTakeLabelPhoto(!!newLabel);
             Alert.alert("OK", "Les photos locales ont été basculées en cloud.");
         } catch (e) {
             console.error("fixLocalPhotosForCurrentIntervention:", e);
@@ -582,7 +577,7 @@ export default function EditInterventionPage({ route, navigation }) {
             // Résolution locales
             const localBase =
                 FileSystem.documentDirectory + `backup/${client.ficheNumber}/`;
-            // Remplace ta version actuelle par celle-ci
+
             const urlToLocal = async (anyRef, type = "photo", index = 0) => {
                 const s = extractRefString(anyRef);
                 if (!s) return null;
@@ -629,15 +624,21 @@ export default function EditInterventionPage({ route, navigation }) {
             setRemarks(inter.remarks || "");
             setNoCostButRestitution(!!inter.no_cost_but_restitution);
             setPaymentStatus(
-                inter.no_cost_but_restitution ? "" : inter.paymentStatus || "non_regle"
+                inter.no_cost_but_restitution
+                    ? ""
+                    : inter.paymentStatus || "non_regle"
             );
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
-            setLabelPhotoDB(
+
+            const dbLabel =
                 typeof inter?.label_photo === "string"
                     ? inter.label_photo
-                    : inter?.label_photo?.ref || inter?.label_photo?.uri || null
-            );
+                    : inter?.label_photo?.ref || inter?.label_photo?.uri || null;
+
+            setLabelPhotoDB(dbLabel);
+            setTakeLabelPhoto(!!dbLabel); // ✅ si une étiquette existe, on affiche le pavé
+
             // Fourchette
             setEstimateMin(
                 inter.estimate_min != null ? String(inter.estimate_min) : ""
@@ -715,25 +716,6 @@ export default function EditInterventionPage({ route, navigation }) {
             }
 
             setModel(inter.modele_id != null ? String(inter.modele_id) : "");
-
-            console.log(
-                "📦 Inter article_id:",
-                inter.article_id,
-                "→ state:",
-                String(inter.article_id)
-            );
-            console.log(
-                "📦 Inter marque_id:",
-                inter.marque_id,
-                "→ state:",
-                String(inter.marque_id)
-            );
-            console.log(
-                "📦 Inter modele_id:",
-                inter.modele_id,
-                "→ state:",
-                String(inter.modele_id)
-            );
         } catch (e) {
             console.error("❌ Erreur loadIntervention :", e);
         }
@@ -842,10 +824,7 @@ export default function EditInterventionPage({ route, navigation }) {
                             let path = null;
                             if (photoRef && photoRef.startsWith("http")) {
                                 path = pathFromSupabaseUrl(photoRef);
-                            } else if (
-                                photoRef &&
-                                !photoRef.startsWith("file://")
-                            ) {
+                            } else if (photoRef && !photoRef.startsWith("file://")) {
                                 path = photoRef;
                             }
 
@@ -861,6 +840,8 @@ export default function EditInterventionPage({ route, navigation }) {
                             }
 
                             setLabelPhoto(null);
+                            setLabelPhotoDB(null);
+                            setTakeLabelPhoto(false);
 
                             const { error: dbErr } = await supabase
                                 .from("interventions")
@@ -868,10 +849,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 .eq("id", interventionId);
 
                             if (dbErr) {
-                                console.error(
-                                    "Erreur MAJ BDD :",
-                                    dbErr.message
-                                );
+                                console.error("Erreur MAJ BDD :", dbErr.message);
                                 Alert.alert(
                                     "Erreur",
                                     "Impossible de mettre à jour la fiche."
@@ -882,10 +860,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 "Erreur générale suppression étiquette :",
                                 e
                             );
-                            Alert.alert(
-                                "Erreur",
-                                "Problème lors de la suppression."
-                            );
+                            Alert.alert("Erreur", "Problème lors de la suppression.");
                         }
                     },
                 },
@@ -938,15 +913,13 @@ export default function EditInterventionPage({ route, navigation }) {
                 );
 
                 if (!url) {
-                    Alert.alert(
-                        "Erreur",
-                        "Échec de l'upload de l’étiquette."
-                    );
+                    Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
                     return;
                 }
 
                 setLabelPhoto(url);
-                setLabelPhotoDB(url);
+                setLabelPhotoDB(url); // comme ça si on sauvegarde, c’est propre
+                setTakeLabelPhoto(true);
             }
         } catch (error) {
             console.error("Erreur capture étiquette :", error);
@@ -1014,10 +987,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
             if (readErr) {
                 console.error("Lecture photos BDD :", readErr.message);
-                Alert.alert(
-                    "Erreur",
-                    "Photo ajoutée localement, base non relue."
-                );
+                Alert.alert("Erreur", "Photo ajoutée localement, base non relue.");
                 return;
             }
 
@@ -1043,10 +1013,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
             if (dbErr) {
                 console.error("MAJ BDD (photos) :", dbErr.message);
-                Alert.alert(
-                    "Erreur",
-                    "Photo ajoutée localement, base non mise à jour."
-                );
+                Alert.alert("Erreur", "Photo ajoutée localement, base non mise à jour.");
             }
         } catch (e) {
             console.error("Erreur capture image :", e);
@@ -1073,16 +1040,13 @@ export default function EditInterventionPage({ route, navigation }) {
 
         const isEstimateMode = status === "Devis en cours";
 
+        // Photos supplémentaires : on garde ta logique (upload local -> cloud)
         const photosCloud = [];
         for (const p of Array.isArray(photos) ? photos : []) {
             const ref = extractRefString(p);
             if (!ref) continue;
             if (isLocalRef(ref)) {
-                const url = await uploadImageToStorage(
-                    ref,
-                    interventionId,
-                    false
-                );
+                const url = await uploadImageToStorage(ref, interventionId, false);
                 if (url) photosCloud.push(url);
             } else {
                 photosCloud.push(ref);
@@ -1090,17 +1054,19 @@ export default function EditInterventionPage({ route, navigation }) {
         }
         const photosCloudFiltered = photosCloud.filter(Boolean);
 
-        let labelCloud = null;
-        if (labelPhoto) {
-            const ref = extractRefString(labelPhoto);
-            if (isLocalRef(ref)) {
-                labelCloud = await uploadImageToStorage(
-                    ref,
-                    interventionId,
-                    true
-                );
-            } else {
-                labelCloud = ref;
+        // ✅ Étiquette : optionnelle
+        // - si takeLabelPhoto = false => on ne touche pas à la BDD (on garde labelPhotoDB)
+        // - si takeLabelPhoto = true  => on applique labelPhoto (ou null si rien)
+        let labelCloud = labelPhotoDB || null;
+        if (takeLabelPhoto) {
+            labelCloud = null;
+            if (labelPhoto) {
+                const ref = extractRefString(labelPhoto);
+                if (isLocalRef(ref)) {
+                    labelCloud = await uploadImageToStorage(ref, interventionId, true);
+                } else {
+                    labelCloud = ref;
+                }
             }
         }
 
@@ -1165,6 +1131,9 @@ export default function EditInterventionPage({ route, navigation }) {
 
             setPhotos(photosCloudFiltered);
             setLabelPhoto(labelCloud);
+            setLabelPhotoDB(labelCloud);
+            setTakeLabelPhoto(!!labelCloud);
+
             setAlertType("success");
             setAlertTitle("Succès");
             setAlertMessage("Intervention mise à jour avec succès.");
@@ -1216,7 +1185,10 @@ export default function EditInterventionPage({ route, navigation }) {
                 errors.push("Fourchette de devis : 'De' doit être ≤ 'À'");
         }
 
-        if (!labelPhoto) errors.push("Photo d’étiquette");
+        // ✅ Étiquette optionnelle : obligatoire SEULEMENT si la case est cochée
+        if (takeLabelPhoto && !labelPhoto && !labelPhotoDB) {
+            errors.push("Photo d’étiquette");
+        }
 
         if (
             paymentStatus === "reglement_partiel" &&
@@ -1259,10 +1231,7 @@ export default function EditInterventionPage({ route, navigation }) {
                             let path = null;
                             if (photoRef && photoRef.startsWith("http")) {
                                 path = pathFromSupabaseUrl(photoRef);
-                            } else if (
-                                photoRef &&
-                                photoRef.startsWith("file://")
-                            ) {
+                            } else if (photoRef && photoRef.startsWith("file://")) {
                                 path = null;
                             } else if (photoRef) {
                                 path = photoRef;
@@ -1296,17 +1265,11 @@ export default function EditInterventionPage({ route, navigation }) {
 
                             if (dbErr) {
                                 console.error("MAJ BDD :", dbErr.message);
-                                Alert.alert(
-                                    "Erreur",
-                                    "Impossible de mettre à jour la base."
-                                );
+                                Alert.alert("Erreur", "Impossible de mettre à jour la base.");
                             }
                         } catch (e) {
                             console.error("Erreur suppression :", e);
-                            Alert.alert(
-                                "Erreur",
-                                "Problème pendant la suppression."
-                            );
+                            Alert.alert("Erreur", "Problème pendant la suppression.");
                         }
                     },
                 },
@@ -1325,6 +1288,21 @@ export default function EditInterventionPage({ route, navigation }) {
             setCost(devisCost);
         }
     }, [status, devisCost]);
+
+    // ✅ Toggle étiquette : on masque/affiche le pavé, sans casser la BDD
+    const toggleTakeLabelPhoto = () => {
+        setTakeLabelPhoto((prev) => {
+            const next = !prev;
+            // Si on décoche : on masque et on enlève juste la sélection "courante"
+            // (on garde labelPhotoDB pour ne pas effacer la BDD à la sauvegarde)
+            if (!next) {
+                setLabelPhoto(labelPhotoDB || null);
+            } else {
+                // si on recocher, on garde ce qu’on a déjà
+            }
+            return next;
+        });
+    };
 
     // ———————————————————————————————————————————
     // UI
@@ -1353,8 +1331,8 @@ export default function EditInterventionPage({ route, navigation }) {
                             }}
                         >
                             {deviceType
-                                ? articles.find((a) => a.id === deviceType)
-                                      ?.nom || "Type"
+                                ? articles.find((a) => a.id === deviceType)?.nom ||
+                                  "Type"
                                 : "Type de produit"}
                         </Text>
                     </TouchableOpacity>
@@ -1417,64 +1395,130 @@ export default function EditInterventionPage({ route, navigation }) {
                     </View>
                 </FloatingField>
 
-                {/* Médias */}
-                <View
-                    style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginTop: 10,
-                        alignSelf: "center",
-                    }}
-                >
+                {/* ✅ Case à cocher : étiquette optionnelle */}
+                <View style={[styles.checkboxContainer, { marginTop: 6 }]}>
                     <TouchableOpacity
-                        style={styles.buttonLabel}
-                        onPress={pickLabelImage}
+                        onPress={toggleTakeLabelPhoto}
+                        style={[styles.checkboxRow, { marginLeft: 20 }]}
+                        activeOpacity={0.85}
                     >
-                        <Text style={styles.buttonTextLabel}>
-                            Prendre une photo de l'étiquette
-                        </Text>
-                        <Image
-                            source={require("../assets/icons/photo1.png")}
-                            style={[styles.iconRight, { tintColor: "#ececec" }]}
-                        />
-                    </TouchableOpacity>
-                    {labelPhoto ? (
-                        <View
-                            style={{
-                                marginLeft: 10,
-                                alignItems: "center",
-                            }}
-                        >
-                            {(() => {
-                                const labelRaw = extractRefString(
-                                    labelPhotoDB ?? labelPhoto
-                                );
-                                return (
-                                    <TouchableOpacity
-                                        onPress={() =>
-                                            setSelectedImage(labelPhoto)
-                                        }
-                                        onLongPress={() =>
-                                            deleteLabelPhoto(labelRaw)
-                                        }
-                                        delayLongPress={400}
-                                        activeOpacity={0.85}
-                                        style={[
-                                            styles.thumbWrap,
-                                            styles.labelWrap,
-                                        ]}
-                                    >
-                                        <ResolvedImage
-                                            refOrPath={labelPhoto}
-                                            size={30}
-                                            style={styles.labelOutline}
-                                        />
-                                    </TouchableOpacity>
-                                );
-                            })()}
+                        <View style={styles.checkbox}>
+                            {takeLabelPhoto && (
+                                <Image
+                                    source={require("../assets/icons/checked.png")}
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        tintColor: "#007bff",
+                                    }}
+                                    resizeMode="contain"
+                                />
+                            )}
                         </View>
-                    ) : null}
+                        <Text style={styles.checkboxLabel}>
+                            Prendre la photo de l’étiquette
+                        </Text>
+                    </TouchableOpacity>
                 </View>
+
+                {/* ✅ Pavé étiquette : masqué par défaut, affiché si case cochée */}
+                {takeLabelPhoto && (
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            marginTop: 10,
+                            alignSelf: "center",
+                        }}
+                    >
+                        <TouchableOpacity
+                            style={styles.buttonLabel}
+                            onPress={pickLabelImage}
+                        >
+                            <Text style={styles.buttonTextLabel}>
+                                Prendre une photo de l'étiquette
+                            </Text>
+                            <Image
+                                source={require("../assets/icons/photo1.png")}
+                                style={[styles.iconRight, { tintColor: "#ececec" }]}
+                            />
+                        </TouchableOpacity>
+
+                        {(labelPhoto || labelPhotoDB) ? (
+                            <View style={{ marginLeft: 10, alignItems: "center" }}>
+                                {(() => {
+                                    const labelToUse = labelPhoto || labelPhotoDB;
+                                    const labelRaw = extractRefString(labelPhotoDB ?? labelPhoto);
+                                    return (
+                                        <TouchableOpacity
+                                            onPress={() => setSelectedImage(labelToUse)}
+                                            onLongPress={() => deleteLabelPhoto(labelRaw)}
+                                            delayLongPress={400}
+                                            activeOpacity={0.85}
+                                            style={[styles.thumbWrap, styles.labelWrap]}
+                                        >
+                                            <ResolvedImage
+                                                refOrPath={labelToUse}
+                                                size={30}
+                                                style={styles.labelOutline}
+                                            />
+                                        </TouchableOpacity>
+                                    );
+                                })()}
+                            </View>
+                        ) : null}
+                    </View>
+                )}
+
+                {/* (Optionnel) si case décochée mais étiquette existante, on laisse un accès discret */}
+                {!takeLabelPhoto && (labelPhotoDB || labelPhoto) ? (
+                    <View
+                        style={{
+                            width: "90%",
+                            alignSelf: "center",
+                            marginTop: 8,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                        }}
+                    >
+                        <Text style={{ color: "#333", fontWeight: "600" }}>
+                            Étiquette enregistrée
+                        </Text>
+                        <View style={{ flexDirection: "row", gap: 10 }}>
+                            <TouchableOpacity
+                                onPress={() => setSelectedImage(labelPhotoDB || labelPhoto)}
+                                style={{
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 10,
+                                    borderWidth: 1,
+                                    borderColor: "#777",
+                                    borderRadius: 8,
+                                    backgroundColor: "#e7e7e7",
+                                }}
+                            >
+                                <Text style={{ fontWeight: "700", color: "#222" }}>
+                                    Voir
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => deleteLabelPhoto(extractRefString(labelPhotoDB || labelPhoto))}
+                                style={{
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 10,
+                                    borderWidth: 1,
+                                    borderColor: "#b71c1c",
+                                    borderRadius: 8,
+                                    backgroundColor: "#ffebee",
+                                }}
+                            >
+                                <Text style={{ fontWeight: "700", color: "#b71c1c" }}>
+                                    Supprimer
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : null}
 
                 {/* Description avec label flottant */}
                 <FloatingField label="Description de la panne">
@@ -1519,9 +1563,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
                 {/* Cases / Paiement */}
                 <View>
-                    <View
-                        style={[styles.checkboxContainer, { marginBottom: 20 }]}
-                    >
+                    <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
                         <TouchableOpacity
                             onPress={() => setAcceptScreenRisk((prev) => !prev)}
                             style={styles.checkboxRow}
@@ -1540,16 +1582,13 @@ export default function EditInterventionPage({ route, navigation }) {
                                 )}
                             </View>
                             <Text style={styles.checkboxLabel}>
-                                J'accepte le démontage de l'écran de mon
-                                produit malgré le risque de casse.
+                                J'accepte le démontage de l'écran de mon produit
+                                malgré le risque de casse.
                             </Text>
                         </TouchableOpacity>
                     </View>
 
-                    <View
-                        className="checkboxes"
-                        style={styles.checkboxContainer}
-                    >
+                    <View className="checkboxes" style={styles.checkboxContainer}>
                         <TouchableOpacity
                             onPress={() => {
                                 setPaymentStatus("non_regle");
@@ -1594,9 +1633,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                     />
                                 )}
                             </View>
-                            <Text style={styles.checkboxLabel}>
-                                Règlement partiel
-                            </Text>
+                            <Text style={styles.checkboxLabel}>Règlement partiel</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -1646,9 +1683,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                     />
                                 )}
                             </View>
-                            <Text style={styles.checkboxLabel}>
-                                rien à payer
-                            </Text>
+                            <Text style={styles.checkboxLabel}>rien à payer</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -1659,9 +1694,7 @@ export default function EditInterventionPage({ route, navigation }) {
                         <FloatingField label="Acompte (€)">
                             <TextInput
                                 style={styles.input}
-                                value={
-                                    partialPayment ? String(partialPayment) : ""
-                                }
+                                value={partialPayment ? String(partialPayment) : ""}
                                 onChangeText={setPartialPayment}
                                 keyboardType="numeric"
                                 placeholder=" "
@@ -1684,9 +1717,7 @@ export default function EditInterventionPage({ route, navigation }) {
                 <View
                     style={[
                         styles.rowFlexContainer,
-                        status === "En attente de pièces" && {
-                            paddingHorizontal: 20,
-                        },
+                        status === "En attente de pièces" && { paddingHorizontal: 20 },
                     ]}
                 >
                     <View style={styles.fullwidthContainer}>
@@ -1697,8 +1728,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 style={[styles.input, styles.picker]}
                                 onValueChange={(itemValue) => {
                                     setStatus(itemValue);
-                                    if (itemValue === "Devis en cours")
-                                        setCost("");
+                                    if (itemValue === "Devis en cours") setCost("");
                                     if (itemValue === "Non réparable") {
                                         setNoCostButRestitution(true);
                                         setPaymentStatus("");
@@ -1706,34 +1736,13 @@ export default function EditInterventionPage({ route, navigation }) {
                                     }
                                 }}
                             >
-                                <Picker.Item
-                                    label="Sélectionnez un statut..."
-                                    value="default"
-                                />
-                                <Picker.Item
-                                    label="En attente de pièces"
-                                    value="En attente de pièces"
-                                />
-                                <Picker.Item
-                                    label="Devis en cours"
-                                    value="Devis en cours"
-                                />
-                                <Picker.Item
-                                    label="Devis accepté"
-                                    value="Devis accepté"
-                                />
-                                <Picker.Item
-                                    label="Intervention en cours"
-                                    value="Intervention en cours"
-                                />
-                                <Picker.Item
-                                    label="Réparé"
-                                    value="Réparé"
-                                />
-                                <Picker.Item
-                                    label="Non réparable"
-                                    value="Non réparable"
-                                />
+                                <Picker.Item label="Sélectionnez un statut..." value="default" />
+                                <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+                                <Picker.Item label="Devis en cours" value="Devis en cours" />
+                                <Picker.Item label="Devis accepté" value="Devis accepté" />
+                                <Picker.Item label="Intervention en cours" value="Intervention en cours" />
+                                <Picker.Item label="Réparé" value="Réparé" />
+                                <Picker.Item label="Non réparable" value="Non réparable" />
                             </Picker>
                         </FloatingField>
 
@@ -1764,34 +1773,20 @@ export default function EditInterventionPage({ route, navigation }) {
                                         }}
                                     >
                                         <TextInput
-                                            style={[
-                                                styles.input,
-                                                { flex: 1, marginBottom: 0 },
-                                            ]}
+                                            style={[styles.input, { flex: 1, marginBottom: 0 }]}
                                             placeholder="De ..."
                                             placeholderTextColor="#202020"
                                             keyboardType="numeric"
                                             value={estimateMin}
-                                            onChangeText={(t) =>
-                                                setEstimateMin(
-                                                    normalizeNumber(t)
-                                                )
-                                            }
+                                            onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
                                         />
                                         <TextInput
-                                            style={[
-                                                styles.input,
-                                                { flex: 1, marginBottom: 0 },
-                                            ]}
+                                            style={[styles.input, { flex: 1, marginBottom: 0 }]}
                                             placeholder="À ..."
                                             placeholderTextColor="#202020"
                                             keyboardType="numeric"
                                             value={estimateMax}
-                                            onChangeText={(t) =>
-                                                setEstimateMax(
-                                                    normalizeNumber(t)
-                                                )
-                                            }
+                                            onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
                                         />
                                     </View>
                                 </FloatingField>
@@ -1817,15 +1812,11 @@ export default function EditInterventionPage({ route, navigation }) {
                                 <Text
                                     style={[
                                         styles.interventionText,
-                                        {
-                                            width: "90%",
-                                            alignSelf: "center",
-                                        },
+                                        { width: "90%", alignSelf: "center" },
                                     ]}
                                 >
-                                    Si “plafond” est choisi, le client accepte
-                                    un montant maximum garanti (vous facturez ≤{" "}
-                                    {estimateMax || "…"} €).
+                                    Si “plafond” est choisi, le client accepte un montant maximum garanti
+                                    (vous facturez ≤ {estimateMax || "…"} €).
                                 </Text>
                             </>
                         )}
@@ -1851,9 +1842,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 <TextInput
                                     style={styles.input}
                                     value={commande.toUpperCase()}
-                                    onChangeText={(t) =>
-                                        setCommande(t.toUpperCase())
-                                    }
+                                    onChangeText={(t) => setCommande(t.toUpperCase())}
                                     autoCapitalize="characters"
                                     placeholder=" "
                                     placeholderTextColor="#202020"
@@ -1900,10 +1889,8 @@ export default function EditInterventionPage({ route, navigation }) {
                             contentContainerStyle={styles.galleryContent}
                         >
                             {Array.isArray(photos) &&
-                                _uniqPhotosForView(
-                                    photos,
-                                    labelPhotoDB ?? labelPhoto
-                                ).length > 0 && (
+                                _uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).length >
+                                    0 && (
                                     <View
                                         style={{
                                             flexDirection: "row",
@@ -1911,40 +1898,31 @@ export default function EditInterventionPage({ route, navigation }) {
                                             justifyContent: "center",
                                         }}
                                     >
-                                        {_uniqPhotosForView(
-                                            photos,
-                                            labelPhotoDB ?? labelPhoto
-                                        ).map((refStr, index) => {
-                                            return (
-                                                <View
-                                                    key={`${_bucketKey(
-                                                        refStr
-                                                    )}-${index}`}
-                                                    style={{
-                                                        margin: 6,
-                                                        alignItems: "center",
-                                                    }}
-                                                >
-                                                    <Pressable
-                                                        onPress={() =>
-                                                            setSelectedImage(
-                                                                refStr
-                                                            )
-                                                        }
-                                                        onLongPress={() =>
-                                                            deletePhoto(refStr)
-                                                        }
-                                                        delayLongPress={400}
-                                                        style={styles.thumbWrap}
+                                        {_uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).map(
+                                            (refStr, index) => {
+                                                return (
+                                                    <View
+                                                        key={`${_bucketKey(refStr)}-${index}`}
+                                                        style={{
+                                                            margin: 6,
+                                                            alignItems: "center",
+                                                        }}
                                                     >
-                                                        <ResolvedImage
-                                                            refOrPath={refStr}
-                                                            size={100}
-                                                        />
-                                                    </Pressable>
-                                                </View>
-                                            );
-                                        })}
+                                                        <Pressable
+                                                            onPress={() => setSelectedImage(refStr)}
+                                                            onLongPress={() => deletePhoto(refStr)}
+                                                            delayLongPress={400}
+                                                            style={styles.thumbWrap}
+                                                        >
+                                                            <ResolvedImage
+                                                                refOrPath={refStr}
+                                                                size={100}
+                                                            />
+                                                        </Pressable>
+                                                    </View>
+                                                );
+                                            }
+                                        )}
                                     </View>
                                 )}
                         </ScrollView>
@@ -1957,9 +1935,7 @@ export default function EditInterventionPage({ route, navigation }) {
                         transparent={true}
                         onRequestClose={() => setSelectedImage(null)}
                     >
-                        <TouchableWithoutFeedback
-                            onPress={() => setSelectedImage(null)}
-                        >
+                        <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
                             <View style={styles.modalBackground}>
                                 <Image
                                     source={{ uri: selectedImage }}
@@ -1988,9 +1964,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 },
                             ]}
                         />
-                        <Text style={styles.buttonText}>
-                            Prendre une autre photo
-                        </Text>
+                        <Text style={styles.buttonText}>Prendre une autre photo</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.iconButton, styles.saveButton]}
@@ -2008,12 +1982,13 @@ export default function EditInterventionPage({ route, navigation }) {
                                 },
                             ]}
                         />
-                        <Text style={styles.buttonText}>
-                            Sauvegarder l'intervention
-                        </Text>
+                        <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* === MODALES (Type / Marque / Modèle / Alertes / etc.) : inchangées === */}
+            {/* ... le reste de ton fichier est identique ... */}
 
             {/* === MODALE TYPE === */}
             <Modal
@@ -2024,20 +1999,13 @@ export default function EditInterventionPage({ route, navigation }) {
             >
                 <View style={styles.modalOverlayFull}>
                     <View style={styles.modalPickerBox}>
-                        <Text style={styles.modalPickerTitle}>
-                            Type de produit
-                        </Text>
+                        <Text style={styles.modalPickerTitle}>Type de produit</Text>
                         <FlatList
-                            data={articles.map((a) => ({
-                                label: a.nom,
-                                value: a.id,
-                            }))}
+                            data={articles.map((a) => ({ label: a.nom, value: a.id }))}
                             keyExtractor={(it, i) => String(it.value ?? i)}
                             numColumns={4}
                             columnWrapperStyle={{ gap: 8 }}
-                            ItemSeparatorComponent={() => (
-                                <View style={{ height: 8 }} />
-                            )}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                             contentContainerStyle={{ gap: 8 }}
                             renderItem={({ item }) => (
                                 <Pressable
@@ -2053,19 +2021,11 @@ export default function EditInterventionPage({ route, navigation }) {
                                         justifyContent: "center",
                                         borderWidth: 1,
                                         borderColor: "#e5e5e5",
-                                        backgroundColor: pressed
-                                            ? "#f2f2f2"
-                                            : "#fff",
+                                        backgroundColor: pressed ? "#f2f2f2" : "#fff",
                                         minHeight: 48,
                                     })}
                                 >
-                                    <Text
-                                        numberOfLines={2}
-                                        style={{
-                                            fontSize: 14,
-                                            textAlign: "center",
-                                        }}
-                                    >
+                                    <Text numberOfLines={2} style={{ fontSize: 14, textAlign: "center" }}>
                                         {item.label}
                                     </Text>
                                 </Pressable>
@@ -2090,20 +2050,13 @@ export default function EditInterventionPage({ route, navigation }) {
             >
                 <View style={styles.modalOverlayFull}>
                     <View style={styles.modalPickerBox}>
-                        <Text style={styles.modalPickerTitle}>
-                            Marque du produit
-                        </Text>
+                        <Text style={styles.modalPickerTitle}>Marque du produit</Text>
                         <FlatList
-                            data={brands.map((b) => ({
-                                label: b.nom,
-                                value: b.id,
-                            }))}
+                            data={brands.map((b) => ({ label: b.nom, value: b.id }))}
                             keyExtractor={(it, i) => String(it.value ?? i)}
                             numColumns={4}
                             columnWrapperStyle={{ gap: 8 }}
-                            ItemSeparatorComponent={() => (
-                                <View style={{ height: 8 }} />
-                            )}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                             contentContainerStyle={{ gap: 8 }}
                             renderItem={({ item }) => (
                                 <Pressable
@@ -2119,19 +2072,11 @@ export default function EditInterventionPage({ route, navigation }) {
                                         justifyContent: "center",
                                         borderWidth: 1,
                                         borderColor: "#e5e5e5",
-                                        backgroundColor: pressed
-                                            ? "#f2f2f2"
-                                            : "#fff",
+                                        backgroundColor: pressed ? "#f2f2f2" : "#fff",
                                         minHeight: 48,
                                     })}
                                 >
-                                    <Text
-                                        numberOfLines={2}
-                                        style={{
-                                            fontSize: 14,
-                                            textAlign: "center",
-                                        }}
-                                    >
+                                    <Text numberOfLines={2} style={{ fontSize: 14, textAlign: "center" }}>
                                         {item.label}
                                     </Text>
                                 </Pressable>
@@ -2156,20 +2101,13 @@ export default function EditInterventionPage({ route, navigation }) {
             >
                 <View style={styles.modalOverlayFull}>
                     <View style={styles.modalPickerBox}>
-                        <Text style={styles.modalPickerTitle}>
-                            Modèle du produit
-                        </Text>
+                        <Text style={styles.modalPickerTitle}>Modèle du produit</Text>
                         <FlatList
-                            data={models.map((m) => ({
-                                label: m.nom,
-                                value: m.id,
-                            }))}
+                            data={models.map((m) => ({ label: m.nom, value: m.id }))}
                             keyExtractor={(it, i) => String(it.value ?? i)}
                             numColumns={4}
                             columnWrapperStyle={{ gap: 8 }}
-                            ItemSeparatorComponent={() => (
-                                <View style={{ height: 8 }} />
-                            )}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                             contentContainerStyle={{ gap: 8 }}
                             renderItem={({ item }) => (
                                 <Pressable
@@ -2185,19 +2123,11 @@ export default function EditInterventionPage({ route, navigation }) {
                                         justifyContent: "center",
                                         borderWidth: 1,
                                         borderColor: "#e5e5e5",
-                                        backgroundColor: pressed
-                                            ? "#f2f2f2"
-                                            : "#fff",
+                                        backgroundColor: pressed ? "#f2f2f2" : "#fff",
                                         minHeight: 48,
                                     })}
                                 >
-                                    <Text
-                                        numberOfLines={2}
-                                        style={{
-                                            fontSize: 14,
-                                            textAlign: "center",
-                                        }}
-                                    >
+                                    <Text numberOfLines={2} style={{ fontSize: 14, textAlign: "center" }}>
                                         {item.label}
                                     </Text>
                                 </Pressable>
@@ -2231,10 +2161,7 @@ export default function EditInterventionPage({ route, navigation }) {
                     >
                         <Text style={styles.alertTitle}>{alertTitle}</Text>
                         <Text style={styles.alertMessage}>{alertMessage}</Text>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={closeAlert}
-                        >
+                        <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
                             <Text style={styles.modalButtonText}>OK</Text>
                         </TouchableOpacity>
                     </View>
@@ -2252,8 +2179,8 @@ export default function EditInterventionPage({ route, navigation }) {
                     <View style={[styles.alertBox, styles.alertBoxDanger]}>
                         <Text style={styles.alertTitle}>Rappel</Text>
                         <Text style={styles.alertMessage}>
-                            Aucun mot de passe n’a été saisi. Continuer sans
-                            renseigner le mot de passe ?
+                            Aucun mot de passe n’a été saisi. Continuer sans renseigner le
+                            mot de passe ?
                         </Text>
 
                         <View style={styles.rowButtons}>
@@ -2261,9 +2188,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                 style={[styles.modalButton, styles.btnCancel]}
                                 onPress={() => setPwdReminderVisible(false)}
                             >
-                                <Text style={styles.modalButtonText}>
-                                    Annuler
-                                </Text>
+                                <Text style={styles.modalButtonText}>Annuler</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -2273,12 +2198,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                     performSaveIntervention();
                                 }}
                             >
-                                <Text
-                                    style={[
-                                        styles.modalButtonText,
-                                        { color: "#fff" },
-                                    ]}
-                                >
+                                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
                                     Continuer
                                 </Text>
                             </TouchableOpacity>
@@ -2366,9 +2286,7 @@ export default function EditInterventionPage({ route, navigation }) {
                             <TextInput
                                 style={styles.input}
                                 value={orderQty}
-                                onChangeText={(t) =>
-                                    setOrderQty(t.replace(/[^\d]/g, ""))
-                                }
+                                onChangeText={(t) => setOrderQty(t.replace(/[^\d]/g, ""))}
                                 keyboardType="number-pad"
                                 placeholder="1"
                                 placeholderTextColor="#777"
@@ -2386,13 +2304,7 @@ export default function EditInterventionPage({ route, navigation }) {
                             />
                         </FloatingField>
 
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                gap: 10,
-                                marginTop: 8,
-                            }}
-                        >
+                        <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
                             <TouchableOpacity
                                 onPress={() => setOrderModalVisible(false)}
                                 style={{
@@ -2403,12 +2315,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                     alignItems: "center",
                                 }}
                             >
-                                <Text
-                                    style={{
-                                        color: "#fff",
-                                        fontWeight: "700",
-                                    }}
-                                >
+                                <Text style={{ color: "#fff", fontWeight: "700" }}>
                                     Annuler
                                 </Text>
                             </TouchableOpacity>
@@ -2422,12 +2329,7 @@ export default function EditInterventionPage({ route, navigation }) {
                                     alignItems: "center",
                                 }}
                             >
-                                <Text
-                                    style={{
-                                        color: "#fff",
-                                        fontWeight: "700",
-                                    }}
-                                >
+                                <Text style={{ color: "#fff", fontWeight: "700" }}>
                                     Créer
                                 </Text>
                             </TouchableOpacity>
@@ -2544,9 +2446,7 @@ function ResolvedImage({
                         borderRadius: 10,
                         borderColor: loaded ? "#aaaaaa" : "transparent",
                         borderWidth: loaded ? 2 : 0,
-                        backgroundColor: loaded
-                            ? "transparent"
-                            : "transparent",
+                        backgroundColor: loaded ? "transparent" : "transparent",
                     },
                     style,
                 ]}
@@ -2600,7 +2500,6 @@ function FloatingField({ label, children, style }) {
     );
 }
 
-
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#e0e0e0", paddingHorizontal: 20 },
     clientName: {
@@ -2612,41 +2511,41 @@ const styles = StyleSheet.create({
     },
 
     // Wrapper + label flottant
-fieldWrapper: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 18,
-    marginBottom: 8,
-    position: "relative",
-    overflow: "visible",
-},
+    fieldWrapper: {
+        width: "100%",
+        alignItems: "center",
+        marginTop: 18,
+        marginBottom: 8,
+        position: "relative",
+        overflow: "visible",
+    },
 
-floatingLabel: {
-    position: "absolute",
-    left: "8%",
-    top: -18,                 // un peu plus haut
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: "#e0e0e0", // même fond que la page
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#999",      // contour visible
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#222",
-    zIndex: 10,               // passe devant le champ
-    elevation: 3,             // Android
-},
-input: {
-    height: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 16,
-    borderRadius: 10,
-    backgroundColor: "#cacaca",
-    width: "90%",
-    alignSelf: "center",
-},
+    floatingLabel: {
+        position: "absolute",
+        left: "8%",
+        top: -18, // un peu plus haut
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        backgroundColor: "#e0e0e0", // même fond que la page
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#999", // contour visible
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#222",
+        zIndex: 10, // passe devant le champ
+        elevation: 3, // Android
+    },
+    input: {
+        height: 50,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        marginBottom: 16,
+        borderRadius: 10,
+        backgroundColor: "#cacaca",
+        width: "90%",
+        alignSelf: "center",
+    },
 
     label: {
         fontSize: 16,
@@ -2791,6 +2690,7 @@ input: {
         backgroundColor: "#dddddd",
         paddingVertical: 10,
         paddingHorizontal: 20,
+
         borderWidth: 1,
         borderRadius: 5,
         alignItems: "center",

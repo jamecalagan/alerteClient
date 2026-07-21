@@ -3071,9 +3071,9 @@ interventions(
                     <View
                       onLayout={(e) => {
                         const w = e?.nativeEvent?.layout?.width || 0;
-						const h = e?.nativeEvent?.layout?.height || 0;
-                        if (w && w !== sliderW) setSliderW(w);
-						if (h && h !== sliderH) setSliderH(h);
+                        const h = e?.nativeEvent?.layout?.height || 0;
+                                    if (w && w !== sliderW) setSliderW(w);
+                        if (h && h !== sliderH) setSliderH(h);
                       }}
                     >
                       <FlatList
@@ -3102,45 +3102,45 @@ interventions(
                             setCurrentPage(p);
                           }
                         }}
-renderItem={({ item: pageItems, index: pageIndex }) => (
-  <View style={{ width: sliderW || 1, height: sliderH || "100%" }}>
-    <ScrollView
-      nestedScrollEnabled
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 24 }}
-    >
-      {(pageItems || []).map((cli, i) => (
-        <View key={String(cli.id)} style={{ marginBottom: 20 }}>
-          {renderClientCard({
-            item: cli,
-            index: pageIndex * itemsPerPage + i,
-          })}
-        </View>
-      ))}
-    </ScrollView>
-  </View>
-)}
+                        renderItem={({ item: pageItems, index: pageIndex }) => (
+                          <View style={{ width: sliderW || 1, height: sliderH || "100%" }}>
+                            <ScrollView
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator={false}
+                              contentContainerStyle={{ paddingBottom: 50 }}
+                            >
+                              {(pageItems || []).map((cli, i) => (
+                                <View key={String(cli.id)} style={{ marginBottom: 3 }}>
+                                  {renderClientCard({
+                                    item: cli,
+                                    index: pageIndex * itemsPerPage + i,
+                                  })}
+                                </View>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        )}
 
                         contentContainerStyle={{
                           paddingBottom: 10,
                         }} // Ajoute un espace en bas
                       />
 		
-
+<View>
         
-        {totalPages > 1 && currentPage === totalPages && (
-          <TouchableOpacity
-            style={styles.backToStartBtn}
-            onPress={() => {
-              setExpandedClientId(null);
-              flatListRef.current?.scrollToIndex({ index: 0, animated: true });
-              setCurrentPage(1);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.backToStartText}>Retour aux deux premières</Text>
-          </TouchableOpacity>
-        )}
+                      {totalPages > 1 && currentPage === totalPages && (
+                        <TouchableOpacity
+                          style={styles.backToStartBtn}
+                          onPress={() => {
+                            setExpandedClientId(null);
+                            flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                            setCurrentPage(1);
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.backToStartText}>Retour</Text>
+                        </TouchableOpacity>
+                      )}
                       {/* ✅ Indicateur de pages (● ○ ○) */}
                       {sliderTotalPages > 1 && (
                         <View style={styles.dotsRow}>
@@ -3154,7 +3154,9 @@ renderItem={({ item: pageItems, index: pageIndex }) => (
                             />
                           ))}
                         </View>
+                        
                       )}
+                      </View>
                     </View>
                   )}
                 </>
@@ -4725,8 +4727,8 @@ dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 50,
-    marginBottom: 6,
+    marginTop:3,
+    marginBottom: 8,
   },
   dot: {
     width: 7,
@@ -4740,15 +4742,17 @@ dotsRow: {
     transform: [{ scale: 1.15 }],
   },
   backToStartBtn: {
+    position: "absolute",
+    top: -40,
+    right: 10,
   alignSelf: "center",
   marginTop: 10,
   marginBottom: 10,
   paddingHorizontal: 14,
   paddingVertical: 10,
   borderRadius: 12,
-  backgroundColor: "#111827",
-},
-backToStartText: {
+  backgroundColor: "#111827",},
+  backToStartText: {
   color: "#ffffff",
   fontWeight: "800",
   fontSize: 13,
@@ -5318,8 +5322,8 @@ const stylesNS = StyleSheet.create({
   expressWrap: {
     position: "relative",
     marginHorizontal: 15, // aligne avec ton expressCard existant
-    marginTop: 100,
-	marginBottom: 130,
+    marginTop: 30,
+	marginBottom: 125,
   },
 
   // Carte "Commandes en cours" ancrée en bas à droite

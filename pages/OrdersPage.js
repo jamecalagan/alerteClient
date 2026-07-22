@@ -199,11 +199,12 @@ const [newOrder, setNewOrder] = useState({
                 : null;
 
             if (clientId) {
-                const { data, error } = await supabase
-                    .from("orders")
-                    .select("*, billing(id)")
-                    .eq("client_id", clientId)
-                    .order("createdat", { ascending: false });
+const { data, error } = await supabase
+  .from("orders")
+  .select("*, billing(id)")
+  .eq("client_id", clientId)
+  .or("deleted.eq.false,deleted.is.null")
+  .order("createdat", { ascending: false });
                 if (error) throw error;
                 const rows = (data || []).map((o) => {
                     const qty = Number.isFinite(o.quantity)
@@ -240,11 +241,12 @@ const [newOrder, setNewOrder] = useState({
 
             if (focusId) {
                 const { data, error } = await supabase
-                    .from("orders")
-                    .select("*, billing(id)")
-                    .eq("id", focusId)
-                    .limit(1)
-                    .maybeSingle();
+  .from("orders")
+  .select("*, billing(id)")
+  .eq("id", focusId)
+  .or("deleted.eq.false,deleted.is.null")
+  .limit(1)
+  .maybeSingle();
                 if (error) throw error;
 
                 if (data) {
@@ -348,6 +350,7 @@ const [newOrder, setNewOrder] = useState({
                 total: totalToSend,
                 deposit: depositToSend,
                 paid: false,
+				deleted: false,
                 client_id: clientId || null,
                 include_in_intervention: included,
             };
@@ -372,7 +375,71 @@ const [newOrder, setNewOrder] = useState({
             console.error("❌ Ajout commande:", e);
         }
     };
+const handleCancelOrder = (ord) => {
+  if (!ord?.id) return;
 
+  if (ord.saved) {
+    Alert.alert(
+      "Commande sauvegardée",
+      "Une commande déjà sauvegardée ne peut pas être annulée."
+    );
+    return;
+  }
+
+  if (ord.recovered) {
+    Alert.alert(
+      "Commande récupérée",
+      "Cette commande a déjà été récupérée par le client."
+    );
+    return;
+  }
+
+  Alert.alert(
+    "Annuler la commande",
+    `Voulez-vous vraiment annuler la commande « ${
+      ord.product || "Sans désignation"
+    } » ?\n\nElle disparaîtra des commandes en cours mais restera enregistrée dans l’historique.`,
+    [
+      {
+        text: "Non",
+        style: "cancel",
+      },
+      {
+        text: "Oui, annuler",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const { error } = await supabase
+              .from("orders")
+              .update({
+                deleted: true,
+              })
+              .eq("id", ord.id);
+
+            if (error) throw error;
+
+            setOrders((currentOrders) =>
+              currentOrders.filter((orderItem) => orderItem.id !== ord.id)
+            );
+
+            Alert.alert(
+              "Commande annulée",
+              "La commande a été retirée de la liste des commandes en cours."
+            );
+          } catch (error) {
+            console.error("❌ Annulation commande :", error);
+
+            Alert.alert(
+              "Erreur",
+              "Impossible d’annuler cette commande."
+            );
+          }
+        },
+      },
+    ],
+    { cancelable: true }
+  );
+};
     const handleDeleteOrder = async (ord) => {
         if (!ord.paid && !ord.saved) {
             Alert.alert(
@@ -561,165 +628,368 @@ const [newOrder, setNewOrder] = useState({
         }
     };
 
-    // ====== PHOTOS (multi) ======
-    const ensureCameraPermission = async () => {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== "granted") {
-            Alert.alert(
-                "Permission requise",
-                "Autorisez l'accès à la caméra pour prendre des photos."
-            );
-            return false;
-        }
-        return true;
-    };
+  // ====== PHOTOS (multi) ======
 
-    const getPublicUrlFromPath = (path) => {
-        if (!path) return null;
-        if (/^https?:\/\//i.test(path)) return path;
-        const { data } = supabase.storage
-            .from(ORDER_PHOTOS_BUCKET)
-            .getPublicUrl(path);
-        return data?.publicUrl || null;
-    };
+const ensureCameraPermission = async () => {
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
-    const candidateMulti = ["order_photos", "photos", "images"];
-    const candidateSingle = [
-        "order_photo",
-        "photo_url",
-        "photo",
-        "image_url",
-        "image",
-        "picture",
-    ];
+  if (status !== "granted") {
+    Alert.alert(
+      "Permission requise",
+      "Autorisez l'accès à la caméra pour prendre des photos."
+    );
+    return false;
+  }
 
-    const readPhotoPathsFromRow = (row) => {
-        for (const col of candidateMulti) {
-            if (
-                Object.prototype.hasOwnProperty.call(row || {}, col) &&
-                row[col] != null
-            ) {
-                const v = row[col];
-                if (Array.isArray(v)) return v.filter(Boolean);
-                if (typeof v === "string") {
-                    try {
-                        const arr = JSON.parse(v);
-                        if (Array.isArray(arr)) return arr.filter(Boolean);
-                    } catch (_) {}
-                    if (v.includes(","))
-                        return v
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter(Boolean);
-                    return v ? [v] : [];
-                }
-            }
-        }
-        for (const col of candidateSingle) {
-            if (
-                Object.prototype.hasOwnProperty.call(row || {}, col) &&
-                row[col]
-            ) {
-                return [row[col]];
-            }
-        }
-        return [];
-    };
+  return true;
+};
 
-    const writePhotoPathsToRow = async (orderId, paths) => {
-        for (const col of candidateMulti) {
-            try {
-                const { error } = await supabase
-                    .from("orders")
-                    .update({ [col]: paths })
-                    .eq("id", orderId);
-                if (!error) return true;
-            } catch (_) {}
-        }
-        for (const col of candidateSingle) {
-            try {
-                const last = paths[paths.length - 1] || null;
-                const { error } = await supabase
-                    .from("orders")
-                    .update({ [col]: last })
-                    .eq("id", orderId);
-                if (!error) return true;
-            } catch (_) {}
-        }
-        Alert.alert(
-            "Colonne photos introuvable",
-            "Ajoutez une colonne JSON/ARRAY (ex. order_photos jsonb) pour stocker plusieurs chemins."
-        );
-        return false;
-    };
+const getPublicUrlFromPath = (path) => {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
 
-    const takeAndUploadOrderPhoto = async (ord) => {
+  const { data } = supabase.storage
+    .from(ORDER_PHOTOS_BUCKET)
+    .getPublicUrl(path);
+
+  return data?.publicUrl || null;
+};
+
+const candidateMulti = ["order_photos", "photos", "images"];
+
+const candidateSingle = [
+  "order_photo",
+  "photo_url",
+  "photo",
+  "image_url",
+  "image",
+  "picture",
+];
+
+const readPhotoPathsFromRow = (row) => {
+  for (const col of candidateMulti) {
+    if (
+      Object.prototype.hasOwnProperty.call(row || {}, col) &&
+      row[col] != null
+    ) {
+      const value = row[col];
+
+      if (Array.isArray(value)) {
+        return value.filter(Boolean);
+      }
+
+      if (typeof value === "string") {
         try {
-            const ok = await ensureCameraPermission();
-            if (!ok) return;
+          const parsed = JSON.parse(value);
 
-            const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaType.Images
-,
-                quality: 0.7,
-                base64: false,
-                allowsEditing: false,
-                exif: false,
-            });
-            if (result.canceled) return;
-            const asset = result.assets?.[0];
-            if (!asset?.uri) return;
-
-            setUploadingOrderId(ord.id);
-
-            const extGuess = asset.uri.split(".").pop()?.toLowerCase() || "jpg";
-            const filePath = `${ORDER_PHOTOS_FOLDER}/${clientId || "client"}/${
-                ord.id
-            }-${Date.now()}.${extGuess}`;
-            const file = {
-                uri: asset.uri,
-                name: filePath.split("/").pop(),
-                type: asset.mimeType || `image/${extGuess}`,
-            };
-
-            const { error: upErr } = await supabase.storage
-                .from(ORDER_PHOTOS_BUCKET)
-                .upload(filePath, file, {
-                    cacheControl: "3600",
-                    upsert: true,
-                    contentType: file.type,
-                });
-            if (upErr) throw upErr;
-
-            const current = readPhotoPathsFromRow(ord);
-            const next = [...current, filePath];
-            const okWrite = await writePhotoPathsToRow(ord.id, next);
-            if (!okWrite) return;
-
-            Alert.alert(
-                "Photo enregistrée",
-                "La photo a été ajoutée à la commande."
-            );
-            await loadOrders();
-        } catch (e) {
-            console.error("📷❌ Upload photo:", e);
-            Alert.alert("Erreur", "Impossible d'envoyer la photo.");
-        } finally {
-            setUploadingOrderId(null);
-        }
-    };
-
-    const deleteOnePhoto = async (ord, imgPath) => {
-        const paths = readPhotoPathsFromRow(ord);
-        const next = paths.filter((p) => p !== imgPath);
-        const ok = await writePhotoPathsToRow(ord.id, next);
-        if (!ok) return;
-        try {
-            await supabase.storage.from(ORDER_PHOTOS_BUCKET).remove([imgPath]);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(Boolean);
+          }
         } catch (_) {}
-        await loadOrders();
+
+        if (value.includes(",")) {
+          return value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+
+        return value ? [value] : [];
+      }
+    }
+  }
+
+  for (const col of candidateSingle) {
+    if (
+      Object.prototype.hasOwnProperty.call(row || {}, col) &&
+      row[col]
+    ) {
+      return [row[col]];
+    }
+  }
+
+  return [];
+};
+
+const writePhotoPathsToRow = async (orderId, paths) => {
+  for (const col of candidateMulti) {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ [col]: paths })
+        .eq("id", orderId);
+
+      if (!error) return true;
+    } catch (_) {}
+  }
+
+  for (const col of candidateSingle) {
+    try {
+      const lastPhoto = paths[paths.length - 1] || null;
+
+      const { error } = await supabase
+        .from("orders")
+        .update({ [col]: lastPhoto })
+        .eq("id", orderId);
+
+      if (!error) return true;
+    } catch (_) {}
+  }
+
+  Alert.alert(
+    "Colonne photos introuvable",
+    "Impossible d’enregistrer les photos de cette commande."
+  );
+
+  return false;
+};
+
+const uploadOrderPhotoAsset = async (ord, asset) => {
+  if (!ord?.id || !asset?.uri) return;
+
+  setUploadingOrderId(ord.id);
+
+  try {
+    const uriWithoutQuery = asset.uri.split("?")[0];
+    const rawExtension =
+      uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+
+    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+    const extension = allowedExtensions.includes(rawExtension)
+      ? rawExtension
+      : "jpg";
+
+    const mimeType =
+      asset.mimeType ||
+      (extension === "png"
+        ? "image/png"
+        : extension === "webp"
+        ? "image/webp"
+        : "image/jpeg");
+
+    const filePath = `${ORDER_PHOTOS_FOLDER}/${
+      clientId || ord.client_id || "client"
+    }/${ord.id}-${Date.now()}.${extension}`;
+
+    const file = {
+      uri: asset.uri,
+      name: filePath.split("/").pop(),
+      type: mimeType,
     };
 
+    const { error: uploadError } = await supabase.storage
+      .from(ORDER_PHOTOS_BUCKET)
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: mimeType,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const currentPhotos = readPhotoPathsFromRow(ord);
+    const nextPhotos = [...currentPhotos, filePath];
+
+    const saved = await writePhotoPathsToRow(ord.id, nextPhotos);
+
+    if (!saved) {
+      await supabase.storage
+        .from(ORDER_PHOTOS_BUCKET)
+        .remove([filePath]);
+
+      return;
+    }
+
+    Alert.alert(
+      "Image enregistrée",
+      "L’image a été ajoutée à la commande."
+    );
+
+    await loadOrders();
+  } catch (error) {
+    console.error("📷❌ Upload photo :", error);
+
+    Alert.alert(
+      "Erreur",
+      error?.message || "Impossible d’ajouter l’image."
+    );
+  } finally {
+    setUploadingOrderId(null);
+  }
+};
+
+const takeAndUploadOrderPhoto = async (ord) => {
+  try {
+    const permissionGranted = await ensureCameraPermission();
+
+    if (!permissionGranted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets?.[0];
+
+    if (!asset?.uri) return;
+
+    await uploadOrderPhotoAsset(ord, asset);
+  } catch (error) {
+    console.error("📷❌ Appareil photo :", error);
+
+    Alert.alert(
+      "Erreur",
+      "Impossible de prendre ou d’envoyer la photo."
+    );
+  }
+};
+
+const pickAndUploadOrderPhoto = async (ord) => {
+  try {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permission.status !== "granted") {
+      Alert.alert(
+        "Permission requise",
+        "Autorisez l'accès aux photos pour choisir une image."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets?.[0];
+
+    if (!asset?.uri) return;
+
+    await uploadOrderPhotoAsset(ord, asset);
+  } catch (error) {
+    console.error("🖼️❌ Galerie :", error);
+
+    Alert.alert(
+      "Erreur",
+      "Impossible de sélectionner ou d’envoyer l’image."
+    );
+  }
+};
+
+const openWebImageSearch = async (ord) => {
+  try {
+    const query = [ord?.product, ord?.brand, ord?.model]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    if (!query) {
+      Alert.alert(
+        "Recherche impossible",
+        "Aucun produit, marque ou modèle n’est renseigné."
+      );
+      return;
+    }
+
+    const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+      query
+    )}`;
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (!supported) {
+      Alert.alert(
+        "Erreur",
+        "Aucun navigateur ne peut ouvrir cette recherche."
+      );
+      return;
+    }
+
+    await Linking.openURL(url);
+  } catch (error) {
+    console.error("🌐❌ Recherche image :", error);
+
+    Alert.alert(
+      "Erreur",
+      "Impossible d’ouvrir la recherche d’images."
+    );
+  }
+};
+
+const showOrderPhotoChoices = (ord) => {
+  Alert.alert(
+    "Ajouter une image",
+    "Choisissez la source de l’image.",
+    [
+      {
+        text: "Appareil photo",
+        onPress: () => takeAndUploadOrderPhoto(ord),
+      },
+      {
+        text: "Galerie",
+        onPress: () => pickAndUploadOrderPhoto(ord),
+      },
+      {
+        text: "Recherche web",
+        onPress: () => openWebImageSearch(ord),
+      },
+      {
+        text: "Annuler",
+        style: "cancel",
+      },
+    ],
+    { cancelable: true }
+  );
+};
+
+const deleteOnePhoto = async (ord, imgPath) => {
+  try {
+    const currentPhotos = readPhotoPathsFromRow(ord);
+    const nextPhotos = currentPhotos.filter(
+      (photoPath) => photoPath !== imgPath
+    );
+
+    const saved = await writePhotoPathsToRow(
+      ord.id,
+      nextPhotos
+    );
+
+    if (!saved) return;
+
+    if (imgPath && !/^https?:\/\//i.test(imgPath)) {
+      const { error: storageError } = await supabase.storage
+        .from(ORDER_PHOTOS_BUCKET)
+        .remove([imgPath]);
+
+      if (storageError) {
+        console.warn(
+          "Suppression Storage non effectuée :",
+          storageError
+        );
+      }
+    }
+
+    await loadOrders();
+  } catch (error) {
+    console.error("🗑️❌ Suppression photo :", error);
+
+    Alert.alert(
+      "Erreur",
+      "Impossible de supprimer cette image."
+    );
+  }
+};
     const toggleExpand = (id) => {
         setExpandedOrders((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -1536,9 +1806,7 @@ const [newOrder, setNewOrder] = useState({
                                                 uploadingOrderId ===
                                                     item.id && { opacity: 0.6 },
                                             ]}
-                                            onPress={() =>
-                                                takeAndUploadOrderPhoto(item)
-                                            }
+                                            onPress={() => showOrderPhotoChoices(item)}
                                             disabled={
                                                 uploadingOrderId === item.id
                                             }
@@ -1833,7 +2101,26 @@ const [newOrder, setNewOrder] = useState({
                                                     : "Notifier"}
                                             </Text>
                                         </TouchableOpacity>
-
+<TouchableOpacity
+  style={[
+    styles.squareButton,
+    {
+      backgroundColor: "#b91c1c",
+      borderColor: "#7f1d1d",
+    },
+  ]}
+  onPress={() => handleCancelOrder(item)}
+  activeOpacity={0.8}
+>
+  <Text
+    style={[
+      styles.squareButtonText,
+      { color: "#ffffff" },
+    ]}
+  >
+    Annuler commande
+  </Text>
+</TouchableOpacity>
                                         <TouchableOpacity
                                             style={styles.squareButton}
                                             onPress={() =>

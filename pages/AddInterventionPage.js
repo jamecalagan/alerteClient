@@ -17,7 +17,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from "expo-file-system/legacy";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -44,7 +44,7 @@ const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
   };
 
   const { error } = await supabase.storage
-    .from("images") // ← juste le nom du bucket
+    .from("images")
     .upload(filePath, file, {
       upsert: true,
       contentType: "image/jpeg",
@@ -69,6 +69,15 @@ const parseEu = (v) => {
   return isNaN(n) ? 0 : n;
 };
 
+// Normalise pour comparer sans accents/majuscules
+const norm = (s) =>
+  (s ?? "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params || {};
 
@@ -78,7 +87,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("");
 
-  const [devisCost, setDevisCost] = useState(""); // Ajout du champ devisCost
+  const [devisCost, setDevisCost] = useState("");
   const [estimateMin, setEstimateMin] = useState("");
   const [estimateMax, setEstimateMax] = useState("");
   const [estimateType, setEstimateType] = useState("PLAFOND"); // PLAFOND | INDICATIF
@@ -102,31 +111,39 @@ export default function AddInterventionPage({ route, navigation }) {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
-  const [remarks, setRemarks] = useState(""); // État pour les remarques
+  const [remarks, setRemarks] = useState("");
   const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
   const [clientName, setClientName] = useState("");
-  const [showDeviceTypes, setShowDeviceTypes] = useState(true);
-  const [showBrands, setShowBrands] = useState(true);
-  const [showModels, setShowModels] = useState(true);
-  const [openType, setOpenType] = useState(false);
-  const [openBrand, setOpenBrand] = useState(false);
-  const [openModel, setOpenModel] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [cameraBusy, setCameraBusy] = useState(false);
+  const [wantLabelPhoto, setWantLabelPhoto] = useState(false);
 
   // rappel mot de passe
   const [pwdReminderVisible, setPwdReminderVisible] = useState(false);
   const [alertType, setAlertType] = useState("info"); // "success" | "danger" | "info"
 
-  const [partialPayment, setPartialPayment] = useState(""); // Montant de l'acompte
+  const [partialPayment, setPartialPayment] = useState("");
 
   // 👉 NOUVEAU : gestion “même matériel”
   const [useSameDevice, setUseSameDevice] = useState(false);
   const [lastDevice, setLastDevice] = useState(null);
   const [loadingLastDevice, setLoadingLastDevice] = useState(false);
 
+  // ✅ Autocomplete TYPE
+  const [typeText, setTypeText] = useState("");
+  const [typeQuery, setTypeQuery] = useState("");
+  const [showTypeSuggestions, setShowTypeSuggestions] = useState(false);
+
+  // ✅ Autocomplete MARQUE
+  const [brandText, setBrandText] = useState("");
+  const [brandQuery, setBrandQuery] = useState("");
+  const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
+
+  // ✅ Autocomplete MODELE
+  const [modelText, setModelText] = useState("");
+  const [modelQuery, setModelQuery] = useState("");
+  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+
   const openAlert = (type, title, message) => {
-    setAlertType(type); // "danger" | "success"
+    setAlertType(type);
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertVisible(true);
@@ -151,9 +168,7 @@ export default function AddInterventionPage({ route, navigation }) {
       }
     };
 
-    if (clientId) {
-      fetchClientName();
-    }
+    if (clientId) fetchClientName();
   }, [clientId]);
 
   // 👉 NOUVEAU : on récupère la dernière intervention de ce client
@@ -178,11 +193,8 @@ export default function AddInterventionPage({ route, navigation }) {
           return;
         }
 
-        if (data && data.length > 0) {
-          setLastDevice(data[0]);
-        } else {
-          setLastDevice(null);
-        }
+        if (data && data.length > 0) setLastDevice(data[0]);
+        else setLastDevice(null);
       } catch (e) {
         console.error("Exception lors de la récupération du dernier matériel :", e);
         setLastDevice(null);
@@ -196,11 +208,8 @@ export default function AddInterventionPage({ route, navigation }) {
 
   const loadProducts = async () => {
     const { data, error } = await supabase.from("article").select("*");
-    if (error) {
-      console.error("Erreur lors du chargement des produits:", error.message);
-    } else {
-      setProducts(data);
-    }
+    if (error) console.error("Erreur lors du chargement des produits:", error.message);
+    else setProducts(data);
   };
 
   const loadBrands = async (articleId) => {
@@ -231,6 +240,72 @@ export default function AddInterventionPage({ route, navigation }) {
     }
   };
 
+  // ✅ suggestions filtrées
+  const filteredTypes = products
+    .slice()
+    .sort((a, b) => (a?.nom || "").localeCompare(b?.nom || ""))
+    .filter((p) => norm(p.nom).includes(norm(typeQuery)))
+    .slice(0, 12);
+
+  const filteredBrands = brands
+    .slice()
+    .sort((a, b) => (a?.nom || "").localeCompare(b?.nom || ""))
+    .filter((b) => norm(b.nom).includes(norm(brandQuery)))
+    .slice(0, 12);
+
+  const filteredModels = models
+    .slice()
+    .sort((a, b) => (a?.nom || "").localeCompare(b?.nom || ""))
+    .filter((m) => norm(m.nom).includes(norm(modelQuery)))
+    .slice(0, 12);
+
+  const hasTypeExact = products.some((p) => norm(p.nom) === norm(typeQuery));
+  const hasBrandExact = brands.some((b) => norm(b.nom) === norm(brandQuery));
+  const hasModelExact = models.some((m) => norm(m.nom) === norm(modelQuery));
+
+
+
+  // ✅ synchro affichage TYPE
+  useEffect(() => {
+    if (!products?.length) return;
+
+    if (deviceType === "Autre" && customDeviceType) {
+      if (typeText !== customDeviceType) setTypeText(customDeviceType);
+      return;
+    }
+
+    if (deviceType && deviceType !== "default" && deviceType !== "Autre") {
+      if (typeText !== deviceType) setTypeText(deviceType);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, deviceType, customDeviceType]);
+
+  // ✅ synchro affichage MARQUE
+  useEffect(() => {
+    if (!brands?.length) return;
+
+    const found = brands.find((b) => b.id === brand);
+    if (found && found.nom && brandText !== found.nom) setBrandText(found.nom);
+
+    if (brand === "Autre" && customBrand && brandText !== customBrand) {
+      setBrandText(customBrand);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brands, brand, customBrand]);
+
+  // ✅ synchro affichage MODELE
+  useEffect(() => {
+    if (!models?.length) return;
+
+    const found = models.find((m) => m.id === model);
+    if (found && found.nom && modelText !== found.nom) setModelText(found.nom);
+
+    if (model === "Autre" && customModel && modelText !== customModel) {
+      setModelText(customModel);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, model, customModel]);
+
   const pickLabelImage = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
@@ -250,11 +325,10 @@ export default function AddInterventionPage({ route, navigation }) {
 
         const compressedUri = compressedImage.uri;
 
-        // ✅ Téléverser directement l'image dans Supabase
         const publicUrl = await uploadImageToStorage(
           compressedUri,
-          clientId || "tmp", // on utilise le clientId comme dossier provisoire
-          true // isLabel = true → dossier 'etiquettes'
+          clientId || "tmp",
+          true
         );
 
         if (!publicUrl) {
@@ -262,13 +336,11 @@ export default function AddInterventionPage({ route, navigation }) {
           return;
         }
 
-        // ✅ étiquette = URL cloud (visible sur A et B)
         setLabelPhoto(publicUrl);
         setIsPhotoTaken(true);
 
-        if (!reference) {
-          setReference("Voir photo pour référence produit");
-        }
+        if (wantLabelPhoto && !reference) {setReference("Voir photo pour référence produit");}
+
 
         console.log("✅ Image d'étiquette (URL):", publicUrl);
       } else {
@@ -290,7 +362,6 @@ export default function AddInterventionPage({ route, navigation }) {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
 
-        // Compression et redimensionnement
         const compressedImage = await ImageManipulator.manipulateAsync(
           imageUri,
           [{ resize: { width: 800 } }],
@@ -299,11 +370,10 @@ export default function AddInterventionPage({ route, navigation }) {
 
         const compressedUri = compressedImage.uri;
 
-        // ✅ Téléverser directement l'image dans Supabase
         const publicUrl = await uploadImageToStorage(
           compressedUri,
-          clientId || "tmp", // dossier provisoire basé sur le client
-          false // isLabel = false → dossier 'supplementaires'
+          clientId || "tmp",
+          false
         );
 
         if (!publicUrl) {
@@ -311,9 +381,7 @@ export default function AddInterventionPage({ route, navigation }) {
           return;
         }
 
-        // ✅ on stocke l'URL cloud (visible sur A et B)
         setPhotos((prev) => [...prev, publicUrl]);
-
         console.log("✅ Image supplémentaire ajoutée (URL):", publicUrl);
       } else {
         console.log("Aucune image capturée ou opération annulée.");
@@ -334,7 +402,7 @@ export default function AddInterventionPage({ route, navigation }) {
           style: "destructive",
           onPress: () => {
             setPhotos((prev) => prev.filter((p) => p !== uri));
-            if (uri === labelPhoto) setLabelPhoto(null); // si c’était l’étiquette, on l’efface aussi
+            if (uri === labelPhoto) setLabelPhoto(null);
             if (selectedImage === uri) setSelectedImage(null);
           },
         },
@@ -342,24 +410,60 @@ export default function AddInterventionPage({ route, navigation }) {
     );
   };
 
+  // ✅ utilisées encore (ex: reprise dernier matériel)
   const handleDeviceTypeChange = async (value) => {
     setDeviceType(value);
+
+    // sync champ texte
+    setTypeText(value === "Autre" ? customDeviceType : value);
+    setTypeQuery(value === "Autre" ? customDeviceType : value);
+
+    // reset marque + modèle
+    setBrands([]);
+    setBrand("");
+    setCustomBrand("");
+    setBrandText("");
+    setBrandQuery("");
+    setShowBrandSuggestions(false);
+
+    setModels([]);
+    setModel("");
+    setCustomModel("");
+    setModelText("");
+    setModelQuery("");
+    setShowModelSuggestions(false);
+
+    if (value === "Autre") {
+      setCustomDeviceType("");
+      return;
+    }
+
     setCustomDeviceType("");
-    setShowDeviceTypes(false); // on referme la liste
     const selectedProduct = products.find((p) => p.nom === value);
     if (selectedProduct) await loadBrands(selectedProduct.id);
-    setShowBrands(true); // on ouvre la liste suivante
   };
-
-  const [selectedBrandName, setSelectedBrandName] = useState(""); // Nouvel état pour stocker le nom
 
   const handleBrandChange = async (value) => {
     setBrand(value);
+
+    // reset modèle
+    setModels([]);
+    setModel("");
+    setCustomModel("");
+    setModelText("");
+    setModelQuery("");
+    setShowModelSuggestions(false);
+
+    if (value === "Autre") {
+      setCustomBrand("");
+      setBrandText("");
+      setBrandQuery("");
+      return;
+    }
+
     setCustomBrand("");
-    setShowBrands(false); // on referme la liste
     const selectedBrand = brands.find((b) => b.id === value);
     if (selectedBrand) await loadModels(selectedBrand.id);
-    setShowModels(true); // on ouvre la suivante
   };
 
   const addArticleIfNeeded = async () => {
@@ -370,7 +474,7 @@ export default function AddInterventionPage({ route, navigation }) {
 
       const { data, error } = await supabase
         .from("article")
-        .insert([{ nom: customDeviceType }])
+        .insert([{ nom: customDeviceType.trim() }])
         .select();
 
       if (error) {
@@ -389,7 +493,6 @@ export default function AddInterventionPage({ route, navigation }) {
     return existing?.id || null;
   };
 
-  // addBrandIfNeeded
   const addBrandIfNeeded = async (articleId) => {
     if (brand === "Autre" && customBrand) {
       const { data, error } = await supabase
@@ -410,7 +513,6 @@ export default function AddInterventionPage({ route, navigation }) {
     return brands.find((b) => b.id === brand)?.id || null;
   };
 
-  // addModelIfNeeded
   const addModelIfNeeded = async (brandId, articleId) => {
     if (model === "Autre" && customModel) {
       const { data, error } = await supabase
@@ -437,10 +539,6 @@ export default function AddInterventionPage({ route, navigation }) {
     return models.find((m) => m.id === model)?.id || null;
   };
 
-  const handlePaymentStatusChange = (status) => {
-    setPaymentStatus(status);
-  };
-
   // 👉 NOUVEAU : applique le dernier matériel sur la fiche
   const applyLastDevice = async () => {
     if (!lastDevice) {
@@ -460,24 +558,31 @@ export default function AddInterventionPage({ route, navigation }) {
         await handleDeviceTypeChange(lastDevice.deviceType);
       } else if (lastDevice.article_id && products && products.length > 0) {
         const art = products.find((p) => p.id === lastDevice.article_id);
-        if (art) {
-          await handleDeviceTypeChange(art.nom);
-        }
+        if (art) await handleDeviceTypeChange(art.nom);
       }
 
       // Marque
       if (lastDevice.marque_id) {
-        // on s'assure que les marques sont chargées
-        if (lastDevice.article_id) {
-          await loadBrands(lastDevice.article_id);
-        }
+        if (lastDevice.article_id) await loadBrands(lastDevice.article_id);
+
         setBrand(lastDevice.marque_id);
+        const b = brands.find((x) => x.id === lastDevice.marque_id);
+        if (b?.nom) {
+          setBrandText(b.nom);
+          setBrandQuery(b.nom);
+        }
+
         await loadModels(lastDevice.marque_id);
       }
 
       // Modèle
       if (lastDevice.modele_id) {
         setModel(lastDevice.modele_id);
+        const m = models.find((x) => x.id === lastDevice.modele_id);
+        if (m?.nom) {
+          setModelText(m.nom);
+          setModelQuery(m.nom);
+        }
       }
 
       // Référence / n° de série
@@ -505,11 +610,9 @@ export default function AddInterventionPage({ route, navigation }) {
     if (deviceType === "default") errors.push("Type de produit");
     if (status === "default") errors.push("Statut");
 
-    if (status !== "Devis en cours" && !cost) {
-      errors.push("Coût de la réparation");
-    }
+    if (status !== "Devis en cours" && !cost) errors.push("Coût de la réparation");
 
-    // Validation de la fourchette si "Devis en cours"
+    // Validation fourchette
     if (status === "Devis en cours") {
       const min = parseFloat(normalizeNumber(estimateMin));
       const max = parseFloat(normalizeNumber(estimateMax));
@@ -522,9 +625,8 @@ export default function AddInterventionPage({ route, navigation }) {
       }
     }
 
-    if (!labelPhoto) {
-      errors.push("Photo d’étiquette");
-    }
+    if (wantLabelPhoto && !labelPhoto) {errors.push("Photo d’étiquette");}
+
 
     if (
       paymentStatus === "reglement_partiel" &&
@@ -545,106 +647,10 @@ export default function AddInterventionPage({ route, navigation }) {
     // 🔔 Rappel non bloquant si mot de passe vide
     if (!password) {
       setPwdReminderVisible(true);
-      return; // on attend le choix dans la modale
-    }
-
-    // 🔹 Gestion du montant du devis (champ existant, conservé)
-    const formattedDevisCost =
-      status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null; // null si vide
-
-    // Conversion sécurisée
-    const costValue = cost ? parseFloat(cost) : 0;
-    const partialPaymentValue = partialPayment ? parseFloat(partialPayment) : 0;
-
-    // Solde restant dû
-    let solderestant = costValue - partialPaymentValue;
-    if (isNaN(solderestant) || solderestant < 0) solderestant = 0;
-
-    const uploadedPhotoUrls = photos; // suppose que tu gères déjà l’upload
-    const labelPhotoUrl = labelPhoto; // idem
-    const interventionId = undefined; // si tu génères un UUID ailleurs, garde ta logique
-    const articleId = await addArticleIfNeeded(); // crée l'article si "Autre"
-    const brandId = await addBrandIfNeeded(articleId); // crée la marque si "Autre"
-    const modelId = await addModelIfNeeded(brandId, articleId); // crée le modèle si "Autre"
-
-    if (!articleId) {
-      Alert.alert("Erreur", "Type de produit introuvable. Veuillez réessayer.");
-      return;
-    }
-    if (!brandId) {
-      Alert.alert("Erreur", "Marque introuvable. Veuillez réessayer.");
       return;
     }
 
-    const interventionData = {
-      reference,
-      brand: customBrand || brands.find((b) => b.id === brand)?.nom,
-      model: customModel || models.find((m) => m.id === model)?.nom,
-      serial_number,
-      description,
-      cost: costValue,
-      solderestant,
-      status,
-      // --- Devis / fourchette ---
-      estimate_min:
-        status === "Devis en cours"
-          ? parseFloat(normalizeNumber(estimateMin))
-          : null,
-      estimate_max:
-        status === "Devis en cours"
-          ? parseFloat(normalizeNumber(estimateMax))
-          : null,
-      estimate_type: status === "Devis en cours" ? estimateType : null,
-      is_estimate: status === "Devis en cours",
-      estimate_accepted:
-        status === "Devis en cours" && estimateType === "PLAFOND" ? true : null,
-      estimate_accepted_at:
-        status === "Devis en cours" && estimateType === "PLAFOND"
-          ? new Date().toISOString()
-          : null,
-      deviceType: customDeviceType || deviceType,
-      brand: customBrand || brands.find((b) => b.id === brand)?.nom || null,
-      model: customModel || models.find((m) => m.id === model)?.nom || null,
-      password,
-      commande,
-      chargeur: chargeur === "Oui",
-      client_id: clientId,
-      photos: uploadedPhotoUrls,
-      label_photo: labelPhotoUrl,
-      id: interventionId,
-      article_id: articleId,
-      marque_id: brandId,
-      modele_id: modelId,
-      remarks,
-      paymentStatus,
-      partialPayment: partialPayment ? parseFloat(partialPayment) : null,
-      accept_screen_risk: acceptScreenRisk,
-      createdAt: new Date().toISOString(),
-    };
-
-    // `devis_cost` (compat) si "Devis en cours"
-    if (status === "Devis en cours") {
-      interventionData.devis_cost = formattedDevisCost;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("interventions")
-        .insert(interventionData);
-      if (error) {
-        console.error("❌ Erreur d'insertion intervention :", error.message);
-        openAlert(
-          "danger",
-          "Erreur",
-          "Une erreur est survenue lors de l'enregistrement."
-        );
-        return;
-      }
-      openAlert("success", "Succès", "Intervention enregistrée avec succès.");
-    } catch (e) {
-      console.error("❌ Exception insertion :", e);
-      openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");
-    }
+    await performAddIntervention();
   };
 
   const closeAlert = () => {
@@ -653,11 +659,10 @@ export default function AddInterventionPage({ route, navigation }) {
   };
 
   const performAddIntervention = async () => {
-    // 🔹 Gestion du montant du devis (champ existant, conservé)
     const formattedDevisCost =
       status === "Devis en cours" && devisCost ? parseFloat(devisCost) : null;
 
-    const costValue = parseEu(cost); // ← on enregistre le TOTAL tel que saisi
+    const costValue = parseEu(cost);
     const partialPaymentValue = parseEu(partialPayment);
 
     let solderestant = costValue - partialPaymentValue;
@@ -666,7 +671,6 @@ export default function AddInterventionPage({ route, navigation }) {
     const uploadedPhotoUrls = photos;
     const labelPhotoUrl = labelPhoto;
 
-    // Ids liés (création “Autre …” si besoin)
     const articleId = await addArticleIfNeeded();
     const brandId = await addBrandIfNeeded(articleId);
     const modelId = await addModelIfNeeded(brandId, articleId);
@@ -689,7 +693,7 @@ export default function AddInterventionPage({ route, navigation }) {
       cost: costValue,
       solderestant,
       status,
-      // --- Devis / fourchette ---
+
       estimate_min:
         status === "Devis en cours"
           ? parseFloat(normalizeNumber(estimateMin))
@@ -724,22 +728,14 @@ export default function AddInterventionPage({ route, navigation }) {
       createdAt: new Date().toISOString(),
     };
 
-    if (status === "Devis en cours") {
-      interventionData.devis_cost = formattedDevisCost;
-    }
+    if (status === "Devis en cours") interventionData.devis_cost = formattedDevisCost;
 
     try {
-      const { error } = await supabase
-        .from("interventions")
-        .insert(interventionData);
+      const { error } = await supabase.from("interventions").insert(interventionData);
 
       if (error) {
         console.error("❌ Erreur d'insertion intervention :", error.message);
-        openAlert(
-          "danger",
-          "Erreur",
-          "Une erreur est survenue lors de l'enregistrement."
-        );
+        openAlert("danger", "Erreur", "Une erreur est survenue lors de l'enregistrement.");
         return;
       }
 
@@ -755,15 +751,10 @@ export default function AddInterventionPage({ route, navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      {clientName && (
-        <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>
-      )}
+      {clientName && <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>}
 
       <ScrollView
-        contentContainerStyle={{
-          paddingBottom: 20,
-          flexGrow: 1,
-        }}
+        contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
         keyboardShouldPersistTaps="always"
       >
         {/* 👉 NOUVEAU : case "même matériel" */}
@@ -773,20 +764,14 @@ export default function AddInterventionPage({ route, navigation }) {
               onPress={async () => {
                 const newVal = !useSameDevice;
                 setUseSameDevice(newVal);
-                if (newVal) {
-                  await applyLastDevice();
-                }
+                if (newVal) await applyLastDevice();
               }}
               style={styles.sameDeviceCheckbox}
             >
               {useSameDevice && (
                 <Image
                   source={require("../assets/icons/checked.png")}
-                  style={{
-                    width: 20,
-                    height: 20,
-                    tintColor: "#007bff",
-                  }}
+                  style={{ width: 20, height: 20, tintColor: "#007bff" }}
                   resizeMode="contain"
                 />
               )}
@@ -797,11 +782,7 @@ export default function AddInterventionPage({ route, navigation }) {
               </Text>
               {lastDevice.deviceType || lastDevice.brand || lastDevice.model ? (
                 <Text style={styles.sameDeviceHint}>
-                  {[
-                    lastDevice.deviceType,
-                    lastDevice.brand,
-                    lastDevice.model,
-                  ]
+                  {[lastDevice.deviceType, lastDevice.brand, lastDevice.model]
                     .filter(Boolean)
                     .join(" - ")}
                 </Text>
@@ -814,62 +795,348 @@ export default function AddInterventionPage({ route, navigation }) {
           </View>
         )}
 
-        {/* SÉLECTEURS COMPACTS (ouvrent les modales) */}
+        {/* ✅ TYPE / MARQUE / MODELE : champs éditables + suggestions */}
         <View style={styles.pickersRow}>
-          {/* Type */}
-          <TouchableOpacity
-            style={styles.pickerBox}
-            onPress={() => setOpenType(true)}
-          >
-            <Text
-              style={{
-                fontSize: 16,
-                color: deviceType && deviceType !== "default" ? "#111" : "#666",
+          {/* TYPE */}
+          <View style={[styles.pickerBox, { paddingHorizontal: 0 }]}>
+            <TextInput
+              style={styles.typeInput}
+              placeholder="Type de produit"
+              placeholderTextColor="#666"
+              value={typeText}
+              onChangeText={async (t) => {
+                const txt = t;
+                setTypeText(txt);
+                setTypeQuery(txt);
+                setShowTypeSuggestions(true);
+                setShowBrandSuggestions(false);
+                setShowModelSuggestions(false);
+
+                const exact = products.find((p) => norm(p.nom) === norm(txt));
+                if (exact) {
+                  setDeviceType(exact.nom);
+                  setCustomDeviceType("");
+
+                  // reset marque+modèle
+                  setBrands([]);
+                  setBrand("");
+                  setCustomBrand("");
+                  setBrandText("");
+                  setBrandQuery("");
+
+                  setModels([]);
+                  setModel("");
+                  setCustomModel("");
+                  setModelText("");
+                  setModelQuery("");
+
+                  await loadBrands(exact.id);
+                } else {
+                  setDeviceType("Autre");
+                  setCustomDeviceType(txt.trim());
+
+                  setBrands([]);
+                  setBrand("");
+                  setCustomBrand("");
+                  setBrandText("");
+                  setBrandQuery("");
+
+                  setModels([]);
+                  setModel("");
+                  setCustomModel("");
+                  setModelText("");
+                  setModelQuery("");
+                }
               }}
-            >
-              {deviceType && deviceType !== "default"
-                ? products.find((p) => p.nom === deviceType)?.nom || deviceType
-                : "Type de produit"}
-            </Text>
-          </TouchableOpacity>
+              onFocus={() => {
+                setShowTypeSuggestions(true);
+                setShowBrandSuggestions(false);
+                setShowModelSuggestions(false);
+              }}
+              onBlur={() => setTimeout(() => setShowTypeSuggestions(false), 150)}
+              returnKeyType="done"
+            />
+          </View>
 
           <View style={{ width: 8 }} />
 
-          {/* Marque */}
-          <TouchableOpacity
+          {/* MARQUE */}
+          <View
             style={[
               styles.pickerBox,
-              { opacity: deviceType && deviceType !== "default" ? 1 : 0.5 },
+              { opacity: deviceType && deviceType !== "default" ? 1 : 0.5, paddingHorizontal: 0 },
             ]}
-            disabled={!deviceType || deviceType === "default"}
-            onPress={() => setOpenBrand(true)}
           >
-            <Text style={{ fontSize: 16, color: brand ? "#111" : "#666" }}>
-              {brand
-                ? brand === "Autre"
-                  ? "Autre"
-                  : brands.find((b) => b.id === brand)?.nom || "Marque"
-                : "Marque"}
-            </Text>
-          </TouchableOpacity>
+            <TextInput
+              style={styles.brandInput}
+              editable={!!deviceType && deviceType !== "default"}
+              placeholder="Marque"
+              placeholderTextColor="#666"
+              value={brandText}
+              onChangeText={async (t) => {
+                const txt = t;
+                setBrandText(txt);
+                setBrandQuery(txt);
+                setShowBrandSuggestions(true);
+                setShowTypeSuggestions(false);
+                setShowModelSuggestions(false);
+
+                const exact = brands.find((b) => norm(b.nom) === norm(txt));
+                if (exact) {
+                  setBrand(exact.id);
+                  setCustomBrand("");
+
+                  // reset modèle + charge modèles
+                  setModels([]);
+                  setModel("");
+                  setCustomModel("");
+                  setModelText("");
+                  setModelQuery("");
+
+                  await loadModels(exact.id);
+                } else {
+                  setBrand("Autre");
+                  setCustomBrand(txt.trim());
+
+                  setModels([]);
+                  setModel("");
+                  setCustomModel("");
+                  setModelText("");
+                  setModelQuery("");
+                }
+              }}
+              onFocus={() => {
+                if (deviceType && deviceType !== "default") {
+                  setShowBrandSuggestions(true);
+                  setShowTypeSuggestions(false);
+                  setShowModelSuggestions(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowBrandSuggestions(false), 150)}
+              returnKeyType="done"
+            />
+          </View>
 
           <View style={{ width: 8 }} />
 
-          {/* Modèle */}
-          <TouchableOpacity
-            style={[styles.pickerBox, { opacity: brand ? 1 : 0.5 }]}
-            disabled={!brand}
-            onPress={() => setOpenModel(true)}
-          >
-            <Text style={{ fontSize: 16, color: model ? "#111" : "#666" }}>
-              {model
-                ? model === "Autre"
-                  ? "Autre"
-                  : models.find((m) => m.id === model)?.nom || "Modèle"
-                : "Modèle"}
-            </Text>
-          </TouchableOpacity>
+          {/* MODELE */}
+          <View style={[styles.pickerBox, { opacity: brand ? 1 : 0.5, paddingHorizontal: 0 }]}>
+            <TextInput
+              style={styles.modelInput}
+              editable={!!brand}
+              placeholder="Modèle"
+              placeholderTextColor="#666"
+              value={modelText}
+              onChangeText={(t) => {
+                const txt = t;
+                setModelText(txt);
+                setModelQuery(txt);
+                setShowModelSuggestions(true);
+                setShowTypeSuggestions(false);
+                setShowBrandSuggestions(false);
+
+                const exact = models.find((m) => norm(m.nom) === norm(txt));
+                if (exact) {
+                  setModel(exact.id);
+                  setCustomModel("");
+                } else {
+                  setModel("Autre");
+                  setCustomModel(txt.trim());
+                }
+              }}
+              onFocus={() => {
+                if (brand) {
+                  setShowModelSuggestions(true);
+                  setShowTypeSuggestions(false);
+                  setShowBrandSuggestions(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowModelSuggestions(false), 150)}
+              returnKeyType="done"
+            />
+          </View>
         </View>
+
+{/* Suggestions TYPE */}
+{showTypeSuggestions && (
+  <View style={styles.suggestBox}>
+    {filteredTypes.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.suggestItem}
+        onPress={async () => {
+          setDeviceType(item.nom);
+          setTypeText(item.nom);
+          setTypeQuery(item.nom);
+          setCustomDeviceType("");
+          setShowTypeSuggestions(false);
+
+          // reset marque+modèle
+          setBrands([]);
+          setBrand("");
+          setCustomBrand("");
+          setBrandText("");
+          setBrandQuery("");
+
+          setModels([]);
+          setModel("");
+          setCustomModel("");
+          setModelText("");
+          setModelQuery("");
+
+          await loadBrands(item.id);
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.suggestText}>{item.nom}</Text>
+      </TouchableOpacity>
+    ))}
+
+    {!!typeQuery?.trim() && !hasTypeExact && (
+      <TouchableOpacity
+        style={[styles.suggestItem, styles.addRow]}
+        onPress={() => {
+          const v = typeQuery.trim();
+          setDeviceType("Autre");
+          setCustomDeviceType(v);
+          setTypeText(v);
+          setShowTypeSuggestions(false);
+
+          // reset marque+modèle
+          setBrands([]);
+          setBrand("");
+          setCustomBrand("");
+          setBrandText("");
+          setBrandQuery("");
+
+          setModels([]);
+          setModel("");
+          setCustomModel("");
+          setModelText("");
+          setModelQuery("");
+
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.addRowText}>➕ Ajouter : {typeQuery.trim()}</Text>
+      </TouchableOpacity>
+    )}
+
+    {!filteredTypes.length && !typeQuery?.trim() && (
+      <View style={styles.emptyRow}>
+        <Text style={styles.emptyRowText}>Commence à taper…</Text>
+      </View>
+    )}
+  </View>
+)}
+
+
+{/* Suggestions MARQUE */}
+{deviceType && deviceType !== "default" && showBrandSuggestions && (
+  <View style={styles.suggestBox}>
+    {filteredBrands.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.suggestItem}
+        onPress={async () => {
+          setBrand(item.id);
+          setBrandText(item.nom);
+          setBrandQuery(item.nom);
+          setCustomBrand("");
+          setShowBrandSuggestions(false);
+
+          // reset modèle + charge
+          setModels([]);
+          setModel("");
+          setCustomModel("");
+          setModelText("");
+          setModelQuery("");
+
+          await loadModels(item.id);
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.suggestText}>{item.nom}</Text>
+      </TouchableOpacity>
+    ))}
+
+    {!!brandQuery?.trim() && !hasBrandExact && (
+      <TouchableOpacity
+        style={[styles.suggestItem, styles.addRow]}
+        onPress={() => {
+          const v = brandQuery.trim();
+          setBrand("Autre");
+          setCustomBrand(v);
+          setBrandText(v);
+          setShowBrandSuggestions(false);
+
+          // reset modèle
+          setModels([]);
+          setModel("");
+          setCustomModel("");
+          setModelText("");
+          setModelQuery("");
+
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.addRowText}>➕ Ajouter : {brandQuery.trim()}</Text>
+      </TouchableOpacity>
+    )}
+
+    {!filteredBrands.length && !brandQuery?.trim() && (
+      <View style={styles.emptyRow}>
+        <Text style={styles.emptyRowText}>Commence à taper…</Text>
+      </View>
+    )}
+  </View>
+)}
+
+
+{/* Suggestions MODELE */}
+{brand && showModelSuggestions && (
+  <View style={styles.suggestBox}>
+    {filteredModels.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.suggestItem}
+        onPress={() => {
+          setModel(item.id);
+          setModelText(item.nom);
+          setModelQuery(item.nom);
+          setCustomModel("");
+          setShowModelSuggestions(false);
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.suggestText}>{item.nom}</Text>
+      </TouchableOpacity>
+    ))}
+
+    {!!modelQuery?.trim() && !hasModelExact && (
+      <TouchableOpacity
+        style={[styles.suggestItem, styles.addRow]}
+        onPress={() => {
+          const v = modelQuery.trim();
+          setModel("Autre");
+          setCustomModel(v);
+          setModelText(v);
+          setShowModelSuggestions(false);
+          Keyboard.dismiss();
+        }}
+      >
+        <Text style={styles.addRowText}>➕ Ajouter : {modelQuery.trim()}</Text>
+      </TouchableOpacity>
+    )}
+
+    {!filteredModels.length && !modelQuery?.trim() && (
+      <View style={styles.emptyRow}>
+        <Text style={styles.emptyRowText}>Commence à taper…</Text>
+      </View>
+    )}
+  </View>
+)}
+
 
         {/* Champs saisis quand “Autre” est choisi */}
         {deviceType === "Autre" && (
@@ -877,7 +1144,11 @@ export default function AddInterventionPage({ route, navigation }) {
             style={styles.input}
             placeholder="Entrez le type de produit"
             value={customDeviceType}
-            onChangeText={setCustomDeviceType}
+            onChangeText={(t) => {
+              setCustomDeviceType(t);
+              setTypeText(t);
+              setTypeQuery(t);
+            }}
           />
         )}
 
@@ -886,7 +1157,11 @@ export default function AddInterventionPage({ route, navigation }) {
             style={styles.input}
             placeholder="Entrez la marque"
             value={customBrand}
-            onChangeText={setCustomBrand}
+            onChangeText={(t) => {
+              setCustomBrand(t);
+              setBrandText(t);
+              setBrandQuery(t);
+            }}
           />
         )}
 
@@ -895,18 +1170,16 @@ export default function AddInterventionPage({ route, navigation }) {
             style={styles.input}
             placeholder="Entrez le modèle"
             value={customModel}
-            onChangeText={setCustomModel}
+            onChangeText={(t) => {
+              setCustomModel(t);
+              setModelText(t);
+              setModelQuery(t);
+            }}
           />
         )}
 
         {/* Séparateur */}
-        <View
-          style={{
-            height: 2,
-            backgroundColor: "#cacaca",
-            marginVertical: 8,
-          }}
-        />
+        <View style={{ height: 2, backgroundColor: "#cacaca", marginVertical: 8 }} />
 
         <View style={styles.referenceContainer}>
           <TextInput
@@ -927,19 +1200,39 @@ export default function AddInterventionPage({ route, navigation }) {
             />
           )}
         </View>
+{/* ✅ Case à cocher : activer/désactiver la photo d’étiquette */}
+<View style={styles.labelToggleRow}>
+  <TouchableOpacity
+    onPress={() => {
+      const next = !wantLabelPhoto;
+      setWantLabelPhoto(next);
 
-        {/* Bouton + vignette étiquette sur la même ligne */}
+      // Si on désactive, on efface l’étiquette (et l’indicateur)
+      if (!next) {
+        setLabelPhoto(null);
+        setIsPhotoTaken(false);
+      }
+    }}
+    style={styles.labelToggleCheckbox}
+  >
+    {wantLabelPhoto && (
+      <Image
+        source={require("../assets/icons/checked.png")}
+        style={{ width: 20, height: 20, tintColor: "#007bff" }}
+        resizeMode="contain"
+      />
+    )}
+  </TouchableOpacity>
+
+  <Text style={styles.labelToggleText}>Prendre la photo de l’étiquette</Text>
+</View>
+
+        {/* Bouton + vignette étiquette */}
+        {wantLabelPhoto && (
         <View style={styles.labelRow}>
           <TouchableOpacity style={styles.button} onPress={pickLabelImage}>
-            <Icon
-              name="camera"
-              size={20}
-              color="#dddcdc"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.buttonText}>
-              Prendre une photo de l'étiquette
-            </Text>
+            <Icon name="camera" size={20} color="#dddcdc" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Prendre une photo de l'étiquette</Text>
           </TouchableOpacity>
 
           {labelPhoto && (
@@ -949,13 +1242,10 @@ export default function AddInterventionPage({ route, navigation }) {
               style={{ position: "relative" }}
             >
               <Image source={{ uri: labelPhoto }} style={styles.labelThumb} />
-              {/* Badge Local/Cloud */}
               <View
                 style={[
                   styles.badgeOverlay,
-                  isLocalRef(labelPhoto)
-                    ? styles.badgeLocalBg
-                    : styles.badgeCloudBg,
+                  isLocalRef(labelPhoto) ? styles.badgeLocalBg : styles.badgeCloudBg,
                 ]}
               >
                 <Text style={styles.badgeText}>
@@ -965,47 +1255,37 @@ export default function AddInterventionPage({ route, navigation }) {
             </TouchableOpacity>
           )}
         </View>
+        )}
+        <FloatingField label="Description de la panne">
+          <TextInput
+            style={styles.input}
+            value={description.toUpperCase()}
+            onChangeText={(text) => setDescription(text.toUpperCase())}
+            multiline
+            autoCapitalize="characters"
+          />
+        </FloatingField>
 
-<FloatingField label="Description de la panne">
-  <TextInput
-    style={styles.input}
-    value={description.toUpperCase()}
-    onChangeText={(text) => setDescription(text.toUpperCase())}
-    multiline
-    autoCapitalize="characters"
-  />
-</FloatingField>
+        <FloatingField label="Mot de passe (si applicable)">
+          <TextInput style={styles.input} value={password} onChangeText={setPassword} />
+        </FloatingField>
 
-
-<FloatingField label="Mot de passe (si applicable)">
-  <TextInput
-    style={styles.input}
-    value={password}
-    onChangeText={setPassword}
-  />
-</FloatingField>
-
-
-<FloatingField label="Coût de la réparation (€)">
-  <TextInput
-    style={styles.input}
-    value={cost ? cost.toString() : ""}
-    onChangeText={setCost}
-    keyboardType="numeric"
-    placeholderTextColor="#191f2f"
-    editable={status !== "Devis en cours"} // Désactiver si "Devis en cours" est sélectionné
-    placeholder={
-      status === "Devis en cours"
-        ? "Indisponible en mode Devis"
-        : "Entrez le coût"
-    }
-  />
-</FloatingField>
-
+        <FloatingField label="Coût de la réparation (€)">
+          <TextInput
+            style={styles.input}
+            value={cost ? cost.toString() : ""}
+            onChangeText={setCost}
+            keyboardType="numeric"
+            placeholderTextColor="#191f2f"
+            editable={status !== "Devis en cours"}
+            placeholder={
+              status === "Devis en cours" ? "Indisponible en mode Devis" : "Entrez le coût"
+            }
+          />
+        </FloatingField>
 
         <View>
           <View>
-            {/* Ligne distincte pour l'acceptation */}
             <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
               <TouchableOpacity
                 onPress={() => setAcceptScreenRisk((prev) => !prev)}
@@ -1015,23 +1295,17 @@ export default function AddInterventionPage({ route, navigation }) {
                   {acceptScreenRisk && (
                     <Image
                       source={require("../assets/icons/checked.png")}
-                      style={{
-                        width: 20,
-                        height: 20,
-                        tintColor: "#007bff", // 🔵 bleu pour acceptScreenRisk
-                      }}
+                      style={{ width: 20, height: 20, tintColor: "#007bff" }}
                       resizeMode="contain"
                     />
                   )}
                 </View>
                 <Text style={styles.checkboxLabel}>
-                  J'accepte le démontage de l'écran de mon produit malgré le
-                  risque de casse.
+                  J'accepte le démontage de l'écran de mon produit malgré le risque de casse.
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Groupe pour les autres cases */}
             <View style={styles.checkboxContainer}>
               <TouchableOpacity
                 onPress={() => {
@@ -1044,11 +1318,7 @@ export default function AddInterventionPage({ route, navigation }) {
                   {paymentStatus === "non_regle" && (
                     <Image
                       source={require("../assets/icons/checked.png")}
-                      style={{
-                        width: 20,
-                        height: 20,
-                        tintColor: "#fc0707", // 🔴 rouge
-                      }}
+                      style={{ width: 20, height: 20, tintColor: "#fc0707" }}
                       resizeMode="contain"
                     />
                   )}
@@ -1064,11 +1334,7 @@ export default function AddInterventionPage({ route, navigation }) {
                   {paymentStatus === "reglement_partiel" && (
                     <Image
                       source={require("../assets/icons/checked.png")}
-                      style={{
-                        width: 20,
-                        height: 20,
-                        tintColor: "#e4a907", // 🟠 orange
-                      }}
+                      style={{ width: 20, height: 20, tintColor: "#e4a907" }}
                       resizeMode="contain"
                     />
                   )}
@@ -1084,11 +1350,7 @@ export default function AddInterventionPage({ route, navigation }) {
                   {paymentStatus === "solde" && (
                     <Image
                       source={require("../assets/icons/checked.png")}
-                      style={{
-                        width: 20,
-                        height: 20,
-                        tintColor: "#4CAF50", // 🟢 vert
-                      }}
+                      style={{ width: 20, height: 20, tintColor: "#4CAF50" }}
                       resizeMode="contain"
                     />
                   )}
@@ -1097,73 +1359,59 @@ export default function AddInterventionPage({ route, navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-{paymentStatus === "reglement_partiel" && (
-  <View>
-    <FloatingField label="Montant de l'acompte (€)">
-      <TextInput
-        style={styles.input}
-        value={partialPayment}
-        onChangeText={(value) => {
-          if (parseFloat(value) > parseFloat(cost)) {
-            Alert.alert(
-              "Erreur",
-              "L'acompte ne peut pas dépasser le montant total."
-            );
-          } else {
-            setPartialPayment(value);
-          }
-        }}
-        keyboardType="numeric"
-        placeholder="Entrez le montant de l'acompte"
-      />
-    </FloatingField>
 
-    <Text style={styles.label}>
-      Solde restant :{" "}
-      {cost && partialPayment
-        ? (cost - partialPayment).toFixed(2)
-        : cost}{" "}
-      €
-    </Text>
-  </View>
-)}
+          {paymentStatus === "reglement_partiel" && (
+            <View>
+              <FloatingField label="Montant de l'acompte (€)">
+                <TextInput
+                  style={styles.input}
+                  value={partialPayment}
+                  onChangeText={(value) => {
+                    if (parseFloat(value) > parseFloat(cost)) {
+                      Alert.alert("Erreur", "L'acompte ne peut pas dépasser le montant total.");
+                    } else {
+                      setPartialPayment(value);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Entrez le montant de l'acompte"
+                />
+              </FloatingField>
 
+              <Text style={styles.label}>
+                Solde restant :{" "}
+                {cost && partialPayment ? (cost - partialPayment).toFixed(2) : cost} €
+              </Text>
+            </View>
+          )}
         </View>
+
         <View
           style={[
             styles.rowFlexContainer,
-            status === "En attente de pièces" && {
-              paddingHorizontal: 20,
-            },
+            status === "En attente de pièces" && { paddingHorizontal: 20 },
           ]}
         >
           <View style={styles.fullwidthContainer}>
             <FloatingField label="Statut">
-            <Picker
-              selectedValue={status}
-              style={styles.input}
-              onValueChange={(itemValue) => {
-                setStatus(itemValue);
-                if (itemValue === "Devis en cours") {
-                  setCost("");
-                }
-              }}
-            >
-              <Picker.Item label="Sélectionnez un statut..." value="default" />
-              <Picker.Item
-                label="En attente de pièces"
-                value="En attente de pièces"
-              />
-              <Picker.Item label="Devis en cours" value="Devis en cours" />
-              <Picker.Item label="Devis accepté" value="Devis accepté" />
-              <Picker.Item
-                label="Intervention en cours"
-                value="Intervention en cours"
-              />
-              <Picker.Item label="Réparé" value="Réparé" />
-              <Picker.Item label="Non réparable" value="Non réparable" />
-            </Picker>
-				</FloatingField>
+              <Picker
+                selectedValue={status}
+                style={styles.input}
+                onValueChange={(itemValue) => {
+                  setStatus(itemValue);
+                  if (itemValue === "Devis en cours") setCost("");
+                }}
+              >
+                <Picker.Item label="Sélectionnez un statut..." value="default" />
+                <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+                <Picker.Item label="Devis en cours" value="Devis en cours" />
+                <Picker.Item label="Devis accepté" value="Devis accepté" />
+                <Picker.Item label="Intervention en cours" value="Intervention en cours" />
+                <Picker.Item label="Réparé" value="Réparé" />
+                <Picker.Item label="Non réparable" value="Non réparable" />
+              </Picker>
+            </FloatingField>
+
             {status === "Devis en cours" && (
               <TextInput
                 style={styles.input}
@@ -1175,29 +1423,28 @@ export default function AddInterventionPage({ route, navigation }) {
               />
             )}
 
-            {/* 👉 NOUVEAU : fourchette + type quand Devis en cours */}
             {status === "Devis en cours" && (
               <>
-<Text style={styles.label}>Fourchette de devis (€)</Text>
-<View style={{ flexDirection: "row", gap: 10 }}>
-  <FloatingField label="De (€)" style={{ flex: 1 }}>
-    <TextInput
-      style={[styles.input, { flex: 1 }]}
-      keyboardType="numeric"
-      value={estimateMin}
-      onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
-    />
-  </FloatingField>
+                <Text style={styles.label}>Fourchette de devis (€)</Text>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <FloatingField label="De (€)" style={{ flex: 1 }}>
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      keyboardType="numeric"
+                      value={estimateMin}
+                      onChangeText={(t) => setEstimateMin(normalizeNumber(t))}
+                    />
+                  </FloatingField>
 
-  <FloatingField label="À (€)" style={{ flex: 1 }}>
-    <TextInput
-      style={[styles.input, { flex: 1 }]}
-      keyboardType="numeric"
-      value={estimateMax}
-      onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
-    />
-  </FloatingField>
-</View>
+                  <FloatingField label="À (€)" style={{ flex: 1 }}>
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      keyboardType="numeric"
+                      value={estimateMax}
+                      onChangeText={(t) => setEstimateMax(normalizeNumber(t))}
+                    />
+                  </FloatingField>
+                </View>
 
                 <Text style={styles.label}>Type de fourchette</Text>
                 <Picker
@@ -1215,27 +1462,26 @@ export default function AddInterventionPage({ route, navigation }) {
                   />
                 </Picker>
                 <Text style={styles.interventionText}>
-                  Si “plafond” est choisi, le client accepte un maximum garanti
-                  (vous facturez ≤ {estimateMax || "…"} €).
+                  Si “plafond” est choisi, le client accepte un maximum garanti (vous facturez ≤{" "}
+                  {estimateMax || "…"} €).
                 </Text>
               </>
             )}
 
-{status !== "Devis en cours" && (
-  <View className="halfWidthContainer">
-    <FloatingField label="Coût de la réparation (€)">
-      <TextInput
-        style={styles.input}
-        placeholder="Coût total (€)"
-        placeholderTextColor="#202020"
-        keyboardType="numeric"
-        value={cost}
-        onChangeText={setCost}
-      />
-    </FloatingField>
-  </View>
-)}
-
+            {status !== "Devis en cours" && (
+              <View className="halfWidthContainer">
+                <FloatingField label="Coût de la réparation (€)">
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Coût total (€)"
+                    placeholderTextColor="#202020"
+                    keyboardType="numeric"
+                    value={cost}
+                    onChangeText={setCost}
+                  />
+                </FloatingField>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1243,7 +1489,6 @@ export default function AddInterventionPage({ route, navigation }) {
           <View style={styles.halfWidthContainer}>
             <Text style={styles.label}>Commande</Text>
 
-            {/* Conteneur limité à 90% de la page */}
             <View style={styles.commandeRowContainer}>
               <View style={styles.sameLineRow}>
                 <TextInput
@@ -1264,10 +1509,7 @@ export default function AddInterventionPage({ route, navigation }) {
                   disabled={!commande?.trim()}
                   onPress={() => {
                     if (!clientId) {
-                      Alert.alert(
-                        "Client manquant",
-                        "Impossible d'ouvrir les commandes sans client."
-                      );
+                      Alert.alert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
                       return;
                     }
                     navigation.navigate("OrdersPage", {
@@ -1275,7 +1517,7 @@ export default function AddInterventionPage({ route, navigation }) {
                       clientName: clientName || "",
                       prefillProduct: (commande || "").trim(),
                       autoReturnOnCreate: true,
-                      fromIntervention: true, // 👈 nouvel indicateur
+                      fromIntervention: true,
                     });
                   }}
                 >
@@ -1286,29 +1528,27 @@ export default function AddInterventionPage({ route, navigation }) {
           </View>
         )}
 
-<FloatingField label="Remarques">
-  <TextInput
-    style={styles.input}
-    value={remarks}
-    onChangeText={setRemarks}
-    placeholderTextColor="#191f2f"
-    placeholder="Ajoutez des remarques ici..."
-    multiline
-  />
-</FloatingField>
+        <FloatingField label="Remarques">
+          <TextInput
+            style={styles.input}
+            value={remarks}
+            onChangeText={setRemarks}
+            placeholderTextColor="#191f2f"
+            placeholder="Ajoutez des remarques ici..."
+            multiline
+          />
+        </FloatingField>
 
-
-<FloatingField label="Chargeur">
-  <Picker
-    selectedValue={chargeur}
-    style={styles.input}
-    onValueChange={(itemValue) => setChargeur(itemValue)}
-  >
-    <Picker.Item label="Non" value="Non" />
-    <Picker.Item label="Oui" value="Oui" />
-  </Picker>
-</FloatingField>
-
+        <FloatingField label="Chargeur">
+          <Picker
+            selectedValue={chargeur}
+            style={styles.input}
+            onValueChange={(itemValue) => setChargeur(itemValue)}
+          >
+            <Picker.Item label="Non" value="Non" />
+            <Picker.Item label="Oui" value="Oui" />
+          </Picker>
+        </FloatingField>
 
         {photos.length > 0 && (
           <ScrollView
@@ -1329,29 +1569,20 @@ export default function AddInterventionPage({ route, navigation }) {
                     source={{ uri: photo }}
                     style={[
                       styles.thumbnail,
-                      photo === labelPhoto && {
-                        borderWidth: 2,
-                        borderColor: "#43ec86",
-                      },
+                      photo === labelPhoto && { borderWidth: 2, borderColor: "#43ec86" },
                     ]}
                   />
 
-                  {/* Badge Local/Cloud */}
                   <View
                     style={[
                       styles.badgeOverlay,
-                      isLocalRef(photo)
-                        ? styles.badgeLocalBg
-                        : styles.badgeCloudBg,
+                      isLocalRef(photo) ? styles.badgeLocalBg : styles.badgeCloudBg,
                     ]}
                   >
-                    <Text style={styles.badgeText}>
-                      {isLocalRef(photo) ? "Local" : "Cloud"}
-                    </Text>
+                    <Text style={styles.badgeText}>{isLocalRef(photo) ? "Local" : "Cloud"}</Text>
                   </View>
                 </TouchableOpacity>
 
-                {/* Bouton × pour supprimer */}
                 <TouchableOpacity
                   style={styles.deleteBadge}
                   onPress={() => confirmDeletePhoto(photo)}
@@ -1372,10 +1603,7 @@ export default function AddInterventionPage({ route, navigation }) {
           >
             <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
               <View style={styles.modalBackground}>
-                <Image
-                  source={{ uri: selectedImage }}
-                  style={styles.fullImage}
-                />
+                <Image source={{ uri: selectedImage }} style={styles.fullImage} />
               </View>
             </TouchableWithoutFeedback>
           </Modal>
@@ -1389,14 +1617,10 @@ export default function AddInterventionPage({ route, navigation }) {
               pickAdditionalImage();
             }}
           >
-            <Icon
-              name="camera"
-              size={20}
-              color="#888787"
-              style={styles.buttonIcon}
-            />
+            <Icon name="camera" size={20} color="#888787" style={styles.buttonIcon} />
             <Text style={styles.buttonText}>Prendre une autre photo</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.iconButton, styles.saveButton]}
             onPress={() => {
@@ -1404,339 +1628,13 @@ export default function AddInterventionPage({ route, navigation }) {
               handleSaveIntervention();
             }}
           >
-            <Icon
-              name="save"
-              size={20}
-              color="#e6e6e6"
-              style={styles.buttonIcon}
-            />
+            <Icon name="save" size={20} color="#e6e6e6" style={styles.buttonIcon} />
             <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* === MODALE TYPE === */}
-      <Modal
-        visible={openType}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpenType(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              width: "90%",
-              maxHeight: "80%",
-              backgroundColor: "#fff",
-              borderRadius: 12,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: "#585858",
-            }}
-          >
-            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
-              Type de produit
-            </Text>
-            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  justifyContent: "center",
-                }}
-              >
-                {products
-                  .sort((a, b) => a.nom.localeCompare(b.nom))
-                  .map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => {
-                        handleDeviceTypeChange(item.nom);
-                        setOpenType(false);
-                      }}
-                      style={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 8,
-                        minWidth: 120,
-                        borderWidth: 1,
-                        borderColor: "#e5e5e5",
-                        borderRadius: 8,
-                        backgroundColor: "#fff",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
-                        numberOfLines={2}
-                        style={{ fontSize: 14, textAlign: "center" }}
-                      >
-                        {item.nom}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
-              {/* … après la map des products … */}
-              <TouchableOpacity
-                onPress={() => {
-                  handleDeviceTypeChange("Autre");
-                  setOpenType(false);
-                }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 8,
-                  minWidth: 120,
-                  borderWidth: 1,
-                  borderColor: "#e5e5e5",
-                  borderRadius: 8,
-                  backgroundColor: "#fff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, textAlign: "center" }}>
-                  Autre…
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setOpenType(false)}
-              style={{
-                marginTop: 10,
-                alignSelf: "flex-end",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Text style={{ fontWeight: "600", color: "#007bff" }}>
-                Fermer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* === MODALE MARQUE === */}
-      <Modal
-        visible={openBrand}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpenBrand(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              width: "90%",
-              maxHeight: "80%",
-              backgroundColor: "#fff",
-              borderRadius: 12,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: "#585858",
-            }}
-          >
-            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
-              Marque
-            </Text>
-            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  justifyContent: "center",
-                }}
-              >
-                {brands
-                  .sort((a, b) => a.nom.localeCompare(b.nom))
-                  .map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => {
-                        handleBrandChange(item.id);
-                        setOpenBrand(false);
-                      }}
-                      style={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 8,
-                        minWidth: 120,
-                        borderWidth: 1,
-                        borderColor: "#e5e5e5",
-                        borderRadius: 8,
-                        backgroundColor: "#fff",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
-                        numberOfLines={2}
-                        style={{ fontSize: 14, textAlign: "center" }}
-                      >
-                        {item.nom}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  handleBrandChange("Autre");
-                  setOpenBrand(false);
-                }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 8,
-                  minWidth: 120,
-                  borderWidth: 1,
-                  borderColor: "#e5e5e5",
-                  borderRadius: 8,
-                  backgroundColor: "#fff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, textAlign: "center" }}>
-                  Autre…
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setOpenBrand(false)}
-              style={{
-                marginTop: 10,
-                alignSelf: "flex-end",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Text style={{ fontWeight: "600", color: "#007bff" }}>
-                Fermer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* === MODALE MODÈLE === */}
-      <Modal
-        visible={openModel}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpenModel(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <View
-            style={{
-              width: "90%",
-              maxHeight: "80%",
-              backgroundColor: "#fff",
-              borderRadius: 12,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: "#585858",
-            }}
-          >
-            <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>
-              Modèle
-            </Text>
-            <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  justifyContent: "center",
-                }}
-              >
-                {models
-                  .sort((a, b) => a.nom.localeCompare(b.nom))
-                  .map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => {
-                        setModel(item.id);
-                        setOpenModel(false);
-                      }}
-                      style={{
-                        paddingVertical: 10,
-                        paddingHorizontal: 8,
-                        minWidth: 120,
-                        borderWidth: 1,
-                        borderColor: "#e5e5e5",
-                        borderRadius: 8,
-                        backgroundColor: "#fff",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
-                        numberOfLines={2}
-                        style={{ fontSize: 14, textAlign: "center" }}
-                      >
-                        {item.nom}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setModel("Autre");
-                  setOpenModel(false);
-                }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 8,
-                  minWidth: 120,
-                  borderWidth: 1,
-                  borderColor: "#e5e5e5",
-                  borderRadius: 8,
-                  backgroundColor: "#fff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ fontSize: 14, textAlign: "center" }}>
-                  Autre…
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setOpenModel(false)}
-              style={{
-                marginTop: 10,
-                alignSelf: "flex-end",
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Text style={{ fontWeight: "600", color: "#007bff" }}>
-                Fermer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
+      {/* Alert */}
       <Modal
         transparent
         visible={alertVisible}
@@ -1747,17 +1645,13 @@ export default function AddInterventionPage({ route, navigation }) {
           <View
             style={[
               styles.alertBox,
-              alertType === "success"
-                ? styles.alertBoxSuccess
-                : styles.alertBoxDanger,
+              alertType === "success" ? styles.alertBoxSuccess : styles.alertBoxDanger,
             ]}
           >
             <Text
               style={[
                 styles.alertTitle,
-                alertType === "success"
-                  ? styles.alertTitleSuccess
-                  : styles.alertTitleDanger,
+                alertType === "success" ? styles.alertTitleSuccess : styles.alertTitleDanger,
               ]}
             >
               {alertTitle}
@@ -1790,9 +1684,7 @@ export default function AddInterventionPage({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.pwdReminderBox}>
-            <Text style={styles.pwdReminderTitle}>
-              Mot de passe non renseigné
-            </Text>
+            <Text style={styles.pwdReminderTitle}>Mot de passe non renseigné</Text>
             <Text style={styles.pwdReminderMessage}>
               Vous pouvez l’ajouter maintenant, ou continuer sans.{"\n"}
               (Ce rappel n’empêche pas l’enregistrement.)
@@ -1822,6 +1714,7 @@ export default function AddInterventionPage({ route, navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
 // Petit wrapper pour avoir un label "à cheval" sur le champ
 function FloatingField({ label, children, style }) {
   return (
@@ -1846,7 +1739,6 @@ const styles = StyleSheet.create({
     color: "#242424",
   },
 
-  // 👉 NOUVEAU : ligne "même matériel"
   sameDeviceRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1872,44 +1764,44 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-input: {
-  height: 50,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  marginBottom: 16,
-  borderRadius: 10,
-  backgroundColor: "#cacaca",
-  width: "90%",
-  alignSelf: "center",
-  fontSize: 16,
-  fontWeight: "500",
-  color: "#191f2f",
-},
-fieldWrapper: {
-  width: "100%",
-  alignItems: "center",
-  marginTop: 18,
-  marginBottom: 8,
-  position: "relative",
-  overflow: "visible",
-},
+  input: {
+    height: 50,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderRadius: 10,
+    backgroundColor: "#cacaca",
+    width: "90%",
+    alignSelf: "center",
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#191f2f",
+  },
+  fieldWrapper: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 18,
+    marginBottom: 8,
+    position: "relative",
+    overflow: "visible",
+  },
 
-floatingLabel: {
-  position: "absolute",
-  left: "8%",          // aligné avec l'input (90% centré)
-  top: -12,            // le label “mord” sur le bord du champ
-  paddingHorizontal: 8,
-  paddingVertical: 2,
-  backgroundColor: "#e0e0e0", // même fond que la page
-  borderRadius: 6,
-  borderWidth: 1,
-  borderColor: "#999",
-  fontSize: 12,
-  fontWeight: "600",
-  color: "#222",
-  zIndex: 10,
-  elevation: 3,        // Android : passer devant le champ
-},
+  floatingLabel: {
+    position: "absolute",
+    left: "8%",
+    top: -12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#999",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#222",
+    zIndex: 10,
+    elevation: 3,
+  },
 
   label: {
     fontSize: 16,
@@ -1919,16 +1811,7 @@ floatingLabel: {
     width: "90%",
     alignSelf: "center",
   },
-  rowContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between", // Pour espacer les éléments
-    width: "95%", // Assurez-vous que cela ne dépasse pas de l'écran
-    alignSelf: "center",
-  },
-  // Chaque champ prendra 50% de la largeur
-  halfWidthContainer: {
-    flex: 1, // Chaque élément prend 50% de l'espace disponible
-  },
+
   referenceContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1946,19 +1829,10 @@ floatingLabel: {
     marginBottom: 5,
     color: "#888787",
   },
-  checkIcon: {
-    marginLeft: 10,
-  },
-  thumbnail: {
-    width: 100,
-    height: 100,
-    margin: 5,
-    borderRadius: 10,
-  },
-  labelPhoto: {
-    borderWidth: 3,
-    borderColor: "green",
-  },
+  checkIcon: { marginLeft: 10 },
+
+  thumbnail: { width: 100, height: 100, margin: 5, borderRadius: 10 },
+
   button: {
     backgroundColor: "#0c0f18",
     paddingVertical: 10,
@@ -1972,10 +1846,7 @@ floatingLabel: {
     marginBottom: 20,
     maxWidth: 250,
   },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "500",
-  },
+  buttonText: { color: "#fff", fontWeight: "500" },
   saveButton: {
     backgroundColor: "#04852b",
     paddingVertical: 10,
@@ -1988,11 +1859,7 @@ floatingLabel: {
     marginTop: 20,
     marginBottom: 20,
   },
-  saveButtonText: {
-    color: "#888787",
-    fontSize: 16,
-    fontWeight: "500",
-  },
+
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -2006,49 +1873,30 @@ floatingLabel: {
     borderRadius: 20,
     alignItems: "center",
   },
-  alertTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
-  },
-  alertMessage: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 20,
-  },
+  alertTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 10, color: "#333" },
+  alertMessage: { fontSize: 16, color: "#666", textAlign: "center", marginBottom: 20 },
+
   modalBackground: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)", // Fond transparent
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
-  fullImage: {
-    width: "90%",
-    height: "90%",
-    resizeMode: "contain", // Adapter l'image à la taille de l'écran
-  },
-  fullwidthContainer: {
-    flex: 1,
-    width: "48%",
-  },
-  rowFlexContainer: {
-    flexDirection: "row",
-    width: "100%",
-  },
+  fullImage: { width: "90%", height: "90%", resizeMode: "contain" },
+
+  fullwidthContainer: { flex: 1, width: "48%" },
+  rowFlexContainer: { flexDirection: "row", width: "100%" },
+
   buttonContainer: {
-    flexDirection: "row", // Positionne les boutons côte à côte
-    justifyContent: "space-between", // Espace entre les boutons
+    flexDirection: "row",
+    justifyContent: "space-between",
     width: "100%",
     paddingHorizontal: 40,
     gap: 10,
   },
-  buttonIcon: {
-    marginRight: 10, // Espace entre l'icône et le texte
-  },
+  buttonIcon: { marginRight: 10 },
   iconButton: {
-    flexDirection: "row", // Positionne l'icône et le texte côte à côte
+    flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#888787",
     borderWidth: 1,
@@ -2056,14 +1904,10 @@ floatingLabel: {
     paddingHorizontal: 20,
     borderRadius: 2,
     justifyContent: "center",
-    flex: 1, // Prend 50% de la largeur (car il y a 2 boutons)
-    marginHorizontal: 5, // Un petit espace entre les deux boutons
+    flex: 1,
+    marginHorizontal: 5,
   },
-  addButtonText: {
-    color: "#888787",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+
   modalButton: {
     backgroundColor: "#dddddd",
     paddingVertical: 10,
@@ -2076,25 +1920,9 @@ floatingLabel: {
     marginTop: 20,
     marginBottom: 20,
   },
-  modalButtonText: {
-    color: "#202020",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  autreInput: {
-    borderWidth: 1,
-    borderColor: "#888787",
-    padding: 10,
-    marginBottom: 20,
-    borderRadius: 2,
-    backgroundColor: "#191f2f",
-    width: "90%",
-    alignSelf: "center",
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    marginVertical: 10,
-  },
+  modalButtonText: { color: "#202020", fontSize: 16, fontWeight: "bold" },
+
+  checkboxContainer: { flexDirection: "row", marginVertical: 10 },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2113,89 +1941,22 @@ floatingLabel: {
     marginRight: 10,
     backgroundColor: "#fff",
   },
-  checkboxIndicator: {
-    width: 12,
-    height: 12,
-    backgroundColor: "191f2f", // Couleur de l'indicateur
-  },
-  checkboxLabel: {
-    color: "#242424",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  checkboxCheckedBlue: {
-    borderColor: "blue",
-    backgroundColor: "blue",
-  },
+  checkboxLabel: { color: "#242424", fontSize: 16, fontWeight: "500" },
+
   interventionText: {
     fontSize: 16,
-    color: "#ff4500", // Rouge orangé pour attirer l'attention
+    color: "#ff4500",
     fontWeight: "500",
     marginBottom: 15,
     width: "90%",
     alignSelf: "center",
   },
-  buttonGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginBottom: 20,
-    gap: 10,
-  },
 
-  selectionButton: {
-    borderWidth: 1,
-    borderColor: "#888787",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    backgroundColor: "#191f2f",
-    margin: 5,
-    width: 150,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    alignSelf: "center",
-  },
-
-  selectedButton: {
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#30af0a",
-  },
-
-  selectionText: {
-    color: "#ffffff",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  selectedInfo: {
-    fontSize: 18,
-    color: "#2c3e50",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-
-  reopenButton: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  reopenText: {
-    color: "#007bff",
-    fontSize: 14,
-    textDecorationLine: "underline",
-  },
-  reopenButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
   labelRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12, // petit espace entre le bouton et la vignette
+    gap: 12,
     width: "100%",
   },
   labelThumb: {
@@ -2203,25 +1964,10 @@ floatingLabel: {
     height: 64,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: "#43ec86", // rappel visuel “étiquette”
+    borderColor: "#43ec86",
   },
-  labelBadge: {
-    position: "absolute",
-    right: -4,
-    bottom: -4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#43ec86",
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
-  },
-  thumbWrapper: {
-    position: "relative",
-    width: 100,
-    height: 100,
-    margin: 5,
-  },
+
+  thumbWrapper: { position: "relative", width: 100, height: 100, margin: 5 },
   deleteBadge: {
     position: "absolute",
     top: -6,
@@ -2229,20 +1975,15 @@ floatingLabel: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "#ff3b30", // rouge iOS
+    backgroundColor: "#ff3b30",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "#e0e0e0",
     elevation: 2,
   },
+  deleteBadgeText: { color: "#fff", fontSize: 16, lineHeight: 16, fontWeight: "bold" },
 
-  deleteBadgeText: {
-    color: "#fff",
-    fontSize: 16,
-    lineHeight: 16,
-    fontWeight: "bold",
-  },
   badgeOverlay: {
     position: "absolute",
     bottom: 6,
@@ -2254,8 +1995,9 @@ floatingLabel: {
     elevation: 6,
   },
   badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" }, // vert
-  badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" }, // rouge
+  badgeLocalBg: { backgroundColor: "rgba(92,184,92,0.95)" },
+  badgeCloudBg: { backgroundColor: "rgba(217,83,79,0.95)" },
+
   galleryRowCentered: {
     flexGrow: 1,
     flexDirection: "row",
@@ -2264,7 +2006,9 @@ floatingLabel: {
     paddingHorizontal: 12,
     gap: 8,
   },
+
   pickersRow: { flexDirection: "row", marginBottom: 12 },
+
   pickerBox: {
     flex: 1,
     height: 52,
@@ -2275,86 +2019,52 @@ floatingLabel: {
     paddingHorizontal: 10,
     justifyContent: "center",
   },
-  pwdReminderBox: {
-    width: 320,
-    padding: 18,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "#d32f2f", // cadre rouge (modale de rappel)
-    alignItems: "center",
+
+  // ✅ Inputs Type/Marque/Modèle
+  typeInput: {
+    height: 52,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#191f2f",
   },
-  pwdReminderTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#b71c1c",
-    marginBottom: 6,
-    textAlign: "center",
+  brandInput: {
+    height: 52,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#191f2f",
   },
-  pwdReminderMessage: {
-    fontSize: 14,
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 14,
+  modelInput: {
+    height: 52,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#191f2f",
   },
-  pwdReminderActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  pwdBtn: {
-    minWidth: 120,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pwdBtnCancel: {
-    backgroundColor: "#eeeeee",
-    borderWidth: 1,
-    borderColor: "#c7c7c7",
-  },
-  pwdBtnContinue: {
-    backgroundColor: "#0c0f18",
-  },
-  pwdBtnCancelText: {
-    color: "#333",
-    fontWeight: "600",
-  },
-  pwdBtnContinueText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  alertBoxDanger: {
-    borderWidth: 2,
-    borderColor: "#d32f2f",
-    backgroundColor: "rgba(255,235,238,0.95)",
-  },
-  alertBoxSuccess: {
-    borderWidth: 2,
-    borderColor: "#2e7d32",
-    backgroundColor: "rgba(232,245,233,0.95)",
-  },
-  alertTitleDanger: { color: "#b71c1c" },
-  alertTitleSuccess: { color: "#1b5e20" },
-  modalButtonTextDanger: { color: "#b71c1c", fontWeight: "700" },
-  modalButtonTextSuccess: { color: "#1b5e20", fontWeight: "700" },
-  smallActionButton: {
-    backgroundColor: "#191f2f",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#424242",
-  },
-  smallActionButtonText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  commandeRowContainer: {
+
+  // ✅ Suggestions
+  suggestBox: {
     width: "90%",
     alignSelf: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#585858",
+    borderRadius: 10,
+    marginTop: -6,
+    marginBottom: 10,
+    overflow: "hidden",
+    elevation: 6,
   },
+  suggestItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  suggestText: { fontSize: 15, color: "#111", fontWeight: "500" },
+
+  commandeRowContainer: { width: "90%", alignSelf: "center" },
   sameLineRow: {
     width: "100%",
     flexDirection: "row",
@@ -2382,35 +2092,97 @@ floatingLabel: {
     alignItems: "center",
     justifyContent: "center",
   },
+  inlineButtonDisabled: { opacity: 0.5 },
+  inlineButtonText: { color: "#ffffff", fontWeight: "700", fontSize: 12 },
 
-  inlineButtonDisabled: {
-    opacity: 0.5,
-  },
-
-  inlineButtonText: {
-    color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  costRow: {
-    width: "100%",
-    flexDirection: "row",
+  pwdReminderBox: {
+    width: 320,
+    padding: 18,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#d32f2f",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
   },
-
-  costInput: {
-    height: 46,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#424242",
+  pwdReminderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#b71c1c",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  pwdReminderMessage: { fontSize: 14, color: "#333", textAlign: "center", marginBottom: 14 },
+  pwdReminderActions: { flexDirection: "row", gap: 10 },
+  pwdBtn: {
+    minWidth: 120,
+    paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "#ffffff",
-    color: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  pwdBtnCancel: { backgroundColor: "#eeeeee", borderWidth: 1, borderColor: "#c7c7c7" },
+  pwdBtnContinue: { backgroundColor: "#0c0f18" },
+  pwdBtnCancelText: { color: "#333", fontWeight: "600" },
+  pwdBtnContinueText: { color: "#fff", fontWeight: "700" },
 
-  orderCostInput: {
-    width: 160,
+  alertBoxDanger: {
+    borderWidth: 2,
+    borderColor: "#d32f2f",
+    backgroundColor: "rgba(255,235,238,0.95)",
   },
+  alertBoxSuccess: {
+    borderWidth: 2,
+    borderColor: "#2e7d32",
+    backgroundColor: "rgba(232,245,233,0.95)",
+  },
+  alertTitleDanger: { color: "#b71c1c" },
+  alertTitleSuccess: { color: "#1b5e20" },
+  modalButtonTextDanger: { color: "#b71c1c", fontWeight: "700" },
+  modalButtonTextSuccess: { color: "#1b5e20", fontWeight: "700" },
+
+  halfWidthContainer: { flex: 1 },
+  addRow: {
+  backgroundColor: "#f6fff4",
+},
+addRowText: {
+  fontSize: 15,
+  fontWeight: "700",
+  color: "#1b5e20",
+},
+emptyRow: {
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+},
+emptyRowText: {
+  fontSize: 14,
+  color: "#666",
+  fontWeight: "500",
+},
+labelToggleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  width: "90%",
+  alignSelf: "center",
+  marginTop: 8,
+  marginBottom: 8,
+  gap: 10,
+},
+
+labelToggleCheckbox: {
+  width: 28,
+  height: 28,
+  borderWidth: 2,
+  borderColor: "#ccc",
+  borderRadius: 5,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#fff",
+},
+
+labelToggleText: {
+  fontSize: 16,
+  fontWeight: "500",
+  color: "#242424",
+},
+
 });

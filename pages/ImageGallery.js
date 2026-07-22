@@ -18,11 +18,53 @@ import BottomNavigation from "../components/BottomNavigation";
 export default function ImageGallery({ route, navigation }) {
   const { clientId } = route.params;
   const [interventions, setInterventions] = useState([]); // [{id, photos:[uri]}]
+  const [orderImages, setOrderImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [imageToDelete, setImageToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+const getOrderPhotoUrl = (path) => {
+  if (!path) return null;
 
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const { data } = supabase.storage
+    .from("images")
+    .getPublicUrl(path);
+
+  return data?.publicUrl || null;
+};
+
+const parseOrderPhotos = (value) => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+
+      if (Array.isArray(parsed)) {
+        return parsed.filter(Boolean);
+      }
+    } catch (_) {}
+
+    if (value.includes(",")) {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [value];
+  }
+
+  return [];
+};
   /* ------------------------------------------------------------------ */
   /*   CHARGEMENT DES IMAGES  –  local en priorité, fallback Supabase   */
   /* ------------------------------------------------------------------ */
@@ -45,7 +87,16 @@ export default function ImageGallery({ route, navigation }) {
         .select("id, photos, label_photo")
         .eq("client_id", clientId);
       if (error) throw error;
+const { data: ordersData, error: ordersError } = await supabase
+  .from("orders")
+  .select(
+    "id, product, brand, model, order_photos, deleted"
+  )
+  .eq("client_id", clientId)
+  .or("deleted.eq.false,deleted.is.null")
+  .order("createdat", { ascending: false });
 
+if (ordersError) throw ordersError;
       // 3️⃣ pour chaque photo ➜ prend le fichier local s'il existe
       const pickUri = async (remote, localName) => {
         if (!remote) return null; // sécurité si remote est null
@@ -82,11 +133,33 @@ export default function ImageGallery({ route, navigation }) {
           return { id, photos: list };
         })
       );
+const enrichedOrders = (ordersData || [])
+  .map((order) => {
+    const paths = parseOrderPhotos(order.order_photos);
 
+    const photos = paths
+      .map((path) => ({
+        path,
+        uri: getOrderPhotoUrl(path),
+      }))
+      .filter((photo) => photo.uri);
+
+    return {
+      id: order.id,
+      title:
+        [order.product, order.brand, order.model]
+          .filter(Boolean)
+          .join(" ") || "Commande",
+      photos,
+    };
+  })
+  .filter((order) => order.photos.length > 0);
       setInterventions(Array.isArray(enriched) ? enriched : []);
+	  setOrderImages(enrichedOrders);
     } catch (err) {
       console.error("Erreur chargement images :", err);
       setInterventions([]); // évite tout null
+	  setOrderImages([]);
     } finally {
       setLoading(false);
     }
@@ -163,7 +236,7 @@ export default function ImageGallery({ route, navigation }) {
         />
       )}
 
-      {interventions.length ? (
+      {interventions.length > 0 || orderImages.length > 0 ? (
         <ScrollView>
           {interventions.map((inter, idx) => (
             <View key={inter.id} style={styles.section}>
@@ -204,6 +277,35 @@ export default function ImageGallery({ route, navigation }) {
               </View>
             </View>
           ))}
+		  {orderImages.map((order) => (
+  <View key={`order-${order.id}`} style={styles.section}>
+    <Text style={styles.orderSectionTitle}>
+      Commande — {order.title}
+    </Text>
+
+    <View style={styles.rowWrap}>
+      {order.photos.map((photo, index) => (
+        <View
+          key={`${order.id}-${index}`}
+          style={styles.imageBox}
+        >
+          <TouchableOpacity
+            onPress={() => handleImagePress(photo.uri)}
+          >
+            <Image
+              source={{ uri: photo.uri }}
+              style={styles.thumb}
+            />
+          </TouchableOpacity>
+
+          <Text style={[styles.badge, { color: "#b45309" }]}>
+            📦 Commande
+          </Text>
+        </View>
+      ))}
+    </View>
+  </View>
+))}
         </ScrollView>
       ) : (
         !loading && (
@@ -290,4 +392,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   full: { width: "90%", height: "90%", resizeMode: "contain" },
+  orderSectionTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#92400e",
+  marginBottom: 10,
+  paddingBottom: 5,
+  borderBottomWidth: 1,
+  borderBottomColor: "#f59e0b",
+},
 });

@@ -11,26 +11,53 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from "react-native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 
 /* ───────── Helpers ───────── */
 
 const normalizeSignature = (raw) => {
   if (!raw) return null;
   const s = String(raw).trim();
-
-  // Déjà en data URL
   if (s.startsWith("data:image")) return s;
-
-  // URL http(s) (Supabase, etc.)
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
-
-  // Base64 simple
   return `data:image/png;base64,${s}`;
+};
+
+const escapeHtml = (s) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const uriToDataUrl = async (uri) => {
+  if (!uri) return null;
+  try {
+    if (String(uri).startsWith("data:image")) return uri;
+
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const lower = String(uri).toLowerCase();
+    const mime =
+      lower.includes(".jpg") || lower.includes(".jpeg")
+        ? "image/jpeg"
+        : "image/png";
+
+    return `data:${mime};base64,${base64}`;
+  } catch (e) {
+    console.log("⚠️ uriToDataUrl error:", e);
+    return null;
+  }
 };
 
 const PRODUCT_COMPONENTS = {
@@ -146,6 +173,16 @@ const ALL_TYPES = [
   "Autre",
 ];
 
+const STATES = ["Bon", "Moyen", "Mauvais", "Absent", "Non testable"];
+
+const colorMap = {
+  Bon: "#16a34a",
+  Moyen: "#d97706",
+  Mauvais: "#b91c1c",
+  Absent: "#4b5563",
+  "Non testable": "#6b7280",
+};
+
 /* ───────── Composant principal ───────── */
 
 export default function CheckupPage() {
@@ -187,14 +224,26 @@ export default function CheckupPage() {
   const [remarks, setRemarks] = useState(editData?.remarks || "");
   const [signature, setSignature] = useState(null);
 
-  /* ───────── Chargement de la signature existante ───────── */
+  // ✅ Produit non fonctionnel / non testable
+  const [isNonTestable, setIsNonTestable] = useState(
+    !!editData?.is_non_testable
+  );
+
+  // ✅ Photos par composant si "Mauvais"
+  const [componentPhotos, setComponentPhotos] = useState(
+    editData?.component_photos || {}
+  );
+
+  // ✅ Prévisualisation plein écran
+  const [previewUri, setPreviewUri] = useState(null);
+
+  /* ───────── Signature existante ───────── */
 
   useEffect(() => {
     const loadSignature = async () => {
       try {
-        // 🔴 AJOUT IMPORTANT : clientSignature transmis par EditClientPage
         const fromParamsCandidates = [
-          route.params?.clientSignature,          // ← NOUVEAU
+          route.params?.clientSignature,
           route.params?.signature,
           route.params?.signatureIntervention,
           route.params?.client?.signature,
@@ -255,14 +304,48 @@ export default function CheckupPage() {
   }, [route.params, editData, clientFromRoute]);
 
   const getComponentList = () => {
-    if (PRODUCT_COMPONENTS[selectedProduct]) {
-      return PRODUCT_COMPONENTS[selectedProduct];
-    }
+    if (PRODUCT_COMPONENTS[selectedProduct]) return PRODUCT_COMPONENTS[selectedProduct];
     return PRODUCT_COMPONENTS["Autre"];
   };
 
+  const ensureAllNonTestable = () => {
+    const list = getComponentList();
+    const next = {};
+    list.forEach((c) => {
+      next[c] = "Non testable";
+    });
+    setComponents(next);
+    setComponentPhotos({});
+  };
+
+  useEffect(() => {
+    if (isNonTestable) {
+      ensureAllNonTestable();
+    } else {
+      const list = getComponentList();
+      setComponentPhotos((prev) => {
+        const next = {};
+        list.forEach((c) => {
+          if (prev?.[c]) next[c] = prev[c];
+        });
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct]);
+
   const toggleComponentState = (name, state) => {
     setComponents((prev) => ({ ...prev, [name]: state }));
+
+    // Si on quitte "Mauvais", on retire la photo (logique simple et propre)
+    if (state !== "Mauvais") {
+      setComponentPhotos((prev) => {
+        if (!prev?.[name]) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const handleSignature = (sig) => {
@@ -279,14 +362,18 @@ export default function CheckupPage() {
 
   const validate = () => {
     const list = getComponentList();
-    const missing = list.some((c) => !components[c]);
-    if (missing) {
-      Alert.alert(
-        "Attention",
-        "Merci de renseigner l'état de tous les composants."
-      );
-      return false;
+
+    if (!isNonTestable) {
+      const missing = list.some((c) => !components[c]);
+      if (missing) {
+        Alert.alert(
+          "Attention",
+          "Merci de renseigner l'état de tous les composants."
+        );
+        return false;
+      }
     }
+
     if (!remarks.trim()) {
       Alert.alert("Remarques manquantes", "Ajoutez des remarques générales.");
       return false;
@@ -309,6 +396,8 @@ export default function CheckupPage() {
     components,
     remarks,
     signature,
+    is_non_testable: isNonTestable,
+    component_photos: componentPhotos,
   });
 
   const saveCheckup = async () => {
@@ -326,15 +415,16 @@ export default function CheckupPage() {
         if (error) throw error;
         Alert.alert("Succès", "Fiche mise à jour.");
       } else {
-        const { error } = await supabase
-          .from("checkup_reports")
-          .insert(payload);
+        const { error } = await supabase.from("checkup_reports").insert(payload);
         if (error) throw error;
         Alert.alert("Succès", "Fiche sauvegardée.");
       }
     } catch (e) {
       console.error(e);
-      Alert.alert("Erreur", "Impossible de sauvegarder la fiche.");
+      Alert.alert(
+        "Erreur",
+        "Impossible de sauvegarder la fiche.\n\n⚠️ Ajoute les colonnes SQL : is_non_testable (bool) et component_photos (jsonb)."
+      );
     }
   };
 
@@ -366,15 +456,85 @@ export default function CheckupPage() {
     );
   };
 
+  const takePhotoForComponent = async (componentName) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission refusée",
+          "Autorisez la caméra pour prendre une photo."
+        );
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        quality: 0.7,
+        allowsEditing: false,
+      });
+
+      if (res.canceled) return;
+
+      const uri = res.assets?.[0]?.uri || null;
+      if (!uri) return;
+
+      setComponentPhotos((prev) => ({
+        ...(prev || {}),
+        [componentName]: uri,
+      }));
+    } catch (e) {
+      console.log("⚠️ takePhotoForComponent error:", e);
+      Alert.alert("Erreur", "Impossible d’ouvrir la caméra.");
+    }
+  };
+
+  const removePhotoForComponent = (componentName) => {
+    setComponentPhotos((prev) => {
+      const next = { ...(prev || {}) };
+      delete next[componentName];
+      return next;
+    });
+  };
+
+  const toggleNonTestable = () => {
+    setIsNonTestable((prev) => {
+      const next = !prev;
+      if (next) ensureAllNonTestable();
+      return next;
+    });
+  };
+
   const printCheckup = async () => {
     if (!validate()) return;
 
-    const rowsHtml = getComponentList()
-      .map(
-        (c) =>
-          `<tr><td>${c}</td><td>${components[c] || ""}</td></tr>`
-      )
-      .join("");
+    const list = getComponentList();
+
+    // ✅ Force l'impression si soit la case est cochée, soit tout est "Non testable"
+    const nonTestablePrint =
+      isNonTestable || list.every((c) => components?.[c] === "Non testable");
+
+    const rows = [];
+
+    for (const c of list) {
+      const state = components[c] || "";
+      let photoHtml = "";
+
+      if (state === "Mauvais" && componentPhotos?.[c]) {
+        const dataUrl = await uriToDataUrl(componentPhotos[c]);
+        if (dataUrl) {
+          photoHtml = `<div style="margin-top:4px;"><img src="${dataUrl}" style="width:160px;height:90px;object-fit:cover;border:1px solid #000;" /></div>`;
+        }
+      }
+
+      rows.push(`
+        <tr>
+          <td>${escapeHtml(c)}</td>
+          <td>
+            ${escapeHtml(state)}
+            ${photoHtml}
+          </td>
+        </tr>
+      `);
+    }
 
     const html = `
       <html>
@@ -385,26 +545,40 @@ export default function CheckupPage() {
             h1 { text-align: center; font-size: 18px; margin-bottom: 16px; }
             .info { border: 1px solid #000; padding: 8px; margin-bottom: 16px; font-size: 11px; }
             .info-line { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            .danger { color: #b91c1c; font-weight: 700; }
             table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-            th, td { border: 1px solid #000; padding: 4px; text-align: left; font-size: 11px; }
+            th, td { border: 1px solid #000; padding: 4px; text-align: left; font-size: 11px; vertical-align: top; }
             .remarks { margin-top: 16px; font-size: 11px; }
           </style>
         </head>
         <body>
-          <h1>Fiche de contrôle – ${selectedProduct}</h1>
+          <h1>Fiche de contrôle – ${escapeHtml(selectedProduct)}</h1>
           <div class="info">
-            <div class="info-line"><strong>Client :</strong><span>${clientName}</span></div>
-            <div class="info-line"><strong>Téléphone :</strong><span>${clientPhone}</span></div>
-            <div class="info-line"><strong>Date :</strong><span>${clientDate}</span></div>
-            <div class="info-line"><strong>Produit :</strong><span>${selectedProduct}</span></div>
+            <div class="info-line"><strong>Client :</strong><span>${escapeHtml(
+              clientName
+            )}</span></div>
+            <div class="info-line"><strong>Téléphone :</strong><span>${escapeHtml(
+              clientPhone
+            )}</span></div>
+            <div class="info-line"><strong>Date :</strong><span>${escapeHtml(
+              clientDate
+            )}</span></div>
+            <div class="info-line"><strong>Produit :</strong><span>${escapeHtml(
+              selectedProduct
+            )}</span></div>
+            ${
+              nonTestablePrint
+                ? `<div class="info-line danger"><strong>Produit :</strong><span>NON FONCTIONNEL / NON TESTABLE</span></div>`
+                : ``
+            }
           </div>
           <table>
             <tr><th>Composant</th><th>État</th></tr>
-            ${rowsHtml}
+            ${rows.join("")}
           </table>
           <div class="remarks">
             <strong>Remarques :</strong>
-            <p>${remarks.replace(/\n/g, "<br/>")}</p>
+            <p>${escapeHtml(remarks).replace(/\n/g, "<br/>")}</p>
           </div>
           <div style="margin-top: 16px;">
             <strong>Signature :</strong><br/>
@@ -418,10 +592,8 @@ export default function CheckupPage() {
       </html>
     `;
 
-  await Print.printAsync({ html });
+    await Print.printAsync({ html });
   };
-
-  console.log("🔎 CheckupPage signature state (render) =", signature);
 
   /* ───────── UI ───────── */
 
@@ -459,6 +631,24 @@ export default function CheckupPage() {
             </View>
           </View>
 
+          {/* Produit non testable */}
+          <TouchableOpacity
+            onPress={toggleNonTestable}
+            activeOpacity={0.9}
+            style={[
+              styles.nonTestableRow,
+              isNonTestable && styles.nonTestableRowActive,
+            ]}
+          >
+            <View style={[styles.checkbox, isNonTestable && styles.checkboxOn]}>
+              {isNonTestable ? <Text style={styles.checkboxTick}>✓</Text> : null}
+            </View>
+            <Text style={styles.nonTestableText}>
+              Produit non fonctionnel / non testable (impossible de juger les
+              composants)
+            </Text>
+          </TouchableOpacity>
+
           {/* Type de produit */}
           <Text style={styles.sectionTitle}>Type de produit</Text>
           <View style={styles.chipsRow}>
@@ -467,10 +657,7 @@ export default function CheckupPage() {
               return (
                 <TouchableOpacity
                   key={type}
-                  style={[
-                    styles.chip,
-                    isSelected && styles.chipSelected,
-                  ]}
+                  style={[styles.chip, isSelected && styles.chipSelected]}
                   onPress={() =>
                     setSelectedProduct(
                       PRODUCT_COMPONENTS[type] ? type : "Autre"
@@ -495,6 +682,10 @@ export default function CheckupPage() {
           <View style={styles.componentsCard}>
             {getComponentList().map((name, index) => {
               const isOdd = index % 2 === 1;
+              const currentState = components[name];
+              const isBad = currentState === "Mauvais";
+              const photoUri = componentPhotos?.[name] || null;
+
               return (
                 <View
                   key={name}
@@ -503,25 +694,63 @@ export default function CheckupPage() {
                     isOdd && styles.componentRowAlt,
                   ]}
                 >
-                  <Text style={styles.componentLabel}>{name}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.componentLabel}>{name}</Text>
+
+                    {/* Photo uniquement si "Mauvais" */}
+                    {isBad && (
+                      <View style={styles.photoRow}>
+                        <TouchableOpacity
+                          style={styles.photoBtn}
+                          onPress={() => takePhotoForComponent(name)}
+                        >
+                          <Text style={styles.photoBtnText}>📷 Photo</Text>
+                        </TouchableOpacity>
+
+                        {photoUri ? (
+                          <View style={styles.photoPreviewWrap}>
+                            <TouchableOpacity
+                              onPress={() => setPreviewUri(photoUri)}
+                            >
+                              <Image
+                                source={{ uri: photoUri }}
+                                style={styles.photoPreview}
+                                resizeMode="cover"
+                              />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => removePhotoForComponent(name)}
+                              style={styles.photoRemoveBtn}
+                            >
+                              <Text style={styles.photoRemoveText}>Retirer</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <Text style={styles.photoHint}>
+                            (optionnel) Prendre une photo du défaut
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+
                   <View style={styles.componentStatesRow}>
-                    {["Bon", "Moyen", "Mauvais", "Absent"].map((state) => {
+                    {STATES.map((state) => {
+                      const disabled = isNonTestable; // tout bloqué si non testable
                       const isSelected = components[name] === state;
-                      const colorMap = {
-                        Bon: "#16a34a",
-                        Moyen: "#d97706",
-                        Mauvais: "#b91c1c",
-                        Absent: "#4b5563",
-                      };
+
                       return (
                         <TouchableOpacity
                           key={state}
+                          disabled={disabled}
                           style={[
                             styles.stateChip,
                             isSelected && {
                               backgroundColor: colorMap[state],
                               borderColor: "transparent",
                             },
+                            disabled && styles.stateChipDisabled,
                           ]}
                           onPress={() => toggleComponentState(name, state)}
                         >
@@ -529,6 +758,7 @@ export default function CheckupPage() {
                             style={[
                               styles.stateText,
                               isSelected && { color: "#ffffff" },
+                              disabled && { opacity: 0.6 },
                             ]}
                           >
                             {state}
@@ -559,9 +789,7 @@ export default function CheckupPage() {
           {signature && (
             <View style={styles.signaturePreviewCard}>
               <View style={styles.signatureHeaderRow}>
-                <Text style={styles.signatureInfoText}>
-                  Signature existante
-                </Text>
+                <Text style={styles.signatureInfoText}>Signature existante</Text>
                 <TouchableOpacity onPress={handleClearSig}>
                   <Text style={styles.signatureClearText}>Effacer</Text>
                 </TouchableOpacity>
@@ -610,10 +838,7 @@ export default function CheckupPage() {
                 onBegin={() => setIsSigning(true)}
               />
             </View>
-            <TouchableOpacity
-              onPress={handleClearSig}
-              style={styles.clearButton}
-            >
+            <TouchableOpacity onPress={handleClearSig} style={styles.clearButton}>
               <Text style={styles.clearButtonText}>Effacer la signature</Text>
             </TouchableOpacity>
           </View>
@@ -653,6 +878,28 @@ export default function CheckupPage() {
           </View>
         </View>
       </ScrollView>
+
+      {/* ✅ Modal preview photo */}
+      <Modal visible={!!previewUri} transparent animationType="fade">
+        <Pressable
+          style={styles.previewBackdrop}
+          onPress={() => setPreviewUri(null)}
+        >
+          <Pressable style={styles.previewCard}>
+            <Image
+              source={{ uri: previewUri }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity
+              onPress={() => setPreviewUri(null)}
+              style={styles.previewCloseBtn}
+            >
+              <Text style={styles.previewCloseText}>Fermer</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -743,6 +990,47 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
 
+  /* Non testable */
+  nonTestableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fff1f2",
+    padding: 10,
+    borderRadius: 12,
+  },
+  nonTestableRowActive: {
+    borderColor: "#b91c1c",
+    backgroundColor: "#ffe4e6",
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#b91c1c",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+  },
+  checkboxOn: {
+    backgroundColor: "#b91c1c",
+  },
+  checkboxTick: {
+    color: "#ffffff",
+    fontWeight: "900",
+    fontSize: 14,
+    marginTop: -1,
+  },
+  nonTestableText: {
+    flex: 1,
+    color: "#b91c1c",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+
   componentsCard: {
     borderRadius: 12,
     borderWidth: 1,
@@ -751,23 +1039,27 @@ const styles = StyleSheet.create({
   },
   componentRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
+    alignItems: "flex-start",
+    paddingVertical: 8,
     paddingHorizontal: 10,
     backgroundColor: "#ffffff",
+    gap: 10,
   },
   componentRowAlt: {
     backgroundColor: "#f9fafb",
   },
   componentLabel: {
-    flex: 1,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "800",
     color: "#111827",
+    marginBottom: 4,
   },
   componentStatesRow: {
     flexDirection: "row",
     gap: 4,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    maxWidth: 260,
   },
   stateChip: {
     borderWidth: 1,
@@ -776,11 +1068,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     backgroundColor: "#ffffff",
+    marginBottom: 4,
+  },
+  stateChipDisabled: {
+    opacity: 0.55,
   },
   stateText: {
     fontSize: 11,
     color: "#111827",
+    fontWeight: "700",
+  },
+
+  /* Photo */
+  photoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 2,
+  },
+  photoBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#b91c1c",
+    backgroundColor: "#fff1f2",
+  },
+  photoBtnText: {
+    color: "#b91c1c",
+    fontWeight: "900",
+    fontSize: 12,
+  },
+  photoHint: {
+    color: "#6b7280",
+    fontSize: 12,
     fontWeight: "600",
+  },
+  photoPreviewWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  photoPreview: {
+    width: 56,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+  },
+  photoRemoveBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  photoRemoveText: {
+    color: "#b91c1c",
+    fontWeight: "800",
+    fontSize: 12,
   },
 
   remarkInput: {
@@ -817,7 +1161,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 13,
     color: "#b91c1c",
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   signaturePreviewCard: {
@@ -835,12 +1179,12 @@ const styles = StyleSheet.create({
   },
   signatureInfoText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#111827",
   },
   signatureClearText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "800",
     color: "#b91c1c",
   },
   signaturePreviewBox: {
@@ -871,7 +1215,42 @@ const styles = StyleSheet.create({
   },
   footerActionText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#111827",
+  },
+
+  /* Modal preview */
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  previewCard: {
+    width: "100%",
+    maxWidth: 900,
+    backgroundColor: "#111827",
+    borderRadius: 14,
+    padding: 10,
+  },
+  previewImage: {
+    width: "100%",
+    height: 420,
+    borderRadius: 10,
+    backgroundColor: "#000",
+  },
+  previewCloseBtn: {
+    alignSelf: "center",
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  previewCloseText: {
+    color: "#ffffff",
+    fontWeight: "800",
   },
 });

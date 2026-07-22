@@ -15,6 +15,9 @@ import {
   Easing,
   Pressable,
   ScrollView,
+  Keyboard,
+KeyboardAvoidingView,
+Platform,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -206,6 +209,8 @@ export default function HomePage({ navigation, route, setUser }) {
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [searchActionVisible, setSearchActionVisible] = useState(false);
+const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [sortBy, setSortBy] = useState("createdAt");
   const [orderAsc, setOrderAsc] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -238,7 +243,11 @@ export default function HomePage({ navigation, route, setUser }) {
 const [bottomTab, setBottomTab] = useState(null); // null = rien affiché
 const [sliderH, setSliderH] = useState(0);
 
-const toggleBottomTab = (key) => {
+const toggleBottomTab = async (key) => {
+  if (key === "orders") {
+    await loadOrdersInProgress();
+  }
+
   setBottomTab((prev) => (prev === key ? null : key));
 };
 
@@ -578,118 +587,236 @@ const toggleBottomTab = (key) => {
       </TouchableOpacity>
     );
   });
-  // Charge les commandes en cours (paid=false OU saved=false) pour l'encart
-  const loadOrdersInProgress = async () => {
-    try {
-      const { data: rows, error: err } = await supabase
-        .from("orders")
-        .select("*")
-        .or("paid.eq.false,saved.eq.false"); // pas d'ORDER BY (on trie côté JS)
+// Charge les commandes en cours (paid=false OU saved=false) pour l'encart
+const loadOrdersInProgress = async () => {
+  try {
+    const { data: rows, error: err } = await supabase
+      .from("orders")
+      .select("*")
+      .or("paid.eq.false,saved.eq.false")
+      .or("deleted.eq.false,deleted.is.null");
 
-      if (err) throw err;
+    if (err) throw err;
 
-      const sorted = (rows || [])
-        .slice()
-        .sort(
-          (a, b) => new Date(__coalesceDate(b)) - new Date(__coalesceDate(a))
-        );
+const activeRows = (rows || []).filter((order) => {
+  const isDeleted =
+    order?.deleted === true ||
+    order?.deleted === "true" ||
+    order?.deleted === 1 ||
+    order?.deleted === "1";
 
-      const ids = [...new Set(sorted.map((o) => o.client_id).filter(Boolean))];
-      let map = {};
-      if (ids.length > 0) {
-        const { data: clients, error: cErr } = await supabase
-          .from("clients")
-          .select("id, name, phone, ficheNumber")
-          .in("id", ids);
-        if (cErr) throw cErr;
-        map = Object.fromEntries((clients || []).map((c) => [String(c.id), c]));
-      }
+  return !isDeleted && (!order?.paid || !order?.saved);
+});
 
-      setOrdersList(
-        sorted.map((o) => ({
-          ...o,
-          __client: map[String(o.client_id)] || null,
-        }))
-      );
-    } catch (e) {
-      console.error("❌ Commandes en cours :", e);
-      setOrdersList([]);
-    }
-  };
+const sorted = activeRows
+  .slice()
+  .sort(
+    (a, b) => new Date(__coalesceDate(b)) - new Date(__coalesceDate(a))
+  );
 
-  const loadPopupData = useCallback(async () => {
-    try {
-      // 1) Clients + interventions + commandes
-      const { data: clientsData, error: clientsError } = await supabase
+    const ids = [
+      ...new Set(sorted.map((o) => o.client_id).filter(Boolean)),
+    ];
+
+    let map = {};
+
+    if (ids.length > 0) {
+      const { data: clients, error: cErr } = await supabase
         .from("clients")
-        .select(
-          `
+        .select("id, name, phone, ficheNumber")
+        .in("id", ids);
+
+      if (cErr) throw cErr;
+
+      map = Object.fromEntries(
+        (clients || []).map((c) => [String(c.id), c])
+      );
+    }
+
+    setOrdersList(
+      sorted.map((o) => ({
+        ...o,
+        __client: map[String(o.client_id)] || null,
+      }))
+    );
+  } catch (e) {
+    console.error("❌ Commandes en cours :", e);
+    setOrdersList([]);
+  }
+};
+
+const loadPopupData = useCallback(async () => {
+  try {
+    const { data: clientsData, error: clientsError } = await supabase
+      .from("clients")
+      .select(
+        `
         *,
         interventions(
-          id, status, createdAt, solderestant, cost, commande, info_note
+          id,
+          status,
+          createdAt,
+          solderestant,
+          cost,
+          commande,
+          info_note
         ),
         orders(
-          id, price, deposit, paid, saved, product
+          id,
+          client_id,
+          price,
+          deposit,
+          quantity,
+          total,
+          paid,
+          saved,
+          deleted,
+          product,
+          brand,
+          model,
+          order_photos
         )
-      `
-        )
-        .order("createdAt", { ascending: false });
+        `
+      )
+      .order("createdAt", { ascending: false });
 
-      if (clientsError) throw clientsError;
+    if (clientsError) {
+      throw clientsError;
+    }
 
-      // 2) Filtrage "en cours"
-      const rows = (clientsData || [])
-        .map((c) => {
-          const interventions = Array.isArray(c.interventions)
-            ? c.interventions
-            : [];
-          const orders = Array.isArray(c.orders) ? c.orders : [];
+    const rows = (clientsData || [])
+      .map((clientRow) => {
+        const interventions = Array.isArray(clientRow.interventions)
+          ? clientRow.interventions
+          : [];
 
-          const interventionsEnCours = interventions.filter(
-            (i) => !["Réparé", "Récupéré", "Non réparable"].includes(i.status)
-          );
+        const orders = (Array.isArray(clientRow.orders)
+          ? clientRow.orders
+          : []
+        ).map((order) => {
+          let photoPaths = [];
 
-          const ordersEnCours = orders.filter((o) => !o.paid || !o.saved);
+          if (Array.isArray(order.order_photos)) {
+            photoPaths = order.order_photos.filter(Boolean);
+          } else if (
+            typeof order.order_photos === "string" &&
+            order.order_photos.trim()
+          ) {
+            try {
+              const parsed = JSON.parse(order.order_photos);
 
-          if (interventionsEnCours.length === 0 && ordersEnCours.length === 0) {
-            return null;
+              photoPaths = Array.isArray(parsed)
+                ? parsed.filter(Boolean)
+                : [order.order_photos.trim()];
+            } catch {
+              photoPaths = order.order_photos.includes(",")
+                ? order.order_photos
+                    .split(",")
+                    .map((photo) => photo.trim())
+                    .filter(Boolean)
+                : [order.order_photos.trim()];
+            }
           }
 
-          const totalIntervDu = interventionsEnCours
-            .filter((i) => (i.solderestant ?? 0) > 0)
-            .reduce((s, i) => s + (i.solderestant || 0), 0);
+          const photoUrls = photoPaths
+            .map((photoPath) => {
+              if (/^https?:\/\//i.test(photoPath)) {
+                return photoPath;
+              }
 
-          const totalOrdersDue = ordersEnCours.reduce((s, o) => {
-            const price = Number(o.price || 0);
-            const deposit = Number(o.deposit || 0);
-            return s + Math.max(price - deposit, 0);
-          }, 0);
+              const cleanPath = photoPath.startsWith("images/")
+                ? photoPath.slice(7)
+                : photoPath;
+
+              const { data } = supabase.storage
+                .from("images")
+                .getPublicUrl(cleanPath);
+
+              return data?.publicUrl || null;
+            })
+            .filter(Boolean);
 
           return {
-            client: {
-              id: c.id,
-              name: c.name,
-              phone: c.phone,
-              ficheNumber: c.ficheNumber,
-            },
-            interventionsEnCours,
-            ordersEnCours,
-            totals: {
-              due: totalIntervDu + totalOrdersDue,
-              intervDue: totalIntervDu,
-              orderDue: totalOrdersDue,
-            },
+            ...order,
+            order_photos: photoUrls,
           };
-        })
-        .filter(Boolean)
-        .sort((a, b) => b.totals.due - a.totals.due); // les plus “urgents” d’abord
+        });
 
-      setPopupData(rows);
-    } catch (e) {
-      console.error("Popup load error:", e);
-      setPopupData([]);
-    }
-  }, []);
+        const interventionsEnCours = interventions.filter(
+          (intervention) =>
+            !["Réparé", "Récupéré", "Non réparable"].includes(
+              intervention.status
+            )
+        );
+
+        const ordersEnCours = orders.filter((order) => {
+          const isDeleted =
+            order?.deleted === true ||
+            order?.deleted === "true" ||
+            order?.deleted === 1 ||
+            order?.deleted === "1";
+
+          return !isDeleted && (!order.paid || !order.saved);
+        });
+
+        if (
+          interventionsEnCours.length === 0 &&
+          ordersEnCours.length === 0
+        ) {
+          return null;
+        }
+
+        const totalIntervDu = interventionsEnCours
+          .filter((intervention) => Number(intervention.solderestant || 0) > 0)
+          .reduce(
+            (total, intervention) =>
+              total + Number(intervention.solderestant || 0),
+            0
+          );
+
+        const totalOrdersDue = ordersEnCours.reduce((total, order) => {
+          const quantity = Math.max(
+            1,
+            Number.parseInt(order.quantity ?? 1, 10) || 1
+          );
+
+          const price = Number(order.price || 0);
+
+          const orderTotal =
+            order.total != null && !Number.isNaN(Number(order.total))
+              ? Number(order.total)
+              : price * quantity;
+
+          const deposit = Number(order.deposit || 0);
+
+          return total + Math.max(orderTotal - deposit, 0);
+        }, 0);
+
+        return {
+          client: {
+            id: clientRow.id,
+            name: clientRow.name,
+            phone: clientRow.phone,
+            ficheNumber: clientRow.ficheNumber,
+          },
+          interventionsEnCours,
+          ordersEnCours,
+          totals: {
+            due: totalIntervDu + totalOrdersDue,
+            intervDue: totalIntervDu,
+            orderDue: totalOrdersDue,
+          },
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.totals.due - a.totals.due);
+
+    setPopupData(rows);
+  } catch (error) {
+    console.error("Popup load error:", error);
+    setPopupData([]);
+  }
+}, []);
 
   const [expandedClientId, setExpandedClientId] = useState(null);
   const [activeModal, setActiveModal] = useState(null);
@@ -709,58 +836,110 @@ const toggleBottomTab = (key) => {
   const [sliderW, setSliderW] = useState(0);
   const itemsPerPage = 2;
 
-  const checkImagesToDelete = async () => {
-    setIsLoading(true);
-    try {
-      const dateLimite = new Date(
-        Date.now() - 10 * 24 * 60 * 60 * 1000
-      ).toISOString();
+const checkImagesToDelete = async () => {
+  try {
+    const dateLimite = new Date(
+      Date.now() - 10 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
-      // 1) Images ajoutées dans la table 'intervention_images'
-      const extraPromise = supabase
-        .from("intervention_images")
-        .select("id, image_data, created_at")
-        .lte("created_at", dateLimite);
-
-      // 2) Photos enregistrées dans 'interventions.photos' (fiches récupérées de +10 j)
-      const intvPromise = supabase
+    const { data: interventionsData, error: interventionsError } =
+      await supabase
         .from("interventions")
-        .select("id, photos, updatedAt, status")
+        .select('id, photos, "updatedAt", status')
         .eq("status", "Récupéré")
-        .lte("updatedAt", dateLimite); // ⚠️ camelCase, pas updated_at
+        .lte("updatedAt", dateLimite);
 
-      const [
-        { data: extraData, error: extraErr },
-        { data: intvData, error: intvErr },
-      ] = await Promise.all([extraPromise, intvPromise]);
-
-      if (extraErr) throw extraErr;
-      if (intvErr) throw intvErr;
-
-      // Compte des images "cloud" (URL http) dans la table extra
-      const extraCount = (extraData || []).filter(
-        (img) =>
-          typeof img.image_data === "string" &&
-          img.image_data.startsWith("http")
-      ).length;
-
-      // Compte des photos "cloud" dans interventions.photos
-      const photosCount = (intvData || [])
-        .flatMap((it) => (Array.isArray(it.photos) ? it.photos : []))
-        .filter((u) => typeof u === "string" && u.startsWith("http")).length;
-
-      const total = extraCount + photosCount;
-
-      setHasImagesToDelete(total > 0);
-      // si tu as un compteur à l’écran :
-      // setImagesToDeleteCount(total);
-    } catch (err) {
-      setHasImagesToDelete(false);
-      // setImagesToDeleteCount?.(0);
-    } finally {
-      setIsLoading(false);
+    if (interventionsError) {
+      throw interventionsError;
     }
-  };
+
+    const eligibleIds = new Set(
+      (interventionsData || []).map((intervention) =>
+        String(intervention.id)
+      )
+    );
+
+    // Photos encore référencées directement dans interventions.photos
+    const photosCount = (interventionsData || []).reduce(
+      (total, intervention) => {
+        const photos = Array.isArray(intervention.photos)
+          ? intervention.photos.filter(Boolean)
+          : [];
+
+        return total + photos.length;
+      },
+      0
+    );
+
+    // Photos présentes dans intervention_images
+    let extraCount = 0;
+
+    if (eligibleIds.size > 0) {
+      const { data: extraImages, error: extraError } =
+        await supabase
+          .from("intervention_images")
+          .select("id, intervention_id, image_data")
+          .in("intervention_id", [...eligibleIds]);
+
+      if (extraError) {
+        console.warn(
+          "⚠️ Vérification intervention_images :",
+          extraError
+        );
+      } else {
+        extraCount = (extraImages || []).filter(
+          (image) =>
+            typeof image.image_data === "string" &&
+            image.image_data.trim().length > 0
+        ).length;
+      }
+    }
+
+    // Vérification des dossiers Storage supplementaires/<interventionId>
+    const { data: storageFolders, error: storageFoldersError } =
+      await supabase.storage
+        .from("images")
+        .list("supplementaires", {
+          limit: 1000,
+          offset: 0,
+        });
+
+    if (storageFoldersError) {
+      console.warn(
+        "⚠️ Vérification Storage supplementaires :",
+        storageFoldersError
+      );
+    }
+
+    const eligibleStorageFolders = (storageFolders || []).filter(
+      (entry) =>
+        entry?.name &&
+        eligibleIds.has(String(entry.name))
+    );
+
+    const storageCount = eligibleStorageFolders.length;
+
+    const total =
+      photosCount + extraCount + storageCount;
+
+    console.log("🧹 Images anciennes détectées :", {
+      interventions: interventionsData?.length || 0,
+      photosCount,
+      extraCount,
+      storageCount,
+      total,
+    });
+
+    setHasImagesToDelete(total > 0);
+  } catch (error) {
+    console.error(
+      "❌ Vérification des images à nettoyer :",
+      error
+    );
+
+    setHasImagesToDelete(false);
+  }
+};
   useEffect(() => {
     const unsub = navigation.addListener("focus", checkImagesToDelete);
     return unsub;
@@ -1236,7 +1415,61 @@ const closeAllModals = () => {
                                         </View>
                                       )}
                                     </TouchableOpacity>
+{Array.isArray(activeOrders) &&
+  activeOrders.some(
+    (order) =>
+      Array.isArray(order.order_photos) &&
+      order.order_photos.length > 0
+  ) && (
+    <View
+      style={{
+        marginTop: 8,
+        marginBottom: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: "#b396f8",
+        borderRadius: 8,
+        backgroundColor: "#f7f3ff",
+      }}
+    >
+      <Text
+        style={{
+          color: "#270381",
+          fontWeight: "bold",
+          marginBottom: 6,
+        }}
+      >
+        Photos des produits commandés
+      </Text>
 
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        {activeOrders.flatMap((order) =>
+          Array.isArray(order.order_photos)
+            ? order.order_photos.map((uri, photoIndex) => (
+                <Image
+                  key={`${order.id}-order-photo-${photoIndex}`}
+                  source={{ uri }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#270381",
+                    resizeMode: "cover",
+                  }}
+                />
+              ))
+            : []
+        )}
+      </View>
+    </View>
+  )}
                                     {/* === BARRE D’ICÔNES EN BAS, ALIGNÉE À GAUCHE === */}
                                     <View
                                       style={styles.additionalIconsContainer}
@@ -1405,7 +1638,7 @@ const closeAllModals = () => {
                                       >
                                         {orderNotified ? (
                                           <Image
-                                            source={require("../assets/icons/order.png")}
+                                            source={require("../assets/icons/checklist.png")}
                                             style={{
                                               width: 28,
                                               height: 28,
@@ -2457,11 +2690,12 @@ interventions(
   const filterClientsWithCommandeEnCours = async () => {
     try {
       const { data: unpaidOrders, error: orderError } = await supabase
-        .from("orders")
-        .select(
-          "id, client_id, paid, saved, price, deposit, product, brand, model, notified"
-        )
-        .or("paid.eq.false,saved.eq.false");
+  .from("orders")
+.select(
+  "id, client_id, paid, saved, deleted, price, deposit, product, brand, model, notified, quantity, total, order_photos"
+)
+  .or("paid.eq.false,saved.eq.false")
+  .or("deleted.eq.false,deleted.is.null");
 
       const { data: interventions, error: interventionError } = await supabase
         .from("interventions")
@@ -2474,8 +2708,55 @@ interventions(
         console.error("❌ Erreur Supabase :", orderError || interventionError);
         return;
       }
+const activeOrders = (unpaidOrders || []).filter((order) => {
+  const isDeleted =
+    order?.deleted === true ||
+    order?.deleted === "true" ||
+    order?.deleted === 1 ||
+    order?.deleted === "1";
 
-      const clientIdsFromOrders = unpaidOrders
+  return !isDeleted;
+});
+const ordersWithPhotos = activeOrders.map((order) => {
+  let photoPaths = [];
+
+  if (Array.isArray(order.order_photos)) {
+    photoPaths = order.order_photos.filter(Boolean);
+  } else if (
+    typeof order.order_photos === "string" &&
+    order.order_photos.trim()
+  ) {
+    try {
+      const parsed = JSON.parse(order.order_photos);
+
+      photoPaths = Array.isArray(parsed)
+        ? parsed.filter(Boolean)
+        : [order.order_photos];
+    } catch {
+      photoPaths = [order.order_photos];
+    }
+  }
+
+  const photoUrls = photoPaths
+    .map((path) => {
+      if (/^https?:\/\//i.test(path)) {
+        return path;
+      }
+
+      const { data } = supabase.storage
+        .from("images")
+        .getPublicUrl(path);
+
+      return data?.publicUrl || null;
+    })
+    .filter(Boolean);
+
+  return {
+    ...order,
+    order_photos: photoUrls,
+  };
+});
+      const clientIdsFromOrders = ordersWithPhotos
         .map((o) => o.client_id)
         .filter(Boolean);
       const clientIdsFromInterventions = interventions
@@ -2503,7 +2784,7 @@ interventions(
       }
 
       const enrichedClients = clients.map((client) => {
-        const clientOrders = unpaidOrders.filter(
+        const clientOrders = ordersWithPhotos.filter(
           (o) => o.client_id === client.id
         );
         const clientInterventions = interventions.filter(
@@ -2547,7 +2828,80 @@ interventions(
   const notRepairableCountSafe = Number(NotRepairedNotReturnedCount ?? 0);
   const hasAny = repairedNotReturnedCountSafe + notRepairableCountSafe > 0;
   
+  const handleSearchClientPick = (client) => {
+  if (!client) return;
 
+  if (client.banned === true) {
+    openBannedAlert(client);
+    return;
+  }
+
+  Keyboard.dismiss();
+
+  setSearchSelectedClient(client);
+  setSearchActionVisible(true);
+
+  // Ferme immédiatement la liste de recherche
+  setSearchText("");
+  
+};
+
+
+const closeSearchActions = () => {
+  setSearchActionVisible(false);
+  setSearchSelectedClient(null);
+};
+
+const goToAddInterventionFromSearch = () => {
+  const client = searchSelectedClient;
+  if (!client?.id) return;
+
+  closeSearchActions();
+  setSearchText("");
+
+  navigation.navigate("AddIntervention", {
+    clientId: client.id,
+  });
+};
+
+const goToOrderFromSearch = () => {
+  const client = searchSelectedClient;
+  if (!client?.id) return;
+
+  closeSearchActions();
+  setSearchText("");
+
+  navigation.navigate("OrdersPage", {
+    clientId: client.id,
+    clientName: client.name || "",
+    clientPhone: client.phone || "",
+    clientNumber: client.ficheNumber || "",
+  });
+};
+
+const goToClientFromSearch = () => {
+  const client = searchSelectedClient;
+  if (!client?.id) return;
+
+  closeSearchActions();
+  setSearchText("");
+
+  navigation.navigate("ClientInterventionsPage", {
+    clientId: client.id,
+  });
+};
+const selectedClientActiveInterventions = (
+  searchSelectedClient?.interventions || []
+).filter(__isActiveIntervention);
+
+const selectedClientActiveOrders = (
+  searchSelectedClient?.orders || []
+).filter(__isActiveOrder);
+
+const selectedClientInterventionCount =
+  selectedClientActiveInterventions.length;
+
+const selectedClientOrderCount = selectedClientActiveOrders.length;
   return (
     <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
       <View style={styles.overlay}>
@@ -2962,22 +3316,19 @@ interventions(
                 {/* —— SUGGESTIONS —— */}
                 {searchText?.trim()?.length > 0 && (
                   <FlatList
-                    data={(filteredClients || []).slice(0, 10)}
-                    keyExtractor={(it) => String(it.id)}
-                    keyboardShouldPersistTaps="handled"
-                    style={styles.suggestionsBox}
+					data={(filteredClients || []).slice(0, 20)}
+					keyExtractor={(it) => String(it.id)}
+					keyboardShouldPersistTaps="always"
+					keyboardDismissMode="on-drag"
+					nestedScrollEnabled
+					showsVerticalScrollIndicator
+					style={styles.suggestionsBox}
                     renderItem={({ item }) => {
                       const isBanned = item?.banned === true;
 
-                      const onPick = () => {
-                        if (isBanned) {
-                          openBannedAlert(item);
-                          return;
-                        }
-                        navigation.navigate("ClientInterventionsPage", {
-                          clientId: item.id,
-                        });
-                      };
+const onPick = () => {
+  handleSearchClientPick(item);
+};
 
                       return (
                         <TouchableOpacity
@@ -3161,6 +3512,300 @@ interventions(
                   )}
                 </>
               )}
+<Modal
+  visible={searchActionVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={closeSearchActions}
+>
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.65)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 20,
+    }}
+  >
+    <View
+      style={{
+        width: "90%",
+        maxWidth: 500,
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        padding: 22,
+        elevation: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 22,
+          fontWeight: "bold",
+          color: "#242424",
+          textAlign: "center",
+          marginBottom: 6,
+        }}
+      >
+        {searchSelectedClient?.name || "Client"}
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 15,
+          color: "#555",
+          textAlign: "center",
+          marginBottom: 2,
+        }}
+      >
+        {searchSelectedClient?.phone
+          ? formatPhoneNumber(searchSelectedClient.phone)
+          : "Téléphone non renseigné"}
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 15,
+          color: "#555",
+          textAlign: "center",
+          marginBottom: 18,
+        }}
+      >
+        Fiche N° {searchSelectedClient?.ficheNumber || "—"}
+      </Text>
+<View
+  style={{
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  }}
+>
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: "#eff6ff",
+      borderRadius: 10,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      marginRight: 5,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#bfdbfe",
+    }}
+  >
+    <Text
+      style={{
+        fontSize: 22,
+        fontWeight: "800",
+        color: "#1d4ed8",
+      }}
+    >
+      {selectedClientInterventionCount}
+    </Text>
+
+    <Text
+      style={{
+        fontSize: 13,
+        color: "#1e3a8a",
+        textAlign: "center",
+      }}
+    >
+      Intervention
+      {selectedClientInterventionCount > 1 ? "s" : ""} en cours
+    </Text>
+  </View>
+
+  <View
+    style={{
+      flex: 1,
+      backgroundColor: "#fff7ed",
+      borderRadius: 10,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      marginLeft: 5,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#fed7aa",
+    }}
+  >
+    <Text
+      style={{
+        fontSize: 22,
+        fontWeight: "800",
+        color: "#c2410c",
+      }}
+    >
+      {selectedClientOrderCount}
+    </Text>
+
+    <Text
+      style={{
+        fontSize: 13,
+        color: "#7c2d12",
+        textAlign: "center",
+      }}
+    >
+      Commande
+      {selectedClientOrderCount > 1 ? "s" : ""} en cours
+    </Text>
+  </View>
+</View>
+      <Text
+        style={{
+          fontSize: 17,
+          fontWeight: "700",
+          color: "#242424",
+          textAlign: "center",
+          marginBottom: 14,
+        }}
+      >
+        Que voulez-vous faire ?
+      </Text>
+
+      <TouchableOpacity
+        onPress={goToAddInterventionFromSearch}
+        activeOpacity={0.85}
+        style={{
+          height: 56,
+          backgroundColor: "#2563eb",
+          borderRadius: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          marginBottom: 10,
+          overflow: "hidden",
+        }}
+      >
+        <Image
+          source={require("../assets/icons/plus.png")}
+          resizeMode="contain"
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 14,
+            tintColor: "#ffffff",
+          }}
+        />
+
+<Text
+  style={{
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#ffffff",
+  }}
+>
+  {selectedClientInterventionCount > 0
+    ? "Ajouter une intervention"
+    : "Créer une nouvelle intervention"}
+</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={goToOrderFromSearch}
+        activeOpacity={0.85}
+        style={{
+          height: 56,
+          backgroundColor: "#d97706",
+          borderRadius: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          marginBottom: 10,
+          overflow: "hidden",
+        }}
+      >
+        <Image
+          source={require("../assets/icons/order.png")}
+          resizeMode="contain"
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 14,
+            tintColor: "#ffffff",
+          }}
+        />
+
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 17,
+            fontWeight: "700",
+            color: "#ffffff",
+          }}
+        >
+          {selectedClientOrderCount > 0
+  ? "Ajouter une commande"
+  : "Créer une nouvelle commande"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={goToClientFromSearch}
+        activeOpacity={0.85}
+        style={{
+          height: 56,
+          backgroundColor: "#15803d",
+          borderRadius: 10,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          marginBottom: 10,
+          overflow: "hidden",
+        }}
+      >
+        <Image
+          source={require("../assets/icons/checklist.png")}
+          resizeMode="contain"
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 14,
+            tintColor: "#ffffff",
+          }}
+        />
+
+        <Text
+          style={{
+            flex: 1,
+            fontSize: 17,
+            fontWeight: "700",
+            color: "#ffffff",
+          }}
+        >
+          Voir la fiche client
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={closeSearchActions}
+        activeOpacity={0.8}
+        style={{
+          height: 48,
+          borderRadius: 9,
+          backgroundColor: "#e5e7eb",
+          justifyContent: "center",
+          alignItems: "center",
+          marginTop: 4,
+        }}
+      >
+        <Text
+          style={{
+            color: "#991b1b",
+            fontSize: 16,
+            fontWeight: "700",
+          }}
+        >
+          Annuler
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
               <Modal
                 transparent
                 visible={bannedAlert.visible}
@@ -3994,6 +4639,41 @@ interventions(
                         🛒 Commandes en cours : {item.ordersEnCours.length}
                       </Text>
                     )}
+
+					{item.ordersEnCours.some(
+  (order) =>
+    Array.isArray(order.order_photos) &&
+    order.order_photos.length > 0
+) && (
+  <View
+    style={{
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 8,
+      marginBottom: 4,
+    }}
+  >
+    {item.ordersEnCours.flatMap((order) =>
+      Array.isArray(order.order_photos)
+        ? order.order_photos.map((uri, index) => (
+            <Image
+              key={`${order.id}-photo-${index}`}
+              source={{ uri }}
+              style={{
+                width: 70,
+                height: 70,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#270381",
+                resizeMode: "cover",
+              }}
+            />
+          ))
+        : []
+    )}
+  </View>
+)}
                     <Text style={{ marginTop: 4 }}>
                       💰 À régler :{" "}
                       {item.totals.due.toLocaleString("fr-FR", {
@@ -5133,12 +5813,15 @@ dotsRow: {
     fontSize: 11,
   },
   suggestionsBox: {
+	maxHeight: 330,
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 10,
     marginTop: 6,
-    maxHeight: 280,
+    
+zIndex: 1000,
+elevation: 20,
   },
 
   // ligne + nom “banni”
@@ -5650,6 +6333,118 @@ tabTextActive: {
     fontWeight: "bold",
     fontSize: 14,
   },  
+searchActionOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0, 0, 0, 0.55)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20,
+},
 
+searchActionBox: {
+  width: "100%",
+  maxWidth: 500,
+  backgroundColor: "#ffffff",
+  borderRadius: 14,
+  padding: 20,
+  elevation: 12,
+},
 
+searchActionTitle: {
+  fontSize: 22,
+  fontWeight: "800",
+  color: "#242424",
+  textAlign: "center",
+  marginBottom: 4,
+},
+
+searchActionInfo: {
+  fontSize: 15,
+  color: "#555555",
+  textAlign: "center",
+},
+
+searchActionQuestion: {
+  fontSize: 17,
+  fontWeight: "700",
+  color: "#242424",
+  textAlign: "center",
+  marginTop: 18,
+  marginBottom: 12,
+},
+
+searchActionButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  minHeight: 56,
+  borderRadius: 9,
+  paddingHorizontal: 16,
+  marginBottom: 10,
+  overflow: "hidden",
+},
+
+interventionActionButton: {
+  backgroundColor: "#2563eb",
+},
+
+orderActionButton: {
+  backgroundColor: "#d97706",
+},
+
+clientActionButton: {
+  backgroundColor: "#15803d",
+},
+
+searchActionIcon: {
+  width: 27,
+  height: 27,
+  tintColor: "#ffffff",
+  marginRight: 14,
+  resizeMode: "contain",
+},
+
+searchActionButtonText: {
+  flex: 1,
+  color: "#ffffff",
+  fontSize: 17,
+  fontWeight: "700",
+},
+
+searchActionCancel: {
+  alignItems: "center",
+  paddingVertical: 12,
+  marginTop: 2,
+},
+
+searchActionCancelText: {
+  color: "#991b1b",
+  fontSize: 16,
+  fontWeight: "700",
+},
+clientSearchModalIcon: {
+  width: 24,
+  height: 24,
+  maxWidth: 24,
+  maxHeight: 24,
+  marginRight: 12,
+  tintColor: "#ffffff",
+  resizeMode: "contain",
+  flexShrink: 0,
+},
+homeOrderPhotos: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  marginTop: 8,
+  gap: 6,
+},
+
+homeOrderPhoto: {
+  width: 70,
+  height: 70,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#270381",
+  resizeMode: "cover",
+},
 });

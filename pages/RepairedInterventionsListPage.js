@@ -10,6 +10,7 @@ import {
   Animated,
   Easing,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import * as Animatable from "react-native-animatable";
 import { supabase } from "../supabaseClient";
@@ -21,6 +22,8 @@ export default function RepairedInterventionsListPage({ navigation }) {
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+const [isUpdating, setIsUpdating] = useState(false);
   const route = useRoute();
 
   const initialFilter = route.params?.initialFilter ?? "Réparé";
@@ -92,7 +95,116 @@ export default function RepairedInterventionsListPage({ navigation }) {
       setSuggestions([]);
     }
   }, [allInterventions, filter, search]);
+/* ───────────────── Sélection multiple ───────────────── */
 
+const isSelected = (id) => selectedIds.includes(id);
+
+const toggleSelection = (id) => {
+  setSelectedIds((prev) =>
+    prev.includes(id)
+      ? prev.filter((selectedId) => selectedId !== id)
+      : [...prev, id]
+  );
+};
+
+const handleCardPress = (item) => {
+  if (selectedIds.length > 0) {
+    toggleSelection(item.id);
+    return;
+  }
+
+  navigation.navigate("RepairedInterventionsPage", {
+    selectedInterventionId: item.id,
+  });
+};
+
+const handleCardLongPress = (item) => {
+  toggleSelection(item.id);
+};
+
+const handleSelectAllVisible = () => {
+  const visibleIds = filtered.map((item) => item.id);
+
+  const allVisibleSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedIds.includes(id));
+
+  if (allVisibleSelected) {
+    setSelectedIds((prev) =>
+      prev.filter((id) => !visibleIds.includes(id))
+    );
+  } else {
+    setSelectedIds((prev) => [
+      ...new Set([...prev, ...visibleIds]),
+    ]);
+  }
+};
+
+const confirmBulkRestitution = () => {
+  if (selectedIds.length === 0 || isUpdating) return;
+
+  const count = selectedIds.length;
+
+  Alert.alert(
+    "Confirmer la restitution",
+    `Passer ${count} fiche${count > 1 ? "s" : ""} sélectionnée${
+      count > 1 ? "s" : ""
+    } au statut « Récupéré » ?`,
+    [
+      {
+        text: "Annuler",
+        style: "cancel",
+      },
+      {
+        text: "Confirmer",
+        onPress: handleBulkRestitution,
+      },
+    ],
+    { cancelable: true }
+  );
+};
+
+const handleBulkRestitution = async () => {
+  if (selectedIds.length === 0 || isUpdating) return;
+
+  const idsToUpdate = [...selectedIds];
+
+  setIsUpdating(true);
+
+  try {
+    const { error } = await supabase
+      .from("interventions")
+      .update({
+        status: "Récupéré",
+        updatedAt: new Date().toISOString(),
+      })
+      .in("id", idsToUpdate);
+
+    if (error) throw error;
+
+    setAllInterventions((prev) =>
+      prev.filter((item) => !idsToUpdate.includes(item.id))
+    );
+
+    setSelectedIds([]);
+
+    Alert.alert(
+      "Restitution enregistrée",
+      `${idsToUpdate.length} fiche${
+        idsToUpdate.length > 1 ? "s ont" : " a"
+      } été passée${idsToUpdate.length > 1 ? "s" : ""} en « Récupéré ».`
+    );
+  } catch (error) {
+    console.error("Erreur restitution multiple :", error);
+
+    Alert.alert(
+      "Erreur",
+      "Impossible de passer les fiches sélectionnées en Récupéré."
+    );
+  } finally {
+    setIsUpdating(false);
+  }
+};
   /* ───────────────── Archiver ───────────────── */
   const handleArchive = async (interventionId) => {
     try {
@@ -186,7 +298,60 @@ export default function RepairedInterventionsListPage({ navigation }) {
           ))}
         </View>
       )}
+<View style={styles.selectionBar}>
+  <TouchableOpacity
+    style={styles.selectAllBtn}
+    onPress={handleSelectAllVisible}
+    disabled={filtered.length === 0 || isUpdating}
+  >
+    <View
+      style={[
+        styles.checkbox,
+        filtered.length > 0 &&
+          filtered.every((item) => selectedIds.includes(item.id)) &&
+          styles.checkboxSelected,
+      ]}
+    >
+      {filtered.length > 0 &&
+        filtered.every((item) => selectedIds.includes(item.id)) && (
+          <Text style={styles.checkmark}>✓</Text>
+        )}
+    </View>
 
+    <Text style={styles.selectAllText}>
+      {filtered.length > 0 &&
+      filtered.every((item) => selectedIds.includes(item.id))
+        ? "Tout désélectionner"
+        : "Tout sélectionner"}
+    </Text>
+  </TouchableOpacity>
+
+  <Text style={styles.selectionCount}>
+    {selectedIds.length} sélectionnée
+    {selectedIds.length > 1 ? "s" : ""}
+  </Text>
+
+  <TouchableOpacity
+    style={[
+      styles.restituteBtn,
+      (selectedIds.length === 0 || isUpdating) && styles.disabledBtn,
+    ]}
+    onPress={confirmBulkRestitution}
+    disabled={selectedIds.length === 0 || isUpdating}
+  >
+    {isUpdating ? (
+      <ActivityIndicator size="small" color="#fff" />
+    ) : (
+      <Text style={styles.restituteBtnText}>
+        Restituer ({selectedIds.length})
+      </Text>
+    )}
+  </TouchableOpacity>
+</View>
+
+<Text style={styles.selectionHint}>
+  Appui long sur une fiche pour la sélectionner.
+</Text>
       {/* ───── liste ───── */}
       <FlatList
         data={filtered}
@@ -198,23 +363,36 @@ export default function RepairedInterventionsListPage({ navigation }) {
           const clientName = client?.name ?? "Client inconnu";
           const clientPhone = formatPhoneNumber(client?.phone) || "—";
           const deviceLine = [item.deviceType, item.brand].filter(Boolean).join(" ") || "—";
-
+			const selected = isSelected(item.id);
           return (
             <Animatable.View
               animation="zoomIn"
               duration={400}
               delay={index * 120}
-              style={[styles.card, item.status === "Non réparable" && { borderColor: "red" }]}
+              style={[
+  styles.card,
+  item.status === "Non réparable" && { borderColor: "red" },
+  selected && styles.cardSelected,
+]}
             >
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("RepairedInterventionsPage", {
-                    selectedInterventionId: item.id,
-                  })
-                }
-                activeOpacity={0.8}
-              >
+             <TouchableOpacity
+  onPress={() => handleCardPress(item)}
+  onLongPress={() => handleCardLongPress(item)}
+  delayLongPress={350}
+  activeOpacity={0.8}
+>
                 <Text style={styles.line}>Fiche N° {ficheNum}</Text>
+				<View style={styles.cardHeader}>
+  <View
+    style={[
+      styles.checkbox,
+      selected && styles.checkboxSelected,
+    ]}
+  >
+    {selected && <Text style={styles.checkmark}>✓</Text>}
+  </View>
+
+  <View style={styles.cardContent}></View>
                 <Text style={styles.line}>
                   {clientName} – {clientPhone}
                 </Text>
@@ -238,6 +416,8 @@ export default function RepairedInterventionsListPage({ navigation }) {
                     <Blinking src={require("../assets/icons/notifications_off.png")} tint="#ff3b30" />
                   )}
                 </View>
+				  </View>
+
               </TouchableOpacity>
 
               {/* 👇 Bouton ARCHIVER visible uniquement pour "Non réparable" */}
@@ -337,4 +517,101 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   archiveBtnText: { color: "#fff", fontWeight: "700" },
+  selectionBar: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#ffffff",
+  borderWidth: 1,
+  borderColor: "#999",
+  borderRadius: 8,
+  padding: 8,
+  marginTop: 8,
+  marginBottom: 4,
+},
+
+selectAllBtn: {
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+selectAllText: {
+  fontSize: 13,
+  fontWeight: "600",
+  color: "#242424",
+},
+
+selectionCount: {
+  flex: 1,
+  textAlign: "center",
+  fontSize: 13,
+  fontWeight: "700",
+  color: "#242424",
+},
+
+restituteBtn: {
+  minWidth: 105,
+  minHeight: 38,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#15803d",
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  borderRadius: 6,
+},
+
+restituteBtnText: {
+  color: "#ffffff",
+  fontWeight: "700",
+  fontSize: 13,
+},
+
+disabledBtn: {
+  backgroundColor: "#999999",
+  opacity: 0.7,
+},
+
+selectionHint: {
+  fontSize: 12,
+  color: "#555555",
+  marginBottom: 8,
+  marginLeft: 2,
+},
+
+checkbox: {
+  width: 24,
+  height: 24,
+  borderRadius: 5,
+  borderWidth: 2,
+  borderColor: "#777777",
+  backgroundColor: "#ffffff",
+  justifyContent: "center",
+  alignItems: "center",
+  marginRight: 10,
+},
+
+checkboxSelected: {
+  backgroundColor: "#15803d",
+  borderColor: "#15803d",
+},
+
+checkmark: {
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: "bold",
+},
+
+cardSelected: {
+  backgroundColor: "#dbeafe",
+  borderColor: "#2563eb",
+  borderWidth: 2,
+},
+
+cardHeader: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+},
+
+cardContent: {
+  flex: 1,
+},
 });

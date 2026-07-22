@@ -82,10 +82,14 @@ export default function EditClientPage({ route, navigation }) {
     setAlertVisible(true);
   };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", loadClientData);
-    return unsubscribe;
-  }, [navigation]);
+ useEffect(() => {
+  // 🔹 On charge tout de suite les données complètes (avec password)
+  loadClientData();
+
+  // 🔹 Et on garde le listener pour les retours sur la page
+  const unsubscribe = navigation.addListener("focus", loadClientData);
+  return unsubscribe;
+}, [navigation]);
 
   const loadClientData = async () => {
     const { data, error } = await supabase

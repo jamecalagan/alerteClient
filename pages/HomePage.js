@@ -2718,38 +2718,86 @@ const activeOrders = (unpaidOrders || []).filter((order) => {
   return !isDeleted;
 });
 const ordersWithPhotos = activeOrders.map((order) => {
-  let photoPaths = [];
+  let rawPhotos = [];
 
   if (Array.isArray(order.order_photos)) {
-    photoPaths = order.order_photos.filter(Boolean);
+    rawPhotos = order.order_photos;
   } else if (
     typeof order.order_photos === "string" &&
     order.order_photos.trim()
   ) {
-    try {
-      const parsed = JSON.parse(order.order_photos);
+    const value = order.order_photos.trim();
 
-      photoPaths = Array.isArray(parsed)
-        ? parsed.filter(Boolean)
-        : [order.order_photos];
+    try {
+      const parsed = JSON.parse(value);
+      rawPhotos = Array.isArray(parsed) ? parsed : [parsed];
     } catch {
-      photoPaths = [order.order_photos];
+      rawPhotos = value.includes(",")
+        ? value
+            .split(",")
+            .map((photo) => photo.trim())
+            .filter(Boolean)
+        : [value];
     }
+  } else if (order.order_photos) {
+    rawPhotos = [order.order_photos];
   }
 
-  const photoUrls = photoPaths
-    .map((path) => {
-      if (/^https?:\/\//i.test(path)) {
-        return path;
+  const photoUrls = rawPhotos
+    .map((photo) => {
+      // Accepte une URL simple ou un objet { url, uri, path }
+      const rawValue =
+        typeof photo === "string"
+          ? photo
+          : photo?.url ||
+            photo?.publicUrl ||
+            photo?.uri ||
+            photo?.path ||
+            "";
+
+      if (!rawValue || typeof rawValue !== "string") {
+        return null;
       }
+
+      const value = rawValue.trim();
+
+      if (!value) return null;
+
+      // URL Internet ou URL publique Supabase
+      if (/^https?:\/\//i.test(value)) {
+        return value;
+      }
+
+      // Une adresse locale file:// ne peut pas être relue après l’upload
+      if (
+        value.startsWith("file://") ||
+        value.startsWith("content://")
+      ) {
+        console.warn(
+          "⚠️ Photo de commande encore locale :",
+          value
+        );
+        return null;
+      }
+
+      // Nettoyage d’un éventuel préfixe du nom du bucket
+      const cleanPath = value
+        .replace(/^\/+/, "")
+        .replace(/^images\//i, "");
 
       const { data } = supabase.storage
         .from("images")
-        .getPublicUrl(path);
+        .getPublicUrl(cleanPath);
 
       return data?.publicUrl || null;
     })
     .filter(Boolean);
+
+  console.log("📷 Photos commande Home :", {
+    orderId: order.id,
+    original: order.order_photos,
+    urls: photoUrls,
+  });
 
   return {
     ...order,

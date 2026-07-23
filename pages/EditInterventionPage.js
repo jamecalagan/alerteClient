@@ -172,8 +172,78 @@ const pathFromSupabaseUrl = (url) => {
 // - sinon (UUID/texte) → string inchangée
 const toDBId = (v) =>
     typeof v === "string" && /^\d+$/.test(v) ? parseInt(v, 10) : v;
+const REPAIR_CAUSES = [
+    "BIOS",
+    "Circuit de charge",
+    "Alimentation",
+    "Carte mère",
+    "Court-circuit",
+    "MOSFET",
+    "Contrôleur EC",
+    "GPU",
+    "CPU",
+    "Connecteur de charge",
+    "Connecteur USB / USB-C",
+    "Connecteur HDMI",
+    "Écran / dalle",
+    "Rétroéclairage",
+    "Batterie",
+    "SSD / disque dur",
+    "Mémoire RAM",
+    "Surchauffe",
+    "Ventilateur",
+    "Windows / logiciel",
+    "Virus",
+    "Pilote",
+    "Données corrompues",
+    "Clavier / touchpad",
+    "Charnière / châssis",
+    "Liquide / oxydation",
+    "Entretien nécessaire",
+    "Autre",
+];
 
+const REPAIR_ACTIONS = [
+    "Flash / remplacement BIOS",
+    "Réparation circuit de charge",
+    "Réparation alimentation",
+    "Réparation carte mère",
+    "Suppression court-circuit",
+    "Remplacement MOSFET",
+    "Remplacement contrôleur",
+    "Micro-soudure",
+    "Remplacement connecteur de charge",
+    "Remplacement connecteur USB / USB-C",
+    "Remplacement connecteur HDMI",
+    "Remplacement écran / dalle",
+    "Réparation rétroéclairage",
+    "Remplacement batterie",
+    "Remplacement SSD / disque dur",
+    "Remplacement mémoire RAM",
+    "Nettoyage et pâte thermique",
+    "Remplacement ventilateur",
+    "Réinstallation Windows",
+    "Réparation Windows",
+    "Suppression virus",
+    "Installation pilote",
+    "Récupération de données",
+    "Remplacement clavier / touchpad",
+    "Réparation charnière / châssis",
+    "Nettoyage oxydation",
+    "Nettoyage / entretien",
+    "Aucun dépannage effectué",
+    "Autre",
+];
+
+const REPAIR_DURATIONS = [
+    "Moins de 30 min",
+    "30 min à 1 h",
+    "1 à 2 h",
+    "2 à 4 h",
+    "Plus de 4 h",
+];
 export default function EditInterventionPage({ route, navigation }) {
+	
     const { clientId } = route.params || {};
     const { interventionId } = route.params;
 
@@ -236,10 +306,37 @@ export default function EditInterventionPage({ route, navigation }) {
     const [orderUnitPrice, setOrderUnitPrice] = useState("");
     const [orderQty, setOrderQty] = useState("1");
     const [orderDeposit, setOrderDeposit] = useState("");
+const [repairModalVisible, setRepairModalVisible] =
+    useState(false);
 
+const [repairCause, setRepairCause] = useState("");
+const [repairAction, setRepairAction] = useState("");
+const [repairDuration, setRepairDuration] = useState("");
+const [repairComment, setRepairComment] = useState("");
+
+const [repairCausePickerVisible, setRepairCausePickerVisible] =
+    useState(false);
+
+const [repairActionPickerVisible, setRepairActionPickerVisible] =
+    useState(false);
+
+const [repairDurationPickerVisible, setRepairDurationPickerVisible] =
+    useState(false);
     // pour détecter la transition de statut
     const prevStatusRef = useRef(status);
+const [repairCausesList, setRepairCausesList] = useState([]);
+const [repairActionsList, setRepairActionsList] = useState([]);
+const [repairDictionaryLoading, setRepairDictionaryLoading] =
+    useState(false);
 
+const [customRepairModalVisible, setCustomRepairModalVisible] =
+    useState(false);
+
+const [customRepairType, setCustomRepairType] = useState(null);
+const [customRepairValue, setCustomRepairValue] = useState("");
+const [repairSuggestions, setRepairSuggestions] = useState([]);
+const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
+    useState(false);
     const repairBrokenPhotoUrlsForCurrentIntervention = async () => {
         try {
             const { data: inter, error } = await supabase
@@ -397,12 +494,16 @@ export default function EditInterventionPage({ route, navigation }) {
     };
 
     // Chargement initial : forcer l'ordre Articles → Intervention (pour que les Pickers aient des options)
-    useEffect(() => {
-        (async () => {
-            await loadArticles();
-            await loadIntervention();
-        })();
-    }, []);
+useEffect(() => {
+    (async () => {
+        await Promise.all([
+            loadArticles(),
+            loadRepairDictionary(),
+        ]);
+
+        await loadIntervention();
+    })();
+}, []);
 
     useEffect(() => {
         const fetchClientName = async () => {
@@ -512,7 +613,45 @@ export default function EditInterventionPage({ route, navigation }) {
             Alert.alert("Erreur", "Problème pendant la correction.");
         }
     };
+const loadRepairDictionary = async () => {
+    setRepairDictionaryLoading(true);
 
+    try {
+        const { data, error } = await supabase
+            .from("repair_dictionary")
+            .select("id, type, name, active")
+            .eq("active", true)
+            .order("name", { ascending: true });
+
+        if (error) throw error;
+
+        const rows = data || [];
+
+        setRepairCausesList(
+            rows
+                .filter((row) => row.type === "cause")
+                .map((row) => row.name)
+        );
+
+        setRepairActionsList(
+            rows
+                .filter((row) => row.type === "action")
+                .map((row) => row.name)
+        );
+    } catch (error) {
+        console.error(
+            "❌ Chargement dictionnaire réparations :",
+            error
+        );
+
+        Alert.alert(
+            "Erreur",
+            "Impossible de charger les causes et réparations."
+        );
+    } finally {
+        setRepairDictionaryLoading(false);
+    }
+};
     // ———————————————————————————————————————————
     // Chargements listes (ids convertis en string)
     // ———————————————————————————————————————————
@@ -558,7 +697,7 @@ export default function EditInterventionPage({ route, navigation }) {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -630,7 +769,10 @@ export default function EditInterventionPage({ route, navigation }) {
             );
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
-
+			setRepairCause(inter.repair_cause || "");
+			setRepairAction(inter.repair_action || "");
+			setRepairDuration(inter.repair_duration || "");
+			setRepairComment(inter.repair_comment || "");
             const dbLabel =
                 typeof inter?.label_photo === "string"
                     ? inter.label_photo
@@ -740,6 +882,14 @@ export default function EditInterventionPage({ route, navigation }) {
 
             setOrderModalVisible(true);
         }
+		if (
+    prev !== "Réparé" &&
+    status === "Réparé" &&
+    !repairCause &&
+    !repairAction
+) {
+    setRepairModalVisible(true);
+}
         prevStatusRef.current = status;
     }, [status]);
 
@@ -1020,7 +1170,276 @@ export default function EditInterventionPage({ route, navigation }) {
             Alert.alert("Erreur", "Impossible d'ajouter la photo.");
         }
     };
+	const saveCustomRepairValue = async () => {
+    const cleanedValue = customRepairValue
+        .trim()
+        .replace(/\s+/g, " ");
 
+    if (!cleanedValue) {
+        Alert.alert(
+            "Valeur manquante",
+            "Saisis un nom avant de valider."
+        );
+        return;
+    }
+
+    if (
+        customRepairType !== "cause" &&
+        customRepairType !== "action"
+    ) {
+        return;
+    }
+
+    try {
+        const currentList =
+            customRepairType === "cause"
+                ? repairCausesList
+                : repairActionsList;
+
+        const alreadyExists = currentList.some(
+            (value) =>
+                value.localeCompare(cleanedValue, "fr", {
+                    sensitivity: "base",
+                }) === 0
+        );
+
+        if (alreadyExists) {
+            Alert.alert(
+                "Valeur existante",
+                "Cette valeur existe déjà dans la liste."
+            );
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from("repair_dictionary")
+            .insert([
+                {
+                    type: customRepairType,
+                    name: cleanedValue,
+                    active: true,
+                },
+            ])
+            .select("id, type, name")
+            .single();
+
+        if (error) {
+            if (error.code === "23505") {
+                Alert.alert(
+                    "Valeur existante",
+                    "Cette valeur existe déjà dans la liste."
+                );
+                return;
+            }
+
+            throw error;
+        }
+
+        if (data.type === "cause") {
+            setRepairCause(data.name);
+        } else {
+            setRepairAction(data.name);
+        }
+
+        await loadRepairDictionary();
+
+        setCustomRepairModalVisible(false);
+        setCustomRepairValue("");
+        setCustomRepairType(null);
+    } catch (error) {
+        console.error(
+            "❌ Ajout dictionnaire réparation :",
+            error
+        );
+
+        Alert.alert(
+            "Erreur",
+            error?.message ||
+                "Impossible d’ajouter cette valeur."
+        );
+    }
+};
+const loadRepairSuggestions = async (selectedCause) => {
+    if (!selectedCause) {
+        setRepairSuggestions([]);
+        return;
+    }
+
+    setRepairSuggestionsLoading(true);
+
+    try {
+        const { data, error } = await supabase
+            .from("interventions")
+            .select(
+                "repair_action, brand, deviceType, model, cost, repair_duration"
+            )
+            .eq("repair_cause", selectedCause)
+            .not("repair_action", "is", null)
+            .neq("repair_action", "")
+            .limit(1000);
+
+        if (error) throw error;
+
+        const rows = data || [];
+
+        if (rows.length === 0) {
+            setRepairSuggestions([]);
+            return;
+        }
+
+        /*
+         * On donne plus de poids aux interventions
+         * ayant la même marque ou le même type d’appareil.
+         */
+        const currentBrandName =
+            brands.find((item) => item.id === brand)?.nom || "";
+
+        const currentDeviceName =
+            articles.find((item) => item.id === deviceType)?.nom || "";
+
+        const actionMap = {};
+
+        rows.forEach((row) => {
+            const action = String(row.repair_action || "").trim();
+
+            if (!action) return;
+
+            if (!actionMap[action]) {
+                actionMap[action] = {
+                    action,
+                    count: 0,
+                    weightedCount: 0,
+                    prices: [],
+                    durations: {},
+                };
+            }
+
+            let weight = 1;
+
+            if (
+                currentBrandName &&
+                row.brand &&
+                currentBrandName.toLowerCase() ===
+                    String(row.brand).toLowerCase()
+            ) {
+                weight += 2;
+            }
+
+            if (
+                currentDeviceName &&
+                row.deviceType &&
+                currentDeviceName.toLowerCase() ===
+                    String(row.deviceType).toLowerCase()
+            ) {
+                weight += 1;
+            }
+
+            actionMap[action].count += 1;
+            actionMap[action].weightedCount += weight;
+
+            const price = Number(row.cost || 0);
+
+            if (Number.isFinite(price) && price > 0) {
+                actionMap[action].prices.push(price);
+            }
+
+            const duration = String(
+                row.repair_duration || ""
+            ).trim();
+
+            if (duration) {
+                actionMap[action].durations[duration] =
+                    (actionMap[action].durations[duration] || 0) + 1;
+            }
+        });
+
+        const suggestions = Object.values(actionMap)
+            .map((entry) => {
+                const averagePrice =
+                    entry.prices.length > 0
+                        ? entry.prices.reduce(
+                              (sum, price) => sum + price,
+                              0
+                          ) / entry.prices.length
+                        : null;
+
+                const mostFrequentDuration =
+                    Object.entries(entry.durations).sort(
+                        (a, b) => b[1] - a[1]
+                    )[0]?.[0] || null;
+
+                return {
+                    ...entry,
+                    averagePrice,
+                    mostFrequentDuration,
+                };
+            })
+            .sort((a, b) => {
+                if (b.weightedCount !== a.weightedCount) {
+                    return b.weightedCount - a.weightedCount;
+                }
+
+                return b.count - a.count;
+            })
+            .slice(0, 5);
+
+        const totalOccurrences = suggestions.reduce(
+            (sum, item) => sum + item.count,
+            0
+        );
+
+        setRepairSuggestions(
+            suggestions.map((item) => ({
+                ...item,
+                percentage:
+                    totalOccurrences > 0
+                        ? Math.round(
+                              (item.count / totalOccurrences) * 100
+                          )
+                        : 0,
+            }))
+        );
+    } catch (error) {
+        console.error(
+            "❌ Suggestions réparation :",
+            error
+        );
+
+        setRepairSuggestions([]);
+    } finally {
+        setRepairSuggestionsLoading(false);
+    }
+};
+useEffect(() => {
+    loadRepairSuggestions(repairCause);
+}, [repairCause, brand, deviceType]);
+const validateRepairInformation = () => {
+    if (!repairCause) {
+        Alert.alert(
+            "Cause manquante",
+            "Sélectionne la cause principale de la panne."
+        );
+        return;
+    }
+
+    if (!repairAction) {
+        Alert.alert(
+            "Réparation manquante",
+            "Sélectionne la réparation effectuée."
+        );
+        return;
+    }
+
+    if (!repairDuration) {
+        Alert.alert(
+            "Temps manquant",
+            "Sélectionne approximativement le temps passé."
+        );
+        return;
+    }
+
+    setRepairModalVisible(false);
+};
     const performSaveIntervention = async () => {
         const articleName =
             articles.find((a) => a.id === deviceType)?.nom || null;
@@ -1107,6 +1526,10 @@ export default function EditInterventionPage({ route, navigation }) {
                 isEstimateMode && estimateType === "PLAFOND"
                     ? new Date().toISOString()
                     : null,
+			repair_cause: repairCause || null,
+			repair_action: repairAction || null,
+			repair_duration: repairDuration || null,
+			repair_comment: repairComment.trim() || null,		
             updatedAt: new Date().toISOString(),
         };
 
@@ -2337,6 +2760,372 @@ export default function EditInterventionPage({ route, navigation }) {
                     </View>
                 </View>
             </Modal>
+			<Modal
+    visible={repairModalVisible}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setRepairModalVisible(false)}
+>
+    <View style={styles.repairModalOverlay}>
+        <View style={styles.repairModalBox}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 10 }}
+            >
+                <Text style={styles.repairModalTitle}>
+                    ✅ Réparation terminée
+                </Text>
+
+                <Text style={styles.repairModalSubtitle}>
+                    Ces informations serviront aux futures estimations.
+                </Text>
+
+                <Text style={styles.repairFieldLabel}>
+                    Cause principale
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.repairSelectButton}
+                    onPress={() =>
+                        setRepairCausePickerVisible(true)
+                    }
+                >
+                    <Text
+                        style={[
+                            styles.repairSelectText,
+                            !repairCause &&
+                                styles.repairPlaceholderText,
+                        ]}
+                    >
+                        {repairCause || "Choisir la cause"}
+                    </Text>
+
+                    <Text style={styles.repairChevron}>›</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.repairFieldLabel}>
+                    Réparation effectuée
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.repairSelectButton}
+                    onPress={() =>
+                        setRepairActionPickerVisible(true)
+                    }
+                >
+                    <Text
+                        style={[
+                            styles.repairSelectText,
+                            !repairAction &&
+                                styles.repairPlaceholderText,
+                        ]}
+                    >
+                        {repairAction ||
+                            "Choisir la réparation"}
+                    </Text>
+
+                    <Text style={styles.repairChevron}>›</Text>
+                </TouchableOpacity>
+{repairCause ? (
+    <View style={styles.repairSuggestionsBox}>
+        <Text style={styles.repairSuggestionsTitle}>
+            Suggestions d’après l’historique
+        </Text>
+
+        {repairSuggestionsLoading ? (
+            <Text style={styles.repairSuggestionsLoading}>
+                Analyse des anciennes réparations…
+            </Text>
+        ) : repairSuggestions.length === 0 ? (
+            <Text style={styles.repairSuggestionsEmpty}>
+                Aucun historique disponible pour cette cause.
+            </Text>
+        ) : (
+            repairSuggestions.map((suggestion, index) => {
+                const selected =
+                    repairAction === suggestion.action;
+
+                return (
+                    <TouchableOpacity
+                        key={`${suggestion.action}-${index}`}
+                        style={[
+                            styles.repairSuggestionRow,
+                            selected &&
+                                styles.repairSuggestionRowSelected,
+                        ]}
+                        onPress={() =>
+                            setRepairAction(suggestion.action)
+                        }
+                    >
+                        <View style={{ flex: 1 }}>
+                            <Text
+                                style={[
+                                    styles.repairSuggestionAction,
+                                    selected &&
+                                        styles.repairSuggestionActionSelected,
+                                ]}
+                            >
+                                {index === 0 ? "⭐ " : ""}
+                                {suggestion.action}
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.repairSuggestionDetails
+                                }
+                            >
+                                {suggestion.count} cas
+                                {suggestion.percentage > 0
+                                    ? ` · ${suggestion.percentage} %`
+                                    : ""}
+                                {suggestion.averagePrice
+                                    ? ` · Moyenne ${Math.round(
+                                          suggestion.averagePrice
+                                      )} €`
+                                    : ""}
+                            </Text>
+
+                            {suggestion.mostFrequentDuration ? (
+                                <Text
+                                    style={
+                                        styles.repairSuggestionDuration
+                                    }
+                                >
+                                    Temps habituel :{" "}
+                                    {
+                                        suggestion.mostFrequentDuration
+                                    }
+                                </Text>
+                            ) : null}
+                        </View>
+
+                        {selected ? (
+                            <Text
+                                style={
+                                    styles.repairSuggestionCheck
+                                }
+                            >
+                                ✓
+                            </Text>
+                        ) : (
+                            <Text
+                                style={
+                                    styles.repairSuggestionArrow
+                                }
+                            >
+                                ›
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                );
+            })
+        )}
+    </View>
+) : null}
+                <Text style={styles.repairFieldLabel}>
+                    Temps passé
+                </Text>
+
+                <TouchableOpacity
+                    style={styles.repairSelectButton}
+                    onPress={() =>
+                        setRepairDurationPickerVisible(true)
+                    }
+                >
+                    <Text
+                        style={[
+                            styles.repairSelectText,
+                            !repairDuration &&
+                                styles.repairPlaceholderText,
+                        ]}
+                    >
+                        {repairDuration ||
+                            "Choisir une durée"}
+                    </Text>
+
+                    <Text style={styles.repairChevron}>›</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.repairFieldLabel}>
+                    Commentaire facultatif
+                </Text>
+
+                <TextInput
+                    style={styles.repairCommentInput}
+                    value={repairComment}
+                    onChangeText={setRepairComment}
+                    placeholder="Exemple : BIOS reprogrammé, test OK..."
+                    placeholderTextColor="#888"
+                    multiline
+                    textAlignVertical="top"
+                />
+
+                <View style={styles.repairModalActions}>
+                    <TouchableOpacity
+                        style={styles.repairCancelButton}
+                        onPress={() =>
+                            setRepairModalVisible(false)
+                        }
+                    >
+                        <Text style={styles.repairCancelText}>
+                            Plus tard
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.repairValidateButton}
+                        onPress={validateRepairInformation}
+                    >
+                        <Text style={styles.repairValidateText}>
+                            Valider
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        </View>
+    </View>
+</Modal>
+<RepairChoiceModal
+    visible={repairCausePickerVisible}
+    title="Cause principale"
+    values={[
+        ...repairCausesList,
+        "➕ Ajouter une cause",
+    ]}
+    selectedValue={repairCause}
+    onSelect={(value) => {
+        setRepairCausePickerVisible(false);
+
+        if (value === "➕ Ajouter une cause") {
+            setCustomRepairType("cause");
+            setCustomRepairValue("");
+            setCustomRepairModalVisible(true);
+            return;
+        }
+
+        setRepairCause(value);
+    }}
+    onClose={() =>
+        setRepairCausePickerVisible(false)
+    }
+/>
+
+<RepairChoiceModal
+    visible={repairActionPickerVisible}
+    title="Réparation effectuée"
+    values={[
+        ...repairActionsList,
+        "➕ Ajouter une réparation",
+    ]}
+    selectedValue={repairAction}
+    onSelect={(value) => {
+        setRepairActionPickerVisible(false);
+
+        if (
+            value === "➕ Ajouter une réparation"
+        ) {
+            setCustomRepairType("action");
+            setCustomRepairValue("");
+            setCustomRepairModalVisible(true);
+            return;
+        }
+
+        setRepairAction(value);
+    }}
+    onClose={() =>
+        setRepairActionPickerVisible(false)
+    }
+/>
+
+<RepairChoiceModal
+    visible={repairDurationPickerVisible}
+    title="Temps passé"
+    values={REPAIR_DURATIONS}
+    selectedValue={repairDuration}
+    onSelect={(value) => {
+        setRepairDuration(value);
+        setRepairDurationPickerVisible(false);
+    }}
+    onClose={() =>
+        setRepairDurationPickerVisible(false)
+    }
+/>
+<Modal
+    visible={customRepairModalVisible}
+    transparent
+    animationType="fade"
+    onRequestClose={() =>
+        setCustomRepairModalVisible(false)
+    }
+>
+    <TouchableWithoutFeedback
+        onPress={() =>
+            setCustomRepairModalVisible(false)
+        }
+    >
+        <View style={styles.customRepairOverlay}>
+            <TouchableWithoutFeedback>
+                <View style={styles.customRepairBox}>
+                    <Text style={styles.customRepairTitle}>
+                        {customRepairType === "cause"
+                            ? "Ajouter une cause"
+                            : "Ajouter une réparation"}
+                    </Text>
+
+                    <Text style={styles.customRepairHelp}>
+                        Cette valeur sera disponible sur tous
+                        les appareils connectés à Supabase.
+                    </Text>
+
+                    <TextInput
+                        style={styles.customRepairInput}
+                        value={customRepairValue}
+                        onChangeText={setCustomRepairValue}
+                        placeholder={
+                            customRepairType === "cause"
+                                ? "Exemple : Puce réseau"
+                                : "Exemple : Remplacement puce réseau"
+                        }
+                        placeholderTextColor="#888"
+                        autoFocus
+                    />
+
+                    <View style={styles.customRepairActions}>
+                        <TouchableOpacity
+                            style={styles.customRepairCancel}
+                            onPress={() => {
+                                setCustomRepairModalVisible(false);
+                                setCustomRepairValue("");
+                                setCustomRepairType(null);
+                            }}
+                        >
+                            <Text
+                                style={
+                                    styles.customRepairCancelText
+                                }
+                            >
+                                Annuler
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.customRepairSave}
+                            onPress={saveCustomRepairValue}
+                        >
+                            <Text
+                                style={
+                                    styles.customRepairSaveText
+                                }
+                            >
+                                Ajouter
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </TouchableWithoutFeedback>
+        </View>
+    </TouchableWithoutFeedback>
+</Modal>
         </KeyboardAvoidingView>
     );
 }
@@ -2499,7 +3288,101 @@ function FloatingField({ label, children, style }) {
         </View>
     );
 }
+function RepairChoiceModal({
+    visible,
+    title,
+    values,
+    selectedValue,
+    onSelect,
+    onClose,
+}) {
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <TouchableWithoutFeedback onPress={onClose}>
+                <View style={styles.repairChoiceOverlay}>
+                    <TouchableWithoutFeedback>
+                        <View style={styles.repairChoiceBox}>
+                            <View style={styles.repairChoiceHeader}>
+                                <Text
+                                    style={styles.repairChoiceTitle}
+                                >
+                                    {title}
+                                </Text>
 
+                                <TouchableOpacity
+                                    onPress={onClose}
+                                    style={styles.repairChoiceClose}
+                                >
+                                    <Text
+                                        style={
+                                            styles.repairChoiceCloseText
+                                        }
+                                    >
+                                        ✕
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <FlatList
+                                data={values}
+                                keyExtractor={(item) => item}
+                                showsVerticalScrollIndicator={false}
+                                renderItem={({ item }) => {
+                                    const selected =
+                                        selectedValue === item;
+
+                                    return (
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.repairChoiceRow,
+                                                selected &&
+                                                    styles.repairChoiceRowSelected,
+                                            ]}
+                                            onPress={() =>
+                                                onSelect(item)
+                                            }
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.repairRadio,
+                                                    selected &&
+                                                        styles.repairRadioSelected,
+                                                ]}
+                                            >
+                                                {selected && (
+                                                    <View
+                                                        style={
+                                                            styles.repairRadioDot
+                                                        }
+                                                    />
+                                                )}
+                                            </View>
+
+                                            <Text
+                                                style={[
+                                                    styles.repairChoiceText,
+                                                    selected &&
+                                                        styles.repairChoiceTextSelected,
+                                                ]}
+                                            >
+                                                {item}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                }}
+                            />
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
+    );
+}
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#e0e0e0", paddingHorizontal: 20 },
     clientName: {
@@ -2864,4 +3747,365 @@ const styles = StyleSheet.create({
             },
         }),
     },
+	repairModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 18,
+},
+
+repairModalBox: {
+    width: "100%",
+    maxWidth: 650,
+    maxHeight: "90%",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 18,
+},
+
+repairModalTitle: {
+    fontSize: 23,
+    fontWeight: "bold",
+    color: "#1f2937",
+    textAlign: "center",
+},
+
+repairModalSubtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 5,
+    marginBottom: 18,
+},
+
+repairFieldLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 6,
+    marginTop: 10,
+},
+
+repairSelectButton: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 13,
+},
+
+repairSelectText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "600",
+},
+
+repairPlaceholderText: {
+    color: "#7b8794",
+    fontWeight: "400",
+},
+
+repairChevron: {
+    fontSize: 27,
+    color: "#64748b",
+    marginLeft: 10,
+},
+
+repairCommentInput: {
+    minHeight: 85,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    fontSize: 15,
+    color: "#111827",
+},
+
+repairModalActions: {
+    flexDirection: "row",
+    marginTop: 20,
+    gap: 10,
+},
+
+repairCancelButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    alignItems: "center",
+},
+
+repairCancelText: {
+    color: "#475569",
+    fontSize: 16,
+    fontWeight: "700",
+},
+
+repairValidateButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    backgroundColor: "#047857",
+    alignItems: "center",
+},
+
+repairValidateText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+},
+
+repairChoiceOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 18,
+},
+
+repairChoiceBox: {
+    width: "100%",
+    maxWidth: 600,
+    maxHeight: "82%",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 15,
+},
+
+repairChoiceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+},
+
+repairChoiceTitle: {
+    flex: 1,
+    fontSize: 21,
+    fontWeight: "bold",
+    color: "#1f2937",
+},
+
+repairChoiceClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+},
+
+repairChoiceCloseText: {
+    fontSize: 17,
+    color: "#374151",
+    fontWeight: "bold",
+},
+
+repairChoiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    paddingHorizontal: 8,
+},
+
+repairChoiceRowSelected: {
+    backgroundColor: "#ecfdf5",
+},
+
+repairRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#94a3b8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+},
+
+repairRadioSelected: {
+    borderColor: "#047857",
+},
+
+repairRadioDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: "#047857",
+},
+
+repairChoiceText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#374151",
+},
+
+repairChoiceTextSelected: {
+    color: "#047857",
+    fontWeight: "bold",
+},
+customRepairOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+},
+
+customRepairBox: {
+    width: "100%",
+    maxWidth: 550,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 18,
+},
+
+customRepairTitle: {
+    fontSize: 21,
+    fontWeight: "bold",
+    color: "#1f2937",
+},
+
+customRepairHelp: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 5,
+    marginBottom: 15,
+},
+
+customRepairInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: "#111827",
+},
+
+customRepairActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+},
+
+customRepairCancel: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+},
+
+customRepairCancelText: {
+    color: "#475569",
+    fontSize: 16,
+    fontWeight: "700",
+},
+
+customRepairSave: {
+    flex: 1,
+    backgroundColor: "#047857",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+},
+
+customRepairSaveText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+},
+repairSuggestionsBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#f0fdf4",
+    borderWidth: 1,
+    borderColor: "#86efac",
+},
+
+repairSuggestionsTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#166534",
+    marginBottom: 7,
+},
+
+repairSuggestionsLoading: {
+    fontSize: 14,
+    color: "#475569",
+    paddingVertical: 8,
+},
+
+repairSuggestionsEmpty: {
+    fontSize: 14,
+    color: "#64748b",
+    paddingVertical: 8,
+},
+
+repairSuggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 55,
+    paddingVertical: 8,
+    paddingHorizontal: 9,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1fae5",
+    borderRadius: 8,
+    marginBottom: 6,
+},
+
+repairSuggestionRowSelected: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#16a34a",
+},
+
+repairSuggestionAction: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1f2937",
+},
+
+repairSuggestionActionSelected: {
+    color: "#166534",
+},
+
+repairSuggestionDetails: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 3,
+},
+
+repairSuggestionDuration: {
+    fontSize: 12,
+    color: "#047857",
+    marginTop: 2,
+},
+
+repairSuggestionCheck: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#16a34a",
+    marginLeft: 10,
+},
+
+repairSuggestionArrow: {
+    fontSize: 25,
+    color: "#94a3b8",
+    marginLeft: 10,
+},
 });

@@ -210,10 +210,17 @@ useEffect(() => {
                         styles.filterButtonHome,
                         { backgroundColor: getButtonColor("Home") },
                     ]}
-					onPress={() =>
-  handlePress("Home", () =>
-    navigation.navigate("MainTabs", { screen: "HomePage" }) // ← adapte le nom ici
-  )
+onPress={() =>
+  handlePress("Home", () => {
+    if (route.name === "Home") {
+      // Déjà sur la Home : remet l’affichage initial
+      resetFilter?.();
+      return;
+    }
+
+    // Depuis une autre page : retour à la Home
+    navigation.navigate("Home");
+  })
 }
 
                 >

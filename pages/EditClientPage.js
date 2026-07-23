@@ -10,6 +10,8 @@ import {
   Animated,
   Easing,
   Alert,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
@@ -39,7 +41,11 @@ export default function EditClientPage({ route, navigation }) {
   const [interventions, setInterventions] = useState(
     client.interventions || []
   );
-
+const [estimateVisible, setEstimateVisible] = useState(false);
+const [estimateLoading, setEstimateLoading] = useState(false);
+const [estimateResult, setEstimateResult] = useState(null);
+const [estimatedIntervention, setEstimatedIntervention] =
+  useState(null);
   const BlinkingIcon = ({ source }) => {
     const opacity = useRef(new Animated.Value(1)).current;
     useEffect(() => {
@@ -102,16 +108,23 @@ export default function EditClientPage({ route, navigation }) {
           solderestant, createdAt, updatedAt, commande, photos, notifiedBy, accept_screen_risk,
           paymentStatus, reference, serial_number, partialPayment, devis_cost, remarks,
           imprimee, print_etiquette, commande_effectuee,
-          is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
+          is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted,
+		  repair_cause, repair_action, repair_duration, repair_comment
         )
       `
       )
       .eq("id", client.id);
 
-    if (error) {
-      showAlert("Erreur", "Erreur lors du chargement du client");
-      return;
-    }
+if (error) {
+  console.error("❌ Chargement client :", error);
+
+  showAlert(
+    "Erreur",
+    error.message || "Erreur lors du chargement du client"
+  );
+
+  return;
+}
 
     if (data && data.length > 0) {
       const updatedClient = data[0];
@@ -207,6 +220,340 @@ export default function EditClientPage({ route, navigation }) {
     if (!dateString) return "Date inconnue";
     return new Date(dateString).toLocaleDateString("fr-FR");
   }
+
+  const normalizeEstimateText = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getEstimateWords = (value) => {
+  const ignoredWords = new Set([
+    "le",
+    "la",
+    "les",
+    "un",
+    "une",
+    "des",
+    "de",
+    "du",
+    "et",
+    "ou",
+    "avec",
+    "sans",
+    "sur",
+    "dans",
+    "pour",
+    "plus",
+    "pas",
+    "ne",
+    "se",
+    "est",
+    "sont",
+    "pc",
+    "ordinateur",
+    "appareil",
+    "probleme",
+    "panne",
+  ]);
+
+  return normalizeEstimateText(value)
+    .split(" ")
+    .filter(
+      (word) =>
+        word.length >= 3 &&
+        !ignoredWords.has(word)
+    );
+};
+
+const calculateDescriptionSimilarity = (
+  currentDescription,
+  oldDescription
+) => {
+  const currentWords = new Set(
+    getEstimateWords(currentDescription)
+  );
+
+  const oldWords = new Set(
+    getEstimateWords(oldDescription)
+  );
+
+  if (
+    currentWords.size === 0 ||
+    oldWords.size === 0
+  ) {
+    return 0;
+  }
+
+  let commonWords = 0;
+
+  currentWords.forEach((word) => {
+    if (oldWords.has(word)) {
+      commonWords += 1;
+    }
+  });
+
+  const allWords = new Set([
+    ...currentWords,
+    ...oldWords,
+  ]);
+
+  return commonWords / allWords.size;
+};
+
+const getRepairSimilarityScore = (
+  currentIntervention,
+  previousIntervention
+) => {
+  let score = 0;
+
+  const currentType = normalizeEstimateText(
+    currentIntervention?.deviceType
+  );
+  const oldType = normalizeEstimateText(
+    previousIntervention?.deviceType
+  );
+
+  const currentBrand = normalizeEstimateText(
+    currentIntervention?.brand
+  );
+  const oldBrand = normalizeEstimateText(
+    previousIntervention?.brand
+  );
+
+  const currentModel = normalizeEstimateText(
+    currentIntervention?.model
+  );
+  const oldModel = normalizeEstimateText(
+    previousIntervention?.model
+  );
+
+  if (
+    currentType &&
+    oldType &&
+    currentType === oldType
+  ) {
+    score += 20;
+  }
+
+  if (
+    currentBrand &&
+    oldBrand &&
+    currentBrand === oldBrand
+  ) {
+    score += 25;
+  }
+
+  if (currentModel && oldModel) {
+    if (currentModel === oldModel) {
+      score += 50;
+    } else if (
+      currentModel.includes(oldModel) ||
+      oldModel.includes(currentModel)
+    ) {
+      score += 30;
+    }
+  }
+
+  const descriptionSimilarity =
+    calculateDescriptionSimilarity(
+      currentIntervention?.description,
+      previousIntervention?.description
+    );
+
+  score += Math.round(descriptionSimilarity * 50);
+
+  return score;
+};
+
+const getMedian = (numbers) => {
+  if (!Array.isArray(numbers) || numbers.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+
+  return sorted[middle];
+};
+
+const getPercentile = (numbers, percentile) => {
+  if (!Array.isArray(numbers) || numbers.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const position =
+    (sorted.length - 1) * percentile;
+
+  const lowerIndex = Math.floor(position);
+  const upperIndex = Math.ceil(position);
+
+  if (lowerIndex === upperIndex) {
+    return sorted[lowerIndex];
+  }
+
+  const weight = position - lowerIndex;
+
+  return (
+    sorted[lowerIndex] * (1 - weight) +
+    sorted[upperIndex] * weight
+  );
+};
+
+const openRepairEstimate = async (intervention) => {
+  setEstimatedIntervention(intervention);
+  setEstimateVisible(true);
+  setEstimateLoading(true);
+  setEstimateResult(null);
+
+  try {
+    const { data, error } = await supabase
+      .from("interventions")
+      .select(
+        `
+        id,
+        client_id,
+        deviceType,
+        brand,
+        model,
+        description,
+        cost,
+        devis_cost,
+        status,
+        createdAt,
+        clients(
+          id,
+          name,
+          ficheNumber
+        )
+        `
+      )
+      .neq("id", intervention.id)
+      .not("cost", "is", null)
+      .gt("cost", 0)
+      .limit(1000);
+
+    if (error) {
+      throw error;
+    }
+
+    const scoredInterventions = (data || [])
+      .map((previousIntervention) => {
+        const score = getRepairSimilarityScore(
+          intervention,
+          previousIntervention
+        );
+
+        const cost = Number(
+          previousIntervention.cost || 0
+        );
+
+        return {
+          ...previousIntervention,
+          score,
+          numericCost: cost,
+        };
+      })
+      .filter(
+        (previousIntervention) =>
+          previousIntervention.score >= 25 &&
+          Number.isFinite(
+            previousIntervention.numericCost
+          ) &&
+          previousIntervention.numericCost > 0
+      )
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        return (
+          new Date(b.createdAt || 0) -
+          new Date(a.createdAt || 0)
+        );
+      });
+
+    /*
+     * Les statistiques sont calculées sur les 30 cas
+     * les plus proches, pour éviter que des réparations
+     * trop différentes faussent le résultat.
+     */
+    const statisticalCases =
+      scoredInterventions.slice(0, 30);
+
+    const prices = statisticalCases
+      .map((row) => row.numericCost)
+      .sort((a, b) => a - b);
+
+    if (prices.length === 0) {
+      setEstimateResult({
+        count: 0,
+        similarCases: [],
+      });
+
+      return;
+    }
+
+    const total = prices.reduce(
+      (sum, price) => sum + price,
+      0
+    );
+
+    const average = total / prices.length;
+    const median = getMedian(prices);
+    const usualMin = getPercentile(prices, 0.25);
+    const usualMax = getPercentile(prices, 0.75);
+
+    const bestScore =
+      statisticalCases[0]?.score || 0;
+
+    let confidence = "Faible";
+
+    if (prices.length >= 10 && bestScore >= 70) {
+      confidence = "Bonne";
+    } else if (
+      prices.length >= 5 &&
+      bestScore >= 45
+    ) {
+      confidence = "Moyenne";
+    }
+
+    setEstimateResult({
+      count: prices.length,
+      average,
+      median,
+      minimum: prices[0],
+      maximum: prices[prices.length - 1],
+      usualMin,
+      usualMax,
+      confidence,
+      similarCases: scoredInterventions.slice(0, 10),
+    });
+  } catch (error) {
+    console.error(
+      "❌ Estimation réparation :",
+      error
+    );
+
+    setEstimateResult({
+      error:
+        error?.message ||
+        "Impossible de calculer l’estimation.",
+      count: 0,
+      similarCases: [],
+    });
+  } finally {
+    setEstimateLoading(false);
+  }
+};
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -511,6 +858,35 @@ export default function EditClientPage({ route, navigation }) {
                       }
                     />
                   )}
+				  {item.repair_cause && (
+  <Row
+    label="Cause principale"
+    value={item.repair_cause}
+    valueStyle={styles.repairCauseValue}
+  />
+)}
+
+{item.repair_action && (
+  <Row
+    label="Réparation"
+    value={item.repair_action}
+    valueStyle={styles.repairActionValue}
+  />
+)}
+
+{item.repair_duration && (
+  <Row
+    label="Temps passé"
+    value={item.repair_duration}
+  />
+)}
+
+{item.repair_comment && (
+  <Row
+    label="Compte rendu"
+    value={item.repair_comment}
+  />
+)}
                   <Row
                     label="Remarques"
                     value={item.remarks || "Aucune"}
@@ -631,6 +1007,23 @@ export default function EditClientPage({ route, navigation }) {
 
                 {/* Barre d'actions en bas */}
                 <View style={styles.cardActions}>
+				<TouchableOpacity
+  style={styles.cardActionItem}
+  onPress={(event) => {
+    event?.stopPropagation?.();
+    openRepairEstimate(item);
+  }}
+>
+  <Text style={styles.estimateActionIcon}>
+    📊
+  </Text>
+
+  <Text style={styles.cardActionText}>
+    Estimation
+  </Text>
+</TouchableOpacity>
+
+<View style={styles.actionSeparator} />
                   <TouchableOpacity
                     onPress={() => handleDeleteIntervention(item.id)}
                     style={styles.cardActionItem}
@@ -743,7 +1136,259 @@ export default function EditClientPage({ route, navigation }) {
           <Text style={styles.buttonText}>Sauvegarder</Text>
         </TouchableOpacity>
       </View>
+<Modal
+  visible={estimateVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() =>
+    setEstimateVisible(false)
+  }
+>
+  <View style={styles.estimateOverlay}>
+    <View style={styles.estimateModal}>
+      <View style={styles.estimateHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.estimateTitle}>
+            📊 Estimation réparation
+          </Text>
 
+          <Text style={styles.estimateSubtitle}>
+            {[
+              estimatedIntervention?.deviceType,
+              estimatedIntervention?.brand,
+              estimatedIntervention?.model,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Appareil non renseigné"}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.estimateCloseButton}
+          onPress={() =>
+            setEstimateVisible(false)
+          }
+        >
+          <Text style={styles.estimateCloseText}>
+            ✕
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: 20,
+        }}
+      >
+        {!!estimatedIntervention?.description && (
+          <View style={styles.estimateDescriptionBox}>
+            <Text style={styles.estimateSmallLabel}>
+              Problème renseigné
+            </Text>
+
+            <Text style={styles.estimateDescription}>
+              {estimatedIntervention.description}
+            </Text>
+          </View>
+        )}
+
+        {estimateLoading ? (
+          <View style={styles.estimateEmptyBox}>
+            <Text style={styles.estimateLoadingText}>
+              Analyse des anciennes réparations…
+            </Text>
+          </View>
+        ) : estimateResult?.error ? (
+          <View style={styles.estimateEmptyBox}>
+            <Text style={styles.estimateErrorText}>
+              {estimateResult.error}
+            </Text>
+          </View>
+        ) : estimateResult?.count === 0 ? (
+          <View style={styles.estimateEmptyBox}>
+            <Text style={styles.estimateEmptyTitle}>
+              Aucun cas suffisamment proche
+            </Text>
+
+            <Text style={styles.estimateEmptyText}>
+              Renseigne au minimum le type, la marque,
+              le modèle ou une description plus précise.
+            </Text>
+          </View>
+        ) : estimateResult ? (
+          <>
+            <View style={styles.estimateConfidenceRow}>
+              <Text style={styles.estimateConfidenceLabel}>
+                Fiabilité de l’estimation
+              </Text>
+
+              <Text
+                style={[
+                  styles.estimateConfidenceBadge,
+                  estimateResult.confidence === "Bonne"
+                    ? styles.estimateConfidenceGood
+                    : estimateResult.confidence ===
+                      "Moyenne"
+                    ? styles.estimateConfidenceMedium
+                    : styles.estimateConfidenceLow,
+                ]}
+              >
+                {estimateResult.confidence}
+              </Text>
+            </View>
+
+            <View style={styles.estimateMainBox}>
+              <Text style={styles.estimateSmallLabel}>
+                Fourchette habituelle
+              </Text>
+
+              <Text style={styles.estimateMainPrice}>
+                {Math.round(
+                  estimateResult.usualMin
+                )}{" "}
+                € à{" "}
+                {Math.round(
+                  estimateResult.usualMax
+                )}{" "}
+                €
+              </Text>
+
+              <Text style={styles.estimateCaseCount}>
+                Basée sur {estimateResult.count} réparation
+                {estimateResult.count > 1 ? "s" : ""} similaire
+                {estimateResult.count > 1 ? "s" : ""}
+              </Text>
+            </View>
+
+            <View style={styles.estimateStatsGrid}>
+              <View style={styles.estimateStatBox}>
+                <Text style={styles.estimateStatLabel}>
+                  Médiane
+                </Text>
+                <Text style={styles.estimateStatValue}>
+                  {Math.round(
+                    estimateResult.median
+                  )}{" "}
+                  €
+                </Text>
+              </View>
+
+              <View style={styles.estimateStatBox}>
+                <Text style={styles.estimateStatLabel}>
+                  Moyenne
+                </Text>
+                <Text style={styles.estimateStatValue}>
+                  {Math.round(
+                    estimateResult.average
+                  )}{" "}
+                  €
+                </Text>
+              </View>
+
+              <View style={styles.estimateStatBox}>
+                <Text style={styles.estimateStatLabel}>
+                  Minimum
+                </Text>
+                <Text style={styles.estimateStatValue}>
+                  {Math.round(
+                    estimateResult.minimum
+                  )}{" "}
+                  €
+                </Text>
+              </View>
+
+              <View style={styles.estimateStatBox}>
+                <Text style={styles.estimateStatLabel}>
+                  Maximum
+                </Text>
+                <Text style={styles.estimateStatValue}>
+                  {Math.round(
+                    estimateResult.maximum
+                  )}{" "}
+                  €
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.similarCasesTitle}>
+              Cas les plus proches
+            </Text>
+
+            {estimateResult.similarCases.map(
+              (similarCase, similarIndex) => {
+                const linkedClient =
+                  Array.isArray(similarCase.clients)
+                    ? similarCase.clients[0]
+                    : similarCase.clients;
+
+                return (
+                  <View
+                    key={String(similarCase.id)}
+                    style={styles.similarCaseCard}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.similarCaseDevice}>
+                        {[
+                          similarCase.deviceType,
+                          similarCase.brand,
+                          similarCase.model,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") ||
+                          `Cas ${similarIndex + 1}`}
+                      </Text>
+
+                      <Text
+                        style={styles.similarCaseDescription}
+                        numberOfLines={2}
+                      >
+                        {similarCase.description ||
+                          "Description non renseignée"}
+                      </Text>
+
+                      <Text style={styles.similarCaseClient}>
+                        {linkedClient?.name
+                          ? `${linkedClient.name}${
+                              linkedClient.ficheNumber
+                                ? ` · Fiche ${linkedClient.ficheNumber}`
+                                : ""
+                            }`
+                          : formatDateFR(
+                              similarCase.createdAt
+                            )}
+                      </Text>
+                    </View>
+
+                    <View style={styles.similarCaseRight}>
+                      <Text style={styles.similarCasePrice}>
+                        {Math.round(
+                          similarCase.numericCost
+                        )}{" "}
+                        €
+                      </Text>
+
+                      <Text style={styles.similarCaseScore}>
+                        Correspondance :{" "}
+                        {similarCase.score}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+            )}
+
+            <Text style={styles.estimateWarning}>
+              Estimation statistique basée sur les prix
+              enregistrés dans l’atelier. Elle ne remplace
+              pas le diagnostic ni le devis final.
+            </Text>
+          </>
+        ) : null}
+      </ScrollView>
+    </View>
+  </View>
+</Modal>
       <AlertBox
         visible={alertVisible}
         title={alertTitle}
@@ -983,4 +1628,280 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: "#e5e7eb",
   },
+  estimateActionIcon: {
+  fontSize: 18,
+},
+
+estimateOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.65)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 18,
+},
+
+estimateModal: {
+  width: "100%",
+  maxWidth: 720,
+  maxHeight: "90%",
+  backgroundColor: "#ffffff",
+  borderRadius: 16,
+  padding: 18,
+  borderWidth: 1,
+  borderColor: "#cbd5e1",
+},
+
+estimateHeader: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+  marginBottom: 14,
+},
+
+estimateTitle: {
+  fontSize: 22,
+  fontWeight: "bold",
+  color: "#1f2937",
+},
+
+estimateSubtitle: {
+  marginTop: 3,
+  fontSize: 14,
+  color: "#64748b",
+},
+
+estimateCloseButton: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: "#e5e7eb",
+  justifyContent: "center",
+  alignItems: "center",
+  marginLeft: 10,
+},
+
+estimateCloseText: {
+  fontSize: 18,
+  color: "#374151",
+  fontWeight: "bold",
+},
+
+estimateDescriptionBox: {
+  backgroundColor: "#f8fafc",
+  borderWidth: 1,
+  borderColor: "#e2e8f0",
+  borderRadius: 10,
+  padding: 12,
+  marginBottom: 12,
+},
+
+estimateSmallLabel: {
+  fontSize: 12,
+  fontWeight: "700",
+  color: "#64748b",
+  textTransform: "uppercase",
+},
+
+estimateDescription: {
+  marginTop: 5,
+  fontSize: 16,
+  color: "#1f2937",
+},
+
+estimateEmptyBox: {
+  paddingVertical: 36,
+  paddingHorizontal: 16,
+  alignItems: "center",
+},
+
+estimateLoadingText: {
+  fontSize: 17,
+  color: "#475569",
+  fontWeight: "600",
+},
+
+estimateErrorText: {
+  fontSize: 16,
+  color: "#b91c1c",
+  textAlign: "center",
+},
+
+estimateEmptyTitle: {
+  fontSize: 18,
+  color: "#1f2937",
+  fontWeight: "bold",
+  textAlign: "center",
+},
+
+estimateEmptyText: {
+  marginTop: 8,
+  fontSize: 15,
+  color: "#64748b",
+  textAlign: "center",
+},
+
+estimateConfidenceRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10,
+},
+
+estimateConfidenceLabel: {
+  fontSize: 14,
+  color: "#475569",
+  fontWeight: "600",
+},
+
+estimateConfidenceBadge: {
+  overflow: "hidden",
+  paddingHorizontal: 12,
+  paddingVertical: 5,
+  borderRadius: 999,
+  fontSize: 13,
+  fontWeight: "bold",
+},
+
+estimateConfidenceGood: {
+  backgroundColor: "#dcfce7",
+  color: "#166534",
+},
+
+estimateConfidenceMedium: {
+  backgroundColor: "#fef3c7",
+  color: "#92400e",
+},
+
+estimateConfidenceLow: {
+  backgroundColor: "#fee2e2",
+  color: "#991b1b",
+},
+
+estimateMainBox: {
+  backgroundColor: "#eff6ff",
+  borderWidth: 1,
+  borderColor: "#93c5fd",
+  borderRadius: 12,
+  padding: 16,
+  alignItems: "center",
+  marginBottom: 12,
+},
+
+estimateMainPrice: {
+  marginTop: 4,
+  fontSize: 28,
+  color: "#1d4ed8",
+  fontWeight: "bold",
+},
+
+estimateCaseCount: {
+  marginTop: 5,
+  fontSize: 13,
+  color: "#475569",
+},
+
+estimateStatsGrid: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "space-between",
+  marginHorizontal: -4,
+},
+
+estimateStatBox: {
+  width: "48%",
+  backgroundColor: "#f8fafc",
+  borderWidth: 1,
+  borderColor: "#e2e8f0",
+  borderRadius: 10,
+  padding: 12,
+  marginHorizontal: 4,
+  marginBottom: 8,
+},
+
+estimateStatLabel: {
+  fontSize: 13,
+  color: "#64748b",
+},
+
+estimateStatValue: {
+  marginTop: 3,
+  fontSize: 20,
+  color: "#111827",
+  fontWeight: "bold",
+},
+
+similarCasesTitle: {
+  fontSize: 18,
+  fontWeight: "bold",
+  color: "#1f2937",
+  marginTop: 12,
+  marginBottom: 8,
+},
+
+similarCaseCard: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#f9fafb",
+  borderWidth: 1,
+  borderColor: "#e5e7eb",
+  borderRadius: 10,
+  padding: 11,
+  marginBottom: 8,
+},
+
+similarCaseDevice: {
+  fontSize: 15,
+  color: "#111827",
+  fontWeight: "700",
+},
+
+similarCaseDescription: {
+  marginTop: 3,
+  fontSize: 14,
+  color: "#475569",
+},
+
+similarCaseClient: {
+  marginTop: 4,
+  fontSize: 12,
+  color: "#94a3b8",
+},
+
+similarCaseRight: {
+  alignItems: "flex-end",
+  marginLeft: 12,
+},
+
+similarCasePrice: {
+  fontSize: 19,
+  color: "#047857",
+  fontWeight: "bold",
+},
+
+similarCaseScore: {
+  marginTop: 4,
+  fontSize: 11,
+  color: "#64748b",
+},
+
+estimateWarning: {
+  marginTop: 12,
+  padding: 10,
+  backgroundColor: "#fff7ed",
+  borderWidth: 1,
+  borderColor: "#fed7aa",
+  borderRadius: 8,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#9a3412",
+  textAlign: "center",
+},
+repairCauseValue: {
+  color: "#7c3aed",
+  fontWeight: "700",
+},
+
+repairActionValue: {
+  color: "#047857",
+  fontWeight: "700",
+},
 });

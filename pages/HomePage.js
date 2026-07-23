@@ -39,7 +39,7 @@ const computeOrderAmounts = (o) => {
   const qty = n(o.quantity ?? 1);
   const unit = n(o.unit_price ?? o.price ?? 0);
   const totalCandidate = o.total ?? o.amount ?? qty * unit;
-  const total = Math.max(0, +n(totalCandidate).toFixed(2));
+  const total = Math.max(0, +n(totalCandidate).toFixed());
 
   // acomptes + paiements
   const deposit = n(o.deposit ?? o.acompte ?? 0);
@@ -834,7 +834,7 @@ const loadPopupData = useCallback(async () => {
   });
   const [pages, setPages] = useState([]);
   const [sliderW, setSliderW] = useState(0);
-  const itemsPerPage = 2;
+  const itemsPerPage = 3;
 
 const checkImagesToDelete = async () => {
   try {
@@ -1236,28 +1236,22 @@ const closeAllModals = () => {
                                   : "—";
 
                                 // --- 5 lignes visibles au départ ---
-                                const baseRows = [
-                                  {
-                                    label: "Fiche",
-                                    value: `N° ${item.ficheNumber ?? "—"}`,
-                                  },
-                                  {
-                                    label: "Nom",
-                                    value: (item.name || "—").toUpperCase(),
-                                  },
-                                  {
-                                    label: "Téléphone",
-                                    value: formatPhoneNumber(item.phone),
-                                  },
-                                  {
-                                    label: "Statut",
-                                    value: status,
-                                  },
-                                  {
-                                    label: materialLabel,
-                                    value: materialValue,
-                                  },
-                                ];
+const baseRows = [
+  {
+    label: "Client",
+    value: `${(item.name || "—").toUpperCase()} · Fiche N° ${
+      item.ficheNumber ?? "—"
+    }`,
+  },
+  {
+    label: "Téléphone",
+    value: formatPhoneNumber(item.phone),
+  },
+  {
+    label: materialLabel,
+    value: materialValue,
+  },
+];
 
                                 const ordersSummary = activeOrders.length
                                   ? `${
@@ -1381,16 +1375,25 @@ const closeAllModals = () => {
                                               {r.label}
                                             </Text>
 
-                                            <Text
-                                              style={[
-                                                styles.tableValue,
-                                                isDueRow &&
-                                                  totalDue > 0 &&
-                                                  styles.tableValueDueRed,
-                                              ]}
-                                            >
-                                              {r.value}
-                                            </Text>
+                                            {r.label === "Client" ? (
+  <Text style={styles.tableValue}>
+    <Text style={{ fontWeight: "bold" }}>
+      {(item.name || "—").toUpperCase()}
+    </Text>
+    <Text>{` · Fiche N° ${item.ficheNumber ?? "—"}`}</Text>
+  </Text>
+) : (
+  <Text
+    style={[
+      styles.tableValue,
+      isDueRow &&
+        totalDue > 0 &&
+        styles.tableValueDueRed,
+    ]}
+  >
+    {r.value}
+  </Text>
+)}
                                           </View>
                                         );
                                       })}
@@ -1917,16 +1920,108 @@ const closeAllModals = () => {
 
       if (clientsError) throw clientsError;
 
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("*");
+const { data: ordersData, error: ordersError } = await supabase
+  .from("orders")
+  .select("*");
 
-      if (ordersError) throw ordersError;
+if (ordersError) throw ordersError;
 
-      const ordersByClient = {};
+// Transforme les photos des commandes en URL affichables
+const normalizedOrdersData = (ordersData || [])
+  .filter((order) => {
+    const isDeleted =
+      order?.deleted === true ||
+      order?.deleted === "true" ||
+      order?.deleted === 1 ||
+      order?.deleted === "1";
 
-      ordersData.forEach((order) => {
-        order.notified = toBool(order.notified);
+    return !isDeleted;
+  })
+  .map((order) => {
+    let rawPhotos = [];
+
+    if (Array.isArray(order.order_photos)) {
+      rawPhotos = order.order_photos;
+    } else if (
+      typeof order.order_photos === "string" &&
+      order.order_photos.trim()
+    ) {
+      const value = order.order_photos.trim();
+
+      try {
+        const parsed = JSON.parse(value);
+        rawPhotos = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        rawPhotos = value.includes(",")
+          ? value
+              .split(",")
+              .map((photo) => photo.trim())
+              .filter(Boolean)
+          : [value];
+      }
+    } else if (order.order_photos) {
+      rawPhotos = [order.order_photos];
+    }
+
+    const photoUrls = rawPhotos
+      .map((photo) => {
+        const rawValue =
+          typeof photo === "string"
+            ? photo
+            : photo?.url ||
+              photo?.publicUrl ||
+              photo?.uri ||
+              photo?.path ||
+              "";
+
+        if (!rawValue || typeof rawValue !== "string") {
+          return null;
+        }
+
+        const value = rawValue.trim();
+
+        if (!value) return null;
+
+        if (/^https?:\/\//i.test(value)) {
+          return value;
+        }
+
+        // Une image locale ne peut pas être affichée après redémarrage
+        if (
+          value.startsWith("file://") ||
+          value.startsWith("content://")
+        ) {
+          console.warn(
+            "⚠️ Photo commande encore locale dans loadClients :",
+            value
+          );
+
+          return null;
+        }
+
+        const cleanPath = value
+          .replace(/^\/+/, "")
+          .replace(/^images\//i, "");
+
+        const { data } = supabase.storage
+          .from("images")
+          .getPublicUrl(cleanPath);
+
+        return data?.publicUrl || null;
+      })
+      .filter(Boolean);
+
+    return {
+      ...order,
+      notified: toBool(order.notified),
+      order_photos: photoUrls,
+    };
+  });
+
+const ordersByClient = {};
+
+normalizedOrdersData.forEach((order) => {
+        
         const clientId = String(order.client_id);
         if (!ordersByClient[clientId]) {
           ordersByClient[clientId] = {

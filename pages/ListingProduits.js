@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { MaterialIcons } from '@expo/vector-icons';
+import AlertBox from '../components/AlertBox';
+import CustomAlert from '../components/CustomAlert';
 
 export default function ProductManagementPage() {
     const [products, setProducts] = useState([]);
@@ -10,6 +12,16 @@ export default function ProductManagementPage() {
     const [showProducts, setShowProducts] = useState(false);
     const [showBrands, setShowBrands] = useState(false);
     const [showModels, setShowModels] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState('');
+    const [alertMessage, setAlertMessage] = useState('');
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     useEffect(() => {
         loadProducts();
@@ -20,7 +32,7 @@ export default function ProductManagementPage() {
     const loadProducts = async () => {
         const { data, error } = await supabase.from('article').select('*');
         if (error) {
-            Alert.alert('Erreur', 'Erreur lors du chargement des produits');
+            showAlert('Erreur', 'Erreur lors du chargement des produits');
         } else {
             setProducts(data);
         }
@@ -29,7 +41,7 @@ export default function ProductManagementPage() {
     const loadBrands = async () => {
         const { data, error } = await supabase.from('marque').select('*');
         if (error) {
-            Alert.alert('Erreur', 'Erreur lors du chargement des marques');
+            showAlert('Erreur', 'Erreur lors du chargement des marques');
         } else {
             setBrands(data);
         }
@@ -38,32 +50,25 @@ export default function ProductManagementPage() {
     const loadModels = async () => {
         const { data, error } = await supabase.from('modele').select('*');
         if (error) {
-            Alert.alert('Erreur', 'Erreur lors du chargement des modèles');
+            showAlert('Erreur', 'Erreur lors du chargement des modèles');
         } else {
             setModels(data);
         }
     };
 
-    const deleteItem = async (table, id, loadFunction) => {
-        Alert.alert(
-            "Confirmation",
-            "Êtes-vous sûr de vouloir supprimer cet élément ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        const { error } = await supabase.from(table).delete().eq('id', id);
-                        if (error) {
-                            Alert.alert('Erreur', `Erreur lors de la suppression de l'élément dans ${table}`);
-                        } else {
-                            loadFunction(); // Recharge la liste après suppression
-                        }
-                    },
-                },
-            ]
-        );
+    const deleteItem = (table, id, loadFunction) => {
+        setItemToDelete({ table, id, loadFunction });
+    };
+
+    const confirmDeleteItem = async () => {
+        const { table, id, loadFunction } = itemToDelete;
+        setItemToDelete(null);
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) {
+            showAlert('Erreur', `Erreur lors de la suppression de l'élément dans ${table}`);
+        } else {
+            loadFunction(); // Recharge la liste après suppression
+        }
     };
 
     return (
@@ -127,6 +132,23 @@ export default function ProductManagementPage() {
                     )}
                 />
             )}
+
+            <AlertBox
+                visible={!!itemToDelete}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir supprimer cet élément ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setItemToDelete(null)}
+                onConfirm={confirmDeleteItem}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 }

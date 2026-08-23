@@ -9,7 +9,6 @@ import {
   Image,
   Animated,
   Easing,
-  Alert,
   Modal,
   ScrollView,
 } from "react-native";
@@ -826,7 +825,7 @@ const openRepairEstimate = async (intervention) => {
                     label="Montant devis"
                     value={`${item.devis_cost || 0} €`}
                   />
-                  {item.cost && (
+                  {item.cost > 0 && (
                     <Row
                       label="Total TTC"
                       value={`${item.cost} €`}
@@ -835,13 +834,13 @@ const openRepairEstimate = async (intervention) => {
                   )}
                   <Row label="Règlement" value={paymentLabel} />
                   {item.paymentStatus === "reglement_partiel" &&
-                    item.partialPayment && (
+                    item.partialPayment > 0 && (
                       <Row
                         label="Acompte"
                         value={`${item.partialPayment} €`}
                       />
                     )}
-                  {item.solderestant && (
+                  {item.solderestant > 0 && (
                     <Row
                       label="Reste dû"
                       value={`${item.solderestant} €`}
@@ -993,7 +992,9 @@ const openRepairEstimate = async (intervention) => {
                                 "Succès",
                                 'Statut mis à jour à "Intervention en cours".'
                               );
-                            } catch (error) {}
+                            } catch (error) {
+                              console.error("Erreur mise à jour statut :", error);
+                            }
                           }
                         );
                       }}
@@ -1041,10 +1042,12 @@ const openRepairEstimate = async (intervention) => {
                     style={styles.cardActionItem}
                     onPress={() => {
                       if (checkupExists) {
-                        Alert.alert(
-                          "Fiche déjà créée",
+                        setAlertTitle("Fiche déjà créée");
+                        setAlertMessage(
                           "Une fiche de contrôle existe déjà pour ce client."
                         );
+                        setOnConfirmAction(null);
+                        setAlertVisible(true);
                         return;
                       }
                       const currentIntervention =
@@ -1634,7 +1637,7 @@ const styles = StyleSheet.create({
 
 estimateOverlay: {
   flex: 1,
-  backgroundColor: "rgba(0,0,0,0.65)",
+  backgroundColor: "rgba(15, 23, 42, 0.55)",
   justifyContent: "center",
   alignItems: "center",
   padding: 18,
@@ -1645,10 +1648,13 @@ estimateModal: {
   maxWidth: 720,
   maxHeight: "90%",
   backgroundColor: "#ffffff",
-  borderRadius: 16,
-  padding: 18,
-  borderWidth: 1,
-  borderColor: "#cbd5e1",
+  borderRadius: 24,
+  padding: 20,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.2,
+  shadowRadius: 20,
+  elevation: 10,
 },
 
 estimateHeader: {

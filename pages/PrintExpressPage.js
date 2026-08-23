@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect} from "react";
-import { View, Text, StyleSheet, Button, ScrollView, Alert, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Button, ScrollView, Image, TouchableOpacity } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const PrintExpressPage = () => {
   const route = useRoute();
@@ -27,6 +28,15 @@ const support_fournisseur = support_fournis === true;
   const [signatureData, setSignatureData] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message || "");
+    setAlertVisible(true);
+  };
   const sigRef = useRef();
   const [isSigning, setIsSigning] = useState(false);
   const [includeSignature, setIncludeSignature] = useState(true);
@@ -54,7 +64,7 @@ const support_fournisseur = support_fournis === true;
 
   const saveToSupabase = async () => {
 	if (!signatureData) {
-	  Alert.alert("Erreur", "Veuillez valider la signature avant de sauvegarder.");
+	  showAlert("Erreur", "Veuillez valider la signature avant de sauvegarder.");
 	  return;
 	}
   
@@ -66,12 +76,12 @@ const support_fournisseur = support_fournis === true;
   
 	  if (error) throw error;
   
-	  Alert.alert("✅ Signature sauvegardée !");
+	  showAlert("✅ Signature sauvegardée !");
 	  setIsSaved(true); // 🟢 Active l'impression juste après sauvegarde
 	  setSignatureExists(true); // 🟢 En plus on dit que la signature existe
 	} catch (error) {
 	  console.error("❌ Erreur de sauvegarde :", error);
-	  Alert.alert("Erreur", "La sauvegarde a échoué.");
+	  showAlert("Erreur", "La sauvegarde a échoué.");
 	}
   };
   
@@ -348,8 +358,12 @@ await Print.printAsync({ html: htmlContent });
   </TouchableOpacity>
 </View>
 
-
-
+<CustomAlert
+  visible={alertVisible}
+  title={alertTitle}
+  message={alertMessage}
+  onClose={() => setAlertVisible(false)}
+/>
 
     </ScrollView>
   );

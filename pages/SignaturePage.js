@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -13,9 +12,22 @@ import {
 } from "react-native";
 import Signature from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function SignaturePage({ route, navigation }) {
   const { clientId, interventionId } = route.params || {};
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertOnClose, setAlertOnClose] = useState(null);
+
+  const showAlert = (title, message, onCloseAction = null) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOnClose(() => onCloseAction);
+    setAlertVisible(true);
+  };
 
   // Signature dessinée sur la tablette (data:image/png;base64,....)
   const [signatureDataUrl, setSignatureDataUrl] = useState(null);
@@ -55,11 +67,9 @@ export default function SignaturePage({ route, navigation }) {
 
         setClientInfo(data);
 
-        // Signature existante en BDD (dépôt)
-        const sigDb =
-          data?.signatureIntervention || // colonne actuelle
-          data?.signature || // anciennes fiches éventuelles
-          null;
+        // Signature de dépôt existante en BDD (colonne dédiée, jamais la colonne
+        // "signature" qui sert maintenant à la restitution)
+        const sigDb = data?.signatureIntervention || null;
 
         if (sigDb) {
           setExistingSignature(String(sigDb));
@@ -104,12 +114,13 @@ export default function SignaturePage({ route, navigation }) {
 
   /**
    * 1️⃣ Capturer & confirmer : on enregistre en BDD et on revient
-   * On stocke la signature telle quelle (data:image/png;base64,...) dans signatureIntervention
+   * On stocke la signature telle quelle (data:image/png;base64,...) dans signature
+   * (colonne dédiée à la restitution, distincte de signatureIntervention qui reste le dépôt)
    */
   const handleCaptureAndConfirmSignature = async () => {
     try {
       if (!signatureDataUrl) {
-        Alert.alert("Erreur", "Veuillez fournir une signature.");
+        showAlert("Erreur", "Veuillez fournir une signature.");
         return;
       }
 
@@ -117,7 +128,8 @@ export default function SignaturePage({ route, navigation }) {
         .from("interventions")
         .update({
           status: "Récupéré",
-          signatureIntervention: signatureDataUrl, // ⬅️ on garde le data:image/base64
+          signature: signatureDataUrl, // ⬅️ signature de restitution, distincte du dépôt
+          signature_at: new Date().toISOString(),
           guarantee: guaranteeText,
           receiver_name: receiverName,
           updatedAt: new Date().toISOString(),
@@ -126,14 +138,14 @@ export default function SignaturePage({ route, navigation }) {
 
       if (error) throw error;
 
-      Alert.alert(
+      showAlert(
         "Succès",
-        "La signature et la garantie ont été enregistrées."
+        "La signature et la garantie ont été enregistrées.",
+        () => navigation.navigate("RepairedInterventionsListPage")
       );
-      navigation.goBack();
     } catch (e) {
       console.error("Erreur confirmation signature :", e);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Une erreur est survenue lors de l'enregistrement de la signature."
       );
@@ -146,7 +158,7 @@ export default function SignaturePage({ route, navigation }) {
   const handleSaveAndNavigateToPrint = async () => {
     try {
       if (!signatureDataUrl) {
-        Alert.alert("Erreur", "Veuillez fournir une signature.");
+        showAlert("Erreur", "Veuillez fournir une signature.");
         return;
       }
 
@@ -154,7 +166,8 @@ export default function SignaturePage({ route, navigation }) {
         .from("interventions")
         .update({
           status: "Récupéré",
-          signatureIntervention: signatureDataUrl,
+          signature: signatureDataUrl, // ⬅️ signature de restitution, distincte du dépôt
+          signature_at: new Date().toISOString(),
           guarantee: guaranteeText,
           receiver_name: receiverName,
           updatedAt: new Date().toISOString(),
@@ -186,7 +199,7 @@ export default function SignaturePage({ route, navigation }) {
       });
     } catch (e) {
       console.error("Erreur sauvegarde + impression :", e);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Une erreur est survenue lors de la sauvegarde et l'impression."
       );
@@ -198,7 +211,7 @@ export default function SignaturePage({ route, navigation }) {
    */
   const handlePrintWithExistingSignature = () => {
     if (!existingSignature) {
-      Alert.alert(
+      showAlert(
         "Aucune signature",
         "Aucune signature dépôt n’a été trouvée sur cette fiche."
       );
@@ -368,6 +381,16 @@ export default function SignaturePage({ route, navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => {
+          setAlertVisible(false);
+          if (alertOnClose) alertOnClose();
+        }}
+      />
     </View>
   );
 }

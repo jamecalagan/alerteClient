@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AlertBox from '../components/AlertBox';
 
 export default function ArticlesPage({ navigation }) {
     const [articles, setArticles] = useState([]);
+    const [articleToDelete, setArticleToDelete] = useState(null);
     const numColumns = 3; // Nombre de colonnes
 
     useEffect(() => {
@@ -20,26 +22,19 @@ export default function ArticlesPage({ navigation }) {
         }
     };
 
-    const handleDeleteArticle = async (articleId) => {
-        Alert.alert(
-            'Confirmation',
-            'Êtes-vous sûr de vouloir supprimer cet article ?',
-            [
-                { text: 'Annuler', style: 'cancel' },
-                { 
-                    text: 'Supprimer', 
-                    style: 'destructive', 
-                    onPress: async () => {
-                        const { error } = await supabase.from('article').delete().eq('id', articleId);
-                        if (error) {
-                            console.error('Erreur lors de la suppression de l\'article:', error.message);
-                        } else {
-                            setArticles(articles.filter(article => article.id !== articleId));
-                        }
-                    } 
-                },
-            ]
-        );
+    const handleDeleteArticle = (articleId) => {
+        setArticleToDelete(articleId);
+    };
+
+    const confirmDeleteArticle = async () => {
+        const articleId = articleToDelete;
+        setArticleToDelete(null);
+        const { error } = await supabase.from('article').delete().eq('id', articleId);
+        if (error) {
+            console.error('Erreur lors de la suppression de l\'article:', error.message);
+        } else {
+            setArticles(articles.filter(article => article.id !== articleId));
+        }
     };
 
     const handleSelectArticle = (articleId) => {
@@ -73,6 +68,16 @@ export default function ArticlesPage({ navigation }) {
                     </View>
                 )}
                 contentContainerStyle={styles.listContainer}
+            />
+
+            <AlertBox
+                visible={!!articleToDelete}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir supprimer cet article ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setArticleToDelete(null)}
+                onConfirm={confirmDeleteArticle}
             />
         </View>
     );

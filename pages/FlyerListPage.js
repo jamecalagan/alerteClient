@@ -5,18 +5,29 @@ import {
     FlatList,
     TouchableOpacity,
     StyleSheet,
-    Alert,
     RefreshControl,
     Image,
 } from "react-native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 export default function FlyerListPage() {
     const [flyers, setFlyers] = useState([]);
     const [loading, setLoading] = useState(false);
     const navigation = useNavigation();
     const isFocused = useIsFocused();
+    const [flyerToDelete, setFlyerToDelete] = useState(null);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     const loadFlyers = async () => {
         setLoading(true);
@@ -41,24 +52,13 @@ export default function FlyerListPage() {
     }, [isFocused]);
 
     const confirmDelete = (id) => {
-        Alert.alert(
-            "Supprimer l'affiche",
-            "Souhaites-tu vraiment supprimer cette affiche ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: () => deleteFlyer(id),
-                },
-            ]
-        );
+        setFlyerToDelete(id);
     };
 
     const deleteFlyer = async (id) => {
         const { error } = await supabase.from("flyers").delete().eq("id", id);
         if (error) {
-            Alert.alert("❌ Erreur", "Impossible de supprimer l'affiche.");
+            showAlert("❌ Erreur", "Impossible de supprimer l'affiche.");
         } else {
             setFlyers((prev) => prev.filter((flyer) => flyer.id !== id));
         }
@@ -146,6 +146,27 @@ export default function FlyerListPage() {
 						>
 							<Text style={styles.buttonText}>⬅ Retour</Text>
 						</TouchableOpacity>
+
+            <AlertBox
+                visible={!!flyerToDelete}
+                title="Supprimer l'affiche"
+                message="Souhaites-tu vraiment supprimer cette affiche ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setFlyerToDelete(null)}
+                onConfirm={() => {
+                    const id = flyerToDelete;
+                    setFlyerToDelete(null);
+                    deleteFlyer(id);
+                }}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 }

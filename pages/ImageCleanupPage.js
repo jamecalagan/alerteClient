@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, Image, Button, Alert, StyleSheet, TouchableOpacity
+  View, Text, ScrollView, Image, Button, StyleSheet, TouchableOpacity
 } from 'react-native';
 import { supabase } from '../supabaseClient';
+import AlertBox from '../components/AlertBox';
+import CustomAlert from '../components/CustomAlert';
 
 export default function ImageCleanupPage() {
   const [interventions, setInterventions] = useState([]);
@@ -13,6 +15,30 @@ export default function ImageCleanupPage() {
   const [storageImages, setStorageImages] = useState([]);
   const [selectedStorageImages, setSelectedStorageImages] = useState([]);
 const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: 'Oui, supprimer',
+    onConfirm: null,
+  });
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const openConfirm = (title, message, onConfirm, confirmText = 'Oui, supprimer') => {
+    setConfirmDialog({ visible: true, title, message, confirmText, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmDialog((prev) => ({ ...prev, visible: false }));
+  };
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message || '');
+    setAlertVisible(true);
+  };
   const [eligibleInterventionsList, setEligibleInterventionsList] =
   useState([]);
 const getImageUrl = (value) => {
@@ -48,23 +74,45 @@ const toggleStorageImageSelection = (imageId) => {
   });
 };
 
+const getAllSelectableImageIds = () => {
+  const interventionPhotoIds = interventions.flatMap(
+    (intervention) =>
+      (intervention.photos || []).map(
+        (_, index) =>
+          `intervention:${intervention.id}:${index}`
+      )
+  );
+
+  const extraImageIds = extraImages.map(
+    (image) => `extra:${image.id}`
+  );
+
+  return [
+    ...interventionPhotoIds,
+    ...extraImageIds,
+  ];
+};
+
 const selectAllStorageImages = () => {
+  const allImageIds = getAllSelectableImageIds();
+
   if (
-    storageImages.length > 0 &&
-    selectedStorageImages.length === storageImages.length
+    allImageIds.length > 0 &&
+    selectedStorageImages.length === allImageIds.length
   ) {
     setSelectedStorageImages([]);
     return;
   }
 
-  setSelectedStorageImages(
-    storageImages.map((image) => image.id)
-  );
+  setSelectedStorageImages(allImageIds);
 };
 
+const allSelectableImageIds = getAllSelectableImageIds();
+
 const isAllStorageSelected =
-  storageImages.length > 0 &&
-  selectedStorageImages.length === storageImages.length;
+  allSelectableImageIds.length > 0 &&
+  selectedStorageImages.length ===
+    allSelectableImageIds.length;
 
 useEffect(() => {
   const fetchData = async () => {
@@ -129,106 +177,51 @@ useEffect(() => {
             .filter((photo) => photo.url),
         }));
 
-      // 4. Ancienne table intervention_images
-      let extraToClean = [];
+// 4. Ancienne table intervention_images
+let extraToClean = [];
 
-      if (eligibleIds.size > 0) {
-        const { data: extraImageData, error: extraImageError } =
-          await supabase
-            .from("intervention_images")
-            .select(
-              "id, intervention_id, image_data, created_at"
-            )
-            .in("intervention_id", [...eligibleIds]);
+if (eligibleIds.size > 0) {
+  const { data: extraImageData, error: extraImageError } =
+    await supabase
+      .from("intervention_images")
+      .select("*");
 
-        if (extraImageError) throw extraImageError;
+  if (extraImageError) {
+    console.error(
+      "❌ Chargement intervention_images :",
+      extraImageError
+    );
+    throw extraImageError;
+  }
 
-        extraToClean = (extraImageData || [])
-          .filter(
-            (image) =>
-              typeof image.image_data === "string" &&
-              image.image_data.trim().length > 0
-          )
-          .map((image) => ({
-            ...image,
-            original: image.image_data,
-            image_url: getImageUrl(image.image_data),
-          }))
-          .filter((image) => image.image_url);
-      }
+  extraToClean = (extraImageData || [])
+    // Filtrage local : évite une requête .in(...) trop longue
+    .filter((image) =>
+      eligibleIds.has(String(image.intervention_id))
+    )
+    // Ne jamais proposer les étiquettes
+    .filter((image) => image.is_label !== true)
+    .map((image) => {
+      const imageValue =
+        image.image_data ||
+        image.file_path ||
+        image.image_url ||
+        "";
 
-      // 5. Dossiers Storage supplementaires/<interventionId>
-      const { data: folders, error: foldersError } =
-        await supabase.storage
-          .from("images")
-          .list("supplementaires", {
-            limit: 1000,
-            offset: 0,
-          });
-
-      if (foldersError) throw foldersError;
-
-      const eligibleFolders = (folders || []).filter(
-        (folder) =>
-          folder?.name &&
-          eligibleIds.has(String(folder.name))
-      );
-
-      const storageGroups = await Promise.all(
-        eligibleFolders.map(async (folder) => {
-          const interventionId = String(folder.name);
-          const folderPath =
-            `supplementaires/${interventionId}`;
-
-          const { data: files, error: filesError } =
-            await supabase.storage
-              .from("images")
-              .list(folderPath, {
-                limit: 100,
-                offset: 0,
-                sortBy: {
-                  column: "created_at",
-                  order: "desc",
-                },
-              });
-
-          if (filesError) {
-            console.error(
-              `❌ Lecture ${folderPath} :`,
-              filesError
-            );
-
-            return [];
-          }
-
-          return (files || [])
-            .filter(
-              (file) =>
-                file?.name &&
-                file.name !== ".emptyFolderPlaceholder"
-            )
-            .map((file) => {
-              const storagePath =
-                `${folderPath}/${file.name}`;
-
-              const { data: publicData } =
-                supabase.storage
-                  .from("images")
-                  .getPublicUrl(storagePath);
-
-              return {
-                id: storagePath,
-                intervention_id: interventionId,
-                storage_path: storagePath,
-                image_url:
-                  publicData?.publicUrl || "",
-              };
-            })
-            .filter((image) => image.image_url);
-        })
-      );
-
-      const foundStorageImages = storageGroups.flat();
+      return {
+        ...image,
+        original: imageValue,
+        image_url: getImageUrl(imageValue),
+      };
+    })
+    .filter(
+      (image) =>
+        typeof image.original === "string" &&
+        image.original.trim().length > 0 &&
+        image.image_url
+    );
+}
+const foundStorageImages = [];
 
       setClients(clientsData || []);
 	  setEligibleInterventionsList(eligibleInterventions);
@@ -236,12 +229,6 @@ useEffect(() => {
       setExtraImages(extraToClean);
       setStorageImages(foundStorageImages);
 
-      console.log("🧹 Page nettoyage :", {
-        interventionsPhotos:
-          interventionsWithPhotos.length,
-        extraImages: extraToClean.length,
-        storageImages: foundStorageImages.length,
-      });
     } catch (error) {
       console.error(
         "❌ Chargement nettoyage images :",
@@ -346,54 +333,47 @@ const copyImageToOldImages = async (
   /^images\/etiquettes\//i.test(url);
 
 if (isEtiquettePath(imageUrl)) {
-  Alert.alert("Refusé", "Ceci est une étiquette — non supprimée.");
+  showAlert("Refusé", "Ceci est une étiquette — non supprimée.");
   return;
 }
 
-    Alert.alert(
+    openConfirm(
       "Confirmation de suppression",
       "Souhaites-tu vraiment archiver puis supprimer cette image ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Oui, supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const success = await copyImageToOldImages(imageUrl, clientInfo);
-            if (!success) return;
+      async () => {
+        const success = await copyImageToOldImages(imageUrl, clientInfo);
+        if (!success) return;
 
-            const pathToDelete = imageUrl.replace(
-              'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
-              ''
-            );
+        const pathToDelete = imageUrl.replace(
+          'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
+          ''
+        );
 
-            await supabase.storage.from('images').remove([pathToDelete]);
+        await supabase.storage.from('images').remove([pathToDelete]);
 
-            if (imageId) {
-              await supabase.from('intervention_images').delete().eq('id', imageId);
-              setExtraImages(prev => prev.filter(i => i.id !== imageId));
-            } else {
-              const { data } = await supabase
-                .from('interventions')
-                .select('photos')
-                .eq('id', interventionId)
-                .single();
+        if (imageId) {
+          await supabase.from('intervention_images').delete().eq('id', imageId);
+          setExtraImages(prev => prev.filter(i => i.id !== imageId));
+        } else {
+          const { data } = await supabase
+            .from('interventions')
+            .select('photos')
+            .eq('id', interventionId)
+            .single();
 
-              const newPhotos = (data?.photos || []).filter((p) => !sameImage(p, imageUrl));
+          const newPhotos = (data?.photos || []).filter((p) => !sameImage(p, imageUrl));
 
-              await supabase.from('interventions').update({ photos: newPhotos }).eq('id', interventionId);
-              setInterventions((prev) =>
-                prev.map((i) =>
-                  i.id === interventionId ? { ...i, photos: newPhotos } : i
-                )
-              );
-            }
+          await supabase.from('interventions').update({ photos: newPhotos }).eq('id', interventionId);
+          setInterventions((prev) =>
+            prev.map((i) =>
+              i.id === interventionId ? { ...i, photos: newPhotos } : i
+            )
+          );
+        }
 
-            Alert.alert("Image supprimée.");
-            setArchivedImages((prev) => [...prev, imageUrl]);
-          },
-        },
-      ]
+        showAlert("Image supprimée.");
+        setArchivedImages((prev) => [...prev, imageUrl]);
+      }
     );
   };
 
@@ -403,60 +383,53 @@ if (isEtiquettePath(imageUrl)) {
   /^images\/etiquettes\//i.test(url);
 
 if (isEtiquettePath(imageUrl)) {
-  Alert.alert("Refusé", "Ceci est une étiquette — non supprimée.");
+  showAlert("Refusé", "Ceci est une étiquette — non supprimée.");
   return;
 }
 
-    Alert.alert(
+    openConfirm(
       "Confirmation",
       "Souhaites-tu archiver puis supprimer cette image ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Oui, supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const copySuccess =
+      async () => {
+        const copySuccess =
   await copyImageToOldImages(
-    image.storage_path,
+    imageUrl,
     clientLabel,
-    image.intervention_id
+    interventionId
   );
-            if (!copySuccess) {
-              Alert.alert("Erreur", "L’image n’a pas pu être copiée, suppression annulée.");
-              return;
-            }
+        if (!copySuccess) {
+          showAlert("Erreur", "L’image n’a pas pu être copiée, suppression annulée.");
+          return;
+        }
 
-            const pathToDelete = imageUrl.replace(
-              'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
-              ''
-            );
+        const pathToDelete = imageUrl.replace(
+          'https://fncgffajwabqrnhumgzd.supabase.co/storage/v1/object/public/images/',
+          ''
+        );
 
-            const { error: storageError } = await supabase.storage
-              .from('images')
-              .remove([pathToDelete]);
+        const { error: storageError } = await supabase.storage
+          .from('images')
+          .remove([pathToDelete]);
 
-            if (storageError) {
-              console.error('Erreur suppression du bucket :', storageError);
-              Alert.alert("Erreur", "La suppression dans le bucket a échoué.");
-              return;
-            }
+        if (storageError) {
+          console.error('Erreur suppression du bucket :', storageError);
+          showAlert("Erreur", "La suppression dans le bucket a échoué.");
+          return;
+        }
 
-            const { error: deleteError } = await supabase
-              .from('intervention_images')
-              .delete()
-              .eq('id', imageId);
+        const { error: deleteError } = await supabase
+          .from('intervention_images')
+          .delete()
+          .eq('id', imageId);
 
-            if (deleteError) {
-              console.error('Erreur suppression intervention_images :', deleteError);
-              return;
-            }
+        if (deleteError) {
+          console.error('Erreur suppression intervention_images :', deleteError);
+          return;
+        }
 
-            Alert.alert("✅ Image supprimée avec succès.");
-            setExtraImages(prev => prev.filter(img => img.id !== imageId));
-          },
-        },
-      ]
+        showAlert("✅ Image supprimée avec succès.");
+        setExtraImages(prev => prev.filter(img => img.id !== imageId));
+      }
     );
   };
 const bucketKey = (s) => {
@@ -475,193 +448,396 @@ const deleteStorageImage = (
   image,
   clientLabel
 ) => {
-  Alert.alert(
+  openConfirm(
     "Confirmation",
     "Souhaites-tu archiver puis supprimer cette image ?",
-    [
-      {
-        text: "Annuler",
-        style: "cancel",
-      },
-      {
-        text: "Oui, supprimer",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const copySuccess =
-              await copyImageToOldImages(
-                image.storage_path,
-                clientLabel
-              );
+    async () => {
+      try {
+        const copySuccess =
+          await copyImageToOldImages(
+            image.storage_path,
+            clientLabel
+          );
 
-            if (!copySuccess) {
-              Alert.alert(
-                "Erreur",
-                "La copie de sauvegarde a échoué. L’image n’a pas été supprimée."
-              );
-              return;
-            }
+        if (!copySuccess) {
+          showAlert(
+            "Erreur",
+            "La copie de sauvegarde a échoué. L’image n’a pas été supprimée."
+          );
+          return;
+        }
 
-            const { error: removeError } =
-              await supabase.storage
-                .from("images")
-                .remove([image.storage_path]);
+        const { error: removeError } =
+          await supabase.storage
+            .from("images")
+            .remove([image.storage_path]);
 
-            if (removeError) {
-              throw removeError;
-            }
+        if (removeError) {
+          throw removeError;
+        }
 
-            setStorageImages((current) =>
-              current.filter(
-                (item) => item.id !== image.id
-              )
-            );
+        setStorageImages((current) =>
+          current.filter(
+            (item) => item.id !== image.id
+          )
+        );
 
-            setArchivedImages((current) => [
-              ...current,
-              image.image_url,
-            ]);
+        setArchivedImages((current) => [
+          ...current,
+          image.image_url,
+        ]);
 
-            Alert.alert(
-              "Image supprimée",
-              "L’image a été archivée puis supprimée."
-            );
-          } catch (error) {
-            console.error(
-              "❌ Suppression image Storage :",
-              error
-            );
+        showAlert(
+          "Image supprimée",
+          "L’image a été archivée puis supprimée."
+        );
+      } catch (error) {
+        console.error(
+          "❌ Suppression image Storage :",
+          error
+        );
 
-            Alert.alert(
-              "Erreur",
-              "Impossible de supprimer cette image."
-            );
-          }
-        },
-      },
-    ]
+        showAlert(
+          "Erreur",
+          "Impossible de supprimer cette image."
+        );
+      }
+    }
   );
 };
 const deleteSelectedStorageImages = () => {
-  const selectedImages = storageImages.filter((image) =>
-    selectedStorageImages.includes(image.id)
-  );
-
-  if (selectedImages.length === 0) {
-    Alert.alert(
+  if (selectedStorageImages.length === 0) {
+    showAlert(
       "Aucune image sélectionnée",
       "Sélectionne au moins une image."
     );
     return;
   }
 
-  Alert.alert(
+  openConfirm(
     "Supprimer les images sélectionnées",
-    `Tu vas archiver puis supprimer ${selectedImages.length} image${
-      selectedImages.length > 1 ? "s" : ""
+    `Tu vas archiver puis supprimer ${
+      selectedStorageImages.length
+    } image${
+      selectedStorageImages.length > 1 ? "s" : ""
     }.\n\nSouhaites-tu continuer ?`,
-    [
-      {
-        text: "Annuler",
-        style: "cancel",
-      },
-      {
-        text: `Supprimer ${selectedImages.length}`,
-        style: "destructive",
-        onPress: async () => {
+    async () => {
           setBulkDeleting(true);
 
-          try {
-            const successfullyDeletedIds = [];
-            const failedImages = [];
+          const deletedSelectionIds = [];
+          const failedSelectionIds = [];
 
-            for (const image of selectedImages) {
+          try {
+            for (const selectionId of selectedStorageImages) {
               try {
-                const intervention =
-                  eligibleInterventionsList.find(
+                /*
+                 * Photo provenant de interventions.photos
+                 * Format :
+                 * intervention:<interventionId>:<index>
+                 */
+                if (selectionId.startsWith("intervention:")) {
+                  const withoutPrefix = selectionId.slice(
+                    "intervention:".length
+                  );
+
+                  const separatorPosition =
+                    withoutPrefix.lastIndexOf(":");
+
+                  const interventionId =
+                    withoutPrefix.slice(
+                      0,
+                      separatorPosition
+                    );
+
+                  const photoIndex = Number(
+                    withoutPrefix.slice(
+                      separatorPosition + 1
+                    )
+                  );
+
+                  const intervention =
+                    interventions.find(
+                      (item) =>
+                        String(item.id) ===
+                        String(interventionId)
+                    );
+
+                  const photo =
+                    intervention?.photos?.[photoIndex];
+
+                  if (!intervention || !photo?.original) {
+                    failedSelectionIds.push(selectionId);
+                    continue;
+                  }
+
+                  const client = clients.find(
                     (item) =>
                       String(item.id) ===
-                      String(image.intervention_id)
+                      String(intervention.client_id)
                   );
 
-                const client = clients.find(
-                  (item) =>
-                    String(item.id) ===
-                    String(intervention?.client_id)
-                );
+                  const clientLabel = client
+                    ? `${client.ficheNumber}_${client.name}`
+                    : `intervention_${interventionId}`;
 
-                const clientLabel = client
-                  ? `${client.ficheNumber}_${client.name}`
-                  : `intervention_${image.intervention_id}`;
+                  // 1. Archivage dans old_images
+                  const copySuccess =
+                    await copyImageToOldImages(
+                      photo.original,
+                      clientLabel,
+                      interventionId
+                    );
 
-                // Sauvegarde dans old_images avant suppression
-                const copyResult =
-  await copyImageToOldImages(
-    image.storage_path,
-    clientLabel,
-    image.intervention_id
-  );
+                  if (!copySuccess) {
+                    failedSelectionIds.push(selectionId);
+                    continue;
+                  }
 
-                if (copyResult !== true) {
-                  failedImages.push(image);
+                  // 2. Suppression dans le Storage
+                  const storagePath =
+                    bucketKey(photo.original);
+
+                  if (storagePath) {
+                    const { error: removeError } =
+                      await supabase.storage
+                        .from("images")
+                        .remove([storagePath]);
+
+                    if (removeError) {
+                      console.error(
+                        "❌ Suppression Storage :",
+                        storagePath,
+                        removeError
+                      );
+
+                      failedSelectionIds.push(
+                        selectionId
+                      );
+                      continue;
+                    }
+                  }
+
+                  // 3. Relecture de la liste actuelle
+                  const {
+                    data: interventionData,
+                    error: readError,
+                  } = await supabase
+                    .from("interventions")
+                    .select("photos")
+                    .eq("id", interventionId)
+                    .single();
+
+                  if (readError) {
+                    console.error(
+                      "❌ Lecture photos intervention :",
+                      readError
+                    );
+
+                    failedSelectionIds.push(
+                      selectionId
+                    );
+                    continue;
+                  }
+
+                  const updatedPhotos = (
+                    interventionData?.photos || []
+                  ).filter(
+                    (savedPhoto) =>
+                      !sameImage(
+                        savedPhoto,
+                        photo.original
+                      )
+                  );
+
+                  const { error: updateError } =
+                    await supabase
+                      .from("interventions")
+                      .update({
+                        photos: updatedPhotos,
+                      })
+                      .eq("id", interventionId);
+
+                  if (updateError) {
+                    console.error(
+                      "❌ Mise à jour intervention :",
+                      updateError
+                    );
+
+                    failedSelectionIds.push(
+                      selectionId
+                    );
+                    continue;
+                  }
+
+                  deletedSelectionIds.push(selectionId);
                   continue;
                 }
 
-                const { error: removeError } =
-                  await supabase.storage
-                    .from("images")
-                    .remove([image.storage_path]);
-
-                if (removeError) {
-                  console.error(
-                    "❌ Suppression Storage :",
-                    image.storage_path,
-                    removeError
+                /*
+                 * Photo provenant de intervention_images
+                 * Format :
+                 * extra:<imageId>
+                 */
+                if (selectionId.startsWith("extra:")) {
+                  const imageId = selectionId.slice(
+                    "extra:".length
                   );
 
-                  failedImages.push(image);
+                  const extraImage = extraImages.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(imageId)
+                  );
+
+                  if (!extraImage?.original) {
+                    failedSelectionIds.push(selectionId);
+                    continue;
+                  }
+
+                  const intervention =
+                    eligibleInterventionsList.find(
+                      (item) =>
+                        String(item.id) ===
+                        String(
+                          extraImage.intervention_id
+                        )
+                    );
+
+                  const client = clients.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(intervention?.client_id)
+                  );
+
+                  const clientLabel = client
+                    ? `${client.ficheNumber}_${client.name}`
+                    : `intervention_${extraImage.intervention_id}`;
+
+                  // 1. Archivage dans old_images
+                  const copySuccess =
+                    await copyImageToOldImages(
+                      extraImage.original,
+                      clientLabel,
+                      extraImage.intervention_id
+                    );
+
+                  if (!copySuccess) {
+                    failedSelectionIds.push(selectionId);
+                    continue;
+                  }
+
+                  // 2. Suppression dans le Storage
+                  const storagePath =
+                    bucketKey(extraImage.original);
+
+                  if (storagePath) {
+                    const { error: removeError } =
+                      await supabase.storage
+                        .from("images")
+                        .remove([storagePath]);
+
+                    if (removeError) {
+                      console.error(
+                        "❌ Suppression Storage :",
+                        storagePath,
+                        removeError
+                      );
+
+                      failedSelectionIds.push(
+                        selectionId
+                      );
+                      continue;
+                    }
+                  }
+
+                  // 3. Suppression de la ligne SQL
+                  const { error: deleteError } =
+                    await supabase
+                      .from("intervention_images")
+                      .delete()
+                      .eq("id", extraImage.id);
+
+                  if (deleteError) {
+                    console.error(
+                      "❌ Suppression intervention_images :",
+                      deleteError
+                    );
+
+                    failedSelectionIds.push(
+                      selectionId
+                    );
+                    continue;
+                  }
+
+                  deletedSelectionIds.push(selectionId);
                   continue;
                 }
 
-                successfullyDeletedIds.push(image.id);
+                failedSelectionIds.push(selectionId);
               } catch (imageError) {
                 console.error(
-                  "❌ Erreur image :",
-                  image.storage_path,
+                  "❌ Erreur suppression image :",
+                  selectionId,
                   imageError
                 );
 
-                failedImages.push(image);
+                failedSelectionIds.push(selectionId);
               }
             }
 
-            setStorageImages((current) =>
+            /*
+             * Mise à jour immédiate de l’affichage
+             */
+            setInterventions((current) =>
+              current
+                .map((intervention) => ({
+                  ...intervention,
+
+                  photos: (
+                    intervention.photos || []
+                  ).filter((photo, index) => {
+                    const selectionId =
+                      `intervention:${intervention.id}:${index}`;
+
+                    return !deletedSelectionIds.includes(
+                      selectionId
+                    );
+                  }),
+                }))
+                .filter(
+                  (intervention) =>
+                    intervention.photos.length > 0
+                )
+            );
+
+            setExtraImages((current) =>
               current.filter(
                 (image) =>
-                  !successfullyDeletedIds.includes(image.id)
+                  !deletedSelectionIds.includes(
+                    `extra:${image.id}`
+                  )
               )
             );
 
-            setSelectedStorageImages((current) =>
-              current.filter(
-                (id) =>
-                  !successfullyDeletedIds.includes(id)
-              )
+            // Ne conserver cochées que les images en échec
+            setSelectedStorageImages(
+              failedSelectionIds
             );
 
-            if (failedImages.length === 0) {
-              Alert.alert(
+            if (failedSelectionIds.length === 0) {
+              showAlert(
                 "Nettoyage terminé",
-                `${successfullyDeletedIds.length} image${
-                  successfullyDeletedIds.length > 1
+                `${deletedSelectionIds.length} image${
+                  deletedSelectionIds.length > 1
                     ? "s ont été archivées puis supprimées."
                     : " a été archivée puis supprimée."
                 }`
               );
             } else {
-              Alert.alert(
+              showAlert(
                 "Nettoyage partiel",
-                `${successfullyDeletedIds.length} image(s) supprimée(s).\n${failedImages.length} image(s) n’ont pas pu être supprimée(s).`
+                `${deletedSelectionIds.length} image(s) supprimée(s).\n` +
+                  `${failedSelectionIds.length} image(s) non supprimée(s).`
               );
             }
           } catch (error) {
@@ -670,100 +846,20 @@ const deleteSelectedStorageImages = () => {
               error
             );
 
-            Alert.alert(
+            showAlert(
               "Erreur",
               "La suppression groupée a rencontré une erreur."
             );
           } finally {
             setBulkDeleting(false);
           }
-        },
-      },
-    ]
+    },
+    `Supprimer ${selectedStorageImages.length}`
   );
 };
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🧼 Nettoyage des images anciennes</Text>
-
-      {interventions.map((intervention) => {
-        const relatedClient = clients.find(c => c.id === intervention.client_id);
-        const clientLabel = relatedClient
-          ? `${relatedClient.ficheNumber}_${relatedClient.name}`
-          : `${intervention.id}`;
-
-        return (
-          <View key={intervention.id} style={styles.card}>
-            <Text style={styles.idText}>Intervention : {intervention.id}</Text>
-            <View style={styles.imageRow}>
-              {(intervention.photos || []).map((photo, idx) => (
-                <View key={idx} style={styles.imageBlock}>
-                  <Image
-  source={{ uri: photo.url }}
-  style={styles.imageThumbnail}
-/>
-                  <Text style={styles.imageText}>
-                    {relatedClient
-                      ? `${relatedClient.ficheNumber} - ${relatedClient.name}`
-                      : "Client inconnu"}
-                  </Text>
-                  <Button
-                    title="Supprimer"
-                    color="red"
-                    onPress={() =>
-  deleteImage(
-    photo.original,
-    intervention.id,
-    clientLabel
-  )
-}
-                    disabled={archivedImages.includes(photo.original)}
-                  />
-                </View>
-              ))}
-            </View>
-          </View>
-        );
-      })}
-
-      {extraImages.length > 0 && (
-        <View style={{ marginTop: 30 }}>
-          <Text style={styles.title}>📁 Images Supplémentaires</Text>
-          <View style={styles.imageRow}>
-            {extraImages.map((img) => {
-              const intv = interventions.find(i => i.id === img.intervention_id);
-              const client = clients.find(c => c.id === intv?.client_id);
-              const label = client ? `${client.ficheNumber}_${client.name}` : "inconnu";
-              return (
-                <View key={img.id} style={styles.imageBlock}>
-                  <Image
-  source={{ uri: img.image_url }}
-  style={styles.imageThumbnail}
-/>
-                  <Text style={styles.imageText}>{label}</Text>
-                  <Button
-                    title="Supprimer"
-                    color="red"
-                    onPress={() =>
-  deleteImage(
-    img.original,
-    img.intervention_id,
-    label,
-    img.id
-  )
-}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      )}
-	  {storageImages.length > 0 && (
-  <View style={{ marginTop: 30 }}>
-    <Text style={styles.title}>
-      📁 Photos supplémentaires anciennes
-    </Text>
 <View style={styles.bulkActions}>
   <TouchableOpacity
     style={styles.selectAllButton}
@@ -771,9 +867,9 @@ const deleteSelectedStorageImages = () => {
     disabled={bulkDeleting}
   >
     <Text style={styles.selectAllButtonText}>
-      {isAllStorageSelected
-        ? "Tout désélectionner"
-        : `Tout sélectionner (${storageImages.length})`}
+{isAllStorageSelected
+    ? "Tout désélectionner"
+    : `Tout sélectionner (${allSelectableImageIds.length})`}
     </Text>
   </TouchableOpacity>
 
@@ -796,6 +892,154 @@ const deleteSelectedStorageImages = () => {
     </Text>
   </TouchableOpacity>
 </View>
+      {interventions.map((intervention) => {
+        const relatedClient = clients.find(c => c.id === intervention.client_id);
+        const clientLabel = relatedClient
+          ? `${relatedClient.ficheNumber}_${relatedClient.name}`
+          : `${intervention.id}`;
+
+        return (
+          <View key={intervention.id} style={styles.card}>
+            <Text style={styles.idText}>Intervention : {intervention.id}</Text>
+            <View style={styles.imageRow}>
+{(intervention.photos || []).map((photo, idx) => {
+  const imageId =
+    `intervention:${intervention.id}:${idx}`;
+
+  const isSelected =
+    selectedStorageImages.includes(imageId);
+
+  return (
+    <View
+      key={imageId}
+      style={[
+        styles.imageBlock,
+        isSelected && styles.selectedImageBlock,
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() =>
+          toggleStorageImageSelection(imageId)
+        }
+      >
+        <View
+          style={[
+            styles.selectionCircle,
+            isSelected &&
+              styles.selectionCircleActive,
+          ]}
+        >
+          {isSelected && (
+            <Text style={styles.selectionCheck}>
+              ✓
+            </Text>
+          )}
+        </View>
+
+        <Image
+          source={{ uri: photo.url }}
+          style={styles.imageThumbnail}
+        />
+      </TouchableOpacity>
+
+      <Text style={styles.imageText}>
+        {relatedClient
+          ? `${relatedClient.ficheNumber} - ${relatedClient.name}`
+          : "Client inconnu"}
+      </Text>
+
+      <Button
+        title="Supprimer"
+        color="red"
+        onPress={() =>
+          deleteImage(
+            photo.original,
+            intervention.id,
+            clientLabel
+          )
+        }
+        disabled={archivedImages.includes(
+          photo.original
+        )}
+      />
+    </View>
+  );
+})}
+</View>
+</View>
+);
+})}
+      {extraImages.length > 0 && (
+        <View style={{ marginTop: 30 }}>
+          <Text style={styles.title}>📁 Images Supplémentaires</Text>
+          <View style={styles.imageRow}>
+            {extraImages.map((img) => {
+              const intv = interventions.find(i => i.id === img.intervention_id);
+              const client = clients.find(c => c.id === intv?.client_id);
+              const label = client ? `${client.ficheNumber}_${client.name}` : "inconnu";
+              const imageId = `extra:${img.id}`;
+
+const isSelected =
+  selectedStorageImages.includes(imageId);
+              return (
+<View
+  key={imageId}
+  style={[
+    styles.imageBlock,
+    isSelected && styles.selectedImageBlock,
+  ]}
+>
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() =>
+      toggleStorageImageSelection(imageId)
+    }
+  >
+    <View
+      style={[
+        styles.selectionCircle,
+        isSelected &&
+          styles.selectionCircleActive,
+      ]}
+    >
+      {isSelected && (
+        <Text style={styles.selectionCheck}>
+          ✓
+        </Text>
+      )}
+    </View>
+
+    <Image
+      source={{ uri: img.image_url }}
+      style={styles.imageThumbnail}
+    />
+  </TouchableOpacity>
+                  <Text style={styles.imageText}>{label}</Text>
+                  <Button
+                    title="Supprimer"
+                    color="red"
+                    onPress={() =>
+  deleteImage(
+    img.original,
+    img.intervention_id,
+    label,
+    img.id
+  )
+}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+	  {allSelectableImageIds.length > 0 && (
+  <View style={{ marginTop: 30 }}>
+    <Text style={styles.title}>
+      📁 Photos supplémentaires anciennes
+    </Text>
+
     <View style={styles.imageRow}>
       {storageImages.map((img) => {
         const intervention =
@@ -870,6 +1114,26 @@ const isSelected =
     </View>
   </View>
 )}
+
+      <AlertBox
+        visible={confirmDialog.visible}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        cancelText="Annuler"
+        confirmText={confirmDialog.confirmText || "Oui, supprimer"}
+        onClose={closeConfirm}
+        onConfirm={() => {
+          closeConfirm();
+          if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+        }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }

@@ -7,11 +7,11 @@ import {
     TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
-    Alert,
     FlatList,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ExpressVideoPage() {
     const navigation = useNavigation();
@@ -22,6 +22,15 @@ export default function ExpressVideoPage() {
     const [isPaid, setIsPaid] = useState(
         editData?.paid === true || editData?.paymentStatus === "paid"
     );
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     const [searchText, setSearchText] = useState(editData.name || "");
     const [filteredClients, setFilteredClients] = useState([]);
@@ -114,7 +123,7 @@ export default function ExpressVideoPage() {
     // 👉 Bouton "Étiquette rapide" : prépare les données + autoPrint
     const handleGoToQuickLabel = () => {
         if (!name || !phone) {
-            Alert.alert(
+            showAlert(
                 "Information manquante",
                 "Veuillez saisir au minimum le nom et le téléphone."
             );
@@ -149,7 +158,7 @@ export default function ExpressVideoPage() {
     const handleSubmit = async () => {
         try {
             if (!name || !phone || !description || !unitPrice) {
-                Alert.alert(
+                showAlert(
                     "Erreur",
                     "Veuillez remplir tous les champs obligatoires."
                 );
@@ -201,11 +210,11 @@ export default function ExpressVideoPage() {
 
                 if (error) {
                     console.error("Update express error:", error);
-                    Alert.alert("Erreur", error.message);
+                    showAlert("Erreur", error.message);
                     return;
                 }
 
-                Alert.alert("✅", "Fiche modifiée avec succès.");
+                showAlert("✅", "Fiche modifiée avec succès.");
                 navigation.navigate("ExpressListPage", { refresh: Date.now() });
             } else {
                 const { data, error } = await supabase
@@ -215,7 +224,7 @@ export default function ExpressVideoPage() {
 
                 if (error) {
                     console.error("Insert express error:", error);
-                    Alert.alert("Erreur", error.message);
+                    showAlert("Erreur", error.message);
                     return;
                 }
 
@@ -243,7 +252,7 @@ export default function ExpressVideoPage() {
             }
         } catch (e) {
             console.error("handleSubmit fatal:", e);
-            Alert.alert("Erreur", "Impossible d’enregistrer la fiche.");
+            showAlert("Erreur", "Impossible d’enregistrer la fiche.");
         }
     };
 
@@ -417,10 +426,10 @@ export default function ExpressVideoPage() {
         .eq("id", editData.id);
 
       if (error) {
-        Alert.alert("Erreur", error.message);
+        showAlert("Erreur", error.message);
       } else {
         setIsPaid(!isPaid);
-        Alert.alert(
+        showAlert(
           "OK",
           `Fiche ${!isPaid ? "marquée réglée" : "remise en dû"}.`
         );
@@ -448,6 +457,13 @@ export default function ExpressVideoPage() {
 
                     </View>
                 }
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
             />
         </KeyboardAvoidingView>
     );

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  Alert,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -21,10 +20,20 @@ import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import BottomNavigation from "../components/BottomNavigation";
+import CustomAlert from "../components/CustomAlert";
 
 export default function AdminPage({ navigation, route }) {
   // Recherche / pagination
   const [searchText, setSearchText] = useState("");
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const [filteredClients, setFilteredClients] = useState([]);
   const [clients, setClients] = useState({ all: [] });
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,7 +87,7 @@ export default function AdminPage({ navigation, route }) {
       setSearchText((s) => s ?? "");
     } catch (e) {
       console.error("loadClients:", e);
-      Alert.alert("Erreur", "Impossible de charger la liste des clients.");
+      showAlert("Erreur", "Impossible de charger la liste des clients.");
     }
   }, []);
 
@@ -137,14 +146,14 @@ export default function AdminPage({ navigation, route }) {
       setCurrentPage(newPage);
       try {
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
-      } catch {}
+      } catch { /* liste pas encore montée, sans effet */ }
     }
   };
   const resetToFirstPage = () => {
     setCurrentPage(1);
     try {
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    } catch {}
+    } catch { /* liste pas encore montée, sans effet */ }
   };
 
   // Commandes d'un client
@@ -163,7 +172,7 @@ export default function AdminPage({ navigation, route }) {
       setOrdersForClient(data || []);
     } catch (e) {
       console.error("Erreur chargement commandes:", e);
-      Alert.alert("Erreur", "Impossible de charger les commandes.");
+      showAlert("Erreur", "Impossible de charger les commandes.");
       setOrdersForClient([]);
     } finally {
       setOrdersLoading(false);
@@ -223,10 +232,10 @@ export default function AdminPage({ navigation, route }) {
       setBanModalVisible(false);
       setBanClient(null);
       setBanForm({ banned: false, ban_reason: "" });
-      Alert.alert("OK", banForm.banned ? "Client banni." : "Client débanni.");
+      showAlert("OK", banForm.banned ? "Client banni." : "Client débanni.");
     } catch (e) {
       console.error("saveBan:", e);
-      Alert.alert("Erreur", "Impossible d'enregistrer le bannissement.");
+      showAlert("Erreur", "Impossible d'enregistrer le bannissement.");
     } finally {
       setBanSaving(false);
     }
@@ -237,7 +246,7 @@ export default function AdminPage({ navigation, route }) {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
+      <View style={styles.screen}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.container}>
             {/* --- Barre d'actions --- */}
@@ -245,22 +254,22 @@ export default function AdminPage({ navigation, route }) {
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("SearchClientsPage")}
+                activeOpacity={0.85}
               >
-                <Image
-                  source={require("../assets/icons/search.png")}
-                  style={styles.iconSearch}
-                />
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="search" size={20} color="#4338ca" />
+                </View>
                 <Text style={styles.buttonText}>Recherche multi-critères</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("ArticlesPage")}
+                activeOpacity={0.85}
               >
-                <Image
-                  source={require("../assets/icons/list.png")}
-                  style={styles.iconSearch}
-                />
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="inventory-2" size={20} color="#4338ca" />
+                </View>
                 <Text style={styles.buttonText}>
                   Gérer Produits, Marques et Modèles
                 </Text>
@@ -269,22 +278,22 @@ export default function AdminPage({ navigation, route }) {
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("AddProductPage")}
+                activeOpacity={0.85}
               >
-                <Image
-                  source={require("../assets/icons/add_product.png")}
-                  style={styles.iconSearch}
-                />
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="add-box" size={20} color="#4338ca" />
+                </View>
                 <Text style={styles.buttonText}>Ajouter un produit</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => navigation.navigate("RepairPrices")}
+                activeOpacity={0.85}
               >
-                <Image
-                  source={require("../assets/icons/tools.png")}
-                  style={styles.iconSearch}
-                />
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="build" size={20} color="#4338ca" />
+                </View>
                 <Text style={styles.buttonText}>Barème réparations</Text>
               </TouchableOpacity>
             </View>
@@ -294,41 +303,57 @@ export default function AdminPage({ navigation, route }) {
               Recherche dans la liste complète des clients
             </Text>
             <View style={styles.searchContainer}>
+              <MaterialIcons
+                name="search"
+                size={20}
+                color="#94a3b8"
+                style={styles.searchIcon}
+              />
               <TextInput
                 style={styles.searchInput}
                 placeholder="RECHERCHER PAR NOM OU TÉLÉPHONE"
-                placeholderTextColor="#575757"
+                placeholderTextColor="#94a3b8"
                 value={searchText}
                 autoCapitalize="characters"
                 onChangeText={(text) => setSearchText(text.toUpperCase())}
-              />
-              <MaterialIcons
-                name="search"
-                size={24}
-                color="#888787"
-                style={styles.searchIcon}
               />
             </View>
 
             <View style={styles.titleRow}>
               <Text style={styles.sectionTitle}>Liste complète des clients</Text>
+            </View>
 
+            <View style={styles.filterRow}>
               <TouchableOpacity
-              style={styles.smallActionButton}
+                style={styles.smallActionButton}
                 onPress={() => navigation.navigate("ArchivesInterventionsPage")}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-              <MaterialIcons name="receipt-long" size={18} color="#fff" />
-                <Text style={styles.smallActionText}>Archives (Non réparables)</Text>
+                <MaterialIcons name="receipt-long" size={16} color="#334155" />
+                <Text style={styles.smallActionText}>
+                  Archives (Non réparables)
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.smallActionButton}
+                style={[
+                  styles.smallActionButton,
+                  showOrdersOnly && styles.smallActionButtonActive,
+                ]}
                 onPress={() => setShowOrdersOnly((v) => !v)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <MaterialIcons name="receipt-long" size={18} color="#fff" />
-                <Text style={styles.smallActionText}>
+                <MaterialIcons
+                  name="shopping-cart"
+                  size={16}
+                  color={showOrdersOnly ? "#fff" : "#334155"}
+                />
+                <Text
+                  style={[
+                    styles.smallActionText,
+                    showOrdersOnly && styles.smallActionTextActive,
+                  ]}
+                >
                   {showOrdersOnly
                     ? "Voir tous les clients"
                     : "Voir fiches avec commandes"}
@@ -341,8 +366,8 @@ export default function AdminPage({ navigation, route }) {
                 ref={listRef}
                 data={currentData}
                 keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ paddingBottom: 80 }}
-                renderItem={({ item, index }) => {
+                contentContainerStyle={{ paddingBottom: 4 }}
+                renderItem={({ item }) => {
                   const hasAnyOrder =
                     Array.isArray(item?.orders) && item.orders.length > 0;
 
@@ -357,45 +382,42 @@ export default function AdminPage({ navigation, route }) {
                           });
                         }
                       }}
-                      style={[
-                        styles.clientItem,
-                        { backgroundColor: index % 2 === 0 ? "#d3d3d3" : "#b1b1b1" },
-                      ]}
+                      style={styles.clientItem}
+                      activeOpacity={0.9}
                     >
-                      {/* Badge Commandes */}
-                      {hasAnyOrder && (
-                        <>
-                          <View style={styles.orderBadge}>
-                            <Text style={styles.orderBadgeText}>
-                              {item.orders.length > 1
-                                ? `${item.orders.length} commandes`
-                                : "Commande"}
-                            </Text>
-                          </View>
-                          <MaterialIcons
-                            name="shopping-cart"
-                            size={20}
-                            color="#1f4d1f"
-                            style={styles.orderIcon}
-                          />
-                        </>
-                      )}
-
-                      {/* Badge BANNI */}
-                      {item?.banned === true && (
-                        <View style={styles.banBadge}>
-                          <Text style={styles.banBadgeText}>BANNI</Text>
+                      {(hasAnyOrder || item?.banned === true) && (
+                        <View style={styles.badgeRow}>
+                          {hasAnyOrder && (
+                            <View style={styles.orderBadge}>
+                              <MaterialIcons
+                                name="shopping-cart"
+                                size={12}
+                                color="#8a7b5a"
+                              />
+                              <Text style={styles.orderBadgeText}>
+                                {item.orders.length > 1
+                                  ? `${item.orders.length} commandes`
+                                  : "Commande"}
+                              </Text>
+                            </View>
+                          )}
+                          {item?.banned === true && (
+                            <View style={styles.banBadge}>
+                              <Text style={styles.banBadgeText}>BANNI</Text>
+                            </View>
+                          )}
                         </View>
                       )}
 
-                      <Text style={styles.clientText}>
-                        Fiche client N°: {item?.ficheNumber || "Non disponible"}
+                      <View style={styles.ficheBadge}>
+                        <Text style={styles.ficheBadgeText}>
+                          N° {item?.ficheNumber || "—"}
+                        </Text>
+                      </View>
+                      <Text style={styles.clientName}>
+                        {item?.name || "Non disponible"}
                       </Text>
-                      <Text style={styles.clientText}>
-                        Nom : {item?.name || "Non disponible"}
-                      </Text>
-                      <Text style={styles.clientText}>
-                        Téléphone :{" "}
+                      <Text style={styles.clientPhone}>
                         {item?.phone
                           ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
                           : "Non disponible"}
@@ -406,29 +428,40 @@ export default function AdminPage({ navigation, route }) {
                         <TouchableOpacity
                           style={[
                             styles.banBtn,
-                            item?.banned ? { backgroundColor: "#7f1d1d" } : { backgroundColor: "#0f766e" },
+                            item?.banned
+                              ? { backgroundColor: "#fee2e2" }
+                              : { backgroundColor: "#dcfce7" },
                           ]}
                           onPress={() => openBanModal(item)}
                           activeOpacity={0.85}
                         >
-                          <Text style={styles.banBtnText}>
+                          <Text
+                            style={[
+                              styles.banBtnText,
+                              item?.banned
+                                ? { color: "#b91c1c" }
+                                : { color: "#15803d" },
+                            ]}
+                          >
                             {item?.banned ? "Débannir" : "Bannir"}
                           </Text>
                         </TouchableOpacity>
 
-<Pressable
-  onPress={() =>
-    navigation.navigate("ClientInterventionsPage", { clientId: item.id })
-  }
-  android_ripple={{ color: "rgba(255,255,255,0.25)" }}
-  style={({ pressed }) => [
-    styles.primaryBtn,
-    pressed && styles.primaryBtnPressed,
-  ]}
->
-  <Text style={styles.primaryBtnText}>Voir</Text>
-</Pressable>
-
+                        <Pressable
+                          onPress={() =>
+                            navigation.navigate("ClientInterventionsPage", {
+                              clientId: item.id,
+                            })
+                          }
+                          android_ripple={{ color: "rgba(255,255,255,0.25)" }}
+                          style={({ pressed }) => [
+                            styles.primaryBtn,
+                            { flex: 1 },
+                            pressed && styles.primaryBtnPressed,
+                          ]}
+                        >
+                          <Text style={styles.primaryBtnText}>Voir</Text>
+                        </Pressable>
                       </View>
                     </TouchableOpacity>
                   );
@@ -442,25 +475,32 @@ export default function AdminPage({ navigation, route }) {
             <TouchableOpacity
               onPress={() => navigation.navigate("ImageBackup")}
               style={styles.backupButton}
+              activeOpacity={0.85}
             >
-              <Text style={{ color: "#888787", fontWeight: "bold" }}>
-                SAUVEGARDER LES IMAGES
+              <MaterialIcons name="cloud-upload" size={18} color="#334155" />
+              <Text style={styles.backupButtonText}>
+                Sauvegarder les images
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.webSearchButton}
               onPress={() => navigation.navigate("ProductViewer")}
+              activeOpacity={0.85}
             >
-              <Text style={{ color: "#fff", textAlign: "center" }}>
-                🔍 Recherche de produit sur le web
+              <MaterialIcons name="travel-explore" size={18} color="#fff" />
+              <Text style={styles.webSearchButtonText}>
+                Recherche de produit sur le web
               </Text>
             </TouchableOpacity>
 
             {/* Pagination */}
             <View style={styles.paginationContainer}>
-              <TouchableOpacity onPress={resetToFirstPage} style={styles.chevronButton}>
-                <MaterialIcons name="first-page" size={40} color="#08d14b" />
+              <TouchableOpacity
+                onPress={resetToFirstPage}
+                style={styles.chevronButton}
+              >
+                <MaterialIcons name="first-page" size={20} color="#334155" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -468,12 +508,10 @@ export default function AdminPage({ navigation, route }) {
                 disabled={currentPage === 1}
                 style={styles.chevronButton}
               >
-                <Image
-                  source={require("../assets/icons/chevrong.png")}
-                  style={[
-                    styles.chevronIcon,
-                    { tintColor: currentPage === 1 ? "gray" : "white" },
-                  ]}
+                <MaterialIcons
+                  name="chevron-left"
+                  size={20}
+                  color={currentPage === 1 ? "#cbd5e1" : "#334155"}
                 />
               </TouchableOpacity>
 
@@ -486,12 +524,10 @@ export default function AdminPage({ navigation, route }) {
                 disabled={currentPage === totalPages}
                 style={styles.chevronButton}
               >
-                <Image
-                  source={require("../assets/icons/chevrond.png")}
-                  style={[
-                    styles.chevronIcon,
-                    { tintColor: currentPage === totalPages ? "gray" : "white" },
-                  ]}
+                <MaterialIcons
+                  name="chevron-right"
+                  size={20}
+                  color={currentPage === totalPages ? "#cbd5e1" : "#334155"}
                 />
               </TouchableOpacity>
             </View>
@@ -512,6 +548,10 @@ export default function AdminPage({ navigation, route }) {
           </TouchableWithoutFeedback>
 
           <View style={styles.modalCard}>
+            <View style={styles.modalCardHandle} />
+            <View style={styles.modalIconCircleBlue}>
+              <MaterialIcons name="receipt-long" size={26} color="#2563EB" />
+            </View>
             <Text style={styles.modalTitle}>
               Commandes — {ordersClient?.name || "Client"}
             </Text>
@@ -525,6 +565,7 @@ export default function AdminPage({ navigation, route }) {
               <Text style={styles.noDataText}>Aucune commande.</Text>
             ) : (
               <FlatList
+                style={{ width: "100%" }}
                 data={ordersForClient}
                 keyExtractor={(o) => String(o.id)}
                 contentContainerStyle={{ paddingBottom: 10 }}
@@ -559,7 +600,9 @@ export default function AdminPage({ navigation, route }) {
                           null;
                         const total =
                           o?.total ??
-                          (unitPrice != null ? Number(unitPrice) * Number(qty) : null);
+                          (unitPrice != null
+                            ? Number(unitPrice) * Number(qty)
+                            : null);
 
                         return (
                           <Text style={styles.orderLine}>
@@ -621,6 +664,19 @@ export default function AdminPage({ navigation, route }) {
           </TouchableWithoutFeedback>
 
           <View style={styles.banModalCard}>
+            <View
+              style={
+                banForm.banned
+                  ? styles.modalIconCircleRed
+                  : styles.modalIconCircleGreen
+              }
+            >
+              <MaterialIcons
+                name={banForm.banned ? "block" : "how-to-reg"}
+                size={26}
+                color={banForm.banned ? "#DC2626" : "#16A34A"}
+              />
+            </View>
             <Text style={styles.modalTitle}>
               {banForm.banned ? "Bannir le client" : "Débannir le client"}
             </Text>
@@ -629,7 +685,9 @@ export default function AdminPage({ navigation, route }) {
               <Text style={styles.banLabel}>Client banni</Text>
               <Switch
                 value={banForm.banned}
-                onValueChange={(v) => setBanForm((prev) => ({ ...prev, banned: v }))}
+                onValueChange={(v) =>
+                  setBanForm((prev) => ({ ...prev, banned: v }))
+                }
               />
             </View>
 
@@ -641,6 +699,7 @@ export default function AdminPage({ navigation, route }) {
                   setBanForm((prev) => ({ ...prev, ban_reason: t }))
                 }
                 placeholder="Raison du bannissement (facultatif)"
+                placeholderTextColor="#9CA3AF"
               />
             )}
 
@@ -649,6 +708,7 @@ export default function AdminPage({ navigation, route }) {
                 style={styles.secondaryBtn}
                 onPress={() => setBanModalVisible(false)}
                 disabled={banSaving}
+                activeOpacity={0.7}
               >
                 <Text style={styles.secondaryBtnText}>Annuler</Text>
               </TouchableOpacity>
@@ -657,6 +717,7 @@ export default function AdminPage({ navigation, route }) {
                 style={[styles.primaryBtn, banSaving && { opacity: 0.6 }]}
                 onPress={saveBan}
                 disabled={banSaving}
+                activeOpacity={0.85}
               >
                 {banSaving ? (
                   <ActivityIndicator color="#fff" />
@@ -667,6 +728,13 @@ export default function AdminPage({ navigation, route }) {
             </View>
           </View>
         </Modal>
+
+        <CustomAlert
+          visible={alertVisible}
+          title={alertTitle}
+          message={alertMessage}
+          onClose={() => setAlertVisible(false)}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -674,213 +742,345 @@ export default function AdminPage({ navigation, route }) {
 
 // -------------------- Styles --------------------
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  screen: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1, padding: 16 },
 
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 15,
+    gap: 8,
+    marginTop: 8,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: "#191f2f",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 5,
-    height: 100,
+    height: 96,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  iconSearch: { width: 24, height: 24, tintColor: "#fff", marginBottom: 8 },
+  actionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#eef2ff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
   buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 12,
+    color: "#334155",
+    fontWeight: "700",
+    fontSize: 11,
     textAlign: "center",
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#242424", marginVertical: 10 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginVertical: 12,
+  },
 
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#888787",
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 15,
-    backgroundColor: "#cacaca",
+    borderColor: "#e2e8f0",
   },
   searchInput: {
-    flex: 1, height: 40, fontSize: 16, color: "#242424", paddingHorizontal: 10,
+    flex: 1,
+    height: 44,
+    fontSize: 14,
+    color: "#0f172a",
+    paddingHorizontal: 10,
   },
-  searchIcon: { marginLeft: 10 },
+  searchIcon: {},
 
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 10,
-    marginBottom: 6,
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
   },
   smallActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#191f2f",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#888787",
+    gap: 6,
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  smallActionText: { color: "#fff", marginLeft: 6, fontSize: 12, fontWeight: "bold" },
+  smallActionButtonActive: {
+    backgroundColor: "#4338ca",
+  },
+  smallActionText: { color: "#334155", fontSize: 12, fontWeight: "700" },
+  smallActionTextActive: { color: "#fff" },
 
   clientItem: {
-    position: "relative",
-    padding: 15,
-    borderColor: "#888787",
-    backgroundColor: "#f0f0f0",
-    marginVertical: 5,
-    borderRadius: 5,
-    borderWidth: 1,
-    elevation: 5,
+    padding: 14,
+    backgroundColor: "#ffffff",
+    marginVertical: 6,
+    borderRadius: 16,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 1,
   },
 
-  // Badges
-  orderBadge: {
-    position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "#d9c7a1",
-    borderColor: "#8a7b5a",
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderTopRightRadius: 5,
-    borderBottomLeftRadius: 5,
-    zIndex: 2,
+  badgeRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 8,
   },
-  orderBadgeText: { fontSize: 11, fontWeight: "bold", color: "#3a3120" },
-  orderIcon: { position: "absolute", top: 8, right: 80, opacity: 0.9 },
+  orderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  orderBadgeText: { fontSize: 11, fontWeight: "700", color: "#92400e" },
 
   banBadge: {
-    position: "absolute",
-    top: -8,
-    left: -8,
     backgroundColor: "#fee2e2",
-    borderColor: "#b91c1c",
-    borderWidth: 1,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderTopLeftRadius: 5,
-    borderBottomRightRadius: 5,
-    zIndex: 2,
-  },
-  banBadgeText: { fontSize: 11, fontWeight: "bold", color: "#7f1d1d" },
-
-  clientText: { fontSize: 16, color: "#242424" },
-  clientActionsRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-
-  banBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  banBtnText: { color: "#fff", fontWeight: "bold" },
-
-  noDataText: { textAlign: "center", color: "#888888", marginTop: 20 },
-
-  backupButton: {
-    backgroundColor: "#24435c",
-    padding: 12,
-    marginVertical: 10,
+    paddingVertical: 3,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#888787",
+  },
+  banBadgeText: { fontSize: 11, fontWeight: "700", color: "#b91c1c" },
+
+  ficheBadge: {
+    backgroundColor: "#eef2ff",
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+  },
+  ficheBadgeText: { color: "#4338ca", fontWeight: "700", fontSize: 11 },
+
+  clientName: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
+  clientPhone: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  clientActionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+
+  banBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     alignItems: "center",
   },
-  webSearchButton: {
-    backgroundColor: "#007bff",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 5,
+  banBtnText: { fontWeight: "700", fontSize: 13 },
+
+  noDataText: { textAlign: "center", color: "#94a3b8", marginTop: 20 },
+
+  backupButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#e2e8f0",
+    paddingVertical: 12,
+    marginVertical: 6,
+    borderRadius: 12,
   },
+  backupButtonText: { color: "#334155", fontWeight: "700", fontSize: 13 },
+  webSearchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#2563eb",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 2,
+  },
+  webSearchButtonText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 10,
-    marginBottom: 40,
+    gap: 16,
+    marginTop: 6,
+    marginBottom: 90,
   },
-  chevronButton: { padding: 5 },
-  chevronIcon: { width: 22, height: 22 },
-  paginationText: { marginHorizontal: 10, color: "#242424", fontSize: 20 },
+  chevronButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  paginationText: { color: "#334155", fontSize: 13, fontWeight: "600" },
 
   // Modales (fond)
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    padding: 16,
+  },
 
   // Modale commandes
   modalCard: {
-    position: "absolute",
-    bottom: 0, left: 0, right: 0,
-    backgroundColor: "#f7f7f7",
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    borderWidth: 1,
-    borderColor: "#cfcfcf",
-    padding: 14,
-    maxHeight: "75%",
+    width: 420,
+    maxWidth: "100%",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 22,
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#242424", marginBottom: 10 },
+  modalCardHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E7EB",
+    marginBottom: 10,
+  },
+  modalIconCircleBlue: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#DBEAFE",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalIconCircleRed: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalIconCircleGreen: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#DCFCE7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+    textAlign: "center",
+  },
   orderRow: {
-    paddingVertical: 10, paddingHorizontal: 10,
-    borderRadius: 8, borderWidth: 1, borderColor: "#d0d0d0",
-    backgroundColor: "#ffffff", marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    marginBottom: 8,
+    width: "100%",
   },
-  orderLine: { fontSize: 14, color: "#333", marginBottom: 2 },
-  orderStatus: { marginTop: 6, fontWeight: "bold" },
-  statusPaid: { color: "#0a6b0a" },
-  statusUnpaid: { color: "#7a1b1b" },
-  modalActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
-  primaryBtn: { backgroundColor: "#191f2f", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
-  primaryBtnText: { color: "#fff", fontWeight: "bold" },
+  orderLine: { fontSize: 14, color: "#374151", marginBottom: 2 },
+  orderStatus: { marginTop: 6, fontWeight: "700" },
+  statusPaid: { color: "#16A34A" },
+  statusUnpaid: { color: "#DC2626" },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 14,
+    width: "100%",
+    gap: 10,
+  },
+  primaryBtn: {
+    flex: 1,
+    backgroundColor: "#4338ca",
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  primaryBtnPressed: { opacity: 0.85 },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   secondaryBtn: {
-    backgroundColor: "#e6e6e6",
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 8, borderWidth: 1, borderColor: "#bdbdbd",
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
   },
-  secondaryBtnText: { color: "#333", fontWeight: "bold" },
+  secondaryBtnText: { color: "#374151", fontWeight: "700", fontSize: 15 },
 
   // Modale Ban/Déban
   banModalCard: {
-    position: "absolute",
-    top: "20%",
-    left: 16,
-    right: 16,
-    backgroundColor: "#f7f7f7",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#cfcfcf",
-    padding: 14,
+    width: 380,
+    maxWidth: "100%",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   banRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderColor: "#e5e7eb",
+    borderColor: "#E5E7EB",
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#F9FAFB",
+    width: "100%",
   },
   banLabel: { fontSize: 16, fontWeight: "600", color: "#111827" },
 
   input: {
+    width: "100%",
     borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
+    borderColor: "#E5E7EB",
+    padding: 12,
     marginBottom: 12,
-    borderRadius: 6,
-    backgroundColor: "#fff",
+    borderRadius: 14,
+    backgroundColor: "#F9FAFB",
+    color: "#111827",
   },
 });

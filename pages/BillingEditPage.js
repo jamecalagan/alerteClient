@@ -92,7 +92,7 @@ const fetchInvoice = async () => {
                     .from("clients")
                     .select("id")
                     .eq("name", clientname)
-                    .single();
+                    .maybeSingle();
 
                 if (clientData?.id) {
                     const { error: orderUpdateError } = await supabase
@@ -206,7 +206,7 @@ const fetchInvoice = async () => {
           <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
           <p style="margin-top: 6px;">
             Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
-            En cas de litige, le tribunal de Bobigny est seul compétent. TVA non applicable, art. 293B du CGI.
+            En cas de litige, le tribunal de Bobigny est seul compétent.
           </p>
         </div>
       </div>

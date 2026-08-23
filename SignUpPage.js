@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Alert, Text, TouchableOpacity, ImageBackground, Image } from 'react-native';
+import { View, TextInput, StyleSheet, Text, TouchableOpacity, ImageBackground, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons'; // Import des icônes
 import { supabase } from './supabaseClient';
+import CustomAlert from './components/CustomAlert';
 
 
 export default function SignUpPage({ navigation }) {
@@ -9,10 +10,20 @@ export default function SignUpPage({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false); // Contrôle de la visibilité du mot de passe
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [signUpSucceeded, setSignUpSucceeded] = useState(false);
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const handleSignUp = async () => {
     if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez entrer votre email et mot de passe.');
+      showAlert('Erreur', 'Veuillez entrer votre email et mot de passe.');
       return;
     }
 
@@ -23,10 +34,10 @@ export default function SignUpPage({ navigation }) {
       });
 
       if (error) {
-        Alert.alert('Erreur', error.message);
+        showAlert('Erreur', error.message);
       } else {
-        Alert.alert('Succès', 'Inscription réussie ! Un email de confirmation vous a été envoyé.');
-        navigation.navigate('Login'); // Rediriger vers la page de connexion après inscription
+        setSignUpSucceeded(true);
+        showAlert('Succès', 'Inscription réussie ! Un email de confirmation vous a été envoyé.');
       }
     } catch (error) {
       console.error('Erreur lors de l\'inscription :', error);
@@ -86,6 +97,18 @@ export default function SignUpPage({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => {
+          setAlertVisible(false);
+          if (signUpSucceeded) {
+            navigation.navigate('Login');
+          }
+        }}
+      />
     </ImageBackground>
   );
 }

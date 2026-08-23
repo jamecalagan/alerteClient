@@ -7,7 +7,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    Alert,
     Linking,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -16,11 +15,36 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Picker } from "@react-native-picker/picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ProductFormScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const editingFlyer = route.params?.product || null;
+    const [confirmDialog, setConfirmDialog] = useState({
+        visible: false,
+        title: "",
+        message: "",
+        onConfirm: null,
+    });
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const openConfirm = (title, message, onConfirm) => {
+        setConfirmDialog({ visible: true, title, message, onConfirm });
+    };
+
+    const closeConfirm = () => {
+        setConfirmDialog((prev) => ({ ...prev, visible: false }));
+    };
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     const [form, setForm] = useState({
         title: "",
@@ -55,7 +79,7 @@ export default function ProductFormScreen() {
         const permission =
             await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert(
+            showAlert(
                 "Permission refusée",
                 "Impossible d’accéder à la galerie."
             );
@@ -81,7 +105,7 @@ export default function ProductFormScreen() {
         const permission =
             await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert(
+            showAlert(
                 "Permission refusée",
                 "Impossible d’accéder à la galerie."
             );
@@ -106,7 +130,7 @@ export default function ProductFormScreen() {
         console.log("🔍 form.id au moment du submit :", form.id);
 
         if (!form.title || !form.price || !form.imageUrl) {
-            Alert.alert(
+            showAlert(
                 "Champs manquants",
                 "Le titre, le prix et l'image sont requis."
             );
@@ -128,7 +152,7 @@ export default function ProductFormScreen() {
 
             if (error) {
                 console.error("❌ Erreur UPDATE :", error);
-                Alert.alert("Erreur UPDATE", error.message);
+                showAlert("Erreur UPDATE", error.message);
                 return;
             }
 
@@ -154,7 +178,7 @@ export default function ProductFormScreen() {
 
         if (error) {
             console.error("❌ Erreur INSERT :", error);
-            Alert.alert("Erreur INSERT", error.message);
+            showAlert("Erreur INSERT", error.message);
             return;
         }
 
@@ -164,27 +188,20 @@ export default function ProductFormScreen() {
     const handleDelete = async () => {
         if (!form.id) return;
 
-        Alert.alert("Supprimer l'affiche", "Confirmer la suppression ?", [
-            { text: "Annuler", style: "cancel" },
-            {
-                text: "Supprimer",
-                style: "destructive",
-                onPress: async () => {
-                    const { error } = await supabase
-                        .from("flyers")
-                        .delete()
-                        .eq("id", form.id);
-                    if (error) {
-                        Alert.alert(
-                            "Erreur",
-                            "Impossible de supprimer l'affiche."
-                        );
-                    } else {
-                        navigation.goBack();
-                    }
-                },
-            },
-        ]);
+        openConfirm("Supprimer l'affiche", "Confirmer la suppression ?", async () => {
+            const { error } = await supabase
+                .from("flyers")
+                .delete()
+                .eq("id", form.id);
+            if (error) {
+                showAlert(
+                    "Erreur",
+                    "Impossible de supprimer l'affiche."
+                );
+            } else {
+                navigation.goBack();
+            }
+        });
     };
 
     return (
@@ -272,14 +289,9 @@ export default function ProductFormScreen() {
             />
             <TouchableOpacity
               onPress={() =>
-                Alert.alert("Supprimer l’image", "Confirmer la suppression ?", [
-                  { text: "Annuler", style: "cancel" },
-                  {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: () => handleChange(key, ""),
-                  },
-                ])
+                openConfirm("Supprimer l’image", "Confirmer la suppression ?", () =>
+                  handleChange(key, "")
+                )
               }
               style={styles.removeCross}
             >
@@ -313,18 +325,10 @@ export default function ProductFormScreen() {
                         />
                         <TouchableOpacity
                             onPress={() =>
-                                Alert.alert(
+                                openConfirm(
                                     "Supprimer l’image",
                                     "Souhaitez-vous vraiment retirer cette image ?",
-                                    [
-                                        { text: "Annuler", style: "cancel" },
-                                        {
-                                            text: "Supprimer",
-                                            style: "destructive",
-                                            onPress: () =>
-                                                handleChange("imageUrl", ""),
-                                        },
-                                    ]
+                                    () => handleChange("imageUrl", "")
                                 )
                             }
                             style={{
@@ -374,6 +378,26 @@ export default function ProductFormScreen() {
                     </TouchableOpacity>
                 )}
             </View>
+
+            <AlertBox
+                visible={confirmDialog.visible}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={closeConfirm}
+                onConfirm={() => {
+                    closeConfirm();
+                    if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </ScrollView>
     );
 }
@@ -445,11 +469,6 @@ const styles = StyleSheet.create({
         padding: 14,
         borderRadius: 8,
         alignItems: "center",
-    },
-    extraRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginVertical: 10,
     },
     extraImageBox: {
         width: 70,

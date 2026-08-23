@@ -51,7 +51,7 @@ const parseOrderPhotos = (value) => {
       if (Array.isArray(parsed)) {
         return parsed.filter(Boolean);
       }
-    } catch (_) {}
+    } catch (_) { /* pas du JSON valide, ignoré */ }
 
     if (value.includes(",")) {
       return value
@@ -319,7 +319,11 @@ const enrichedOrders = (ordersData || [])
           <TouchableOpacity
             style={styles.modalBg}
             onPress={() => setSelectedImage(null)}
+            activeOpacity={1}
           >
+            <TouchableOpacity style={styles.imageCloseBtn} onPress={() => setSelectedImage(null)}>
+              <Text style={styles.imageCloseBtnText}>✕</Text>
+            </TouchableOpacity>
             <Image source={{ uri: selectedImage }} style={styles.full} />
           </TouchableOpacity>
         </Modal>
@@ -387,11 +391,24 @@ const styles = StyleSheet.create({
   },
   modalBg: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
     justifyContent: "center",
     alignItems: "center",
   },
-  full: { width: "90%", height: "90%", resizeMode: "contain" },
+  full: { width: "90%", height: "90%", resizeMode: "contain", borderRadius: 16 },
+  imageCloseBtn: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  imageCloseBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   orderSectionTitle: {
   fontSize: 18,
   fontWeight: "700",

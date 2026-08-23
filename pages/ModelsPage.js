@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AlertBox from '../components/AlertBox';
 
 export default function ModelsPage({ route }) {
     const { brandId } = route.params;
     const [models, setModels] = useState([]);
+    const [modelToDelete, setModelToDelete] = useState(null);
     const numColumns = 3; // Nombre de colonnes
 
     useEffect(() => {
@@ -21,26 +23,19 @@ export default function ModelsPage({ route }) {
         }
     };
 
-    const handleDeleteModel = async (modelId) => {
-        Alert.alert(
-            'Confirmation',
-            'Êtes-vous sûr de vouloir supprimer ce modèle ?',
-            [
-                { text: 'Annuler', style: 'cancel' },
-                { 
-                    text: 'Supprimer', 
-                    style: 'destructive', 
-                    onPress: async () => {
-                        const { error } = await supabase.from('modele').delete().eq('id', modelId);
-                        if (error) {
-                            console.error('Erreur lors de la suppression du modèle:', error.message);
-                        } else {
-                            setModels(models.filter(model => model.id !== modelId));
-                        }
-                    } 
-                },
-            ]
-        );
+    const handleDeleteModel = (modelId) => {
+        setModelToDelete(modelId);
+    };
+
+    const confirmDeleteModel = async () => {
+        const modelId = modelToDelete;
+        setModelToDelete(null);
+        const { error } = await supabase.from('modele').delete().eq('id', modelId);
+        if (error) {
+            console.error('Erreur lors de la suppression du modèle:', error.message);
+        } else {
+            setModels(models.filter(model => model.id !== modelId));
+        }
     };
 
     const sortedModels = [...models].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
@@ -70,6 +65,16 @@ export default function ModelsPage({ route }) {
                     </View>
                 )}
                 contentContainerStyle={styles.listContainer}
+            />
+
+            <AlertBox
+                visible={!!modelToDelete}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir supprimer ce modèle ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setModelToDelete(null)}
+                onConfirm={confirmDeleteModel}
             />
         </View>
     );

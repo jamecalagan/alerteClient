@@ -9,13 +9,13 @@ import {
   Image,
   Modal,
   Dimensions,
-  Alert,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import * as MailComposer from "expo-mail-composer";
 import * as FileSystem from 'expo-file-system/legacy';
+import CustomAlert from "../components/CustomAlert";
 
 import * as Sharing from "expo-sharing";
 
@@ -43,6 +43,23 @@ export default function QuoteRequestDetailsPage() {
 
   // Logo fallback si le .webp ne s'affiche pas
   const [logoBroken, setLogoBroken] = useState(false);
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
+
+  // Choix "avec/sans miniatures"
+  const [pickModeState, setPickModeState] = useState({
+    visible: false,
+    title: "",
+    onChoice: null,
+  });
 
   // Visionneuse photo
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -114,7 +131,7 @@ export default function QuoteRequestDetailsPage() {
 
   const editExistingQuote = () => {
     if (!req?.quote_id) {
-      Alert.alert("Aucun devis lié", "Cette demande n’est pas encore convertie.");
+      showAlert("Aucun devis lié", "Cette demande n’est pas encore convertie.");
       return;
     }
     navigation.navigate("QuoteEditPage", { id: req.quote_id });
@@ -225,7 +242,7 @@ export default function QuoteRequestDetailsPage() {
     if (!req) return null;
     const html = buildPdfHtml(req, includePhotos);
     const { uri } = await Print.printToFileAsync({ html });
-    const safeName = (req.client_name || "Client").replace(/[^\w\-]+/g, "_");
+    const safeName = (req.client_name || "Client").replace(/[^\w-]+/g, "_");
     const fileName = `Demande_Devis_A5_${safeName}_${req.id}.pdf`;
     const dest = `${FileSystem.documentDirectory}${fileName}`;
     try { await FileSystem.copyAsync({ from: uri, to: dest }); return dest; }
@@ -233,11 +250,7 @@ export default function QuoteRequestDetailsPage() {
   };
 
   const pickMode = (title, onChoice) => {
-    Alert.alert(title, "Inclure des miniatures ?", [
-      { text: "Sans photo", onPress: () => onChoice(false) },
-      { text: "Avec miniatures", onPress: () => onChoice(true) },
-      { text: "Annuler", style: "cancel" },
-    ]);
+    setPickModeState({ visible: true, title, onChoice });
   };
 
   const emailPdfPickMode = () => pickMode("PDF A5 – Envoi par e-mail", emailPdf);
@@ -261,11 +274,11 @@ export default function QuoteRequestDetailsPage() {
       } else if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, { mimeType: "application/pdf", dialogTitle: subject });
       } else {
-        Alert.alert("Indisponible", "Aucun client mail ou partage disponible sur cet appareil.");
+        showAlert("Indisponible", "Aucun client mail ou partage disponible sur cet appareil.");
       }
     } catch (e) {
       console.log("emailPdf error:", e);
-      Alert.alert("Erreur", "Impossible de préparer l’e-mail.");
+      showAlert("Erreur", "Impossible de préparer l’e-mail.");
     }
   };
 
@@ -275,7 +288,7 @@ export default function QuoteRequestDetailsPage() {
       await Print.printAsync({ html });
     } catch (e) {
       console.log("printPdf error:", e);
-      Alert.alert("Erreur", "Impression impossible.");
+      showAlert("Erreur", "Impression impossible.");
     }
   };
 
@@ -286,11 +299,11 @@ export default function QuoteRequestDetailsPage() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, { mimeType: "application/pdf", dialogTitle: "Partager / Enregistrer" });
       } else {
-        Alert.alert("Partage indisponible", `PDF enregistré : ${fileUri}`);
+        showAlert("Partage indisponible", `PDF enregistré : ${fileUri}`);
       }
     } catch (e) {
       console.log("share error:", e);
-      Alert.alert("Erreur", "Partage impossible.");
+      showAlert("Erreur", "Partage impossible.");
     }
   };
 
@@ -471,6 +484,63 @@ export default function QuoteRequestDetailsPage() {
           )}
         </View>
       </Modal>
+
+      <Modal
+        visible={pickModeState.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickModeState((prev) => ({ ...prev, visible: false }))}
+      >
+        <TouchableOpacity
+          style={styles.pickModeOverlay}
+          activeOpacity={1}
+          onPress={() => setPickModeState((prev) => ({ ...prev, visible: false }))}
+        >
+          <TouchableOpacity style={styles.pickModeCard} activeOpacity={1}>
+            <Text style={styles.pickModeTitle}>{pickModeState.title}</Text>
+            <Text style={styles.pickModeSubtitle}>Inclure des miniatures ?</Text>
+
+            <TouchableOpacity
+              style={styles.pickModeOption}
+              activeOpacity={0.75}
+              onPress={() => {
+                const onChoice = pickModeState.onChoice;
+                setPickModeState((prev) => ({ ...prev, visible: false }));
+                if (onChoice) onChoice(false);
+              }}
+            >
+              <Text style={styles.pickModeOptionText}>Sans photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.pickModeOption}
+              activeOpacity={0.75}
+              onPress={() => {
+                const onChoice = pickModeState.onChoice;
+                setPickModeState((prev) => ({ ...prev, visible: false }));
+                if (onChoice) onChoice(true);
+              }}
+            >
+              <Text style={styles.pickModeOptionText}>Avec miniatures</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.pickModeCancel}
+              activeOpacity={0.75}
+              onPress={() => setPickModeState((prev) => ({ ...prev, visible: false }))}
+            >
+              <Text style={styles.pickModeCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -503,6 +573,62 @@ function StatusText({ status }) {
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: "#fff" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  pickModeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  pickModeCard: {
+    width: 340,
+    maxWidth: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  pickModeTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  pickModeSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  pickModeOption: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  pickModeOptionText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  pickModeCancel: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  pickModeCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#dc2626",
+  },
 
   header: { marginBottom: 10 },
   logoBar: {
@@ -596,10 +722,20 @@ const styles = StyleSheet.create({
   },
   footerText: { color: "#555", fontSize: 11 },
 
-  viewer: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", alignItems: "center", justifyContent: "center" },
-  viewerImg: { width: W, height: "80%" },
-  viewerClose: { position: "absolute", top: 40, right: 20, padding: 6 },
-  viewerCloseText: { color: "#fff", fontSize: 24, fontWeight: "900" },
-  navBtn: { position: "absolute", top: "50%", paddingHorizontal: 14, paddingVertical: 8 },
-  navBtnText: { color: "#fff", fontSize: 40, lineHeight: 40, fontWeight: "800" },
+  viewer: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.95)", alignItems: "center", justifyContent: "center" },
+  viewerImg: { width: W, height: "80%", borderRadius: 16 },
+  viewerClose: {
+    position: "absolute", top: 48, right: 20,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center", justifyContent: "center",
+  },
+  viewerCloseText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  navBtn: {
+    position: "absolute", top: "50%", marginTop: -22,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center", justifyContent: "center",
+  },
+  navBtnText: { color: "#fff", fontSize: 26, lineHeight: 28, fontWeight: "700" },
 });

@@ -1,11 +1,22 @@
-import React from "react";
-import { View, Button, StyleSheet, Alert } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Button, TouchableOpacity, Modal, Pressable, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ProductFlyerScreen({ route }) {
   const { product } = route.params;
+  const [formatChoiceVisible, setFormatChoiceVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const saveOrUpdateFlyer = async () => {
 	const { contact, ...cleanedProduct } = product;
@@ -20,10 +31,10 @@ export default function ProductFlyerScreen({ route }) {
 		.eq("id", id);
   
 	  if (error) {
-		Alert.alert("❌ Erreur", "Impossible de modifier l'affiche.");
+		showAlert("❌ Erreur", "Impossible de modifier l'affiche.");
 		console.error(error);
 	  } else {
-		Alert.alert("✅ Modifié", "Affiche mise à jour avec succès.");
+		showAlert("✅ Modifié", "Affiche mise à jour avec succès.");
 	  }
   
 	} else {
@@ -33,10 +44,10 @@ export default function ProductFlyerScreen({ route }) {
 		.insert([cleanedProduct]);
   
 	  if (error) {
-		Alert.alert("❌ Erreur", "Impossible de sauvegarder l'affiche.");
+		showAlert("❌ Erreur", "Impossible de sauvegarder l'affiche.");
 		console.error(error);
 	  } else {
-		Alert.alert("✅ Créé", "Affiche enregistrée avec succès.");
+		showAlert("✅ Créé", "Affiche enregistrée avec succès.");
 	  }
 	}
   };
@@ -212,23 +223,13 @@ body {
 
 
   const handlePrint = () => {
-    Alert.alert("Choisir le format", "Quel format veux-tu imprimer ?", [
-      {
-        text: "🖨️ A5 (compact)",
-        onPress: () => {
-          const html = getHtmlContent(product, "A5");
-          Print.printAsync({ html });
-        },
-      },
-      {
-        text: "🖨️ A4 (grande affiche)",
-        onPress: () => {
-          const html = getHtmlContent(product, "A4");
-          Print.printAsync({ html });
-        },
-      },
-      { text: "Annuler", style: "cancel" },
-    ]);
+    setFormatChoiceVisible(true);
+  };
+
+  const printWithFormat = (format) => {
+    setFormatChoiceVisible(false);
+    const html = getHtmlContent(product, format);
+    Print.printAsync({ html });
   };
 
   return (
@@ -240,6 +241,54 @@ body {
       />
       <Button title="🖨️ Imprimer l'affiche" onPress={handlePrint} />
 	  <Button title="💾 Sauvegarder dans Supabase" onPress={saveOrUpdateFlyer} />
+
+      <Modal
+        visible={formatChoiceVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFormatChoiceVisible(false)}
+      >
+        <Pressable
+          style={styles.formatOverlay}
+          onPress={() => setFormatChoiceVisible(false)}
+        >
+          <Pressable style={styles.formatCard} onPress={() => {}}>
+            <Text style={styles.formatTitle}>Choisir le format</Text>
+            <Text style={styles.formatSubtitle}>Quel format veux-tu imprimer ?</Text>
+
+            <TouchableOpacity
+              style={styles.formatOption}
+              activeOpacity={0.75}
+              onPress={() => printWithFormat("A5")}
+            >
+              <Text style={styles.formatOptionText}>🖨️ A5 (compact)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.formatOption}
+              activeOpacity={0.75}
+              onPress={() => printWithFormat("A4")}
+            >
+              <Text style={styles.formatOptionText}>🖨️ A4 (grande affiche)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.formatCancel}
+              activeOpacity={0.75}
+              onPress={() => setFormatChoiceVisible(false)}
+            >
+              <Text style={styles.formatCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -252,5 +301,60 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 10,
   },
-  
+
+  formatOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  formatCard: {
+    width: 340,
+    maxWidth: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  formatTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  formatSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  formatOption: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  formatOptionText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  formatCancel: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  formatCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#dc2626",
+  },
 });

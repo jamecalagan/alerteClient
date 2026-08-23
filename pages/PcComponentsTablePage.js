@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import CustomAlert from "../components/CustomAlert";
 
 // ----------------------------
 //  Templates de composants
@@ -150,6 +150,15 @@ export default function PcComponentsTablePage({ navigation }) {
     }))
   );
   const [selectedIds, setSelectedIds] = useState([]);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const handleChangeProfile = (newProfile) => {
     if (newProfile === profile) return;
@@ -219,7 +228,7 @@ export default function PcComponentsTablePage({ navigation }) {
 
   const handleCopyToClipboard = async () => {
     if (!selectionText.trim()) {
-      Alert.alert(
+      showAlert(
         "Aucune sélection",
         "Coche au moins un composant et remplis les champs avant de copier."
       );
@@ -228,12 +237,12 @@ export default function PcComponentsTablePage({ navigation }) {
 
     try {
       await Clipboard.setStringAsync(selectionText);
-      Alert.alert(
+      showAlert(
         "Texte copié",
         "La liste détaillée est copiée.\nTu peux la coller dans le champ prestations / produits de ton devis."
       );
     } catch (e) {
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Impossible de copier automatiquement. Tu peux sélectionner le texte dans la zone en bas et le copier manuellement."
       );
@@ -412,6 +421,13 @@ export default function PcComponentsTablePage({ navigation }) {
           ton champ prestations / produits.
         </Text>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -3,7 +3,6 @@ import SmartImage from "../components/SmartImage";
 import {
   View,
   Text,
-  Alert,
   FlatList,
   TouchableOpacity,
   Image,
@@ -18,6 +17,8 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
 import BottomNavigation from "../components/BottomNavigation";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 // Helper pour obtenir une URI exploitable par <Image>
 const stripQuotes = (s) =>
@@ -94,7 +95,7 @@ const cleanRef = (raw) => {
       try {
         const obj = JSON.parse(t);
         return cleanRef(obj);
-      } catch {}
+      } catch { /* pas du JSON valide, ignoré */ }
     }
   }
   if (typeof raw === "object") {
@@ -165,7 +166,7 @@ const toSignatureUri = (s) => {
  * -> charge l'intervention + client
  * -> envoie la signature vers PrintPage
  */
-const reprintIntervention = async (interventionId, navigation) => {
+const reprintIntervention = async (interventionId, navigation, onError) => {
   try {
     const { data, error } = await supabase
       .from("interventions")
@@ -210,8 +211,9 @@ const reprintIntervention = async (interventionId, navigation) => {
       description: data.description || "",
     };
 
-    // On privilégie la signature moderne (URL), sinon ancien champ
-    const dbSignature = data.signatureIntervention || data.signature || null;
+    // Signature de restitution (colonne dédiée) en priorité ; à défaut, anciennes
+    // fiches restituées avant la séparation dépôt/restitution (signatureIntervention)
+    const dbSignature = data.signature || data.signatureIntervention || null;
     const sigForRoute = toSignatureUri(dbSignature);
 
     console.log(
@@ -229,10 +231,9 @@ const reprintIntervention = async (interventionId, navigation) => {
     });
   } catch (e) {
     console.log("Réimpression — erreur:", e);
-    Alert.alert(
-      "Erreur",
-      e?.message || "Impossible de préparer la réimpression."
-    );
+    if (onError) {
+      onError(e?.message || "Impossible de préparer la réimpression.");
+    }
   }
 };
 
@@ -247,6 +248,16 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
   const [expandedCards, setExpandedCards] = useState({});
+  const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   // --- HELPERS NORMALISATION ---
   const stripEndBackslashes = (s) =>
@@ -514,114 +525,115 @@ export default function RecoveredClientsPage({ navigation, route }) {
     setSelectedImage(labelPhotoUri);
   };
 
-  const deleteIntervention = async (id) => {
-    Alert.alert(
-      "Confirmation",
-      "Es-tu sûr de vouloir supprimer cette intervention ?",
-      [
-        {
-          text: "Annuler",
-          style: "cancel",
-        },
-        {
-          text: "Supprimer",
-          onPress: async () => {
-            try {
-              const { error: imageError } = await supabase
-                .from("intervention_images")
-                .delete()
-                .eq("intervention_id", id);
+  const deleteIntervention = (id) => {
+    setInterventionIdToDelete(id);
+  };
 
-              const { error } = await supabase
-                .from("interventions")
-                .delete()
-                .eq("id", id);
+  const confirmDeleteIntervention = async () => {
+    const id = interventionIdToDelete;
+    setInterventionIdToDelete(null);
+    try {
+      const { error: imageError } = await supabase
+        .from("intervention_images")
+        .delete()
+        .eq("intervention_id", id);
 
-              if (error || imageError) {
-                console.error("Erreur suppression :", error || imageError);
-              } else {
-                setRecoveredClients((prev) =>
-                  prev.filter((item) => item.id !== id)
-                );
-                setFilteredClients((prev) =>
-                  prev.filter((item) => item.id !== id)
-                );
-              }
-            } catch (err) {
-              console.error("Erreur lors de la suppression :", err);
-            }
-          },
-          style: "destructive",
-        },
-      ]
-    );
+      const { error } = await supabase
+        .from("interventions")
+        .delete()
+        .eq("id", id);
+
+      if (error || imageError) {
+        console.error("Erreur suppression :", error || imageError);
+      } else {
+        setRecoveredClients((prev) =>
+          prev.filter((item) => item.id !== id)
+        );
+        setFilteredClients((prev) =>
+          prev.filter((item) => item.id !== id)
+        );
+      }
+    } catch (err) {
+      console.error("Erreur lors de la suppression :", err);
+    }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
-      <View style={styles.overlay}>
+    <View style={styles.container}>
+      <View style={styles.header}>
         <Text style={styles.title}>Clients ayant récupéré le matériel</Text>
 
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Rechercher par nom ou téléphone"
-          placeholderTextColor="#242424"
-          value={searchQuery}
-          onChangeText={handleSearch}
-        />
+        <View style={styles.searchWrap}>
+          <Icon name="search" size={16} color="#94a3b8" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Rechercher par nom ou téléphone"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+      </View>
 
-        <FlatList
-          ref={flatListRef}
-          onScrollToIndexFailed={(info) => {
-            console.warn("Échec du défilement :", info);
+      <FlatList
+        ref={flatListRef}
+        onScrollToIndexFailed={(info) => {
+          console.warn("Échec du défilement :", info);
 
-            if (flatListRef.current) {
-              flatListRef.current.scrollToOffset({
-                offset: info.averageItemLength * info.index,
-                animated: true,
-              });
-            }
-          }}
-          data={getPaginatedClients()}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item, index }) => (
+          if (flatListRef.current) {
+            flatListRef.current.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
+          }
+        }}
+        data={getPaginatedClients()}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item, index }) => {
+          const isExpanded = !!expandedCards[item.id];
+          return (
             <Animatable.View
-              animation="zoomIn"
-              duration={400}
-              delay={index * 150}
-              style={[
-                styles.card,
-                index % 2 === 0 ? styles.cardEven : styles.cardOdd,
-              ]}
+              animation="fadeInUp"
+              duration={350}
+              delay={Math.min(index, 8) * 60}
+              style={styles.card}
             >
-              <View>
+              <TouchableOpacity
+                onPress={() => toggleCardExpansion(item.id, index)}
+                activeOpacity={0.9}
+              >
                 <View style={styles.cardHeader}>
-                  <TouchableOpacity
-                    onPress={() => toggleCardExpansion(item.id, index)}
-                    activeOpacity={0.9}
-                    style={{ flex: 1 }}
-                  >
-                    <Text style={styles.clientInfo}>
-                      Fiche Client N°: {item.clients.ficheNumber}
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.ficheBadge}>
+                      <Text style={styles.ficheBadgeText}>
+                        N° {item.clients?.ficheNumber || "—"}
+                      </Text>
+                    </View>
+                    <Text style={styles.clientName}>
+                      {item.clients?.name || "Client inconnu"}
                     </Text>
-                    <Text style={styles.clientInfo}>
-                      Nom: {item.clients.name}
+                    <Text style={styles.clientPhone}>
+                      {item.clients?.phone
+                        ? item.clients.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
+                        : "Téléphone non disponible"}
                     </Text>
-                    <Text style={styles.clientInfo}>
-                      Téléphone:{" "}
-                      {item.clients.phone.replace(/(\d{2})(?=\d)/g, "$1 ")}
-                    </Text>
-                  </TouchableOpacity>
+                  </View>
 
                   <View style={styles.imageStack}>
-                    <Image
-                      source={getDeviceIcon(item.deviceType)}
-                      style={styles.deviceIcon}
-                    />
+                    <View style={styles.deviceIconWrap}>
+                      <Image
+                        source={getDeviceIcon(item.deviceType)}
+                        style={styles.deviceIcon}
+                      />
+                    </View>
 
                     {item._labelUri && (
                       <TouchableOpacity
-                        onPress={() => setSelectedImage(item._labelUri)}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(item._labelUri);
+                        }}
                       >
                         <SmartImage
                           uri={item._labelUri}
@@ -629,72 +641,108 @@ export default function RecoveredClientsPage({ navigation, route }) {
                           interventionId={item.id}
                           type="label"
                           size={50}
-                          borderRadius={4}
+                          borderRadius={10}
                           borderWidth={2}
                           badge
                         />
                       </TouchableOpacity>
                     )}
+
+                    <Icon
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color="#94a3b8"
+                    />
                   </View>
                 </View>
+              </TouchableOpacity>
 
-                {expandedCards[item.id] && (
-                  <>
-                    <Text style={styles.interventionInfo}>
-                      Type d'appareil: {item.deviceType}
+              {isExpanded && (
+                <View style={styles.detailBlock}>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoCell}>
+                      <Text style={styles.infoLabel}>Type</Text>
+                      <Text style={styles.infoValue}>
+                        {item.deviceType || "—"}
+                      </Text>
+                    </View>
+                    <View style={styles.infoCell}>
+                      <Text style={styles.infoLabel}>Marque</Text>
+                      <Text style={styles.infoValue}>{item.brand || "—"}</Text>
+                    </View>
+                    <View style={styles.infoCell}>
+                      <Text style={styles.infoLabel}>Modèle</Text>
+                      <Text style={styles.infoValue}>{item.model || "—"}</Text>
+                    </View>
+                    <View style={styles.infoCell}>
+                      <Text style={styles.infoLabel}>Coût</Text>
+                      <Text style={styles.infoValue}>{item.cost} €</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>Référence</Text>
+                    <Text style={styles.sectionValue}>
+                      {item.reference || "—"}
                     </Text>
-                    <Text style={styles.interventionInfo}>
-                      Marque: {item.brand}
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>
+                      Description du problème
                     </Text>
-                    <Text style={styles.interventionInfo}>
-                      Modèle: {item.model}
+                    <Text style={styles.sectionValue}>
+                      {item.description || "—"}
                     </Text>
-                    <Text style={styles.interventionInfo}>
-                      Référence: {item.reference}
-                    </Text>
-                    <Text style={styles.interventionInfo}>
-                      Description du problème: {item.description}
-                    </Text>
-                    <Text style={styles.interventionInfo}>
-                      Coût: {item.cost} €
-                    </Text>
-                    <Text style={styles.interventionInfo}>
-                      Date de récupération:{" "}
+                  </View>
+
+                  {item.detailIntervention && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionLabel}>
+                        Détail de l'intervention
+                      </Text>
+                      <Text style={styles.sectionValue}>
+                        {item.detailIntervention}
+                      </Text>
+                    </View>
+                  )}
+
+                  {item.remarks && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionLabel}>Remarques</Text>
+                      <Text style={styles.sectionValue}>{item.remarks}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaText}>
+                      Récupéré le{" "}
                       {new Date(item.updatedAt).toLocaleDateString("fr-FR")}
                     </Text>
-                    <Text style={styles.interventionInfo}>
-                      Détail de l'intervention: {item.detailIntervention}
+                    <Text style={styles.metaText}>
+                      Règlement : {item.paymentStatus}
                     </Text>
-                    {item.receiver_name && (
-                      <Text style={styles.receiverText}>
-                        Récupéré par : {item.receiver_name}
-                      </Text>
-                    )}
-                    <Text style={styles.interventionInfo}>
-                      Remarques: {item.remarks}
-                    </Text>
-                    <Text style={styles.interventionInfo}>
-                      Statut du règlement: {item.paymentStatus}
-                    </Text>
+                  </View>
 
+                  {item.receiver_name && (
+                    <Text style={styles.receiverText}>
+                      Récupéré par : {item.receiver_name}
+                    </Text>
+                  )}
+
+                  <View style={styles.buttonRow}>
                     {item.status === "Récupéré" && (
                       <TouchableOpacity
                         onPress={() =>
-                          reprintIntervention(item.id, navigation)
+                          reprintIntervention(item.id, navigation, (msg) =>
+                            showAlert("Erreur", msg)
+                          )
                         }
-                        style={{
-                          marginTop: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                          borderRadius: 8,
-                          backgroundColor: "#191f2f",
-                          borderWidth: 1,
-                          borderColor: "#888787",
-                          alignSelf: "flex-start",
-                        }}
+                        style={styles.secondaryBtn}
                       >
-                        <Text style={{ color: "white" }}>
-                          Réimprimer la restitution (A5)
+                        <Icon name="print" size={14} color="#334155" />
+                        <Text style={styles.secondaryBtnText}>
+                          Réimprimer (A5)
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -705,97 +753,76 @@ export default function RecoveredClientsPage({ navigation, route }) {
                           interventionId: item.id,
                         })
                       }
-                      style={{
-                        marginTop: 8,
-                        paddingVertical: 8,
-                        paddingHorizontal: 12,
-                        borderRadius: 8,
-                        backgroundColor: "#191f2f",
-                        borderWidth: 1,
-                        borderColor: "#888787",
-                        alignSelf: "flex-start",
-                      }}
+                      style={styles.secondaryBtn}
                     >
-                      <Text style={{ color: "white" }}>
+                      <Icon name="picture-o" size={14} color="#334155" />
+                      <Text style={styles.secondaryBtnText}>
                         Voir toutes les images
                       </Text>
                     </TouchableOpacity>
+                  </View>
 
-                    <View style={styles.imageContainer}>
-                      {item._extraUris && item._extraUris.length > 0 ? (
-                        item._extraUris.map((uri) => (
-                          <TouchableOpacity
-                            key={`${item.id}-${uri}`}
-                            onPress={() => setSelectedImage(uri)}
-                            style={{ margin: 5 }}
-                          >
-                            <Image
-                              source={{ uri }}
-                              style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: 5,
-                              }}
-                              onError={(e) => {
-                                console.warn(
-                                  "thumb load error",
-                                  uri,
-                                  e?.nativeEvent?.error
-                                );
-                              }}
-                            />
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.interventionInfo}>
-                          Pas d'images supplémentaires
-                        </Text>
-                      )}
-                    </View>
-                  </>
-                )}
-              </View>
+                  <View style={styles.imageContainer}>
+                    {item._extraUris && item._extraUris.length > 0 ? (
+                      item._extraUris.map((uri) => (
+                        <TouchableOpacity
+                          key={`${item.id}-${uri}`}
+                          onPress={() => setSelectedImage(uri)}
+                        >
+                          <Image
+                            source={{ uri }}
+                            style={styles.imageThumbnail}
+                            onError={(e) => {
+                              console.warn(
+                                "thumb load error",
+                                uri,
+                                e?.nativeEvent?.error
+                              );
+                            }}
+                          />
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <Text style={styles.sectionValue}>
+                        Pas d'images supplémentaires
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
             </Animatable.View>
-          )}
-        />
+          );
+        }}
+      />
 
-        <View style={styles.paginationContainer}>
-          <TouchableOpacity
-            onPress={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            style={styles.chevronButton}
-          >
-            <Image
-              source={require("../assets/icons/chevrong.png")}
-              style={[
-                styles.chevronIcon,
-                {
-                  tintColor: currentPage === 1 ? "gray" : "white",
-                },
-              ]}
-            />
-          </TouchableOpacity>
+      <View style={styles.paginationContainer}>
+        <TouchableOpacity
+          onPress={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={styles.chevronButton}
+        >
+          <Icon
+            name="chevron-left"
+            size={18}
+            color={currentPage === 1 ? "#cbd5e1" : "#334155"}
+          />
+        </TouchableOpacity>
 
-          <Text style={styles.paginationText}>
-            Page {currentPage} sur {totalPages}
-          </Text>
+        <Text style={styles.paginationText}>
+          Page {currentPage} sur {totalPages || 1}
+        </Text>
 
-          <TouchableOpacity
-            onPress={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            style={styles.chevronButton}
-          >
-            <Image
-              source={require("../assets/icons/chevrond.png")}
-              style={[
-                styles.chevronIcon,
-                {
-                  tintColor: currentPage === totalPages ? "gray" : "white",
-                },
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          style={styles.chevronButton}
+        >
+          <Icon
+            name="chevron-right"
+            size={18}
+            color={currentPage === totalPages ? "#cbd5e1" : "#334155"}
+          />
+        </TouchableOpacity>
       </View>
 
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
@@ -807,12 +834,15 @@ export default function RecoveredClientsPage({ navigation, route }) {
       >
         <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
           <View style={styles.modalBackground}>
+            <TouchableOpacity style={styles.imageCloseBtn} onPress={() => setSelectedImage(null)}>
+              <Text style={styles.imageCloseBtnText}>✕</Text>
+            </TouchableOpacity>
             {selectedImage ? (
               <Image
                 source={{ uri: selectedImage }}
                 style={styles.fullImage}
                 onError={() => {
-                  Alert.alert("Erreur", "Impossible de charger l’image.");
+                  showAlert("Erreur", "Impossible de charger l'image.");
                   setSelectedImage(null);
                 }}
               />
@@ -820,175 +850,266 @@ export default function RecoveredClientsPage({ navigation, route }) {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <AlertBox
+        visible={!!interventionIdToDelete}
+        title="Confirmation"
+        message="Es-tu sûr de vouloir supprimer cette intervention ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setInterventionIdToDelete(null)}
+        onConfirm={confirmDeleteIntervention}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0)",
-    padding: 10,
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "medium",
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#242424",
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 12,
+  },
+  searchWrap: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 14,
+    zIndex: 1,
   },
   searchBar: {
-    backgroundColor: "#f3f3f3",
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 20,
-    fontSize: 16,
-    color: "#242424",
-  },
-  card: {
-    backgroundColor: "#f0f0f0",
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 10,
-  },
-  deviceIcon: {
-    width: 40,
-    height: 40,
-    resizeMode: "contain",
-    tintColor: "#888787",
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-  },
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "flex-end",
-    flex: 0,
-    marginLeft: 10,
-  },
-  clientInfo: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: "#242424",
-  },
-  interventionInfo: {
-    fontSize: 14,
-    color: "#242424",
-    marginBottom: 5,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  signatureImage: {
-    backgroundColor: "#fcfcfc",
-    width: "95%",
-    height: 300,
-    marginTop: 10,
-    marginLeft: 20,
-    borderRadius: 2,
+    backgroundColor: "#fff",
+    paddingVertical: 11,
+    paddingHorizontal: 40,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#888787",
+    borderColor: "#e2e8f0",
+    fontSize: 15,
+    color: "#0f172a",
   },
-  imageContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 10,
-  },
-  imageThumbnail: {
-    width: 80,
-    height: 80,
-    margin: 5,
-    borderRadius: 5,
-    resizeMode: "cover",
-  },
-  newImageThumbnail: {
-    borderWidth: 2,
-    borderColor: "blue",
-  },
-  modalBackground: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-  },
-  fullImage: {
-    width: "90%",
-    height: "90%",
-    resizeMode: "contain",
-  },
-  receiverText: {
-    fontSize: 18,
-    color: "#ff9100",
-    marginTop: 5,
-  },
-  labelImage: {
-    borderWidth: 2,
-    borderColor: "green",
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 10,
-    marginBottom: 60,
-  },
-  chevronButton: {
-    padding: 5,
-  },
-  chevronIcon: {
-    width: 22,
-    height: 22,
-  },
-  paginationText: {
-    marginHorizontal: 10,
-    color: "#242424",
-    fontSize: 20,
-  },
-  rightIconWrapper: {
-    position: "absolute",
-    right: 15,
-    top: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  labelThumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: "green",
-    resizeMode: "cover",
+
+  listContent: { paddingHorizontal: 16, paddingBottom: 90 },
+
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  ficheBadge: {
+    backgroundColor: "#eef2ff",
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+  },
+  ficheBadgeText: {
+    color: "#4338ca",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  clientPhone: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 2,
+  },
+
   imageStack: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginLeft: 10,
   },
-  toggleButton: {
-    width: "100%",
+  deviceIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deviceIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: "contain",
+    tintColor: "#475569",
+  },
+
+  detailBlock: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
+
+  infoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  infoCell: {
+    width: "50%",
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  infoValue: {
+    fontSize: 14,
+    color: "#1e293b",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  section: { marginBottom: 10 },
+  sectionLabel: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 3,
+  },
+  sectionValue: {
+    fontSize: 14,
+    color: "#334155",
+    lineHeight: 20,
+  },
+
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  receiverText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#b45309",
+    marginBottom: 10,
+  },
+
+  buttonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  secondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#f1f5f9",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  secondaryBtnText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  imageContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  imageThumbnail: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+  },
+
+  paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: "#191f2f",
+    gap: 16,
+    marginVertical: 10,
+    marginBottom: 20,
+  },
+  chevronButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#929090",
-    borderRadius: 5,
-    elevation: 5,
+    borderColor: "#e2e8f0",
   },
-  toggleButtonText: {
-    color: "#888787",
-    fontWeight: "bold",
-    marginLeft: 10,
+  paginationText: {
+    color: "#334155",
+    fontSize: 13,
+    fontWeight: "600",
   },
+
+  modalBackground: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+  },
+  fullImage: {
+    width: "90%",
+    height: "90%",
+    resizeMode: "contain",
+    borderRadius: 16,
+  },
+  imageCloseBtn: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  imageCloseBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 });

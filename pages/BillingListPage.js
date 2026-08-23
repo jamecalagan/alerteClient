@@ -6,11 +6,14 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   TextInput,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { supabase } from "../supabaseClient";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 const pageSize = 3;
 
@@ -23,12 +26,41 @@ export default function BillingListPage() {
   const navigation = useNavigation();
   const [selectedIds, setSelectedIds] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const openConfirm = (title, message, onConfirm) => {
+    setConfirmDialog({ visible: true, title, message, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmDialog((prev) => ({ ...prev, visible: false }));
+  };
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const [filteredBills, setFilteredBills] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [periodFilter, setPeriodFilter] = useState("month");
+  const [unpaidOnly, setUnpaidOnly] = useState(false);
 
   useEffect(() => {
     fetchBills();
   }, [showDeleted]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [unpaidOnly]);
 
   const fetchBills = async () => {
     const { data, error } = await supabase
@@ -84,8 +116,117 @@ export default function BillingListPage() {
     setCurrentPage(1);
   };
 
+  // —— Total de la période (pour les déclarations de TVA) ——
+  const matchesPeriod = (dateStr, period) => {
+    if (period === "all") return true;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return false;
+    const now = new Date();
+    if (period === "month") {
+      return (
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+    if (period === "quarter") {
+      return (
+        Math.floor(d.getMonth() / 3) === Math.floor(now.getMonth() / 3) &&
+        d.getFullYear() === now.getFullYear()
+      );
+    }
+    if (period === "year") {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  const periodBills = bills.filter((b) => matchesPeriod(b.invoicedate, periodFilter));
+  const periodTotals = periodBills.reduce(
+    (acc, b) => ({
+      ht: acc.ht + (parseFloat(b.totalht) || 0),
+      tva: acc.tva + (parseFloat(b.totaltva) || 0),
+      ttc: acc.ttc + (parseFloat(b.totalttc) || 0),
+    }),
+    { ht: 0, tva: 0, ttc: 0 }
+  );
+
+  const exportPeriodCsv = async () => {
+    if (periodBills.length === 0) {
+      showAlert("Export impossible", "Aucune facture sur cette période.");
+      return;
+    }
+
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return /[",;\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    const header = [
+      "Numéro",
+      "Date",
+      "Client",
+      "Téléphone",
+      "Total HT",
+      "TVA",
+      "Total TTC",
+      "Acompte",
+      "Payée",
+      "Mode de paiement",
+    ];
+
+    const rows = periodBills.map((b) => [
+      b.invoicenumber || "",
+      b.invoicedate ? new Date(b.invoicedate).toLocaleDateString("fr-FR") : "",
+      b.clientname || "",
+      b.clientphone || "",
+      (parseFloat(b.totalht) || 0).toFixed(2),
+      (parseFloat(b.totaltva) || 0).toFixed(2),
+      (parseFloat(b.totalttc) || 0).toFixed(2),
+      (parseFloat(b.acompte) || 0).toFixed(2),
+      b.paid ? "Oui" : "Non",
+      b.paymentmethod || "",
+    ]);
+
+    // Séparateur ";" et BOM UTF-8 : convention Excel en locale française
+    const csvContent =
+      "﻿" +
+      [header, ...rows].map((r) => r.map(escapeCsv).join(";")).join("\n");
+
+    const fileName = `Factures_${periodFilter}_${Date.now()}.csv`;
+    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+    try {
+      await FileSystem.writeAsStringAsync(fileUri, csvContent);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "text/csv",
+          dialogTitle: "Exporter les factures",
+        });
+      } else {
+        showAlert(
+          "Export",
+          "Fichier créé mais le partage n'est pas disponible sur cet appareil."
+        );
+      }
+    } catch (e) {
+      console.error("Erreur export CSV:", e);
+      showAlert("Erreur", "Impossible de créer le fichier d'export.");
+    }
+  };
+
+  // —— Factures impayées ——
+  const unpaidBills = bills.filter((b) => !b.paid);
+  const unpaidTotal = unpaidBills.reduce(
+    (sum, b) => sum + (parseFloat(b.totalttc) || 0),
+    0
+  );
+
   // Source pour la pagination : recherche ou liste normale
-  const listSource = isSearching ? filteredBills : bills;
+  const searchSource = isSearching ? filteredBills : bills;
+  const listSource = unpaidOnly
+    ? searchSource.filter((b) => !b.paid)
+    : searchSource;
   const totalPages = Math.max(1, Math.ceil(listSource.length / pageSize));
 
   const billsToDisplay = listSource.slice(
@@ -93,25 +234,18 @@ export default function BillingListPage() {
     currentPage * pageSize
   );
 
-  const deleteBill = async (id) => {
-    Alert.alert("Confirmation", "Supprimer cette facture ?", [
-      { text: "Annuler", style: "cancel" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase
-            .from("billing")
-            .update({ deleted: true })
-            .eq("id", id);
-          if (error) {
-            console.error("Erreur suppression:", error);
-          } else {
-            fetchBills();
-          }
-        },
-      },
-    ]);
+  const deleteBill = (id) => {
+    openConfirm("Confirmation", "Supprimer cette facture ?", async () => {
+      const { error } = await supabase
+        .from("billing")
+        .update({ deleted: true })
+        .eq("id", id);
+      if (error) {
+        console.error("Erreur suppression:", error);
+      } else {
+        fetchBills();
+      }
+    });
   };
 
   const restoreBill = async (id) => {
@@ -131,59 +265,45 @@ export default function BillingListPage() {
   };
 
   const confirmPermanentDelete = (bill) => {
-    Alert.alert(
+    openConfirm(
       "Suppression définitive",
       "Cette action est irréversible. Supprimer définitivement cette facture ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase
-              .from("billing")
-              .delete()
-              .eq("id", bill.id);
+      async () => {
+        const { error } = await supabase
+          .from("billing")
+          .delete()
+          .eq("id", bill.id);
 
-            if (error) {
-              console.error("Erreur suppression définitive :", error);
-              Alert.alert("Erreur", "Erreur lors de la suppression.");
-            } else {
-              Alert.alert("Information", "Facture supprimée définitivement.");
-              fetchBills();
-            }
-          },
-        },
-      ]
+        if (error) {
+          console.error("Erreur suppression définitive :", error);
+          showAlert("Erreur", "Erreur lors de la suppression.");
+        } else {
+          showAlert("Information", "Facture supprimée définitivement.");
+          fetchBills();
+        }
+      }
     );
   };
 
   const handleBulkDelete = () => {
-    Alert.alert(
+    openConfirm(
       "Suppression groupée",
       `Supprimer ${selectedIds.length} facture(s) ?`,
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase
-              .from("billing")
-              .update({ deleted: true })
-              .in("id", selectedIds);
+      async () => {
+        const { error } = await supabase
+          .from("billing")
+          .update({ deleted: true })
+          .in("id", selectedIds);
 
-            if (error) {
-              console.error("Erreur suppression multiple :", error);
-              Alert.alert("Erreur", "Erreur lors de la suppression.");
-            } else {
-              Alert.alert("Information", "Factures supprimées.");
-              setSelectedIds([]);
-              fetchBills();
-            }
-          },
-        },
-      ]
+        if (error) {
+          console.error("Erreur suppression multiple :", error);
+          showAlert("Erreur", "Erreur lors de la suppression.");
+        } else {
+          showAlert("Information", "Factures supprimées.");
+          setSelectedIds([]);
+          fetchBills();
+        }
+      }
     );
   };
 
@@ -196,6 +316,89 @@ export default function BillingListPage() {
         ]}
       >
         <Text style={styles.title}>Liste des factures</Text>
+
+        {/* Total de la période (TVA / CA) */}
+        <View style={styles.periodBlock}>
+          <View style={styles.periodTabsRow}>
+            {[
+              { key: "month", label: "Ce mois" },
+              { key: "quarter", label: "Ce trimestre" },
+              { key: "year", label: "Cette année" },
+              { key: "all", label: "Tout" },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                onPress={() => setPeriodFilter(opt.key)}
+                style={[
+                  styles.periodTab,
+                  periodFilter === opt.key && styles.periodTabActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.periodTabText,
+                    periodFilter === opt.key && styles.periodTabTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.periodTotalsRow}>
+            <View style={styles.periodTotalItem}>
+              <Text style={styles.periodTotalLabel}>Total HT</Text>
+              <Text style={styles.periodTotalValue}>
+                {periodTotals.ht.toFixed(2)} €
+              </Text>
+            </View>
+            <View style={styles.periodTotalItem}>
+              <Text style={styles.periodTotalLabel}>TVA collectée</Text>
+              <Text style={styles.periodTotalValue}>
+                {periodTotals.tva.toFixed(2)} €
+              </Text>
+            </View>
+            <View style={styles.periodTotalItem}>
+              <Text style={styles.periodTotalLabel}>Total TTC</Text>
+              <Text style={styles.periodTotalValue}>
+                {periodTotals.ttc.toFixed(2)} €
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.periodCount}>
+            {periodBills.length} facture{periodBills.length > 1 ? "s" : ""}
+            {showDeleted ? " supprimée(s)" : " active(s)"} sur la période
+          </Text>
+
+          <TouchableOpacity
+            style={styles.exportButton}
+            onPress={exportPeriodCsv}
+          >
+            <Text style={styles.exportButtonText}>
+              📤 Exporter (CSV)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Factures impayées */}
+        {unpaidBills.length > 0 && (
+          <TouchableOpacity
+            style={[
+              styles.unpaidBanner,
+              unpaidOnly && styles.unpaidBannerActive,
+            ]}
+            onPress={() => setUnpaidOnly((v) => !v)}
+          >
+            <Text style={styles.unpaidBannerText}>
+              ⚠️ {unpaidBills.length} facture{unpaidBills.length > 1 ? "s" : ""} impayée
+              {unpaidBills.length > 1 ? "s" : ""} — {unpaidTotal.toFixed(2)} €
+            </Text>
+            <Text style={styles.unpaidBannerHint}>
+              {unpaidOnly ? "Appuyer pour tout afficher" : "Appuyer pour filtrer"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Recherche */}
         <View style={styles.searchWrapper}>
@@ -328,6 +531,17 @@ export default function BillingListPage() {
                     {showDeleted ? "Supprimée" : "Active"}
                   </Text>
                 </View>
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Paiement</Text>
+                  <Text
+                    style={[
+                      styles.metaValue,
+                      bill.paid ? styles.metaActive : styles.metaDeleted,
+                    ]}
+                  >
+                    {bill.paid ? "Payée" : "Impayée"}
+                  </Text>
+                </View>
               </View>
 
               {/* Séparateur actions */}
@@ -454,6 +668,26 @@ export default function BillingListPage() {
       >
         <Text style={styles.returnButtonText}>Retour</Text>
       </TouchableOpacity>
+
+      <AlertBox
+        visible={confirmDialog.visible}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={closeConfirm}
+        onConfirm={() => {
+          closeConfirm();
+          if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+        }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -466,6 +700,101 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: "#111827",
     textAlign: "center",
+  },
+
+  /* Total période */
+  periodBlock: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    padding: 12,
+    marginBottom: 16,
+  },
+  periodTabsRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 10,
+  },
+  periodTab: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e5e7eb",
+    alignItems: "center",
+  },
+  periodTabActive: {
+    backgroundColor: "#111827",
+  },
+  periodTabText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  periodTabTextActive: {
+    color: "#ffffff",
+  },
+  periodTotalsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  periodTotalItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  periodTotalLabel: {
+    fontSize: 11,
+    color: "#6b7280",
+    marginBottom: 2,
+  },
+  periodTotalValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  periodCount: {
+    fontSize: 11,
+    color: "#9ca3af",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  exportButton: {
+    marginTop: 10,
+    backgroundColor: "#111827",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  exportButtonText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  /* Factures impayées */
+  unpaidBanner: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  unpaidBannerActive: {
+    backgroundColor: "#FDE68A",
+    borderColor: "#B45309",
+  },
+  unpaidBannerText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#92400E",
+    textAlign: "center",
+  },
+  unpaidBannerHint: {
+    fontSize: 11,
+    color: "#92400E",
+    textAlign: "center",
+    marginTop: 2,
   },
 
   /* Recherche */

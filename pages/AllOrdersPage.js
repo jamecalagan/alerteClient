@@ -6,13 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Image,
   Modal,
   ScrollView,
   Dimensions,
 } from "react-native";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 
 const ITEMS_PER_PAGE = 2;
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -88,6 +89,16 @@ export default function AllOrdersPage({ navigation }) {
   const [suggestions, setSuggestions] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [orderIdToDelete, setOrderIdToDelete] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const [activeCount, setActiveCount] = useState(0);
   const [deletedCount, setDeletedCount] = useState(0);
 
@@ -296,7 +307,7 @@ export default function AllOrdersPage({ navigation }) {
 
     if (billingError) {
       console.error("Erreur vérification facture :", billingError);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Impossible de vérifier la présence d'une facture."
       );
@@ -304,31 +315,24 @@ export default function AllOrdersPage({ navigation }) {
     }
 
     if (billings && billings.length > 0) {
-      Alert.alert(
+      showAlert(
         "❌ Suppression interdite",
         "Une facture est liée à cette commande."
       );
       return;
     }
 
-    Alert.alert(
-      "Confirmation de suppression",
-      "Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase
-              .from("orders")
-              .update({ deleted: true })
-              .eq("id", orderId);
-            if (!error) fetchOrders();
-          },
-        },
-      ]
-    );
+    setOrderIdToDelete(orderId);
+  };
+
+  const confirmDeleteOrder = async () => {
+    const orderId = orderIdToDelete;
+    setOrderIdToDelete(null);
+    const { error } = await supabase
+      .from("orders")
+      .update({ deleted: true })
+      .eq("id", orderId);
+    if (!error) fetchOrders();
   };
 
   // Ouvre le viewer plein écran
@@ -911,6 +915,22 @@ export default function AllOrdersPage({ navigation }) {
         <Text style={styles.returnButtonText}>Retour</Text>
       </TouchableOpacity>
 
+      <AlertBox
+        visible={!!orderIdToDelete}
+        title="Confirmation de suppression"
+        message="Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible."
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setOrderIdToDelete(null)}
+        onConfirm={confirmDeleteOrder}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
 
     </View>
   );
@@ -957,14 +977,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  client: { fontSize: 17, fontWeight: "600", color: "#222", marginBottom: 5 },
-  date: { fontSize: 14, color: "#666", marginBottom: 8 },
   row: { flexDirection: "row", alignItems: "stretch" },
   infoBlock: {},
   // Colonne photos
@@ -1045,24 +1057,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
-  pageButton: {
-    backgroundColor: "#6c757d",
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-  },
-  disabledButton: { backgroundColor: "#ccc" },
-  pageButtonText: { color: "#fff", fontSize: 15 },
-  pageIndicator: { color: "#555", fontSize: 15 },
-
-  returnButton: {
-    backgroundColor: "#6c757d",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 20,
-  },
-
   recoveredBox: {
     backgroundColor: "#e9ecef",
     padding: 8,
@@ -1075,15 +1069,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
   },
-
-  filterButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "#ced4da",
-    borderRadius: 6,
-  },
-  filterActive: { backgroundColor: "#495057" },
-  filterText: { color: "#fff", fontWeight: "500", fontSize: 14 },
 
   suggestionContainer: {
     backgroundColor: "#ffffff",
@@ -1109,37 +1094,6 @@ const styles = StyleSheet.create({
   },
   floatingLabelFocused: { top: -10, fontSize: 12, color: "#555" },
   inputFocused: { borderColor: "#888", backgroundColor: "#f5f5f5" },
-
-  toggleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    marginVertical: 24,
-  },
-  toggleButton: {
-    flex: 1,
-    backgroundColor: "#adb5bd",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  toggleButtonText: { color: "#fff", fontWeight: "500", fontSize: 14 },
-  toggleButtonActive: { backgroundColor: "#343a40" },
-
-  statusIndicator: { fontSize: 16, color: "#444", fontWeight: "600" },
-
-  // Aperçu totaux
-  totalPreview: {
-    backgroundColor: "#f6f8fa",
-    borderWidth: 1,
-    borderColor: "#e2e6ea",
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  totalLine: { fontSize: 15, color: "#333", marginBottom: 2 },
-  totalValue: { fontWeight: "700" },
 
   // Viewer
   viewerBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)" },
@@ -1167,9 +1121,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   qtyBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  headerRow: {
-    marginBottom: 10,
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -1297,12 +1248,6 @@ const styles = StyleSheet.create({
   },
   totalValueHighlight: {
     color: "#0a7",
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 6,
   },
   client: {
     fontSize: 14,
@@ -1438,12 +1383,6 @@ const styles = StyleSheet.create({
   qtyInput: {
     flex: 1,
     textAlign: "center",
-  },
-  editButtonsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 8,
   },
   editButtonsRow: {
     flexDirection: "row",

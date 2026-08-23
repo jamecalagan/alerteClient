@@ -12,7 +12,6 @@ import {
   UIManager,
   Modal,
   TouchableWithoutFeedback,
-  Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
@@ -209,7 +208,9 @@ const handlePhoneChange = (t) => {
   const digits = String(t).replace(/\D/g, "");
   // si on essaye de dépasser alors qu’on était déjà à 10 → alerte une seule fois
   if (digits.length > 10 && phone.length === 10) {
-    Alert.alert("Limite atteinte", "10 chiffres maximum.");
+    setAlertTitle("Limite atteinte");
+    setAlertMessage("10 chiffres maximum.");
+    setAlertVisible(true);
   }
   setPhone(digits.slice(0, 10));
 };
@@ -313,62 +314,67 @@ const handlePhoneChange = (t) => {
       >
         {/* Ferme en tapant en dehors */}
         <TouchableWithoutFeedback onPress={() => setBannedModalVisible(false)}>
-          <View style={styles.modalOverlay} />
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalCardRed}>
+                <View style={styles.iconCircleRed}>
+                  <MaterialIcons name="block" size={30} color="#DC2626" />
+                </View>
+
+                <Text style={styles.modalTitle}>Client banni</Text>
+
+                <Text style={styles.modalBodyText}>
+                  Ce client existe déjà et est <Text style={{ fontWeight: "700" }}>BANNI</Text>.{"\n"}
+                  <Text style={{ fontWeight: "700" }}>
+                    Nom :
+                  </Text>{" "}
+                  {bannedMatch?.name || "—"}{"\n"}
+                  <Text style={{ fontWeight: "700" }}>
+                    Téléphone :
+                  </Text>{" "}
+                  {bannedMatch?.phone || "—"}
+                </Text>
+
+                {!!bannedMatch?.ban_reason && (
+                  <View style={styles.reasonBox}>
+                    <Text style={styles.reasonTitle}>Raison déclarée</Text>
+                    <Text style={styles.reasonText}>{bannedMatch.ban_reason}</Text>
+                  </View>
+                )}
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalBtnSecondary}
+                    onPress={() => setBannedModalVisible(false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.modalBtnSecondaryText}>Fermer</Text>
+                  </TouchableOpacity>
+
+                  {/* Accès direct à la fiche si besoin */}
+                  {bannedMatch?.id ? (
+                    <TouchableOpacity
+                      style={styles.modalBtnPrimary}
+                      onPress={() => {
+                        setBannedModalVisible(false);
+                        navigation.navigate("ClientInterventionsPage", {
+                          clientId: bannedMatch.id,
+                        });
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.modalBtnPrimaryText}>Voir la fiche</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                <Text style={styles.modalFootNote}>
+                  Création de fiche impossible pour un client banni.
+                </Text>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
         </TouchableWithoutFeedback>
-
-        <View style={styles.modalCardRed}>
-          <View style={styles.modalHeader}>
-            <MaterialIcons name="block" size={22} color="#7f1d1d" />
-            <Text style={styles.modalTitle}>Client banni</Text>
-          </View>
-
-          <Text style={styles.modalBodyText}>
-            Ce client existe déjà et est **BANNI**.{"\n"}
-            <Text style={{ fontWeight: "700" }}>
-              Nom :
-            </Text>{" "}
-            {bannedMatch?.name || "—"}{"\n"}
-            <Text style={{ fontWeight: "700" }}>
-              Téléphone :
-            </Text>{" "}
-            {bannedMatch?.phone || "—"}
-          </Text>
-
-          {!!bannedMatch?.ban_reason && (
-            <View style={styles.reasonBox}>
-              <Text style={styles.reasonTitle}>Raison déclarée</Text>
-              <Text style={styles.reasonText}>{bannedMatch.ban_reason}</Text>
-            </View>
-          )}
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.modalBtnSecondary}
-              onPress={() => setBannedModalVisible(false)}
-            >
-              <Text style={styles.modalBtnSecondaryText}>Fermer</Text>
-            </TouchableOpacity>
-
-            {/* Accès direct à la fiche si besoin */}
-            {bannedMatch?.id ? (
-              <TouchableOpacity
-                style={styles.modalBtnPrimary}
-                onPress={() => {
-                  setBannedModalVisible(false);
-                  navigation.navigate("ClientInterventionsPage", {
-                    clientId: bannedMatch.id,
-                  });
-                }}
-              >
-                <Text style={styles.modalBtnPrimaryText}>Voir la fiche</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          <Text style={styles.modalFootNote}>
-            Création de fiche impossible pour un client banni.
-          </Text>
-        </View>
       </Modal>
 
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
@@ -405,49 +411,60 @@ const styles = StyleSheet.create({
 
   // —— Modale rouge (pro) ——
   modalOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.4)",
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    padding: 16,
   },
   modalCardRed: {
-    position: "absolute",
-    top: "20%", left: 16, right: 16,
+    width: 380,
+    maxWidth: "100%",
     backgroundColor: "#fff",
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "#b91c1c",   // rouge soutenu autour de la modale
-    padding: 14,
-    shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  modalHeader: {
-    flexDirection: "row", alignItems: "center", marginBottom: 8,
+  iconCircleRed: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center", alignItems: "center",
+    marginBottom: 12,
   },
   modalTitle: {
-    marginLeft: 8, fontSize: 18, fontWeight: "800", color: "#7f1d1d",
+    fontSize: 19, fontWeight: "700", color: "#111827", marginBottom: 10, textAlign: "center",
   },
   modalBodyText: {
-    color: "#111827", lineHeight: 20, marginBottom: 10,
+    color: "#374151", lineHeight: 20, marginBottom: 10, textAlign: "center",
   },
   reasonBox: {
+    width: "100%",
     borderWidth: 1, borderColor: "#fca5a5", backgroundColor: "#fef2f2",
-    borderRadius: 8, padding: 10, marginBottom: 12,
+    borderRadius: 14, padding: 12, marginBottom: 14,
   },
   reasonTitle: { fontWeight: "800", color: "#991b1b", marginBottom: 4 },
   reasonText: { color: "#7f1d1d" },
 
   modalActions: {
-    flexDirection: "row", justifyContent: "space-between", gap: 10,
+    flexDirection: "row", justifyContent: "space-between", width: "100%", gap: 10,
   },
   modalBtnSecondary: {
-    flex: 1, backgroundColor: "#e5e7eb", borderWidth: 1, borderColor: "#d1d5db",
-    paddingVertical: 12, borderRadius: 10, alignItems: "center",
+    flex: 1, backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB",
+    paddingVertical: 13, borderRadius: 14, alignItems: "center",
   },
-  modalBtnSecondaryText: { color: "#1f2937", fontWeight: "700" },
+  modalBtnSecondaryText: { color: "#374151", fontWeight: "700", fontSize: 15 },
   modalBtnPrimary: {
-    flex: 1, backgroundColor: "#7f1d1d",
-    paddingVertical: 12, borderRadius: 10, alignItems: "center",
+    flex: 1, backgroundColor: "#DC2626",
+    paddingVertical: 13, borderRadius: 14, alignItems: "center",
   },
-  modalBtnPrimaryText: { color: "#fff", fontWeight: "800" },
+  modalBtnPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
   modalFootNote: {
-    textAlign: "center", color: "#991b1b", marginTop: 10, fontStyle: "italic",
+    textAlign: "center", color: "#991b1b", marginTop: 12, fontStyle: "italic", fontSize: 12,
   },
 });

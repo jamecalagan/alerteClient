@@ -11,13 +11,14 @@ import {
     Modal,
     Image,
     TouchableWithoutFeedback,
-    Alert,
     Pressable,
     FlatList,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 
@@ -107,7 +108,7 @@ const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
     return data?.publicUrl || null;
 };
 // Upload tous les file:// → Supabase et renvoie des URLs cloud
-const uploadAllLocalsBeforeSave = async () => {
+const uploadAllLocalsBeforeSave = async (photos, interventionId, labelPhoto) => {
     const uploadedPhotos = [];
     for (const p of photos) {
         const ref = extractRefString(p);
@@ -144,6 +145,8 @@ const normalizeNumber = (v) => {
     if (v === null || v === undefined) return "";
     return String(v).replace(",", ".").trim();
 };
+
+const REFERENCE_PHOTO_HINT = "Voir photo pour référence produit";
 
 const fileExists = async (p) => {
     try {
@@ -242,6 +245,15 @@ const REPAIR_DURATIONS = [
     "2 à 4 h",
     "Plus de 4 h",
 ];
+const STATUS_OPTIONS = [
+    "En attente de pièces",
+    "Devis en cours",
+    "Devis accepté",
+    "Intervention en cours",
+    "Réparé",
+    "Non réparable",
+];
+const CHARGEUR_OPTIONS = ["Non", "Oui"];
 export default function EditInterventionPage({ route, navigation }) {
 	
     const { clientId } = route.params || {};
@@ -292,7 +304,29 @@ export default function EditInterventionPage({ route, navigation }) {
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
     const [alertTitle, setAlertTitle] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
+
+    const [confirmDialog, setConfirmDialog] = useState({
+        visible: false,
+        title: "",
+        message: "",
+        onConfirm: null,
+    });
+
+    const openConfirm = (title, message, onConfirm) => {
+        setConfirmDialog({ visible: true, title, message, onConfirm });
+    };
+
+    const closeConfirm = () => {
+        setConfirmDialog((prev) => ({ ...prev, visible: false }));
+    };
     const [clientName, setClientName] = useState("");
+    const [clientPhone, setClientPhone] = useState("");
     const [openType, setOpenType] = useState(false);
     const [openBrand, setOpenBrand] = useState(false);
     const [openModel, setOpenModel] = useState(false);
@@ -306,6 +340,10 @@ export default function EditInterventionPage({ route, navigation }) {
     const [orderUnitPrice, setOrderUnitPrice] = useState("");
     const [orderQty, setOrderQty] = useState("1");
     const [orderDeposit, setOrderDeposit] = useState("");
+    const [orderAmount, setOrderAmount] = useState(""); // montant de la dernière commande créée pour cette fiche
+    const [orderId, setOrderId] = useState(null); // id de la commande liée, pour le bouton "Voir la commande"
+    const [orderDate, setOrderDate] = useState(""); // date de création de la commande liée
+    const [orderItems, setOrderItems] = useState([]); // produits déjà ajoutés à la commande en cours de création
 const [repairModalVisible, setRepairModalVisible] =
     useState(false);
 
@@ -313,6 +351,75 @@ const [repairCause, setRepairCause] = useState("");
 const [repairAction, setRepairAction] = useState("");
 const [repairDuration, setRepairDuration] = useState("");
 const [repairComment, setRepairComment] = useState("");
+// Proposition de réparation
+const [repairProposalMade, setRepairProposalMade] =
+    useState(false);
+const [
+    repairProposalExpanded,
+    setRepairProposalExpanded,
+] = useState(false);
+const [repairProposal, setRepairProposal] =
+    useState("");
+
+const [repairProposalPrice, setRepairProposalPrice] =
+    useState("");
+
+const [repairProposalStatus, setRepairProposalStatus] =
+    useState("pending");
+
+const [repairProposalMethod, setRepairProposalMethod] =
+    useState("shop");
+
+const [repairProposalComment, setRepairProposalComment] =
+    useState("");
+
+const [repairProposalDate, setRepairProposalDate] =
+    useState(null);
+// Accessoire prêté
+const [
+    loanedItemEnabled,
+    setLoanedItemEnabled,
+] = useState(false);
+const [
+    loanedItemExpanded,
+    setLoanedItemExpanded,
+] = useState(false);
+const [loanedItem, setLoanedItem] =
+    useState("");
+
+const [
+    loanedItemReturned,
+    setLoanedItemReturned,
+] = useState(false);
+
+const [
+    loanedItemDate,
+    setLoanedItemDate,
+] = useState(null);
+
+// Information à rappeler lors de la restitution
+const [
+    restitutionNoteEnabled,
+    setRestitutionNoteEnabled,
+] = useState(false);
+const [
+    restitutionNoteExpanded,
+    setRestitutionNoteExpanded,
+] = useState(false);
+const [
+    restitutionNote,
+    setRestitutionNote,
+] = useState("");
+
+const [
+    restitutionNoteDone,
+    setRestitutionNoteDone,
+] = useState(false);
+
+const [
+    restitutionNoteDate,
+    setRestitutionNoteDate,
+] = useState(null);
 
 const [repairCausePickerVisible, setRepairCausePickerVisible] =
     useState(false);
@@ -322,8 +429,16 @@ const [repairActionPickerVisible, setRepairActionPickerVisible] =
 
 const [repairDurationPickerVisible, setRepairDurationPickerVisible] =
     useState(false);
+
+const [statusPickerVisible, setStatusPickerVisible] = useState(false);
+const [chargeurPickerVisible, setChargeurPickerVisible] = useState(false);
     // pour détecter la transition de statut
     const prevStatusRef = useRef(status);
+    // true si cette sauvegarde vient de faire passer le statut à "Réparé"
+    const justRepairedRef = useRef(false);
+    const [invoicePromptVisible, setInvoicePromptVisible] = useState(false);
+    // statut tel que chargé depuis la base à l'ouverture de la fiche (ne change pas pendant la session)
+    const initialStatusRef = useRef(null);
 const [repairCausesList, setRepairCausesList] = useState([]);
 const [repairActionsList, setRepairActionsList] = useState([]);
 const [repairDictionaryLoading, setRepairDictionaryLoading] =
@@ -346,7 +461,7 @@ const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
                 .maybeSingle();
 
             if (error || !inter) {
-                Alert.alert("Erreur", "Impossible de lire la fiche.");
+                showAlert("Erreur", "Impossible de lire la fiche.");
                 return;
             }
 
@@ -375,7 +490,7 @@ const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
                             }
                         );
                         src = comp.uri;
-                    } catch {}
+                    } catch { /* compression échouée, on garde l'image d'origine */ }
 
                     const folder = isLabel ? "etiquettes" : "supplementaires";
                     const fileName = `${Date.now()}_${Math.random()
@@ -464,7 +579,7 @@ const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
             }
 
             if (!changed) {
-                Alert.alert("Info", "Rien à réparer pour cette fiche.");
+                showAlert("Info", "Rien à réparer pour cette fiche.");
                 return;
             }
 
@@ -478,7 +593,7 @@ const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
                 .eq("id", interventionId);
 
             if (updErr) {
-                Alert.alert("Erreur", "La base n’a pas pu être mise à jour.");
+                showAlert("Erreur", "La base n’a pas pu être mise à jour.");
                 return;
             }
 
@@ -486,10 +601,10 @@ const [repairSuggestionsLoading, setRepairSuggestionsLoading] =
             setLabelPhoto(newLabel);
             setLabelPhotoDB(newLabel);
             setTakeLabelPhoto(!!newLabel);
-            Alert.alert("OK", "Photos réparées (cloud) pour cette fiche.");
+            showAlert("OK", "Photos réparées (cloud) pour cette fiche.");
         } catch (e) {
             console.error("repairBrokenPhotoUrlsForCurrentIntervention:", e);
-            Alert.alert("Erreur", "Problème pendant la réparation.");
+            showAlert("Erreur", "Problème pendant la réparation.");
         }
     };
 
@@ -509,10 +624,13 @@ useEffect(() => {
         const fetchClientName = async () => {
             const { data, error } = await supabase
                 .from("clients")
-                .select("name")
+                .select("name, phone")
                 .eq("id", clientId)
                 .single();
-            if (!error && data) setClientName(data.name);
+            if (!error && data) {
+                setClientName(data.name);
+                setClientPhone(data.phone || "");
+            }
         };
         if (clientId) fetchClientName();
     }, [clientId]);
@@ -526,7 +644,7 @@ useEffect(() => {
                 .eq("id", interventionId)
                 .maybeSingle();
             if (error || !inter) {
-                Alert.alert("Erreur", "Impossible de lire la fiche.");
+                showAlert("Erreur", "Impossible de lire la fiche.");
                 return;
             }
 
@@ -595,7 +713,7 @@ useEffect(() => {
                 })
                 .eq("id", interventionId);
             if (updErr) {
-                Alert.alert(
+                showAlert(
                     "Erreur",
                     "Impossible de corriger la fiche en base."
                 );
@@ -607,10 +725,10 @@ useEffect(() => {
             setLabelPhoto(newLabel);
             setLabelPhotoDB(newLabel);
             setTakeLabelPhoto(!!newLabel);
-            Alert.alert("OK", "Les photos locales ont été basculées en cloud.");
+            showAlert("OK", "Les photos locales ont été basculées en cloud.");
         } catch (e) {
             console.error("fixLocalPhotosForCurrentIntervention:", e);
-            Alert.alert("Erreur", "Problème pendant la correction.");
+            showAlert("Erreur", "Problème pendant la correction.");
         }
     };
 const loadRepairDictionary = async () => {
@@ -644,7 +762,7 @@ const loadRepairDictionary = async () => {
             error
         );
 
-        Alert.alert(
+        showAlert(
             "Erreur",
             "Impossible de charger les causes et réparations."
         );
@@ -697,7 +815,7 @@ const loadRepairDictionary = async () => {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -755,11 +873,42 @@ const loadRepairDictionary = async () => {
                 inter.partialPayment != null ? String(inter.partialPayment) : ""
             );
             setStatus(inter.status || "default");
+            initialStatusRef.current = inter.status || "default";
             setSerial_number(inter.serial_number || "");
             setPassword(inter.password || "");
             setPhotos(photosResolved);
             setLabelPhoto(labelResolved);
             setCommande(inter.commande || "");
+
+            // Récupère le montant + l'id de la commande liée (best-effort, via client_id + nom du produit),
+            // pour un affichage persistant du montant sans lien direct en base entre commande et intervention.
+            if (inter.commande && clientId) {
+                try {
+                    const { data: matchingOrder } = await supabase
+                        .from("orders")
+                        .select("id, total, price, quantity, createdat")
+                        .eq("client_id", clientId)
+                        .ilike("product", inter.commande)
+                        .or("deleted.is.null,deleted.eq.false")
+                        .order("createdat", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (matchingOrder) {
+                        const amount =
+                            matchingOrder.total ??
+                            (matchingOrder.price != null && matchingOrder.quantity != null
+                                ? matchingOrder.price * matchingOrder.quantity
+                                : null);
+                        setOrderAmount(amount != null ? String(amount) : "");
+                        setOrderId(matchingOrder.id ?? null);
+                        setOrderDate(matchingOrder.createdat || "");
+                    }
+                } catch (e) {
+                    console.log("⚠️ Récupération montant commande :", e?.message || e);
+                }
+            }
+
             setRemarks(inter.remarks || "");
             setNoCostButRestitution(!!inter.no_cost_but_restitution);
             setPaymentStatus(
@@ -773,6 +922,67 @@ const loadRepairDictionary = async () => {
 			setRepairAction(inter.repair_action || "");
 			setRepairDuration(inter.repair_duration || "");
 			setRepairComment(inter.repair_comment || "");
+			setRepairProposalMade(
+    !!inter.repair_proposal_made
+);
+setRepairProposalExpanded(false);
+setRepairProposal(
+    inter.repair_proposal || ""
+);
+
+setRepairProposalPrice(
+    inter.repair_proposal_price != null
+        ? String(inter.repair_proposal_price)
+        : ""
+);
+
+setRepairProposalStatus(
+    inter.repair_proposal_status || "pending"
+);
+
+setRepairProposalMethod(
+    inter.repair_proposal_method || "shop"
+);
+
+setRepairProposalComment(
+    inter.repair_proposal_comment || ""
+);
+
+setRepairProposalDate(
+    inter.repair_proposal_date || null
+);
+setLoanedItem(
+    inter.loaned_item || ""
+);
+
+setLoanedItemReturned(
+    !!inter.loaned_item_returned
+);
+
+setLoanedItemDate(
+    inter.loaned_item_date || null
+);
+
+setLoanedItemEnabled(
+    !!inter.loaned_item
+);
+setLoanedItemExpanded(false);
+setRestitutionNote(
+    inter.restitution_note || ""
+);
+
+setRestitutionNoteDone(
+    !!inter.restitution_note_done
+);
+
+setRestitutionNoteDate(
+    inter.restitution_note_date || null
+);
+
+setRestitutionNoteEnabled(
+    !!inter.restitution_note
+);
+setRestitutionNoteExpanded(false);
             const dbLabel =
                 typeof inter?.label_photo === "string"
                     ? inter.label_photo
@@ -863,158 +1073,323 @@ const loadRepairDictionary = async () => {
         }
     };
 
-    useEffect(() => {
-        const prev = prevStatusRef.current;
-        if (prev === "Intervention en cours" && status === "En attente de pièces") {
-            const defProd =
-                reference?.trim()
-                    ? reference.trim()
-                    : (deviceType ? deviceType.toUpperCase() + " " : "") +
-                      (brand ? String(brand).toUpperCase() + " " : "") +
-                      (model ? String(model).toUpperCase() : "");
+useEffect(() => {
+    const previousStatus = prevStatusRef.current;
 
-            setOrderProduct(defProd || "PIÈCE À COMMANDER");
-            setOrderBrand(brand || "");
-            setOrderModel(model || "");
-            setOrderUnitPrice("");
-            setOrderQty("1");
-            setOrderDeposit("");
+    // Ouvrir le formulaire quand l'utilisateur passe manuellement,
+    // depuis n'importe quel statut déjà défini, à "En attente de pièces"
+    // ("default" = chargement initial de la fiche, à ignorer).
+    if (
+        previousStatus !== "default" &&
+        previousStatus !== "En attente de pièces" &&
+        status === "En attente de pièces"
+    ) {
+        setOrderProduct("");
+        setOrderBrand("");
+        setOrderModel("");
+        setOrderUnitPrice("");
+        setOrderQty("1");
+        setOrderDeposit("");
+        setOrderItems([]);
 
-            setOrderModalVisible(true);
-        }
-		if (
-    prev !== "Réparé" &&
-    status === "Réparé" &&
-    !repairCause &&
-    !repairAction
-) {
-    setRepairModalVisible(true);
-}
-        prevStatusRef.current = status;
-    }, [status]);
+        setOrderModalVisible(true);
+    }
+
+    if (
+        previousStatus !== "Réparé" &&
+        status === "Réparé" &&
+        !repairCause &&
+        !repairAction
+    ) {
+        setRepairModalVisible(true);
+    }
+
+    prevStatusRef.current = status;
+}, [status]);
 
     const toNum = (v, def = 0) => {
         const x = parseFloat(String(v ?? "").replace(",", "."));
         return Number.isFinite(x) ? x : def;
     };
 
+    // Ajoute le produit en cours de saisie à la liste des produits de la commande,
+    // pour permettre de commander plusieurs composants en une seule commande.
+    const handleAddOrderItem = () => {
+        const product = orderProduct?.trim();
+        const price = toNum(orderUnitPrice, NaN);
+
+        if (!product) {
+            showAlert("Champs manquants", "Le produit est requis.");
+            return;
+        }
+        if (!Number.isFinite(price) || price <= 0) {
+            showAlert(
+                "Montant invalide",
+                "Saisis un prix unitaire valide (> 0)."
+            );
+            return;
+        }
+
+        setOrderItems((prev) => [
+            ...prev,
+            {
+                localId: `${Date.now()}-${Math.random()}`,
+                product,
+                brand: orderBrand?.trim() || "",
+                model: orderModel?.trim() || "",
+                price,
+                qty: Math.max(1, Math.floor(toNum(orderQty, 1))),
+            },
+        ]);
+
+        setOrderProduct("");
+        setOrderBrand("");
+        setOrderModel("");
+        setOrderUnitPrice("");
+        setOrderQty("1");
+    };
+
     const handleCreateOrderFromStatus = async () => {
         try {
-            const product = orderProduct?.trim();
-            const brandStr = orderBrand?.trim() || null;
-            const modelStr = orderModel?.trim() || null;
-            const price = toNum(orderUnitPrice, NaN);
-            const qty = Math.max(1, Math.floor(toNum(orderQty, 1)));
+            // Inclut automatiquement le produit en cours de saisie s'il est rempli,
+            // en plus de ceux déjà ajoutés à la liste via "+ Ajouter un autre produit".
+            const items = [...orderItems];
+            const pendingProduct = orderProduct?.trim();
+            if (pendingProduct) {
+                const pendingPrice = toNum(orderUnitPrice, NaN);
+                if (!Number.isFinite(pendingPrice) || pendingPrice <= 0) {
+                    showAlert(
+                        "Montant invalide",
+                        "Saisis un prix unitaire valide (> 0)."
+                    );
+                    return;
+                }
+                items.push({
+                    localId: "pending",
+                    product: pendingProduct,
+                    brand: orderBrand?.trim() || "",
+                    model: orderModel?.trim() || "",
+                    price: pendingPrice,
+                    qty: Math.max(1, Math.floor(toNum(orderQty, 1))),
+                });
+            }
+
+            if (items.length === 0) {
+                showAlert("Champs manquants", "Ajoute au moins un produit.");
+                return;
+            }
+
             const deposit = Math.max(0, toNum(orderDeposit, 0));
 
-            if (!product) {
-                Alert.alert("Champs manquants", "Le produit est requis.");
-                return;
-            }
-            if (!Number.isFinite(price) || price <= 0) {
-                Alert.alert(
-                    "Montant invalide",
-                    "Saisis un prix unitaire valide (> 0)."
-                );
-                return;
-            }
+            const itemsWithTotal = items.map((item) => ({
+                ...item,
+                total: Math.round((item.price * item.qty + Number.EPSILON) * 100) / 100,
+            }));
+            const total = itemsWithTotal.reduce((sum, item) => sum + item.total, 0);
+            const first = itemsWithTotal[0];
+            const orderName =
+                itemsWithTotal.length === 1
+                    ? first.product
+                    : `${first.product} + ${itemsWithTotal.length - 1} autre${
+                          itemsWithTotal.length > 2 ? "s" : ""
+                      }`;
 
-            const total =
-                Math.round((price * qty + Number.EPSILON) * 100) / 100;
-
+            const nowIso = new Date().toISOString();
             const payload = {
                 client_id: clientId,
-                product,
-                brand: brandStr,
-                model: modelStr,
-                price,
-                quantity: qty,
+                order_name: orderName,
+                items_count: itemsWithTotal.length,
+                product: first.product,
+                brand: first.brand,
+                model: first.model,
+                price: total,
+                quantity: 1,
                 total,
                 deposit,
                 received: false,
                 paid: false,
                 recovered: false,
                 deleted: false,
-                createdat: new Date().toISOString(),
+                createdat: nowIso,
             };
 
-            const { data, error } = await supabase
-                .from("orders")
-                .insert([payload])
-                .select("id")
-                .single();
+const {
+    data: createdOrder,
+    error: createOrderError,
+} = await supabase
+    .from("orders")
+    .insert([payload])
+    .select("id")
+    .single();
 
-            if (error) {
-                console.error("❌ Insertion order:", error);
-                Alert.alert("Erreur", "Impossible de créer la commande.");
-                return;
-            }
+if (createOrderError) {
+    console.error(
+        "❌ Insertion order :",
+        createOrderError
+    );
 
-            setOrderModalVisible(false);
-            Alert.alert("✅ Commande", "Commande créée avec succès.");
+    showAlert(
+        "Erreur",
+        "Impossible de créer la commande."
+    );
+
+    return;
+}
+
+// Création des articles liés à la commande (un par produit)
+const lignes = itemsWithTotal.map((item, index) => ({
+    order_id: createdOrder.id,
+    product: item.product,
+    brand: item.brand,
+    model: item.model,
+    serial: "",
+    quantity: item.qty,
+    unit_price: item.price,
+    include_in_intervention: false,
+    ordered: false,
+    received: false,
+    installed: false,
+    position: index + 1,
+}));
+
+const { error: createOrderItemError } = await supabase
+    .from("order_items")
+    .insert(lignes);
+
+if (createOrderItemError) {
+    console.error(
+        "❌ Création order_items :",
+        createOrderItemError
+    );
+
+    showAlert(
+        "Erreur",
+        "La commande a été créée, mais ses produits n’ont pas pu être ajoutés."
+    );
+
+    return;
+}
+
+// Mise à jour du champ commande dans l'intervention
+const {
+    data: updatedIntervention,
+    error: updateInterventionError,
+} = await supabase
+    .from("interventions")
+    .update({
+        commande: orderName,
+        updatedAt: new Date().toISOString(),
+    })
+    .eq("id", interventionId)
+    .select("id, commande")
+    .single();
+
+if (updateInterventionError) {
+    console.error(
+        "❌ Mise à jour intervention.commande :",
+        updateInterventionError
+    );
+
+    showAlert(
+        "Erreur",
+        "La commande a été créée, mais le produit n’a pas été ajouté dans la fiche d’intervention."
+    );
+
+    return;
+}
+
+// Mise à jour immédiate du champ affiché
+setCommande(
+    updatedIntervention?.commande || orderName
+);
+setOrderAmount(total);
+setOrderId(createdOrder.id);
+setOrderDate(nowIso);
+setOrderItems([]);
+setOrderProduct("");
+setOrderBrand("");
+setOrderModel("");
+setOrderUnitPrice("");
+setOrderQty("1");
+setOrderDeposit("");
+
+setOrderModalVisible(false);
+
+showAlert(
+    "✅ Commande",
+    `${itemsWithTotal.length} produit${itemsWithTotal.length > 1 ? "s" : ""} enregistré${
+        itemsWithTotal.length > 1 ? "s" : ""
+    }.`
+);
         } catch (e) {
             console.error("❌ handleCreateOrderFromStatus:", e);
-            Alert.alert("Erreur", "Création de la commande impossible.");
+            showAlert("Erreur", "Création de la commande impossible.");
+        }
+    };
+
+    const handleViewOrder = () => {
+        if (!orderId) return;
+        try {
+            navigation.navigate("OrdersPage", {
+                clientId,
+                clientName: clientName || "",
+            });
+        } catch (e) {
+            console.error("❌ handleViewOrder:", e);
+            showAlert("Erreur", "Impossible d'ouvrir les commandes.");
         }
     };
 
     const deleteLabelPhoto = async (photoRefRaw) => {
         const photoRef = extractRefString(photoRefRaw);
 
-        Alert.alert(
+        openConfirm(
             "Supprimer l’étiquette ?",
             "Cette action supprimera l’étiquette du stockage et de la fiche.",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            let path = null;
-                            if (photoRef && photoRef.startsWith("http")) {
-                                path = pathFromSupabaseUrl(photoRef);
-                            } else if (photoRef && !photoRef.startsWith("file://")) {
-                                path = photoRef;
-                            }
+            async () => {
+                try {
+                    let path = null;
+                    if (photoRef && photoRef.startsWith("http")) {
+                        path = pathFromSupabaseUrl(photoRef);
+                    } else if (photoRef && !photoRef.startsWith("file://")) {
+                        path = photoRef;
+                    }
 
-                            if (path) {
-                                const { error: rmErr } = await supabase.storage
-                                    .from("images")
-                                    .remove([path]);
-                                if (rmErr)
-                                    console.error(
-                                        "Erreur suppression cloud :",
-                                        rmErr.message
-                                    );
-                            }
-
-                            setLabelPhoto(null);
-                            setLabelPhotoDB(null);
-                            setTakeLabelPhoto(false);
-
-                            const { error: dbErr } = await supabase
-                                .from("interventions")
-                                .update({ label_photo: null })
-                                .eq("id", interventionId);
-
-                            if (dbErr) {
-                                console.error("Erreur MAJ BDD :", dbErr.message);
-                                Alert.alert(
-                                    "Erreur",
-                                    "Impossible de mettre à jour la fiche."
-                                );
-                            }
-                        } catch (e) {
+                    if (path) {
+                        const { error: rmErr } = await supabase.storage
+                            .from("images")
+                            .remove([path]);
+                        if (rmErr)
                             console.error(
-                                "Erreur générale suppression étiquette :",
-                                e
+                                "Erreur suppression cloud :",
+                                rmErr.message
                             );
-                            Alert.alert("Erreur", "Problème lors de la suppression.");
-                        }
-                    },
-                },
-            ]
+                    }
+
+                    setLabelPhoto(null);
+                    setLabelPhotoDB(null);
+                    setTakeLabelPhoto(false);
+
+                    const { error: dbErr } = await supabase
+                        .from("interventions")
+                        .update({ label_photo: null })
+                        .eq("id", interventionId);
+
+                    if (dbErr) {
+                        console.error("Erreur MAJ BDD :", dbErr.message);
+                        showAlert(
+                            "Erreur",
+                            "Impossible de mettre à jour la fiche."
+                        );
+                    }
+                } catch (e) {
+                    console.error(
+                        "Erreur générale suppression étiquette :",
+                        e
+                    );
+                    showAlert("Erreur", "Problème lors de la suppression.");
+                }
+            }
         );
     };
 
@@ -1063,7 +1438,7 @@ const loadRepairDictionary = async () => {
                 );
 
                 if (!url) {
-                    Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+                    showAlert("Erreur", "Échec de l'upload de l’étiquette.");
                     return;
                 }
 
@@ -1086,7 +1461,7 @@ const loadRepairDictionary = async () => {
                 try {
                     const j = JSON.parse(s);
                     if (Array.isArray(j)) return j.filter(Boolean);
-                } catch {}
+                } catch { /* pas du JSON valide, ignoré */ }
                 if (s.includes(","))
                     return s
                         .split(",")
@@ -1120,7 +1495,7 @@ const loadRepairDictionary = async () => {
             );
 
             if (!url) {
-                Alert.alert("Erreur", "Upload impossible, photo non ajoutée.");
+                showAlert("Erreur", "Upload impossible, photo non ajoutée.");
                 return;
             }
 
@@ -1137,7 +1512,7 @@ const loadRepairDictionary = async () => {
 
             if (readErr) {
                 console.error("Lecture photos BDD :", readErr.message);
-                Alert.alert("Erreur", "Photo ajoutée localement, base non relue.");
+                showAlert("Erreur", "Photo ajoutée localement, base non relue.");
                 return;
             }
 
@@ -1163,11 +1538,11 @@ const loadRepairDictionary = async () => {
 
             if (dbErr) {
                 console.error("MAJ BDD (photos) :", dbErr.message);
-                Alert.alert("Erreur", "Photo ajoutée localement, base non mise à jour.");
+                showAlert("Erreur", "Photo ajoutée localement, base non mise à jour.");
             }
         } catch (e) {
             console.error("Erreur capture image :", e);
-            Alert.alert("Erreur", "Impossible d'ajouter la photo.");
+            showAlert("Erreur", "Impossible d'ajouter la photo.");
         }
     };
 	const saveCustomRepairValue = async () => {
@@ -1176,7 +1551,7 @@ const loadRepairDictionary = async () => {
         .replace(/\s+/g, " ");
 
     if (!cleanedValue) {
-        Alert.alert(
+        showAlert(
             "Valeur manquante",
             "Saisis un nom avant de valider."
         );
@@ -1204,7 +1579,7 @@ const loadRepairDictionary = async () => {
         );
 
         if (alreadyExists) {
-            Alert.alert(
+            showAlert(
                 "Valeur existante",
                 "Cette valeur existe déjà dans la liste."
             );
@@ -1225,7 +1600,7 @@ const loadRepairDictionary = async () => {
 
         if (error) {
             if (error.code === "23505") {
-                Alert.alert(
+                showAlert(
                     "Valeur existante",
                     "Cette valeur existe déjà dans la liste."
                 );
@@ -1252,7 +1627,7 @@ const loadRepairDictionary = async () => {
             error
         );
 
-        Alert.alert(
+        showAlert(
             "Erreur",
             error?.message ||
                 "Impossible d’ajouter cette valeur."
@@ -1415,7 +1790,7 @@ useEffect(() => {
 }, [repairCause, brand, deviceType]);
 const validateRepairInformation = () => {
     if (!repairCause) {
-        Alert.alert(
+        showAlert(
             "Cause manquante",
             "Sélectionne la cause principale de la panne."
         );
@@ -1423,7 +1798,7 @@ const validateRepairInformation = () => {
     }
 
     if (!repairAction) {
-        Alert.alert(
+        showAlert(
             "Réparation manquante",
             "Sélectionne la réparation effectuée."
         );
@@ -1431,7 +1806,7 @@ const validateRepairInformation = () => {
     }
 
     if (!repairDuration) {
-        Alert.alert(
+        showAlert(
             "Temps manquant",
             "Sélectionne approximativement le temps passé."
         );
@@ -1498,6 +1873,69 @@ const validateRepairInformation = () => {
             model: modelName,
             reference,
             description,
+			loaned_item:
+    loanedItemEnabled
+        ? loanedItem.trim()
+        : null,
+
+loaned_item_returned:
+    loanedItemEnabled
+        ? loanedItemReturned
+        : false,
+
+loaned_item_date:
+    loanedItemEnabled
+        ? loanedItemDate ||
+          new Date().toISOString()
+        : null,
+restitution_note:
+    restitutionNoteEnabled
+        ? restitutionNote.trim()
+        : null,
+
+restitution_note_done:
+    restitutionNoteEnabled
+        ? restitutionNoteDone
+        : false,
+
+restitution_note_date:
+    restitutionNoteEnabled
+        ? restitutionNoteDate ||
+          new Date().toISOString()
+        : null,
+
+			repair_proposal_made: repairProposalMade,
+
+repair_proposal: repairProposalMade
+    ? repairProposal.trim()
+    : null,
+
+repair_proposal_price:
+    repairProposalMade &&
+    repairProposalPrice.trim()
+        ? parseFloat(
+              normalizeNumber(
+                  repairProposalPrice
+              )
+          )
+        : null,
+
+repair_proposal_status: repairProposalMade
+    ? repairProposalStatus
+    : null,
+
+repair_proposal_method: repairProposalMade
+    ? repairProposalMethod
+    : null,
+
+repair_proposal_comment: repairProposalMade
+    ? repairProposalComment.trim() || null
+    : null,
+
+repair_proposal_date: repairProposalMade
+    ? repairProposalDate ||
+      new Date().toISOString()
+    : null,
             cost: costValue,
             solderestant: solderestantValue || 0,
             partialPayment: partialPaymentValue || null,
@@ -1529,9 +1967,17 @@ const validateRepairInformation = () => {
 			repair_cause: repairCause || null,
 			repair_action: repairAction || null,
 			repair_duration: repairDuration || null,
-			repair_comment: repairComment.trim() || null,		
+			repair_comment: repairComment.trim() || null,
+			// Horodatage du passage réel au statut "Réparé" (ne s'écrase pas sur les sauvegardes suivantes)
+			repaired_at:
+			    initialStatusRef.current !== "Réparé" && status === "Réparé"
+			        ? new Date().toISOString()
+			        : undefined,
             updatedAt: new Date().toISOString(),
         };
+
+        justRepairedRef.current =
+            initialStatusRef.current !== "Réparé" && status === "Réparé";
 
         const formattedDevisCost =
             isEstimateMode && devisCost ? parseFloat(devisCost) : null;
@@ -1586,7 +2032,6 @@ const validateRepairInformation = () => {
         if (selectedImage) setSelectedImage(null);
 
         const errors = [];
-        if (!reference) errors.push("Référence");
         if (!deviceType) errors.push("Type de produit");
         if (!brand) errors.push("Marque");
         if (!model) errors.push("Modèle");
@@ -1641,15 +2086,10 @@ const validateRepairInformation = () => {
 
     const deletePhoto = (photoRefRaw) => {
         const photoRef = extractRefString(photoRefRaw);
-        Alert.alert(
+        openConfirm(
             "Supprimer cette image ?",
             "Cette action supprimera l'image du stockage et de la fiche.",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
+            async () => {
                         try {
                             let path = null;
                             if (photoRef && photoRef.startsWith("http")) {
@@ -1688,23 +2128,29 @@ const validateRepairInformation = () => {
 
                             if (dbErr) {
                                 console.error("MAJ BDD :", dbErr.message);
-                                Alert.alert("Erreur", "Impossible de mettre à jour la base.");
+                                showAlert("Erreur", "Impossible de mettre à jour la base.");
                             }
                         } catch (e) {
                             console.error("Erreur suppression :", e);
-                            Alert.alert("Erreur", "Problème pendant la suppression.");
+                            showAlert("Erreur", "Problème pendant la suppression.");
                         }
-                    },
-                },
-            ]
+            }
         );
     };
 
-    const closeAlert = () => {
-        console.log("ℹ️ closeAlert, title=", alertTitle);
-        setAlertVisible(false);
-        if (alertTitle === "Succès") navigation.goBack();
-    };
+  const closeAlert = () => {
+    console.log("ℹ️ closeAlert, title=", alertTitle);
+    setAlertVisible(false);
+
+    if (alertTitle === "Succès") {
+        if (justRepairedRef.current) {
+            justRepairedRef.current = false;
+            setInvoicePromptVisible(true);
+            return;
+        }
+        navigation.navigate("Home");
+    }
+};
 
     useEffect(() => {
         if (status === "Devis accepté" && devisCost && !cost) {
@@ -1810,7 +2256,23 @@ const validateRepairInformation = () => {
                         <TextInput
                             style={styles.referenceInput}
                             value={reference.toUpperCase()}
-                            onChangeText={(t) => setReference(t.toUpperCase())}
+                            onFocus={() => {
+                                // Efface l'indication "Voir photo..." dès qu'on tape ou scanne un code-barre dans le champ
+                                if (reference === REFERENCE_PHOTO_HINT) setReference("");
+                            }}
+                            onChangeText={(t) => {
+                                // Filet de sécurité si la douchette écrit avant que le focus n'ait déclenché l'effacement
+                                if (
+                                    reference === REFERENCE_PHOTO_HINT &&
+                                    t.toUpperCase().startsWith(REFERENCE_PHOTO_HINT.toUpperCase())
+                                ) {
+                                    setReference(
+                                        t.slice(REFERENCE_PHOTO_HINT.length).toUpperCase()
+                                    );
+                                } else {
+                                    setReference(t.toUpperCase());
+                                }
+                            }}
                             autoCapitalize="characters"
                             placeholder=" "
                             placeholderTextColor="#d1d0d0"
@@ -1819,10 +2281,10 @@ const validateRepairInformation = () => {
                 </FloatingField>
 
                 {/* ✅ Case à cocher : étiquette optionnelle */}
-                <View style={[styles.checkboxContainer, { marginTop: 6 }]}>
+                <View style={[styles.checkboxContainer, { marginTop: 6, width: "90%", alignSelf: "center" }]}>
                     <TouchableOpacity
                         onPress={toggleTakeLabelPhoto}
-                        style={[styles.checkboxRow, { marginLeft: 20 }]}
+                        style={[styles.checkboxRow, { marginLeft: 0 }]}
                         activeOpacity={0.85}
                     >
                         <View style={styles.checkbox}>
@@ -1838,7 +2300,7 @@ const validateRepairInformation = () => {
                                 />
                             )}
                         </View>
-                        <Text style={styles.checkboxLabel}>
+                        <Text style={[styles.checkboxLabel, { fontStyle: "italic" }]}>
                             Prendre la photo de l’étiquette
                         </Text>
                     </TouchableOpacity>
@@ -1955,7 +2417,192 @@ const validateRepairInformation = () => {
                         placeholderTextColor="#d1d0d0"
                     />
                 </FloatingField>
+{/* Proposition de réparation */}
+<View style={styles.repairProposalBox}>
+    <TouchableOpacity
+        style={styles.repairProposalHeader}
+        activeOpacity={0.8}
+onPress={() => {
+    if (!repairProposalMade) {
+        setRepairProposalMade(true);
+        setRepairProposalExpanded(true);
+        return;
+    }
 
+    setRepairProposalExpanded(
+        (previous) => !previous
+    );
+}}
+    >
+        <View
+            style={[
+                styles.repairProposalCheckbox,
+                repairProposalMade &&
+                    styles.repairProposalCheckboxChecked,
+            ]}
+        >
+            {repairProposalMade && (
+                <Text
+                    style={
+                        styles.repairProposalCheckText
+                    }
+                >
+                    ✓
+                </Text>
+            )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+            <Text
+                style={styles.repairProposalTitle}
+            >
+                Estimation à la réception
+            </Text>
+
+            <Text
+                style={
+                    styles.repairProposalSubtitle
+                }
+            >
+                Réparation envisagée et coût
+                approximatif
+            </Text>
+        </View>
+
+        <Text
+            style={
+                styles.repairProposalChevron
+            }
+        >
+            {repairProposalExpanded ? "▲" : "▼"}
+        </Text>
+    </TouchableOpacity>
+
+{repairProposalExpanded && (
+    <View style={styles.repairProposalContent}>
+            <FloatingField label="Réparation envisagée">
+                <TextInput
+                    style={[
+                        styles.input,
+                        styles.repairProposalTextInput,
+                    ]}
+                    value={repairProposal}
+                    onChangeText={
+                        setRepairProposal
+                    }
+                    multiline
+                    textAlignVertical="top"
+                    placeholder="Exemple : remplacement du circuit d’affichage"
+                    placeholderTextColor="#7b7b7b"
+                />
+            </FloatingField>
+
+            <FloatingField label="Coût approximatif (€)">
+                <TextInput
+                    style={styles.input}
+                    value={repairProposalPrice}
+                    onChangeText={(value) =>
+                        setRepairProposalPrice(
+                            normalizeNumber(value)
+                        )
+                    }
+                    keyboardType="numeric"
+                    placeholder="Exemple : 120"
+                    placeholderTextColor="#7b7b7b"
+                />
+            </FloatingField>
+
+            <FloatingField label="Accord du client">
+                <Picker
+                    selectedValue={
+                        repairProposalStatus
+                    }
+                    style={styles.input}
+                    onValueChange={
+                        setRepairProposalStatus
+                    }
+                >
+                    <Picker.Item
+                        label="À confirmer"
+                        value="pending"
+                    />
+
+                    <Picker.Item
+                        label="Accord donné"
+                        value="accepted"
+                    />
+
+                    <Picker.Item
+                        label="Refusée"
+                        value="refused"
+                    />
+                </Picker>
+            </FloatingField>
+
+            <FloatingField label="Information donnée">
+                <Picker
+                    selectedValue={
+                        repairProposalMethod
+                    }
+                    style={styles.input}
+                    onValueChange={
+                        setRepairProposalMethod
+                    }
+                >
+                    <Picker.Item
+                        label="En présence du client"
+                        value="shop"
+                    />
+
+                    <Picker.Item
+                        label="Par téléphone"
+                        value="phone"
+                    />
+
+                    <Picker.Item
+                        label="Par SMS"
+                        value="sms"
+                    />
+
+                    <Picker.Item
+                        label="Par email"
+                        value="email"
+                    />
+                </Picker>
+            </FloatingField>
+
+            <FloatingField label="Commentaire">
+                <TextInput
+                    style={[
+                        styles.input,
+                        styles.repairProposalCommentInput,
+                    ]}
+                    value={
+                        repairProposalComment
+                    }
+                    onChangeText={
+                        setRepairProposalComment
+                    }
+                    multiline
+                    textAlignVertical="top"
+                />
+            </FloatingField>
+
+            {!!repairProposalDate && (
+                <Text
+                    style={
+                        styles.repairProposalDateText
+                    }
+                >
+                    Estimation enregistrée le{" "}
+                    {new Date(
+                        repairProposalDate
+                    ).toLocaleString("fr-FR")}
+                </Text>
+            )}
+        </View>
+    )}
+</View>
                 {/* Mot de passe */}
                 <FloatingField label="Mot de passe (si applicable)">
                     <TextInput
@@ -1966,9 +2613,315 @@ const validateRepairInformation = () => {
                         placeholderTextColor="#d1d0d0"
                     />
                 </FloatingField>
+{/* Prêt de matériel */}
+<View style={styles.repairProposalBox}>
+    <TouchableOpacity
+        style={styles.repairProposalHeader}
+        activeOpacity={0.8}
+onPress={() => {
+    if (!loanedItemEnabled) {
+        setLoanedItemEnabled(true);
+        setLoanedItemExpanded(true);
+        return;
+    }
+
+    setLoanedItemExpanded(
+        (previous) => !previous
+    );
+}}
+    >
+        <View
+            style={[
+                styles.repairProposalCheckbox,
+                loanedItemEnabled &&
+                    styles.repairProposalCheckboxChecked,
+            ]}
+        >
+            {loanedItemEnabled && (
+                <Text
+                    style={styles.repairProposalCheckText}
+                >
+                    ✓
+                </Text>
+            )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+            <Text style={styles.repairProposalTitle}>
+                Prêt de matériel
+            </Text>
+
+            <Text
+                style={
+                    styles.repairProposalSubtitle
+                }
+            >
+                Chargeur, alimentation,
+                adaptateur...
+            </Text>
+        </View>
+
+        <Text
+            style={styles.repairProposalChevron}
+        >
+            {loanedItemExpanded ? "⌃" : "⌄"}
+        </Text>
+    </TouchableOpacity>
+
+    {loanedItemExpanded && (
+        <View
+            style={styles.repairProposalContent}
+        >
+            <FloatingField label="Matériel prêté">
+                <TextInput
+                    style={styles.input}
+                    value={loanedItem}
+                    onChangeText={setLoanedItem}
+                    placeholder="Ex : Chargeur Lenovo USB-C 65W"
+                    placeholderTextColor="#777"
+                />
+            </FloatingField>
+
+            <TouchableOpacity
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginTop: 12,
+                }}
+                onPress={() =>
+                    setLoanedItemReturned(
+                        !loanedItemReturned
+                    )
+                }
+            >
+                <View
+                    style={[
+                        styles.repairProposalCheckbox,
+                        loanedItemReturned &&
+                            styles.repairProposalCheckboxChecked,
+                    ]}
+                >
+                    {loanedItemReturned && (
+                        <Text
+                            style={
+                                styles.repairProposalCheckText
+                            }
+                        >
+                            ✓
+                        </Text>
+                    )}
+                </View>
+
+                <Text
+                    style={{
+                        marginLeft: 10,
+                        fontSize: 15,
+                        color: "#444",
+                        fontWeight: "600",
+                    }}
+                >
+                    Matériel restitué
+                </Text>
+            </TouchableOpacity>
+			<TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => {
+        openConfirm(
+            "Supprimer le prêt",
+            "Voulez-vous effacer le matériel prêté de cette fiche ?",
+            () => {
+                setLoanedItemEnabled(false);
+                setLoanedItemExpanded(false);
+                setLoanedItem("");
+                setLoanedItemReturned(false);
+                setLoanedItemDate(null);
+            }
+        );
+    }}
+    style={{
+        alignSelf: "flex-start",
+        marginTop: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: "#dc2626",
+        borderRadius: 7,
+        backgroundColor: "#fff1f2",
+    }}
+>
+    <Text
+        style={{
+            color: "#b91c1c",
+            fontSize: 13,
+            fontWeight: "bold",
+        }}
+    >
+        Supprimer ce prêt
+    </Text>
+</TouchableOpacity>
+        </View>
+    )}
+</View>
+
+{/* Information à rappeler */}
+<View style={styles.repairProposalBox}>
+    <TouchableOpacity
+        style={styles.repairProposalHeader}
+        activeOpacity={0.8}
+onPress={() => {
+    if (!restitutionNoteEnabled) {
+        setRestitutionNoteEnabled(true);
+        setRestitutionNoteExpanded(true);
+        return;
+    }
+
+    setRestitutionNoteExpanded(
+        (previous) => !previous
+    );
+}}
+    >
+        <View
+            style={[
+                styles.repairProposalCheckbox,
+                restitutionNoteEnabled &&
+                    styles.repairProposalCheckboxChecked,
+            ]}
+        >
+            {restitutionNoteEnabled && (
+                <Text
+                    style={styles.repairProposalCheckText}
+                >
+                    ✓
+                </Text>
+            )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+            <Text style={styles.repairProposalTitle}>
+                Information à rappeler
+            </Text>
+
+            <Text
+                style={
+                    styles.repairProposalSubtitle
+                }
+            >
+                À signaler au client lors de la restitution
+            </Text>
+        </View>
+
+        <Text
+            style={styles.repairProposalChevron}
+        >
+{restitutionNoteExpanded
+    ? "⌃"
+    : "⌄"}
+        </Text>
+    </TouchableOpacity>
+
+    {restitutionNoteExpanded && (
+        <View
+            style={styles.repairProposalContent}
+        >
+            <FloatingField label="Message">
+                <TextInput
+                    style={[
+                        styles.input,
+                        styles.repairProposalCommentInput,
+                    ]}
+                    value={restitutionNote}
+                    onChangeText={
+                        setRestitutionNote
+                    }
+                    multiline
+                    textAlignVertical="top"
+                    placeholder="Ex : Le PC chauffe fortement. Proposer un nettoyage."
+                />
+            </FloatingField>
+
+            <TouchableOpacity
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginTop: 12,
+                }}
+                onPress={() =>
+                    setRestitutionNoteDone(
+                        !restitutionNoteDone
+                    )
+                }
+            >
+                <View
+                    style={[
+                        styles.repairProposalCheckbox,
+                        restitutionNoteDone &&
+                            styles.repairProposalCheckboxChecked,
+                    ]}
+                >
+                    {restitutionNoteDone && (
+                        <Text
+                            style={
+                                styles.repairProposalCheckText
+                            }
+                        >
+                            ✓
+                        </Text>
+                    )}
+                </View>
+
+                <Text
+                    style={{
+                        marginLeft: 10,
+                        fontSize: 15,
+                        color: "#444",
+                        fontWeight: "600",
+                    }}
+                >
+                    Information donnée au client
+                </Text>
+            </TouchableOpacity>
+			<TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => {
+        openConfirm(
+            "Supprimer le rappel",
+            "Voulez-vous effacer cette information de la fiche ?",
+            () => {
+                setRestitutionNoteEnabled(false);
+                setRestitutionNoteExpanded(false);
+                setRestitutionNote("");
+                setRestitutionNoteDone(false);
+                setRestitutionNoteDate(null);
+            }
+        );
+    }}
+    style={{
+        alignSelf: "flex-start",
+        marginTop: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: "#dc2626",
+        borderRadius: 7,
+        backgroundColor: "#fff1f2",
+    }}
+>
+    <Text
+        style={{
+            color: "#b91c1c",
+            fontSize: 13,
+            fontWeight: "bold",
+        }}
+    >
+        Supprimer ce rappel
+    </Text>
+</TouchableOpacity>
+        </View>
+    )}
+</View>
 
                 {/* Coût (version bloquée en mode devis) */}
-                <FloatingField label="Coût de la réparation (€)">
+                <FloatingField label="Coût de l'intervention (€)">
                     <TextInput
                         style={styles.input}
                         value={cost ? String(cost) : ""}
@@ -2137,37 +3090,119 @@ const validateRepairInformation = () => {
                 )}
 
                 {/* Statut & devis */}
-                <View
-                    style={[
-                        styles.rowFlexContainer,
-                        status === "En attente de pièces" && { paddingHorizontal: 20 },
-                    ]}
-                >
-                    <View style={styles.fullwidthContainer}>
-                        {/* Statut avec label flottant */}
-                        <FloatingField label="Statut">
-                            <Picker
-                                selectedValue={status}
-                                style={[styles.input, styles.picker]}
-                                onValueChange={(itemValue) => {
-                                    setStatus(itemValue);
-                                    if (itemValue === "Devis en cours") setCost("");
-                                    if (itemValue === "Non réparable") {
-                                        setNoCostButRestitution(true);
-                                        setPaymentStatus("");
-                                        setPartialPayment("");
-                                    }
-                                }}
+                <View style={styles.rowFlexContainer}>
+                    <View style={[styles.fullwidthContainer, { width: "100%" }]}>
+                        <View style={{ width: "90%", alignSelf: "center", flexDirection: "row", gap: 8 }}>
+                            {/* Statut avec label flottant */}
+                            <FloatingField label="Statut" style={{ flex: 1 }}>
+                                <TouchableOpacity
+                                    style={[styles.repairSelectButton, { width: "100%" }]}
+                                    onPress={() => setStatusPickerVisible(true)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.repairSelectText,
+                                            status === "default" && styles.repairPlaceholderText,
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {status === "default" ? "Choisir..." : status}
+                                    </Text>
+                                    <Text style={styles.repairChevron}>›</Text>
+                                </TouchableOpacity>
+                            </FloatingField>
+
+                            {/* Commande, entre Statut et Chargeur, uniquement si en attente de pièces */}
+                            {status === "En attente de pièces" && (
+                                <FloatingField label="Commande" style={{ flex: 1.2 }}>
+                                    <View style={{ width: "100%", position: "relative" }}>
+                                        <TextInput
+                                            style={[
+                                                styles.input,
+                                                { width: "100%", alignSelf: "auto" },
+                                                orderAmount !== "" && { paddingRight: 60 },
+                                            ]}
+                                            value={commande.toUpperCase()}
+                                            onChangeText={(t) => setCommande(t.toUpperCase())}
+                                            autoCapitalize="characters"
+                                            placeholder=" "
+                                            placeholderTextColor="#202020"
+                                        />
+                                        {orderAmount !== "" && (
+                                            <Text
+                                                pointerEvents="none"
+                                                style={{
+                                                    position: "absolute",
+                                                    right: 8,
+                                                    top: 0,
+                                                    height: 50,
+                                                    lineHeight: 50,
+                                                    fontSize: 11,
+                                                    fontWeight: "600",
+                                                    color: "#202020",
+                                                }}
+                                            >
+                                                ({parseFloat(orderAmount).toFixed(2)}€)
+                                            </Text>
+                                        )}
+                                    </View>
+                                </FloatingField>
+                            )}
+
+                            {/* Chargeur */}
+                            <FloatingField
+                                label="Chargeur"
+                                style={{ flex: status === "En attente de pièces" ? 0.7 : 1 }}
                             >
-                                <Picker.Item label="Sélectionnez un statut..." value="default" />
-                                <Picker.Item label="En attente de pièces" value="En attente de pièces" />
-                                <Picker.Item label="Devis en cours" value="Devis en cours" />
-                                <Picker.Item label="Devis accepté" value="Devis accepté" />
-                                <Picker.Item label="Intervention en cours" value="Intervention en cours" />
-                                <Picker.Item label="Réparé" value="Réparé" />
-                                <Picker.Item label="Non réparable" value="Non réparable" />
-                            </Picker>
-                        </FloatingField>
+                                <TouchableOpacity
+                                    style={[styles.repairSelectButton, { width: "100%" }]}
+                                    onPress={() => setChargeurPickerVisible(true)}
+                                >
+                                    <Text style={styles.repairSelectText} numberOfLines={1}>
+                                        {chargeur}
+                                    </Text>
+                                    <Text style={styles.repairChevron}>›</Text>
+                                </TouchableOpacity>
+                            </FloatingField>
+                        </View>
+
+                        {status === "En attente de pièces" && orderId != null && (
+                            <>
+                                {orderDate !== "" && (
+                                    <Text
+                                        style={{
+                                            width: "90%",
+                                            alignSelf: "center",
+                                            textAlign: "center",
+                                            marginTop: 4,
+                                            color: "#666",
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        Commandée le{" "}
+                                        {new Date(orderDate).toLocaleDateString("fr-FR")}
+                                    </Text>
+                                )}
+                                <TouchableOpacity
+                                    onPress={handleViewOrder}
+                                    style={{
+                                        width: "90%",
+                                        alignSelf: "center",
+                                        marginTop: 4,
+                                        marginBottom: 12,
+                                        backgroundColor: "#191f2f",
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 12,
+                                        borderRadius: 8,
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                                        Voir la commande
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
 
                         {/* Montant du devis */}
                         {status === "Devis en cours" && (
@@ -2244,35 +3279,17 @@ const validateRepairInformation = () => {
                             </>
                         )}
 
-                        {status !== "Devis en cours" && (
-                            <FloatingField label="Coût de la réparation (€)">
-                                <TextInput
-                                    style={styles.input}
-                                    value={cost}
-                                    onChangeText={setCost}
-                                    keyboardType="numeric"
-                                    placeholder="Coût total (€)"
-                                    placeholderTextColor="#202020"
-                                />
-                            </FloatingField>
+                        {status !== "Devis en cours" && orderAmount !== "" && (
+                            <Text style={styles.interventionText}>
+                                Coût total (commande comprise) :{" "}
+                                {(
+                                    (parseFloat(cost) || 0) +
+                                    (parseFloat(orderAmount) || 0)
+                                ).toFixed(2)}{" "}
+                                €
+                            </Text>
                         )}
                     </View>
-
-                    {/* Champ commande si en attente de pièces */}
-                    {status === "En attente de pièces" && (
-                        <View style={styles.halfWidthContainer}>
-                            <FloatingField label="Commande">
-                                <TextInput
-                                    style={styles.input}
-                                    value={commande.toUpperCase()}
-                                    onChangeText={(t) => setCommande(t.toUpperCase())}
-                                    autoCapitalize="characters"
-                                    placeholder=" "
-                                    placeholderTextColor="#202020"
-                                />
-                            </FloatingField>
-                        </View>
-                    )}
                 </View>
 
                 {/* Remarques */}
@@ -2285,18 +3302,6 @@ const validateRepairInformation = () => {
                         placeholderTextColor="#9f9f9f"
                         multiline
                     />
-                </FloatingField>
-
-                {/* Chargeur */}
-                <FloatingField label="Chargeur">
-                    <Picker
-                        selectedValue={chargeur}
-                        style={[styles.input, styles.picker]}
-                        onValueChange={setChargeur}
-                    >
-                        <Picker.Item label="Non" value="Non" />
-                        <Picker.Item label="Oui" value="Oui" />
-                    </Picker>
                 </FloatingField>
 
                 {/* Galerie photos supplémentaires */}
@@ -2567,69 +3572,77 @@ const validateRepairInformation = () => {
             </Modal>
 
             {/* Modale info */}
-            <Modal
-                transparent
+            <CustomAlert
                 visible={alertVisible}
-                animationType="fade"
-                onRequestClose={closeAlert}
-            >
-                <View style={styles.modalOverlay}>
-                    <View
-                        style={[
-                            styles.alertBox,
-                            alertType === "success"
-                                ? styles.alertBoxSuccess
-                                : styles.alertBoxDanger,
-                        ]}
-                    >
-                        <Text style={styles.alertTitle}>{alertTitle}</Text>
-                        <Text style={styles.alertMessage}>{alertMessage}</Text>
-                        <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
-                            <Text style={styles.modalButtonText}>OK</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+                title={alertTitle}
+                message={alertMessage}
+                onClose={closeAlert}
+            />
+
+            {/* Confirmations génériques (suppressions, etc.) */}
+            <AlertBox
+                visible={confirmDialog.visible}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={closeConfirm}
+                onConfirm={() => {
+                    closeConfirm();
+                    if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+            />
 
             {/* Modale rappel mot de passe */}
-            <Modal
-                transparent
+            <AlertBox
                 visible={pwdReminderVisible}
-                animationType="fade"
-                onRequestClose={() => setPwdReminderVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.alertBox, styles.alertBoxDanger]}>
-                        <Text style={styles.alertTitle}>Rappel</Text>
-                        <Text style={styles.alertMessage}>
-                            Aucun mot de passe n’a été saisi. Continuer sans renseigner le
-                            mot de passe ?
-                        </Text>
+                title="Rappel"
+                message="Aucun mot de passe n’a été saisi. Continuer sans renseigner le mot de passe ?"
+                cancelText="Annuler"
+                confirmText="Continuer"
+                onClose={() => setPwdReminderVisible(false)}
+                onConfirm={() => {
+                    setPwdReminderVisible(false);
+                    performSaveIntervention();
+                }}
+            />
 
-                        <View style={styles.rowButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.btnCancel]}
-                                onPress={() => setPwdReminderVisible(false)}
-                            >
-                                <Text style={styles.modalButtonText}>Annuler</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.btnContinue]}
-                                onPress={() => {
-                                    setPwdReminderVisible(false);
-                                    performSaveIntervention();
-                                }}
-                            >
-                                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
-                                    Continuer
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
+            {/* Modale proposition de facturation (passage au statut Réparé) */}
+            <AlertBox
+                visible={invoicePromptVisible}
+                title="Facturer maintenant ?"
+                message="L’intervention est marquée Réparé. Voulez-vous créer la facture pour ce client maintenant ?"
+                cancelText="Plus tard"
+                confirmText="Facturer"
+                onClose={() => {
+                    setInvoicePromptVisible(false);
+                    navigation.navigate("Home");
+                }}
+                onConfirm={() => {
+                    setInvoicePromptVisible(false);
+                    const articleName =
+                        articles.find((a) => a.id === deviceType)?.nom || "";
+                    const brandName =
+                        brands.find((b) => b.id === brand)?.nom || "";
+                    const modelName =
+                        models.find((m) => m.id === model)?.nom || "";
+                    navigation.navigate("BillingPage", {
+                        expressData: {
+                            name: clientName,
+                            phone: clientPhone,
+                            client_address: "",
+                            description: `${description}\n${articleName} — ${brandName} — ${modelName}`,
+                            quantity: "1",
+                            price: cost?.toString() || "0",
+                            serial: serial_number || "",
+                            paymentmethod: "",
+                            acompte: partialPayment?.toString() || "",
+                            paid: paymentStatus === "solde",
+                            intervention_id: interventionId,
+                        },
+                    });
+                }}
+            />
             {/* Modale création commande rapide */}
             <Modal
                 visible={orderModalVisible}
@@ -2648,11 +3661,13 @@ const validateRepairInformation = () => {
                     <View
                         style={{
                             width: "92%",
+                            maxHeight: "88%",
                             backgroundColor: "#fff",
                             borderRadius: 10,
                             padding: 14,
                         }}
                     >
+                    <ScrollView showsVerticalScrollIndicator={false}>
                         <Text
                             style={{
                                 fontSize: 18,
@@ -2716,6 +3731,79 @@ const validateRepairInformation = () => {
                             />
                         </FloatingField>
 
+                        <TouchableOpacity
+                            onPress={handleAddOrderItem}
+                            style={{
+                                alignSelf: "center",
+                                marginBottom: 10,
+                                paddingVertical: 8,
+                                paddingHorizontal: 14,
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: "#0d6efd",
+                            }}
+                        >
+                            <Text style={{ color: "#0d6efd", fontWeight: "700" }}>
+                                + Ajouter un autre produit
+                            </Text>
+                        </TouchableOpacity>
+
+                        {orderItems.length > 0 && (
+                            <View
+                                style={{
+                                    marginBottom: 10,
+                                    borderWidth: 1,
+                                    borderColor: "#ddd",
+                                    borderRadius: 8,
+                                    backgroundColor: "#fafafa",
+                                    padding: 10,
+                                }}
+                            >
+                                <Text style={{ fontWeight: "700", marginBottom: 6 }}>
+                                    Produits ajoutés
+                                </Text>
+                                {orderItems.map((item) => (
+                                    <View
+                                        key={item.localId}
+                                        style={{
+                                            flexDirection: "row",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontWeight: "600" }}>
+                                                {item.product}
+                                            </Text>
+                                            <Text style={{ color: "#666", fontSize: 12 }}>
+                                                {item.qty} × {item.price.toFixed(2)} €
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                setOrderItems((prev) =>
+                                                    prev.filter(
+                                                        (p) => p.localId !== item.localId
+                                                    )
+                                                )
+                                            }
+                                        >
+                                            <Text
+                                                style={{
+                                                    color: "red",
+                                                    marginLeft: 10,
+                                                    fontWeight: "700",
+                                                }}
+                                            >
+                                                ✕
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+
                         <FloatingField label="Acompte (€)">
                             <TextInput
                                 style={styles.input}
@@ -2757,6 +3845,7 @@ const validateRepairInformation = () => {
                                 </Text>
                             </TouchableOpacity>
                         </View>
+                    </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -3050,6 +4139,34 @@ const validateRepairInformation = () => {
         setRepairDurationPickerVisible(false)
     }
 />
+<RepairChoiceModal
+    visible={statusPickerVisible}
+    title="Statut"
+    values={STATUS_OPTIONS}
+    selectedValue={status}
+    onSelect={(itemValue) => {
+        setStatusPickerVisible(false);
+        setStatus(itemValue);
+        if (itemValue === "Devis en cours") setCost("");
+        if (itemValue === "Non réparable") {
+            setNoCostButRestitution(true);
+            setPaymentStatus("");
+            setPartialPayment("");
+        }
+    }}
+    onClose={() => setStatusPickerVisible(false)}
+/>
+<RepairChoiceModal
+    visible={chargeurPickerVisible}
+    title="Chargeur"
+    values={CHARGEUR_OPTIONS}
+    selectedValue={chargeur}
+    onSelect={(itemValue) => {
+        setChargeur(itemValue);
+        setChargeurPickerVisible(false);
+    }}
+    onClose={() => setChargeurPickerVisible(false)}
+/>
 <Modal
     visible={customRepairModalVisible}
     transparent
@@ -3182,7 +4299,7 @@ const getDisplayUri = async (refOrPath) => {
                 .from("images")
                 .getPublicUrl(rel);
             if (pub?.publicUrl) return pub.publicUrl;
-        } catch {}
+        } catch { /* URL indisponible, ignoré */ }
     }
 
     return null;
@@ -4107,5 +5224,88 @@ repairSuggestionArrow: {
     fontSize: 25,
     color: "#94a3b8",
     marginLeft: 10,
+},
+repairProposalBox: {
+    width: "90%",
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    borderRadius: 12,
+    backgroundColor: "#fff7ed",
+    overflow: "hidden",
+},
+
+repairProposalHeader: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+},
+
+repairProposalCheckbox: {
+    width: 26,
+    height: 26,
+    marginRight: 11,
+    borderWidth: 2,
+    borderColor: "#b45309",
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+},
+
+repairProposalCheckboxChecked: {
+    borderColor: "#047857",
+    backgroundColor: "#047857",
+},
+
+repairProposalCheckText: {
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "bold",
+},
+
+repairProposalTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#9a3412",
+},
+
+repairProposalSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#7c2d12",
+},
+
+repairProposalChevron: {
+    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#9a3412",
+},
+
+repairProposalContent: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#fdba74",
+    backgroundColor: "#ffffff",
+},
+
+repairProposalTextInput: {
+    minHeight: 70,
+},
+
+repairProposalCommentInput: {
+    minHeight: 65,
+},
+
+repairProposalDateText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center",
 },
 });

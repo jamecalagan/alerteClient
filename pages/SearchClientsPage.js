@@ -7,13 +7,13 @@ import {
     FlatList,
     StyleSheet,
     ScrollView,
-    Alert,
     Image,
     Modal,
     ActivityIndicator,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { Picker } from "@react-native-picker/picker";
+import CustomAlert from "../components/CustomAlert";
 
 let debounceTimeout = null;
 const ITEMS_PER_PAGE = 2; // Nombre de fiches par page
@@ -23,6 +23,15 @@ const SearchClientsPage = () => {
     const [clients, setClients] = useState([]);
     const [paginatedClients, setPaginatedClients] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
     const [totalPages, setTotalPages] = useState(1);
 
     // --- Statuts
@@ -56,7 +65,7 @@ const SearchClientsPage = () => {
 
                 if (error) {
                     console.error("❌ Erreur lors du chargement des types d'appareils :", error);
-                    Alert.alert("Erreur", "Impossible de charger les types d'appareils.");
+                    showAlert("Erreur", "Impossible de charger les types d'appareils.");
                     return;
                 }
 
@@ -109,7 +118,7 @@ const SearchClientsPage = () => {
 
                 if (error) {
                     console.error("❌ Erreur lors du chargement des marques :", error);
-                    Alert.alert("Erreur", "Impossible de charger les marques.");
+                    showAlert("Erreur", "Impossible de charger les marques.");
                     return;
                 }
 
@@ -173,7 +182,7 @@ const SearchClientsPage = () => {
 
             if (error) {
                 console.error("Erreur lors de la recherche :", error);
-                Alert.alert("Erreur", "Impossible de récupérer les résultats.");
+                showAlert("Erreur", "Impossible de récupérer les résultats.");
             } else {
                 setClients(data || []);
                 setCurrentPage(1);
@@ -201,7 +210,7 @@ const SearchClientsPage = () => {
 
             if (error) {
                 console.error("Erreur lors de la recherche par statut :", error);
-                Alert.alert("Erreur", "Impossible de récupérer les résultats.");
+                showAlert("Erreur", "Impossible de récupérer les résultats.");
             } else {
                 setClients(data || []);
                 setCurrentPage(1);
@@ -233,7 +242,7 @@ const SearchClientsPage = () => {
 
             if (error) {
                 console.error("❌ Erreur lors de la recherche par produit :", error);
-                Alert.alert("Erreur", "Impossible de récupérer les résultats.");
+                showAlert("Erreur", "Impossible de récupérer les résultats.");
             } else {
                 setClients(data || []);
                 setCurrentPage(1);
@@ -266,7 +275,7 @@ const SearchClientsPage = () => {
 
             if (error) {
                 console.error("❌ Erreur lors de la recherche par marque :", error);
-                Alert.alert("Erreur", "Impossible de récupérer les résultats.");
+                showAlert("Erreur", "Impossible de récupérer les résultats.");
             } else {
                 setClients(data || []);
                 setCurrentPage(1);
@@ -556,6 +565,13 @@ const SearchClientsPage = () => {
                     </View>
                 </Modal>
             )}
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 };
@@ -741,26 +757,30 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.9)",
+        backgroundColor: "rgba(15, 23, 42, 0.95)",
         justifyContent: "center",
         alignItems: "center",
     },
     fullscreenImage: {
         width: "90%",
         height: "80%",
-        borderRadius: 10,
+        borderRadius: 16,
     },
     closeButton: {
         position: "absolute",
-        top: 40,
+        top: 48,
         right: 20,
-        backgroundColor: "#fff",
-        padding: 8,
+        width: 40,
+        height: 40,
         borderRadius: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.15)",
+        justifyContent: "center",
+        alignItems: "center",
     },
     closeText: {
         fontSize: 18,
-        fontWeight: "bold",
+        fontWeight: "700",
+        color: "#fff",
     },
     modalCloseArea: {
         position: "absolute",

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   TextInput,
   Image,
   KeyboardAvoidingView,
@@ -20,6 +19,8 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 /* ───────── Helpers ───────── */
 
@@ -236,6 +237,18 @@ export default function CheckupPage() {
 
   // ✅ Prévisualisation plein écran
   const [previewUri, setPreviewUri] = useState(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertGoBackAfter, setAlertGoBackAfter] = useState(false);
+
+  const showAlert = (title, message, goBackAfter = false) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertGoBackAfter(goBackAfter);
+    setAlertVisible(true);
+  };
 
   /* ───────── Signature existante ───────── */
 
@@ -331,7 +344,6 @@ export default function CheckupPage() {
         return next;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct]);
 
   const toggleComponentState = (name, state) => {
@@ -366,7 +378,7 @@ export default function CheckupPage() {
     if (!isNonTestable) {
       const missing = list.some((c) => !components[c]);
       if (missing) {
-        Alert.alert(
+        showAlert(
           "Attention",
           "Merci de renseigner l'état de tous les composants."
         );
@@ -375,11 +387,11 @@ export default function CheckupPage() {
     }
 
     if (!remarks.trim()) {
-      Alert.alert("Remarques manquantes", "Ajoutez des remarques générales.");
+      showAlert("Remarques manquantes", "Ajoutez des remarques générales.");
       return false;
     }
     if (!signature) {
-      Alert.alert(
+      showAlert(
         "Signature manquante",
         "Faites signer la fiche avant de sauvegarder ou d'imprimer."
       );
@@ -413,54 +425,44 @@ export default function CheckupPage() {
           .eq("id", editData.id);
 
         if (error) throw error;
-        Alert.alert("Succès", "Fiche mise à jour.");
+        showAlert("Succès", "Fiche mise à jour.");
       } else {
         const { error } = await supabase.from("checkup_reports").insert(payload);
         if (error) throw error;
-        Alert.alert("Succès", "Fiche sauvegardée.");
+        showAlert("Succès", "Fiche sauvegardée.");
       }
     } catch (e) {
       console.error(e);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Impossible de sauvegarder la fiche.\n\n⚠️ Ajoute les colonnes SQL : is_non_testable (bool) et component_photos (jsonb)."
       );
     }
   };
 
-  const deleteCheckup = async () => {
+  const deleteCheckup = () => {
     if (!editData?.id) return;
-    Alert.alert(
-      "Confirmation",
-      "Voulez-vous vraiment supprimer cette fiche de contrôle ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            const { error } = await supabase
-              .from("checkup_reports")
-              .delete()
-              .eq("id", editData.id);
-            if (error) {
-              Alert.alert("Erreur", "La suppression a échoué.");
-            } else {
-              Alert.alert("Supprimée", "La fiche a bien été supprimée.", [
-                { text: "OK", onPress: () => navigation.goBack() },
-              ]);
-            }
-          },
-        },
-      ]
-    );
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDeleteCheckup = async () => {
+    setDeleteConfirmVisible(false);
+    const { error } = await supabase
+      .from("checkup_reports")
+      .delete()
+      .eq("id", editData.id);
+    if (error) {
+      showAlert("Erreur", "La suppression a échoué.");
+    } else {
+      showAlert("Supprimée", "La fiche a bien été supprimée.", true);
+    }
   };
 
   const takePhotoForComponent = async (componentName) => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
+        showAlert(
           "Permission refusée",
           "Autorisez la caméra pour prendre une photo."
         );
@@ -483,7 +485,7 @@ export default function CheckupPage() {
       }));
     } catch (e) {
       console.log("⚠️ takePhotoForComponent error:", e);
-      Alert.alert("Erreur", "Impossible d’ouvrir la caméra.");
+      showAlert("Erreur", "Impossible d’ouvrir la caméra.");
     }
   };
 
@@ -900,6 +902,26 @@ export default function CheckupPage() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <AlertBox
+        visible={deleteConfirmVisible}
+        title="Confirmation"
+        message="Voulez-vous vraiment supprimer cette fiche de contrôle ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setDeleteConfirmVisible(false)}
+        onConfirm={confirmDeleteCheckup}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => {
+          setAlertVisible(false);
+          if (alertGoBackAfter) navigation.goBack();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1222,7 +1244,7 @@ const styles = StyleSheet.create({
   /* Modal preview */
   previewBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
@@ -1230,27 +1252,27 @@ const styles = StyleSheet.create({
   previewCard: {
     width: "100%",
     maxWidth: 900,
-    backgroundColor: "#111827",
-    borderRadius: 14,
-    padding: 10,
+    backgroundColor: "#1e293b",
+    borderRadius: 24,
+    padding: 14,
   },
   previewImage: {
     width: "100%",
     height: 420,
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: "#000",
   },
   previewCloseBtn: {
     alignSelf: "center",
-    marginTop: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
   previewCloseText: {
     color: "#ffffff",
-    fontWeight: "800",
+    fontWeight: "700",
+    fontSize: 15,
   },
 });

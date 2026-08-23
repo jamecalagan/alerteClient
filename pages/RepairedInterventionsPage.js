@@ -14,11 +14,12 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
-  Alert,
+  Linking,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useRoute } from "@react-navigation/native"; // Importer useRoute
 import * as ImagePicker from "expo-image-picker";
@@ -44,12 +45,15 @@ export default function RepairedInterventionsPage({ navigation }) {
   const [photoAlertVisible, setPhotoAlertVisible] = useState(false);
   const [noPhotoRequired, setNoPhotoRequired] = useState({});
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteImageConfirmVisible, setDeleteImageConfirmVisible] = useState(false);
   const [pinnedInterventionId, setPinnedInterventionId] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedInterventionId, setSelectedInterventionId] = useState(
     route.params?.selectedInterventionId || null
   );
+  const [selectedInterventionPhone, setSelectedInterventionPhone] = useState(null);
+  const [selectedInterventionDeviceType, setSelectedInterventionDeviceType] = useState("appareil");
 
   const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
   const [currentPage, setCurrentPage] = useState(1); // Page actuelle
@@ -408,12 +412,12 @@ export default function RepairedInterventionsPage({ navigation }) {
   }, 0);
 
   const flatListRef = useRef(null);
-  const updatePayment = async (id, newPartialPayment) => {
+  const updatePayment = async (id, newPartialPayment, cost) => {
     const { data, error } = await supabase
       .from("interventions")
       .update({
         partialPayment: newPartialPayment,
-        solderestant: item.cost - newPartialPayment, // Calcul du montant restant
+        solderestant: cost - newPartialPayment, // Calcul du montant restant
       })
       .eq("id", id);
 
@@ -434,45 +438,57 @@ export default function RepairedInterventionsPage({ navigation }) {
     );
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#e0e0e0" }}>
-      <View style={styles.overlay}>
+    <View style={styles.container}>
+      <View style={styles.header}>
         <Text style={styles.title}>Interventions terminées</Text>
         <View style={styles.totalContainer}>
+          <Ionicons name="cash-outline" size={16} color="#15803d" />
           <Text style={styles.totalText}>
-            Montant total des interventions Réparées :{" "}
-            {repairedTotal.toFixed(2)} €
+            {repairedTotal.toFixed(2)} € au total
           </Text>
         </View>
-        <FlatList
-          ref={flatListRef}
-          data={repairedInterventions.filter(
-            (item) => item.id === selectedInterventionId
-          )}
-          keyExtractor={(item) => item.id.toString()}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled" // Empêche le clavier de se fermer
-          contentContainerStyle={{ paddingBottom: 100 }} // Espace sous la liste
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.interventionCard} // Style pour la carte
-            >
-              <View
-                style={[
-                  styles.interventionCard,
-                  item.status === "Non réparable"
-                    ? {
-                        backgroundColor: "#dad8d8", // Couleur de fond pour "Non réparable"
-                        borderWidth: 1, // Épaisseur de la bordure
-                        borderColor: "red", // Couleur rouge pour la bordure
-                      }
-                    : {},
-                ]}
-              >
-                <View style={styles.notificationAndToolsContainer}>
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={repairedInterventions.filter(
+          (item) => item.id === selectedInterventionId
+        )}
+        keyExtractor={(item) => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => {
+          const isNonReparable = item.status === "Non réparable";
+          const isRestitutionDisabled =
+            !isSaved[item.id] ||
+            (!editingDetail[item.id] && !item.detailIntervention) ||
+            item.paymentStatus === "non_regle";
+          const hasDetailDraft =
+            editingDetail[item.id] && editingDetail[item.id].trim() !== "";
+
+          return (
+            <View style={[styles.card, isNonReparable && styles.cardDanger]}>
+              <View style={styles.cardTopRow}>
+                <View style={styles.ficheBadge}>
+                  <Text style={styles.ficheBadgeText}>
+                    N° {item.clients?.ficheNumber || "—"}
+                  </Text>
+                </View>
+                {isNonReparable && (
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>Non réparable</Text>
+                  </View>
+                )}
+                <View style={styles.headerActions}>
                   <TouchableOpacity
-                    style={styles.iconStyle}
+                    style={styles.iconBtn}
                     onPress={() => {
                       setSelectedInterventionId(item.id);
+                      setSelectedInterventionPhone(item.clients?.phone || null);
+                      setSelectedInterventionDeviceType(
+                        item.deviceType || "appareil"
+                      );
                       setNotifyModalVisible(true);
                     }}
                   >
@@ -484,302 +500,272 @@ export default function RepairedInterventionsPage({ navigation }) {
                           ? require("../assets/icons/call.png")
                           : require("../assets/icons/notifications_off.png")
                       }
-                      style={{
-                        width: 40, // Largeur de l'image
-                        height: 40, // Hauteur de l'image
-                        tintColor: item?.notifiedBy ? "#00ff37" : "gray", // Applique la couleur dynamique
-                      }}
+                      style={[
+                        styles.iconBtnImage,
+                        { tintColor: item?.notifiedBy ? "#00c853" : "#94a3b8" },
+                      ]}
                     />
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.iconStyle}
+                    style={styles.iconBtn}
                     onPress={() => takePhoto(item.id)}
                   >
                     <Image
                       source={
                         item?.intervention_images?.length > 0
-                          ? require("../assets/icons/photo_ok.png") // Icône pour photo prise
-                          : require("../assets/icons/photo.png") // Icône par défaut
+                          ? require("../assets/icons/photo_ok.png")
+                          : require("../assets/icons/photo.png")
                       }
-                      style={{
-                        width: 40, // Largeur de l'image
-                        height: 40, // Hauteur de l'image
-                        tintColor:
-                          item?.intervention_images?.length > 0
-                            ? "#5d9cfa"
-                            : "black", // Bleu si photo présente, sinon noir
-                      }}
+                      style={[
+                        styles.iconBtnImage,
+                        {
+                          tintColor:
+                            item?.intervention_images?.length > 0
+                              ? "#2563eb"
+                              : "#475569",
+                        },
+                      ]}
                     />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.infoContainer}>
-                  <Text style={styles.interventionTextBold}>
-                    Fiche N° : {item.clients.ficheNumber}
-                  </Text>
-                  <Text style={styles.interventionTextBold}>
-                    Client : {item.clients.name}
-                  </Text>
-                  <Text style={styles.interventionTextBold}>
-                    Tel :{" "}
-                    {item.clients.phone
-                      ? item.clients.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
-                      : "Téléphone non disponible"}
-                  </Text>
+              </View>
 
-                  <Text style={styles.interventionText}>
-                    Type d'appareil: {item.deviceType}
-                  </Text>
-                  <Text style={styles.interventionText}>
-                    Marque: {item.brand}
-                  </Text>
-                  <Text style={styles.interventionText}>
-                    Modèle: {item.model}
-                  </Text>
-                  <Text style={styles.interventionText}>
-                    Numéro de série: {item.serial_number}
-                  </Text>
-                  {item.reference?.toLowerCase().includes("voir photo") &&
-                  item.label_photo ? (
-                    <TouchableOpacity
-                      onPress={() =>
-                        openImageModal(item.label_photo, null, item.id)
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.interventionText,
-                          { color: "#007BFF", textDecorationLine: "underline" },
-                        ]}
-                      >
-                        Référence: {item.reference}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.interventionText}>
-                      Référence: {item.reference}
-                    </Text>
-                  )}
+              <Text style={styles.clientName}>
+                {item.clients?.name || "Client inconnu"}
+              </Text>
+              <Text style={styles.clientPhone}>
+                {item.clients?.phone
+                  ? item.clients.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
+                  : "Téléphone non disponible"}
+              </Text>
 
-                  <Text style={styles.interventionText}>
-                    Description du problème: {item.description}
+              <View style={styles.infoGrid}>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>Type</Text>
+                  <Text style={styles.infoValue}>{item.deviceType || "—"}</Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>Marque</Text>
+                  <Text style={styles.infoValue}>{item.brand || "—"}</Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>Modèle</Text>
+                  <Text style={styles.infoValue}>{item.model || "—"}</Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>N° série</Text>
+                  <Text style={styles.infoValue}>
+                    {item.serial_number || "—"}
                   </Text>
-                  <Text style={styles.interventionText}>
-                    Chargeur: {item.chargeur ? "Oui" : "Non"}
-                  </Text>
-                  <Text style={styles.interventionTextBold}>
-                    Coût: {item.cost} €
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.interventionText,
-                      item.paymentStatus === "solde"
-                        ? styles.interventionTextSolde
-                        : styles.interventionTextNon,
-                    ]}
-                  >
-                    Etat du règlement: {item.paymentStatus}
-                  </Text>
-                  {item.paymentStatus === "reglement_partiel" &&
-                    item.partialPayment && (
-                      <Text style={styles.interventionText}>
-                        Acompte de: {item.partialPayment} €
-                      </Text>
-                    )}
-                  <Text style={styles.interventionTextReste}>
-                    Montant restant dû:{" "}
-                    {item.solderestant !== null
-                      ? `${item.solderestant}€`
-                      : item.cost - (item.partialPayment || 0) + "€"}
-                  </Text>
-
-                  <Text style={styles.interventionText}>
-                    Statut: {item.status}
-                  </Text>
-                  <Text style={styles.interventionText}>
-                    Commande: {item.commande}
-                  </Text>
-                  <Text style={styles.interventionText}>
-                    Date: {new Date(item.createdAt).toLocaleDateString("fr-FR")}
-                  </Text>
-
-                  <TextInput
-                    style={styles.detailInput}
-                    placeholderTextColor="#888787"
-                    placeholder="Entrez les détails ici..."
-                    value={
-                      editingDetail[item.id] ?? item.detailIntervention ?? ""
-                    } // ✅ Met à jour immédiatement
-                    onChangeText={(text) =>
-                      setEditingDetail({
-                        ...editingDetail,
-                        [item.id]: text,
-                      })
-                    }
-                  />
-                  <View style={styles.buttonContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.saveButton,
-                        {
-                          borderWidth: 1,
-                          borderColor:
-                            editingDetail[item.id] &&
-                            editingDetail[item.id].trim() !== ""
-                              ? "#28a745"
-                              : "#888787",
-                          borderRadius: 2,
-                          padding: 10,
-                          width: "24%", // <-- ajusté pour tenir à 4 boutons
-                        },
-                      ]}
-                      onPress={() => saveDetailIntervention(item.id)}
-                    >
-                      <Image
-                        source={require("../assets/icons/save.png")}
-                        style={[
-                          styles.buttonIcon,
-                          { width: 20, height: 20, tintColor: "#888787" },
-                        ]}
-                      />
-                      <Text style={styles.buttonText}>Sauvegarder</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.restitutionButton,
-                        !isSaved[item.id] ||
-                        (!editingDetail[item.id] && !item.detailIntervention) ||
-                        item.paymentStatus === "non_regle"
-                          ? styles.disabledButton
-                          : null,
-                        { width: "24%" }, // <-- même largeur
-                      ]}
-                      onPress={() => handleRestitution(item)}
-                      disabled={
-                        !isSaved[item.id] ||
-                        (!editingDetail[item.id] && !item.detailIntervention) ||
-                        item.paymentStatus === "non_regle"
-                      }
-                    >
-                      <Image
-                        source={require("../assets/icons/ok.png")}
-                        style={[
-                          styles.buttonIcon,
-                          { width: 20, height: 20, tintColor: "#888787" },
-                        ]}
-                      />
-                      <Text style={styles.buttonText}>Restitution</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.editButton, { width: "24%" }]} // <-- même largeur
-                      onPress={() =>
-                        navigation.navigate("EditIntervention", {
-                          interventionId: item.id,
-                          clientId: item.client_id,
-                        })
-                      }
-                    >
-                      <Image
-                        source={require("../assets/icons/edit.png")}
-                        style={[
-                          styles.buttonIcon,
-                          { width: 20, height: 20, tintColor: "#888787" },
-                        ]}
-                      />
-                      <Text style={styles.buttonText}>Éditer</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.editButton,
-                        {
-                          backgroundColor: "#0066cc",
-                          borderColor: "#004a99",
-                          width: "24%",
-                        },
-                      ]}
-                      onPress={() =>
-                        navigation.navigate("BillingPage", {
-                          expressData: {
-                            name: item.clients?.name || "",
-                            phone: item.clients?.phone || "",
-                            client_address: "",
-                            description: `${
-                              item.detailIntervention?.trim() ||
-                              item.description ||
-                              ""
-                            }\n${item.deviceType || "Appareil"} — ${
-                              item.brand || "Marque inconnue"
-                            } — ${item.model || "Modèle inconnu"}`,
-                            quantity: "1",
-                            price: item.cost?.toString() || "0",
-                            serial: item.serial_number || "",
-                            paymentmethod: "",
-                            acompte: item.partialPayment?.toString() || "",
-                            paid: item.paymentStatus === "solde",
-                            express_id: item.id,
-                          },
-                        })
-                      }
-                    >
-                      <Image
-                        source={require("../assets/icons/invoice.png")}
-                        style={{
-                          width: 20,
-                          height: 20,
-                          tintColor: "#fff",
-                          marginRight: 8,
-                        }}
-                      />
-                      <Text style={styles.buttonText}>Créer facture</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {item.intervention_images &&
-                    item.intervention_images.length > 0 && (
-                      <View style={styles.imageContainer}>
-                        {item.intervention_images.map((img) => {
-                          const uri = resolveImageUrl(
-                            img.image_data || img.image_url
-                          );
-                          if (!uri) return null; // sécurité si valeur invalide
-                          return (
-                            <TouchableOpacity
-                              key={`intervention-image-${img.id}`}
-                              onPress={() =>
-                                openImageModal(uri, img.id, item.id)
-                              }
-                            >
-                              <Image
-                                source={{ uri }}
-                                style={styles.imageThumbnail}
-                              />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
                 </View>
               </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Référence</Text>
+                {item.reference?.toLowerCase().includes("voir photo") &&
+                item.label_photo ? (
+                  <TouchableOpacity
+                    onPress={() =>
+                      openImageModal(item.label_photo, null, item.id)
+                    }
+                  >
+                    <Text style={styles.referenceLink}>{item.reference}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.sectionValue}>
+                    {item.reference || "—"}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Description du problème</Text>
+                <Text style={styles.sectionValue}>
+                  {item.description || "—"}
+                </Text>
+              </View>
+
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText}>
+                  Chargeur : {item.chargeur ? "Oui" : "Non"}
+                </Text>
+                <Text style={styles.metaText}>
+                  Commande : {item.commande || "—"}
+                </Text>
+                <Text style={styles.metaText}>
+                  {new Date(item.createdAt).toLocaleDateString("fr-FR")}
+                </Text>
+              </View>
+
+              <View style={styles.paymentBox}>
+                <View style={styles.paymentTopRow}>
+                  <Text style={styles.paymentCost}>{item.cost} €</Text>
+                  <View
+                    style={[
+                      styles.paymentPill,
+                      item.paymentStatus === "solde"
+                        ? styles.paymentPillOk
+                        : styles.paymentPillWarn,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.paymentPillText,
+                        item.paymentStatus === "solde"
+                          ? styles.paymentPillTextOk
+                          : styles.paymentPillTextWarn,
+                      ]}
+                    >
+                      {item.paymentStatus}
+                    </Text>
+                  </View>
+                </View>
+                {item.paymentStatus === "reglement_partiel" &&
+                  item.partialPayment && (
+                    <Text style={styles.paymentSub}>
+                      Acompte de {item.partialPayment} €
+                    </Text>
+                  )}
+                <Text style={styles.paymentDue}>
+                  Reste dû :{" "}
+                  {item.solderestant !== null
+                    ? `${item.solderestant} €`
+                    : `${item.cost - (item.partialPayment || 0)} €`}
+                </Text>
+                <Text style={styles.paymentStatusLine}>
+                  Statut intervention : {item.status}
+                </Text>
+              </View>
+
+              <Text style={styles.sectionLabel}>Détails de l'intervention</Text>
+              <TextInput
+                style={styles.detailInput}
+                placeholderTextColor="#94a3b8"
+                placeholder="Entrez les détails ici..."
+                multiline
+                value={editingDetail[item.id] ?? item.detailIntervention ?? ""}
+                onChangeText={(text) =>
+                  setEditingDetail({
+                    ...editingDetail,
+                    [item.id]: text,
+                  })
+                }
+              />
+
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    hasDetailDraft && styles.actionBtnReady,
+                  ]}
+                  onPress={() => saveDetailIntervention(item.id)}
+                >
+                  <Ionicons name="save-outline" size={18} color="#475569" />
+                  <Text style={styles.actionBtnText}>Sauvegarder</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    isRestitutionDisabled && styles.actionBtnDisabled,
+                  ]}
+                  onPress={() => handleRestitution(item)}
+                  disabled={isRestitutionDisabled}
+                >
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={18}
+                    color={isRestitutionDisabled ? "#94a3b8" : "#15803d"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      !isRestitutionDisabled && { color: "#15803d" },
+                    ]}
+                  >
+                    Restitution
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() =>
+                    navigation.navigate("EditIntervention", {
+                      interventionId: item.id,
+                      clientId: item.client_id,
+                    })
+                  }
+                >
+                  <Ionicons name="create-outline" size={18} color="#475569" />
+                  <Text style={styles.actionBtnText}>Éditer</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionBtnPrimary}
+                  onPress={() =>
+                    navigation.navigate("BillingPage", {
+                      expressData: {
+                        name: item.clients?.name || "",
+                        phone: item.clients?.phone || "",
+                        client_address: "",
+                        description: `${
+                          item.detailIntervention?.trim() ||
+                          item.description ||
+                          ""
+                        }\n${item.deviceType || "Appareil"} — ${
+                          item.brand || "Marque inconnue"
+                        } — ${item.model || "Modèle inconnu"}`,
+                        quantity: "1",
+                        price: item.cost?.toString() || "0",
+                        serial: item.serial_number || "",
+                        paymentmethod: "",
+                        acompte: item.partialPayment?.toString() || "",
+                        paid: item.paymentStatus === "solde",
+                        intervention_id: item.id,
+                      },
+                    })
+                  }
+                >
+                  <Ionicons name="receipt-outline" size={18} color="#fff" />
+                  <Text style={styles.actionBtnPrimaryText}>Facture</Text>
+                </TouchableOpacity>
+              </View>
+
+              {item.intervention_images &&
+                item.intervention_images.length > 0 && (
+                  <View style={styles.imageContainer}>
+                    {item.intervention_images.map((img) => {
+                      const uri = resolveImageUrl(
+                        img.image_data || img.image_url
+                      );
+                      if (!uri) return null;
+                      return (
+                        <TouchableOpacity
+                          key={`intervention-image-${img.id}`}
+                          onPress={() => openImageModal(uri, img.id, item.id)}
+                        >
+                          <Image source={{ uri }} style={styles.imageThumbnail} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
               <TouchableOpacity
-                style={styles.modernBackButton}
+                style={styles.backButton}
                 onPress={() =>
                   navigation.navigate("RepairedInterventionsListPage")
                 }
               >
-                <Image
-                  source={require("../assets/icons/chevrong.png")} // Remplace par une icône de flèche plus moderne
-                  style={styles.backIcon}
-                />
+                <Ionicons name="arrow-back" size={18} color="#fff" />
                 <Text style={styles.backButtonText}>Retour</Text>
               </TouchableOpacity>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+            </View>
+          );
+        }}
+      />
+
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
       <Modal
         visible={isModalVisible}
@@ -805,7 +791,7 @@ export default function RepairedInterventionsPage({ navigation }) {
               }}
             >
               <Image
-                source={{ uri: selectedImage.uri }} // on passe l’URI telle quelle
+                source={{ uri: selectedImage.uri }}
                 style={{ width: "90%", height: "70%", resizeMode: "contain" }}
                 onError={() => alert("Image introuvable.")}
               />
@@ -816,35 +802,9 @@ export default function RepairedInterventionsPage({ navigation }) {
                     styles.deleteButton,
                     { position: "absolute", bottom: 40 },
                   ]}
-                  onPress={() => {
-                    Alert.alert(
-                      "Confirmer la suppression",
-                      "Es-tu sûr de vouloir supprimer cette image ?",
-                      [
-                        {
-                          text: "Annuler",
-                          style: "cancel",
-                        },
-                        {
-                          text: "Supprimer",
-                          style: "destructive",
-                          onPress: async () => {
-                            setIsDeleting(true);
-                            await deleteImage(
-                              selectedImage.id,
-                              selectedImage.interventionId,
-                              selectedImage.uri
-                            );
-                            setIsDeleting(false);
-                            closeImageModal();
-                            await loadRepairedInterventions(); // recharge les données sans l'image supprimée
-                          },
-                        },
-                      ]
-                    );
-                  }}
+                  onPress={() => setDeleteImageConfirmVisible(true)}
                 >
-                  <Ionicons name="trash" size={30} color="white" />
+                  <Ionicons name="trash" size={22} color="white" />
                   <Text style={styles.deleteButtonText}>
                     {isDeleting ? "Suppression..." : "Supprimer"}
                   </Text>
@@ -855,62 +815,58 @@ export default function RepairedInterventionsPage({ navigation }) {
         </View>
       </Modal>
 
-      <Modal
-        transparent={true}
+      <AlertBox
+        visible={deleteImageConfirmVisible}
+        title="Confirmer la suppression"
+        message="Es-tu sûr de vouloir supprimer cette image ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setDeleteImageConfirmVisible(false)}
+        onConfirm={async () => {
+          setDeleteImageConfirmVisible(false);
+          setIsDeleting(true);
+          await deleteImage(
+            selectedImage.id,
+            selectedImage.interventionId,
+            selectedImage.uri
+          );
+          setIsDeleting(false);
+          closeImageModal();
+          await loadRepairedInterventions();
+        }}
+      />
+
+      <AlertBox
         visible={photoAlertVisible}
-        animationType="fade"
-        onRequestClose={() => setPhotoAlertVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>Aucune photo prise</Text>
-            <Text style={styles.alertMessage}>
-              Veuillez prendre une photo avant de procéder à la restitution.
-            </Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setPhotoAlertVisible(false)}
-            >
-              <Text style={styles.buttonTextSms}>OK</Text>
-            </TouchableOpacity>
+        title="Aucune photo prise"
+        message="Veuillez prendre une photo avant de procéder à la restitution."
+        cancelText="OK"
+        confirmText="Pas de photo nécessaire"
+        onClose={() => setPhotoAlertVisible(false)}
+        onConfirm={() => {
+          if (selectedInterventionId) {
+            setNoPhotoRequired((prev) => ({
+              ...prev,
+              [selectedInterventionId]: true,
+            }));
 
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: "gray", marginTop: 10 },
-              ]}
-              onPress={() => {
-                // Vérifie si une intervention est sélectionnée
-                if (selectedInterventionId) {
-                  setNoPhotoRequired((prev) => ({
-                    ...prev,
-                    [selectedInterventionId]: true, // Marque cette intervention comme "Pas de photo nécessaire"
-                  }));
+            setPhotoAlertVisible(false);
 
-                  setPhotoAlertVisible(false); // Ferme la modale
+            const intervention = repairedInterventions.find(
+              (item) => item.id === selectedInterventionId
+            );
 
-                  // Trouver l'intervention correspondante
-                  const intervention = repairedInterventions.find(
-                    (item) => item.id === selectedInterventionId
-                  );
-
-                  if (intervention) {
-                    // Attendre un instant pour que la modale se ferme avant de naviguer
-                    setTimeout(() => {
-                      navigation.navigate("SignaturePage", {
-                        interventionId: intervention.id,
-                        clientId: intervention.client_id,
-                      });
-                    }, 300); // Petit délai pour éviter les bugs d'affichage
-                  }
-                }
-              }}
-            >
-              <Text style={styles.buttonTextSms}>Pas de photo nécessaire</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+            if (intervention) {
+              setTimeout(() => {
+                navigation.navigate("SignaturePage", {
+                  interventionId: intervention.id,
+                  clientId: intervention.client_id,
+                });
+              }, 300);
+            }
+          }
+        }}
+      />
 
       <Modal
         transparent={true}
@@ -919,32 +875,53 @@ export default function RepairedInterventionsPage({ navigation }) {
         onRequestClose={() => setNotifyModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>Notifier le client</Text>
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() =>
-                  updateClientNotification(selectedInterventionId, "SMS")
+          <View style={styles.notifyCard}>
+            <Text style={styles.notifyTitle}>Notifier le client</Text>
+            <Text style={styles.notifySubtitle}>
+              Comment souhaitez-vous prévenir le client ?
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.notifyOption, styles.notifyOptionSms]}
+              onPress={() => {
+                if (selectedInterventionPhone) {
+                  const message = `Bonjour, votre ${selectedInterventionDeviceType} est prêt(e). N'oubliez pas le bon de restitution, merci\n\nAVENIR INFORMATIQUE`;
+                  Linking.openURL(
+                    `sms:${selectedInterventionPhone}?body=${encodeURIComponent(
+                      message
+                    )}`
+                  );
                 }
-              >
-                <Text style={styles.buttonTextSms}>SMS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() =>
-                  updateClientNotification(selectedInterventionId, "Téléphone")
+                updateClientNotification(selectedInterventionId, "SMS");
+              }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#077907" />
+              <Text style={[styles.notifyOptionText, { color: "#077907" }]}>
+                SMS
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.notifyOption, styles.notifyOptionCall]}
+              onPress={() => {
+                if (selectedInterventionPhone) {
+                  Linking.openURL(`tel:${selectedInterventionPhone}`);
                 }
-              >
-                <Text style={styles.buttonTextSms}>Téléphone</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => setNotifyModalVisible(false)}
-              >
-                <Text style={styles.buttonTextSms}>Annuler</Text>
-              </TouchableOpacity>
-            </View>
+                updateClientNotification(selectedInterventionId, "Téléphone");
+              }}
+            >
+              <Ionicons name="call-outline" size={18} color="#3579ff" />
+              <Text style={[styles.notifyOptionText, { color: "#3579ff" }]}>
+                Téléphone
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.notifyCancel}
+              onPress={() => setNotifyModalVisible(false)}
+            >
+              <Text style={styles.notifyCancelText}>Annuler</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -961,353 +938,371 @@ export default function RepairedInterventionsPage({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-    resizeMode: "cover",
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#242424",
-  },
-  interventionCard: {
-    padding: 15,
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0f172a",
     marginBottom: 10,
-    backgroundColor: "#cacaca",
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: "#888787",
   },
-  notificationAndToolsContainer: {
-    zIndex: 1,
-    position: "absolute",
-    top: 20,
-    right: 100,
+  totalContainer: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    gap: 8,
+    backgroundColor: "#dcfce7",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignSelf: "flex-start",
   },
-  iconStyle: {
-    padding: 10,
-    borderWidth: 1,
-    borderRadius: 2,
-    borderColor: "#242424",
-    backgroundColor: "#8a8a8a",
-    marginHorizontal: 5,
+  totalText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#15803d",
   },
-  infoContainer: {
-    marginTop: 10,
+
+  listContent: { paddingHorizontal: 16, paddingBottom: 100 },
+
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  interventionText: {
-    fontSize: 18,
-    color: "#242424",
-    marginBottom: 5,
+  cardDanger: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#dc2626",
   },
-  interventionTextBold: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#242424",
-    marginBottom: 5,
-  },
-  interventionTextNon: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#242424",
-    marginBottom: 5,
-  },
-  interventionTextReste: {
-    fontSize: 20,
-    color: "#242424",
-    marginBottom: 5, // Ajoute un espacement entre les lignes
-  },
-  detailInput: {
-    borderColor: "#888787",
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 2,
-    backgroundColor: "#f1f1f1",
+
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
-    color: "#242424",
-    fontSize: 16,
   },
-  buttonContainer: {
+  ficheBadge: {
+    backgroundColor: "#eef2ff",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  ficheBadgeText: {
+    color: "#4338ca",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  statusBadge: {
+    backgroundColor: "#fee2e2",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginLeft: 8,
+  },
+  statusBadgeText: {
+    color: "#b91c1c",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  headerActions: {
+    flexDirection: "row",
+    marginLeft: "auto",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnImage: {
+    width: 20,
+    height: 20,
+  },
+
+  clientName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  clientPhone: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 2,
+    marginBottom: 12,
+  },
+
+  infoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  infoCell: {
+    width: "50%",
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  infoValue: {
+    fontSize: 14,
+    color: "#1e293b",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  section: { marginBottom: 10 },
+  sectionLabel: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 3,
+  },
+  sectionValue: {
+    fontSize: 14,
+    color: "#334155",
+    lineHeight: 20,
+  },
+  referenceLink: {
+    fontSize: 14,
+    color: "#2563eb",
+    textDecorationLine: "underline",
+  },
+
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 12,
+  },
+  metaText: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+
+  paymentBox: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  paymentTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  paymentCost: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  paymentPill: {
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  paymentPillOk: { backgroundColor: "#dcfce7" },
+  paymentPillWarn: { backgroundColor: "#fef3c7" },
+  paymentPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  paymentPillTextOk: { color: "#15803d" },
+  paymentPillTextWarn: { color: "#b45309" },
+  paymentSub: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 6,
+  },
+  paymentDue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f172a",
+    marginTop: 6,
+  },
+  paymentStatusLine: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 4,
+  },
+
+  detailInput: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    marginBottom: 14,
+    color: "#0f172a",
+    fontSize: 14,
+    minHeight: 70,
+    textAlignVertical: "top",
+  },
+
+  buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    gap: 8,
+    marginBottom: 6,
   },
-  saveButton: {
-    backgroundColor: "#191f2f",
-    padding: 5,
+  actionBtn: {
+    flex: 1,
+    flexDirection: "column",
     alignItems: "center",
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: "#888787",
-    flexDirection: "row",
-    marginRight: 5,
-    elevation: 5,
-    width: "33%",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+    gap: 4,
   },
-  restitutionButton: {
-    flexDirection: "row", // Aligne l'icône et le texte horizontalement
-    alignItems: "center", // Centre l'icône et le texte verticalement
-    padding: 10,
-    backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: "#00fd00",
-    elevation: 5,
-    width: "33%",
+  actionBtnReady: {
+    backgroundColor: "#f0fdf4",
   },
-  editButton: {
-    flexDirection: "row", // Aligne l'icône et le texte horizontalement
-    alignItems: "center", // Centre l'icône et le texte verticalement
-    padding: 10,
-    backgroundColor: "#191f2f", // Couleur d'arrière-plan de l'exemple
-    borderWidth: 1,
-    borderColor: "#888787",
-    borderRadius: 2,
-    width: "33%",
-    elevation: 5,
+  actionBtnDisabled: {
+    opacity: 0.5,
   },
-  buttonText: {
-    color: "#cacaca",
-    textAlign: "center",
-    fontWeight: "medium",
+  actionBtnText: {
+    color: "#475569",
+    fontSize: 11,
+    fontWeight: "700",
   },
-  buttonTextSms: {
-    color: "#191f2f",
-    textAlign: "center",
-    fontWeight: "bold",
+  actionBtnPrimary: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#2563eb",
+    gap: 4,
   },
-  buttonIcon: {
-    marginRight: 10, // Espace entre l'icône et le texte
+  actionBtnPrimaryText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
+
   imageContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 10,
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 14,
   },
   imageThumbnail: {
-    width: 80,
-    height: 80,
-    margin: 5,
-    borderRadius: 2,
+    width: 76,
+    height: 76,
+    borderRadius: 10,
   },
+
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#334155",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   modalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  alertBox: {
-    width: 300,
-    padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 20,
-    alignItems: "center",
-  },
-  alertTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333333",
-  },
-  modalButtonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
-  button: {
-    backgroundColor: "#007BFF",
-    padding: 10,
-    borderRadius: 2,
-    marginHorizontal: 10,
-  },
-  disabledButton: {
-    backgroundColor: "#191f2f",
-    borderWidth: 1,
-    borderColor: "#ff1f1f",
-    borderRadius: 2,
-  },
-  alertMessage: {
-    fontSize: 16,
-    color: "#333333",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  moveToTopButton: {
-    position: "absolute",
-    top: 20,
-    right: 10,
-    zIndex: 1,
-    backgroundColor: "#888787",
-    borderRadius: 2,
-    elevation: 5,
-  },
-  interventionTextSolde: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#242424",
-    marginBottom: 5,
-  },
-  fullscreenImage: {
-    width: "90%",
-    height: "80%",
-    resizeMode: "contain",
   },
   closeButton: {
     position: "absolute",
-    top: 30,
-    right: 30,
+    top: 40,
+    right: 24,
     zIndex: 1,
   },
   deleteButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "red",
-    padding: 10,
-    borderRadius: 2,
-    marginTop: 20,
+    backgroundColor: "#dc2626",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
   },
   deleteButtonText: {
     color: "white",
-    fontWeight: "bold",
-    marginLeft: 10,
+    fontWeight: "700",
   },
-  imageWrapper: {
-    position: "relative",
-    margin: 5,
-  },
-  deleteIcon: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "white",
-    borderRadius: 2,
-    padding: 5,
-    elevation: 5,
-  },
-  toggleButton: {
-    position: "absolute",
-    top: 95,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "flex-end", // Positionner le bouton à droite
-    backgroundColor: "#ffffff", // Couleur du bouton
-    paddingVertical: 8,
-    paddingHorizontal: 40, // Réduire la largeur du bouton
-    borderRadius: 2,
-    marginTop: 10,
 
-    borderWidth: 3,
-    borderColor: "#c1c4c2",
+  notifyCard: {
+    width: 300,
+    padding: 22,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  toggleButtonText: {
-    color: "#929292",
-    fontSize: 14, // Texte légèrement plus petit
-    fontWeight: "bold",
-    marginRight: 5, // Espacement entre le texte et l'icône
-  },
-  ficheContainer: {
-    backgroundColor: "#f9f9f9",
-    padding: 10,
-    marginVertical: 5,
-    borderRadius: 2,
-    elevation: 2, // Ajoute une ombre pour Android
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  itemSubtitle: {
-    fontSize: 14,
-    color: "#201c1c",
-  },
-  totalContainer: {
-    backgroundColor: "#cacaca",
-    padding: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#888787",
-    borderRadius: 2,
-  },
-  totalText: {
+  notifyTitle: {
     fontSize: 18,
-    fontWeight: "medium",
+    fontWeight: "800",
+    color: "#0f172a",
     textAlign: "center",
-    color: "#242424",
+    marginBottom: 4,
   },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 60, // Ajuste l'espacement vertical
+  notifySubtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginBottom: 16,
   },
-  chevronButton: {
-    padding: 5, // Réduit l'espace cliquable autour des chevrons
-  },
-  chevronIcon: {
-    width: 22, // Réduit la largeur du chevron
-    height: 22, // Réduit la hauteur du chevron
-  },
-  paginationText: {
-    marginHorizontal: 10, // Espace entre le texte et les chevrons
-    color: "white",
-    fontSize: 20, // Ajuste la taille du texte
-  },
-  pageButton: {
-    padding: 10,
-    margin: 5,
-    borderRadius: 2,
-    backgroundColor: "#ddd",
-  },
-  activePageButton: {
-    backgroundColor: "#007BFF",
-  },
-  pageButtonText: {
-    fontWeight: "bold",
-    color: "#333",
-  },
-  activePageButtonText: {
-    color: "#fff",
-  },
-  modernBackButton: {
+  notifyOption: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#565961",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 2, // Coins arrondis
-    borderWidth: 1,
-    borderColor: "#888787",
-    marginVertical: 10,
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginBottom: 10,
   },
-  backIcon: {
-    width: 18,
-    height: 18,
-    tintColor: "white", // Couleur blanche pour l'icône
-    marginRight: 8,
+  notifyOptionSms: { backgroundColor: "#dcfce7" },
+  notifyOptionCall: { backgroundColor: "#dbeafe" },
+  notifyOptionText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
-  backButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "medium",
-  },
-  fullscreenImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
-    justifyContent: "center",
+  notifyCancel: {
+    paddingVertical: 13,
+    borderRadius: 14,
     alignItems: "center",
+    marginTop: 2,
+  },
+  notifyCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#dc2626",
   },
 });

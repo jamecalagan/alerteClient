@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const SelectInterventionPage = () => {
     const route = useRoute();
@@ -10,6 +11,7 @@ const SelectInterventionPage = () => {
 
     const [interventions, setInterventions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [alertVisible, setAlertVisible] = useState(false);
 
     useEffect(() => {
         const fetchInterventions = async () => {
@@ -23,7 +25,7 @@ const SelectInterventionPage = () => {
 
                 setInterventions(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))); // Trier par date
             } catch (err) {
-                Alert.alert("Erreur", "Impossible de charger les interventions.");
+                setAlertVisible(true);
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -33,12 +35,31 @@ const SelectInterventionPage = () => {
         fetchInterventions();
     }, [clientId]);
 
+    const alertBox = (
+        <CustomAlert
+            visible={alertVisible}
+            title="Erreur"
+            message="Impossible de charger les interventions."
+            onClose={() => setAlertVisible(false)}
+        />
+    );
+
     if (loading) {
-        return <Text>Chargement des interventions...</Text>;
+        return (
+            <>
+                <Text>Chargement des interventions...</Text>
+                {alertBox}
+            </>
+        );
     }
 
     if (interventions.length === 0) {
-        return <Text>Aucune intervention disponible pour ce client.</Text>;
+        return (
+            <>
+                <Text>Aucune intervention disponible pour ce client.</Text>
+                {alertBox}
+            </>
+        );
     }
 
     const handleSelect = (interventionId) => {
@@ -65,6 +86,7 @@ const SelectInterventionPage = () => {
                     </TouchableOpacity>
                 )}
             />
+            {alertBox}
         </View>
     );
 };

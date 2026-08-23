@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   FlatList,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ExpressRepairPage() {
   const navigation = useNavigation();
@@ -21,6 +21,15 @@ export default function ExpressRepairPage() {
 
   const [searchText, setSearchText] = useState("");
   const [filteredClients, setFilteredClients] = useState([]);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const [name, setName] = useState(editData.name || "");
   const [phone, setPhone] = useState(editData.phone || "");
@@ -75,13 +84,13 @@ const [isPaid, setIsPaid] = useState(
     if (saving) return;
 
     if (!name || !phone || !device || !problem || !price) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs obligatoires.");
+      showAlert("Erreur", "Veuillez remplir tous les champs obligatoires.");
       return;
     }
 
     const numericPrice = Number(String(price).replace(",", "."));
     if (Number.isNaN(numericPrice)) {
-      Alert.alert("Erreur", "Le montant est invalide.");
+      showAlert("Erreur", "Le montant est invalide.");
       return;
     }
 
@@ -128,7 +137,7 @@ const [isPaid, setIsPaid] = useState(
             date: displayDate,
           });
         } else {
-          Alert.alert("Succès", "Fiche mise à jour.");
+          showAlert("Succès", "Fiche mise à jour.");
           navigation.navigate("ExpressListPage", { refresh: Date.now() });
         }
       } else {
@@ -159,7 +168,7 @@ const [isPaid, setIsPaid] = useState(
       }
     } catch (e) {
       console.error("handleSubmit (reparation):", e);
-      Alert.alert("Erreur", e?.message || "Impossible d’enregistrer.");
+      showAlert("Erreur", e?.message || "Impossible d’enregistrer.");
     } finally {
       setSaving(false);
     }
@@ -308,13 +317,13 @@ const [isPaid, setIsPaid] = useState(
         if (error) throw error;
 
         setIsPaid(!isPaid);
-        Alert.alert(
+        showAlert(
           "OK",
           !isPaid ? "Fiche marquée réglée." : "Fiche remise en dû."
         );
       } catch (e) {
         console.error("toggle paid (repair):", e);
-        Alert.alert("Erreur", "Impossible de mettre à jour le paiement.");
+        showAlert("Erreur", "Impossible de mettre à jour le paiement.");
       }
     }}
     style={[
@@ -343,6 +352,13 @@ const [isPaid, setIsPaid] = useState(
         }
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.container}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
       />
     </KeyboardAvoidingView>
   );

@@ -5,7 +5,6 @@ import {
     FlatList,
     TouchableOpacity,
     TextInput,
-    Alert,
     StyleSheet,
     Image,
     Modal,
@@ -18,6 +17,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 
 // === Réglages bucket/chemin ===
 const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
@@ -43,11 +44,50 @@ export default function OrdersPage({ route, navigation, order }) {
     const [imageModalVisible, setImageModalVisible] = useState(false);
     const [imageModalUrl, setImageModalUrl] = useState(null);
 
+    // —— Alertes / confirmations modernisées ——
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message || "");
+        setAlertVisible(true);
+    };
+
+    const [confirmDialog, setConfirmDialog] = useState({
+        visible: false,
+        title: "",
+        message: "",
+        confirmText: "Confirmer",
+        onConfirm: null,
+    });
+
+    const openConfirm = (title, message, onConfirm, confirmText = "Confirmer") => {
+        setConfirmDialog({ visible: true, title, message, confirmText, onConfirm });
+    };
+
+    const closeConfirm = () => {
+        setConfirmDialog((prev) => ({ ...prev, visible: false }));
+    };
+
+    // —— Choix de la source d'une photo de commande ——
+    const [photoChoiceOrder, setPhotoChoiceOrder] = useState(null);
+
+    // —— Rappel fournisseur manquant au moment de "Marquer passée" ——
+    const [fournisseurReminder, setFournisseurReminder] = useState(null);
+
+    // —— Proposition de facturation au moment de "Marquer récupérée" ——
+    const [invoicePromptOrder, setInvoicePromptOrder] = useState(null);
+
 const [newOrder, setNewOrder] = useState({
     product: prefillProduct || "",  // 👈 prérempli si tu viens d'une intervention
     brand: "",
     model: "",
     serial: "",
+    fournisseur: "",
+    purchasePrice: "",  // prix d'achat fournisseur (enregistré sur order_items.purchase_price)
+    marginPercent: "",  // % de marge appliqué au prix d'achat (enregistré sur order_items.margin_percent)
     price: "",
     quantity: "1",
     deposit: "",
@@ -56,7 +96,49 @@ const [newOrder, setNewOrder] = useState({
     include_in_intervention: false,
 });
 
+// Convertit une saisie texte en nombre valide, ou null si vide/non numérique
+// (évite qu'un NaN silencieux ne parte en base au lieu d'un vrai null).
+const parseNullableFloat = (str) => {
+    const n = parseFloat(String(str ?? "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+};
 
+// Prix de vente estimé = prix d'achat + % de marge sur le prix de vente (aide au calcul)
+const computeEstimatedSalePrice = (purchaseStr, marginStr) => {
+    const purchase = parseFloat(
+        String(purchaseStr || "").replace(",", ".")
+    );
+    const margin = parseFloat(
+        String(marginStr || "").replace(",", ".")
+    );
+    if (!Number.isFinite(purchase) || purchase <= 0) return null;
+    if (!Number.isFinite(margin) || margin >= 100) return null;
+    return purchase / (1 - margin / 100);
+};
+
+// % de marge (sur le prix de vente) déduit du prix d'achat + prix unitaire
+const computeMarginFromPrices = (purchaseStr, priceStr) => {
+    const purchase = parseFloat(
+        String(purchaseStr || "").replace(",", ".")
+    );
+    const price = parseFloat(
+        String(priceStr || "").replace(",", ".")
+    );
+    if (!Number.isFinite(purchase) || purchase <= 0) return null;
+    if (!Number.isFinite(price) || price <= 0) return null;
+    return ((price - purchase) / price) * 100;
+};
+
+const estimatedSalePrice = computeEstimatedSalePrice(
+    newOrder.purchasePrice,
+    newOrder.marginPercent
+);
+
+
+// Produits composant la nouvelle commande
+const [newOrderItems, setNewOrderItems] =
+    useState([]);
+const [editingOrderItem, setEditingOrderItem] = useState(null);
     // 🆕 Édition d'une commande existante
     const [editingIds, setEditingIds] = useState([]); // ids en édition
     const [editMap, setEditMap] = useState({}); // { [id]: { ...champs... } }
@@ -129,14 +211,14 @@ const [newOrder, setNewOrder] = useState({
             const total = included ? 0 : price * qty;
 
             if (!v.product) {
-                Alert.alert(
+                showAlert(
                     "Champs manquants",
                     "Renseignez au minimum le produit."
                 );
                 return;
             }
             if (!included && price <= 0) {
-                Alert.alert(
+                showAlert(
                     "Prix requis",
                     "Veuillez saisir un prix unitaire valide ou cochez “inclus dans l’intervention”."
                 );
@@ -161,10 +243,10 @@ const [newOrder, setNewOrder] = useState({
 
             cancelEdit(id);
             await loadOrders();
-            Alert.alert("Modifications enregistrées");
+            showAlert("Modifications enregistrées");
         } catch (e) {
             console.error("❌ Save edit:", e);
-            Alert.alert("Erreur", "Impossible d'enregistrer la modification.");
+            showAlert("Erreur", "Impossible d'enregistrer la modification.");
         }
     };
 
@@ -201,7 +283,30 @@ const [newOrder, setNewOrder] = useState({
             if (clientId) {
 const { data, error } = await supabase
   .from("orders")
-  .select("*, billing(id)")
+  .select(`
+    *,
+    billing(id),
+    order_items(
+    id,
+	order_id,
+    product,
+    brand,
+    model,
+    serial,
+    fournisseur,
+    quantity,
+    unit_price,
+    purchase_price,
+    margin_percent,
+    ordered,
+    ordered_at,
+    received,
+    received_at,
+    installed,
+    installed_at,
+    position
+    )
+`)
   .eq("client_id", clientId)
   .or("deleted.eq.false,deleted.is.null")
   .order("createdat", { ascending: false });
@@ -220,20 +325,49 @@ const { data, error } = await supabase
                         typeof o.total === "number" && !isNaN(o.total)
                             ? o.total
                             : unit * qty;
-                    return {
-                        ...o,
-                        quantity: qty,
-                        total,
-                        include_in_intervention: toBool(
-                            o.include_in_intervention
-                        ),
-                        notified: toBool(o.notified),
-                        received: toBool(o.received),
-                        paid: toBool(o.paid),
-                        ordered: toBool(o.ordered),
-                        recovered: toBool(o.recovered),
-                        saved: toBool(o.saved),
-                    };
+
+const orderItems = Array.isArray(o.order_items)
+    ? o.order_items
+    : [];
+
+const allOrdered =
+    orderItems.length > 0
+        ? orderItems.every((i) => i.ordered)
+        : toBool(o.ordered);
+
+const allReceived =
+    orderItems.length > 0
+        ? orderItems.every((i) => i.received)
+        : toBool(o.received);
+
+const allInstalled =
+    orderItems.length > 0
+        ? orderItems.every((i) => i.installed)
+        : toBool(o.installed);
+
+return {
+    ...o,
+    quantity: qty,
+    total,
+order_items: Array.isArray(o.order_items)
+    ? [...o.order_items].sort(
+          (a, b) =>
+              (a.position || 0) -
+              (b.position || 0)
+      )
+    : [],
+
+    include_in_intervention: toBool(
+        o.include_in_intervention
+    ),
+    notified: toBool(o.notified),
+    paid: toBool(o.paid),
+    ordered: allOrdered,
+received: allReceived,
+installed: allInstalled,
+    recovered: toBool(o.recovered),
+    saved: toBool(o.saved),
+};
                 });
                 setOrders(rows);
                 return;
@@ -242,7 +376,30 @@ const { data, error } = await supabase
             if (focusId) {
                 const { data, error } = await supabase
   .from("orders")
-  .select("*, billing(id)")
+  .select(`
+    *,
+    billing(id),
+    order_items(
+        id,
+		order_id,
+    product,
+    brand,
+    model,
+    serial,
+    fournisseur,
+    quantity,
+    unit_price,
+    purchase_price,
+    margin_percent,
+    ordered,
+    ordered_at,
+    received,
+    received_at,
+    installed,
+    installed_at,
+    position
+    )
+`)
   .eq("id", focusId)
   .or("deleted.eq.false,deleted.is.null")
   .limit(1)
@@ -307,79 +464,365 @@ const { data, error } = await supabase
             setOrders([]);
         } catch (e) {
             console.error("loadOrders error:", e);
-            Alert.alert("Erreur", "Impossible de charger les commandes.");
+            showAlert("Erreur", "Impossible de charger les commandes.");
             setOrders([]);
         }
     };
+const resetNewOrderProduct = () => {
+    setNewOrder((previous) => ({
+        ...previous,
+        product: "",
+        brand: "",
+        model: "",
+        serial: "",
+        fournisseur: "",
+        purchasePrice: "",
+        marginPercent: "",
+        price: "",
+        quantity: "1",
+        include_in_intervention: false,
+    }));
+};
 
-    const handleCreateOrder = async () => {
+const handleAddProductToOrder = async () => {
+    const included =
+        !!newOrder.include_in_intervention;
+
+    const product =
+        String(newOrder.product || "").trim();
+
+    if (!product) {
+        showAlert(
+            "Produit manquant",
+            "Renseignez le produit."
+        );
+        return;
+    }
+
+    const unitPrice = included
+        ? 0
+        : parseFloat(
+              String(newOrder.price || "0").replace(
+                  ",",
+                  "."
+              )
+          ) || 0;
+
+    const quantity = included
+        ? 1
+        : Math.max(
+              1,
+              parseInt(
+                  String(newOrder.quantity || "1"),
+                  10
+              ) || 1
+          );
+
+    if (!included && unitPrice <= 0) {
+        showAlert(
+            "Prix requis",
+            "Saisissez un prix unitaire valide ou cochez « Coût inclus dans l’intervention »."
+        );
+        return;
+    }
+
+    // Modification d'un article déjà enregistré
+    if (editingOrderItem?.id) {
         try {
-            const included = !!newOrder.include_in_intervention;
+            const { error } = await supabase
+                .from("order_items")
+                .update({
+                    product,
+                    brand: String(
+                        newOrder.brand || ""
+                    ).trim(),
+                    model: String(
+                        newOrder.model || ""
+                    ).trim(),
+                    serial: String(
+                        newOrder.serial || ""
+                    ).trim(),
+                    fournisseur: String(
+                        newOrder.fournisseur || ""
+                    ).trim(),
+                    purchase_price: parseNullableFloat(
+                        newOrder.purchasePrice
+                    ),
+                    margin_percent: parseNullableFloat(
+                        newOrder.marginPercent
+                    ),
+                    quantity,
+                    unit_price: unitPrice,
+                })
+                .eq("id", editingOrderItem.id);
 
-            if (!newOrder.product) {
-                alert("Veuillez renseigner le produit.");
-                return;
-            }
-            if (!included && !newOrder.price) {
-                alert(
-                    "Veuillez saisir un prix ou cochez “Coût inclus dans l’intervention”."
-                );
-                return;
-            }
-
-            const priceToSend = included
-                ? 0
-                : parseFloat((newOrder.price || "0").replace(",", ".")) || 0;
-
-            const qtyToSend = included
-                ? 1
-                : Math.max(1, parseInt(newOrder.quantity || "1", 10) || 1);
-
-            const depositToSend =
-                parseFloat((newOrder.deposit || "0").replace(",", ".")) || 0;
-
-            const totalToSend = included ? 0 : priceToSend * qtyToSend;
-
-            const payload = {
-                product: newOrder.product,
-                brand: newOrder.brand || "",
-                model: newOrder.model || "",
-                serial: newOrder.serial || "",
-                price: priceToSend,
-                quantity: qtyToSend,
-                total: totalToSend,
-                deposit: depositToSend,
-                paid: false,
-				deleted: false,
-                client_id: clientId || null,
-                include_in_intervention: included,
-            };
-
-            const { error } = await supabase.from("orders").insert([payload]);
             if (error) throw error;
+await recalculateOrderSummary(
+    editingOrderItem.order_id
+);
+            setEditingOrderItem(null);
+            resetNewOrderProduct();
 
-            setNewOrder({
-                product: "",
-                brand: "",
-                model: "",
-                serial: "",
-                price: "",
-                quantity: "1",
-                deposit: "",
-                paid: false,
-                client_id: clientId || null,
-                include_in_intervention: false,
-            });
-            loadOrders();
-        } catch (e) {
-            console.error("❌ Ajout commande:", e);
+            await loadOrders();
+
+            showAlert(
+                "Article modifié",
+                "Les modifications ont été enregistrées."
+            );
+        } catch (error) {
+            console.error(
+                "❌ Modification article :",
+                error
+            );
+
+            showAlert(
+                "Erreur",
+                "Impossible de modifier cet article. " +
+                    (error?.message || "")
+            );
         }
+
+        return;
+    }
+
+    // Ajout d'un nouvel article au panier
+    const item = {
+        localId: `${Date.now()}-${Math.random()}`,
+        product,
+        brand: String(
+            newOrder.brand || ""
+        ).trim(),
+        model: String(
+            newOrder.model || ""
+        ).trim(),
+        serial: String(
+            newOrder.serial || ""
+        ).trim(),
+        fournisseur: String(
+            newOrder.fournisseur || ""
+        ).trim(),
+        purchasePrice: parseNullableFloat(newOrder.purchasePrice),
+        marginPercent: parseNullableFloat(newOrder.marginPercent),
+        quantity,
+        unit_price: unitPrice,
+        total: included
+            ? 0
+            : unitPrice * quantity,
+        include_in_intervention: included,
+        received: false,
     };
+
+    setNewOrderItems((previous) => [
+        ...previous,
+        item,
+    ]);
+
+    resetNewOrderProduct();
+};
+
+
+const handleCreateOrder = async () => {
+    try {
+        if (newOrderItems.length === 0) {
+            showAlert(
+                "Commande vide",
+                "Ajoutez au moins un produit."
+            );
+            return;
+        }
+
+        const totalCommande =
+            newOrderItems.reduce(
+                (sum, item) =>
+                    sum + Number(item.total || 0),
+                0
+            );
+
+        const acompte =
+            parseFloat(
+                String(newOrder.deposit || "0")
+                    .replace(",", ".")
+            ) || 0;
+
+        if (acompte < 0) {
+            showAlert(
+                "Acompte invalide",
+                "L’acompte ne peut pas être négatif."
+            );
+            return;
+        }
+
+        if (acompte > totalCommande) {
+            showAlert(
+                "Acompte invalide",
+                "L’acompte ne peut pas dépasser le total de la commande."
+            );
+            return;
+        }
+
+        const premierProduit =
+            newOrderItems[0];
+
+        const payload = {
+            client_id: clientId || null,
+
+            order_name:
+                newOrderItems.length === 1
+                    ? premierProduit.product
+                    : `${premierProduit.product} + ${
+                          newOrderItems.length - 1
+                      } autre${
+                          newOrderItems.length > 2
+                              ? "s"
+                              : ""
+                      }`,
+
+            items_count:
+                newOrderItems.length,
+
+            // Compatibilité avec les anciennes pages
+            product:
+                premierProduit.product,
+            brand:
+                premierProduit.brand || "",
+            model:
+                premierProduit.model || "",
+            serial:
+                premierProduit.serial || "",
+
+            quantity: 1,
+            price: totalCommande,
+            total: totalCommande,
+            deposit: acompte,
+
+            paid: false,
+            deleted: false,
+            ordered: false,
+            received: false,
+            recovered: false,
+            saved: false,
+            notified: false,
+
+            include_in_intervention:
+                newOrderItems.every(
+                    (item) =>
+                        item.include_in_intervention ===
+                        true
+                ),
+        };
+
+        const {
+            data: createdOrder,
+            error: orderError,
+        } = await supabase
+            .from("orders")
+            .insert([payload])
+            .select("id")
+            .single();
+
+        if (orderError) {
+            throw orderError;
+        }
+
+        const lignes =
+            newOrderItems.map(
+                (item, index) => ({
+                    order_id: createdOrder.id,
+
+                    product:
+                        item.product,
+                    brand:
+                        item.brand || "",
+                    model:
+                        item.model || "",
+                    serial:
+                        item.serial || "",
+                    fournisseur:
+                        item.fournisseur || "",
+
+                    quantity:
+                        item.quantity,
+                    unit_price:
+                        item.unit_price,
+                    purchase_price:
+                        item.purchasePrice ?? null,
+                    margin_percent:
+                        item.marginPercent ?? null,
+
+                    received: false,
+
+                    position:
+                        index + 1,
+                })
+            );
+
+        const { error: itemsError } =
+            await supabase
+                .from("order_items")
+                .insert(lignes);
+
+        if (itemsError) {
+            // Évite de laisser une commande vide
+            await supabase
+                .from("orders")
+                .delete()
+                .eq("id", createdOrder.id);
+
+            throw itemsError;
+        }
+
+        setNewOrderItems([]);
+
+        setNewOrder({
+            product: "",
+            brand: "",
+            model: "",
+            serial: "",
+            fournisseur: "",
+            purchasePrice: "",
+            marginPercent: "",
+            price: "",
+            quantity: "1",
+            deposit: "",
+            paid: false,
+            client_id: clientId || null,
+            include_in_intervention: false,
+        });
+
+        setShowForm(false);
+
+        await loadOrders();
+
+        showAlert(
+            "Commande enregistrée",
+            `${newOrderItems.length} produit${
+                newOrderItems.length > 1
+                    ? "s"
+                    : ""
+            } enregistré${
+                newOrderItems.length > 1
+                    ? "s"
+                    : ""
+            }.`
+        );
+    } catch (error) {
+        console.error(
+            "❌ Ajout commande multi-produits :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            error?.message ||
+                "Impossible d’enregistrer la commande."
+        );
+    }
+};
 const handleCancelOrder = (ord) => {
   if (!ord?.id) return;
 
   if (ord.saved) {
-    Alert.alert(
+    showAlert(
       "Commande sauvegardée",
       "Une commande déjà sauvegardée ne peut pas être annulée."
     );
@@ -387,86 +830,69 @@ const handleCancelOrder = (ord) => {
   }
 
   if (ord.recovered) {
-    Alert.alert(
+    showAlert(
       "Commande récupérée",
       "Cette commande a déjà été récupérée par le client."
     );
     return;
   }
 
-  Alert.alert(
+  openConfirm(
     "Annuler la commande",
     `Voulez-vous vraiment annuler la commande « ${
       ord.product || "Sans désignation"
     } » ?\n\nElle disparaîtra des commandes en cours mais restera enregistrée dans l’historique.`,
-    [
-      {
-        text: "Non",
-        style: "cancel",
-      },
-      {
-        text: "Oui, annuler",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const { error } = await supabase
-              .from("orders")
-              .update({
-                deleted: true,
-              })
-              .eq("id", ord.id);
+    async () => {
+      try {
+        const { error } = await supabase
+          .from("orders")
+          .update({
+            deleted: true,
+          })
+          .eq("id", ord.id);
 
-            if (error) throw error;
+        if (error) throw error;
 
-            setOrders((currentOrders) =>
-              currentOrders.filter((orderItem) => orderItem.id !== ord.id)
-            );
+        setOrders((currentOrders) =>
+          currentOrders.filter((orderItem) => orderItem.id !== ord.id)
+        );
 
-            Alert.alert(
-              "Commande annulée",
-              "La commande a été retirée de la liste des commandes en cours."
-            );
-          } catch (error) {
-            console.error("❌ Annulation commande :", error);
+        showAlert(
+          "Commande annulée",
+          "La commande a été retirée de la liste des commandes en cours."
+        );
+      } catch (error) {
+        console.error("❌ Annulation commande :", error);
 
-            Alert.alert(
-              "Erreur",
-              "Impossible d’annuler cette commande."
-            );
-          }
-        },
-      },
-    ],
-    { cancelable: true }
+        showAlert(
+          "Erreur",
+          "Impossible d’annuler cette commande."
+        );
+      }
+    },
+    "Oui, annuler"
   );
 };
     const handleDeleteOrder = async (ord) => {
         if (!ord.paid && !ord.saved) {
-            Alert.alert(
+            showAlert(
                 "Suppression impossible",
                 "Impossible de supprimer une commande ni payée ni sauvegardée."
             );
             return;
         }
-        Alert.alert("Confirmation", "Supprimer cette commande ?", [
-            { text: "Annuler", style: "cancel" },
-            {
-                text: "Supprimer",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        const { error } = await supabase
-                            .from("orders")
-                            .delete()
-                            .eq("id", ord.id);
-                        if (error) throw error;
-                        loadOrders();
-                    } catch (e) {
-                        console.error("❌ Suppression:", e);
-                    }
-                },
-            },
-        ]);
+        openConfirm("Confirmation", "Supprimer cette commande ?", async () => {
+            try {
+                const { error } = await supabase
+                    .from("orders")
+                    .delete()
+                    .eq("id", ord.id);
+                if (error) throw error;
+                loadOrders();
+            } catch (e) {
+                console.error("❌ Suppression:", e);
+            }
+        }, "Supprimer");
     };
 
     const handleMarkAsPaid = (ord) => {
@@ -476,139 +902,151 @@ const handleCancelOrder = (ord) => {
             : ord.total ?? (ord.price || 0) * (ord.quantity || 1);
         const remaining = Math.max(0, total - (ord.deposit || 0));
 
-        Alert.alert(
+        openConfirm(
             "Paiement complet",
             `Confirmez-vous le paiement de ${remaining.toFixed(2)} € ?`,
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from("orders")
-                                .update({ paid: true })
-                                .eq("id", ord.id);
-                            if (error) throw error;
-                            loadOrders();
-                        } catch (e) {
-                            console.error("❌ Paiement:", e);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    const { error } = await supabase
+                        .from("orders")
+                        .update({ paid: true })
+                        .eq("id", ord.id);
+                    if (error) throw error;
+                    loadOrders();
+                } catch (e) {
+                    console.error("❌ Paiement:", e);
+                }
+            }
         );
     };
 
     const handleSaveOrder = async (ord) => {
         if (!ord.paid || !ord.recovered) {
-            Alert.alert(
+            showAlert(
                 "Erreur",
                 "Marquez d'abord payée et récupérée avant de sauvegarder."
             );
             return;
         }
-        Alert.alert(
+        openConfirm(
             "Sauvegarder",
             "Confirmez-vous la sauvegarde définitive ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from("orders")
-                                .update({
-                                    saved: true,
-                                    paid_at: new Date().toISOString(),
-                                })
-                                .eq("id", ord.id);
-                            if (error) throw error;
-                            loadOrders();
-                        } catch (e) {
-                            console.error("❌ Sauvegarde:", e);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    const { error } = await supabase
+                        .from("orders")
+                        .update({
+                            saved: true,
+                            paid_at: new Date().toISOString(),
+                        })
+                        .eq("id", ord.id);
+                    if (error) throw error;
+                    loadOrders();
+                } catch (e) {
+                    console.error("❌ Sauvegarde:", e);
+                }
+            }
         );
     };
 
     const handleMarkAsRecovered = async (ord) => {
-        Alert.alert(
+        openConfirm(
             "Commande récupérée",
             "Confirmez-vous la récupération par le client ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from("orders")
-                                .update({ recovered: true })
-                                .eq("id", ord.id);
-                            if (error) throw error;
-                            loadOrders();
-                        } catch (e) {
-                            console.error("❌ Récupération:", e);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    const { error } = await supabase
+                        .from("orders")
+                        .update({ recovered: true })
+                        .eq("id", ord.id);
+                    if (error) throw error;
+                    loadOrders();
+
+                    const alreadyInvoiced = (ord.billing?.length ?? 0) > 0;
+                    if (!alreadyInvoiced && !ord.include_in_intervention) {
+                        setInvoicePromptOrder(ord);
+                    }
+                } catch (e) {
+                    console.error("❌ Récupération:", e);
+                }
+            }
         );
     };
 
-    const handleMarkAsOrdered = async (ord) => {
-        Alert.alert(
+    const confirmMarkAsOrdered = (ord) => {
+        openConfirm(
             "Commande passée",
             "Confirmez-vous la commande fournisseur ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Confirmer",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from("orders")
-                                .update({ ordered: true })
-                                .eq("id", ord.id);
-                            if (error) throw error;
-                            loadOrders();
-                        } catch (e) {
-                            console.error("❌ Commande passée:", e);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    const { error } = await supabase
+                        .from("orders")
+                        .update({ ordered: true })
+                        .eq("id", ord.id);
+                    if (error) throw error;
+
+                    if (Array.isArray(ord.order_items) && ord.order_items.length > 0) {
+                        const { error: itemsError } = await supabase
+                            .from("order_items")
+                            .update({
+                                ordered: true,
+                                ordered_at: new Date().toISOString(),
+                            })
+                            .eq("order_id", ord.id);
+                        if (itemsError) throw itemsError;
+                    }
+
+                    loadOrders();
+                } catch (e) {
+                    console.error("❌ Commande passée:", e);
+                }
+            }
         );
+    };
+
+    const handleMarkAsOrdered = (ord) => {
+        const missingFournisseur = (
+            Array.isArray(ord.order_items) ? ord.order_items : []
+        ).filter((it) => !it.fournisseur || !it.fournisseur.trim());
+
+        if (missingFournisseur.length > 0) {
+            setFournisseurReminder({ ord, missingItems: missingFournisseur });
+            return;
+        }
+
+        confirmMarkAsOrdered(ord);
     };
 
     const handleMarkAsReceived = async (ord) => {
-        Alert.alert("Commande reçue", "Confirmez-vous la réception ?", [
-            { text: "Annuler", style: "cancel" },
-            {
-                text: "Confirmer",
-                onPress: async () => {
-                    try {
-                        const { error } = await supabase
-                            .from("orders")
-                            .update({ received: true })
-                            .eq("id", ord.id);
-                        if (error) throw error;
-                        loadOrders();
-                    } catch (e) {
-                        console.error("❌ Réception:", e);
-                    }
-                },
-            },
-        ]);
+        openConfirm("Commande reçue", "Confirmez-vous la réception ?", async () => {
+            try {
+                const { error } = await supabase
+                    .from("orders")
+                    .update({ received: true })
+                    .eq("id", ord.id);
+                if (error) throw error;
+
+                if (Array.isArray(ord.order_items) && ord.order_items.length > 0) {
+                    const { error: itemsError } = await supabase
+                        .from("order_items")
+                        .update({
+                            received: true,
+                            received_at: new Date().toISOString(),
+                        })
+                        .eq("order_id", ord.id);
+                    if (itemsError) throw itemsError;
+                }
+
+                loadOrders();
+            } catch (e) {
+                console.error("❌ Réception:", e);
+            }
+        });
     };
 
     const notifyOrderBySMS = async (ord) => {
         if (!clientPhone) {
-            Alert.alert("Erreur", "Numéro de téléphone manquant.");
+            showAlert("Erreur", "Numéro de téléphone manquant.");
             return;
         }
         const message = `Bonjour, votre commande ${ord.product} est prête. Merci et à bientôt.\n\nAVENIR INFORMATIQUE`;
@@ -620,11 +1058,11 @@ const handleCancelOrder = (ord) => {
                 .eq("id", ord.id);
             if (error) throw error;
             Linking.openURL(`sms:${clientPhone}?body=${encoded}`);
-            Alert.alert("Notification envoyée");
+            showAlert("Notification envoyée");
             loadOrders();
         } catch (e) {
             console.error("Erreur notification :", e);
-            Alert.alert("Erreur", "Impossible d’enregistrer la notification.");
+            showAlert("Erreur", "Impossible d’enregistrer la notification.");
         }
     };
 
@@ -634,7 +1072,7 @@ const ensureCameraPermission = async () => {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
   if (status !== "granted") {
-    Alert.alert(
+    showAlert(
       "Permission requise",
       "Autorisez l'accès à la caméra pour prendre des photos."
     );
@@ -685,7 +1123,7 @@ const readPhotoPathsFromRow = (row) => {
           if (Array.isArray(parsed)) {
             return parsed.filter(Boolean);
           }
-        } catch (_) {}
+        } catch (_) { /* pas du JSON valide, ignoré */ }
 
         if (value.includes(",")) {
           return value
@@ -720,7 +1158,7 @@ const writePhotoPathsToRow = async (orderId, paths) => {
         .eq("id", orderId);
 
       if (!error) return true;
-    } catch (_) {}
+    } catch (_) { /* colonne inexistante sur cette base, on essaie la suivante */ }
   }
 
   for (const col of candidateSingle) {
@@ -733,10 +1171,10 @@ const writePhotoPathsToRow = async (orderId, paths) => {
         .eq("id", orderId);
 
       if (!error) return true;
-    } catch (_) {}
+    } catch (_) { /* colonne inexistante sur cette base, on essaie la suivante */ }
   }
 
-  Alert.alert(
+  showAlert(
     "Colonne photos introuvable",
     "Impossible d’enregistrer les photos de cette commande."
   );
@@ -800,7 +1238,7 @@ const uploadOrderPhotoAsset = async (ord, asset) => {
       return;
     }
 
-    Alert.alert(
+    showAlert(
       "Image enregistrée",
       "L’image a été ajoutée à la commande."
     );
@@ -809,7 +1247,7 @@ const uploadOrderPhotoAsset = async (ord, asset) => {
   } catch (error) {
     console.error("📷❌ Upload photo :", error);
 
-    Alert.alert(
+    showAlert(
       "Erreur",
       error?.message || "Impossible d’ajouter l’image."
     );
@@ -842,7 +1280,7 @@ const takeAndUploadOrderPhoto = async (ord) => {
   } catch (error) {
     console.error("📷❌ Appareil photo :", error);
 
-    Alert.alert(
+    showAlert(
       "Erreur",
       "Impossible de prendre ou d’envoyer la photo."
     );
@@ -855,7 +1293,7 @@ const pickAndUploadOrderPhoto = async (ord) => {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permission.status !== "granted") {
-      Alert.alert(
+      showAlert(
         "Permission requise",
         "Autorisez l'accès aux photos pour choisir une image."
       );
@@ -880,7 +1318,7 @@ const pickAndUploadOrderPhoto = async (ord) => {
   } catch (error) {
     console.error("🖼️❌ Galerie :", error);
 
-    Alert.alert(
+    showAlert(
       "Erreur",
       "Impossible de sélectionner ou d’envoyer l’image."
     );
@@ -895,7 +1333,7 @@ const openWebImageSearch = async (ord) => {
       .trim();
 
     if (!query) {
-      Alert.alert(
+      showAlert(
         "Recherche impossible",
         "Aucun produit, marque ou modèle n’est renseigné."
       );
@@ -909,7 +1347,7 @@ const openWebImageSearch = async (ord) => {
     const supported = await Linking.canOpenURL(url);
 
     if (!supported) {
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Aucun navigateur ne peut ouvrir cette recherche."
       );
@@ -920,7 +1358,7 @@ const openWebImageSearch = async (ord) => {
   } catch (error) {
     console.error("🌐❌ Recherche image :", error);
 
-    Alert.alert(
+    showAlert(
       "Erreur",
       "Impossible d’ouvrir la recherche d’images."
     );
@@ -928,29 +1366,7 @@ const openWebImageSearch = async (ord) => {
 };
 
 const showOrderPhotoChoices = (ord) => {
-  Alert.alert(
-    "Ajouter une image",
-    "Choisissez la source de l’image.",
-    [
-      {
-        text: "Appareil photo",
-        onPress: () => takeAndUploadOrderPhoto(ord),
-      },
-      {
-        text: "Galerie",
-        onPress: () => pickAndUploadOrderPhoto(ord),
-      },
-      {
-        text: "Recherche web",
-        onPress: () => openWebImageSearch(ord),
-      },
-      {
-        text: "Annuler",
-        style: "cancel",
-      },
-    ],
-    { cancelable: true }
-  );
+  setPhotoChoiceOrder(ord);
 };
 
 const deleteOnePhoto = async (ord, imgPath) => {
@@ -984,12 +1400,277 @@ const deleteOnePhoto = async (ord, imgPath) => {
   } catch (error) {
     console.error("🗑️❌ Suppression photo :", error);
 
-    Alert.alert(
+    showAlert(
       "Erreur",
       "Impossible de supprimer cette image."
     );
   }
 };
+const toggleOrderItemOrdered = async (orderItem) => {
+    try {
+        const nextValue = !orderItem.ordered;
+
+        const { error } = await supabase
+            .from("order_items")
+            .update({
+                ordered: nextValue,
+                ordered_at: nextValue
+                    ? new Date().toISOString()
+                    : null,
+            })
+            .eq("id", orderItem.id);
+
+        if (error) {
+            throw error;
+        }
+
+        // Répercute l'état sur le bouton "Produit commandé ?" de la fiche
+        // d'intervention correspondante (via client_id + nom du produit,
+        // faute de lien direct en base entre order_items et interventions).
+        if (clientId && orderItem.product) {
+            const { error: syncError } = await supabase
+                .from("interventions")
+                .update({ commande_effectuee: nextValue })
+                .eq("client_id", clientId)
+                .eq("status", "En attente de pièces")
+                .ilike("commande", orderItem.product);
+
+            if (syncError) {
+                console.warn(
+                    "⚠️ Synchronisation commande_effectuee :",
+                    syncError
+                );
+            }
+        }
+
+        await loadOrders();
+    } catch (error) {
+        console.error(
+            "❌ Mise à jour article commandé :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            "Impossible de modifier l’état de cet article."
+        );
+    }
+};
+const toggleOrderItemReceived = async (orderItem) => {
+    try {
+        const nextValue = !orderItem.received;
+
+        const { error } = await supabase
+            .from("order_items")
+            .update({
+                received: nextValue,
+                received_at: nextValue
+                    ? new Date().toISOString()
+                    : null,
+            })
+            .eq("id", orderItem.id);
+
+        if (error) {
+            throw error;
+        }
+
+        // Répercute la réception sur la fiche d'intervention correspondante,
+        // comme le fait manuellement le bouton "Commande reçue ?" (passage à
+        // "Intervention en cours"), via client_id + nom du produit faute de
+        // lien direct en base entre order_items et interventions.
+        // Si on décoche par erreur, on repasse la fiche à "En attente de
+        // pièces" pour faire réapparaître le bouton — mais seulement si elle
+        // n'a pas déjà avancé plus loin dans le workflow.
+        if (clientId && orderItem.product) {
+            const { error: syncError } = await supabase
+                .from("interventions")
+                .update({
+                    status: nextValue
+                        ? "Intervention en cours"
+                        : "En attente de pièces",
+                })
+                .eq("client_id", clientId)
+                .eq(
+                    "status",
+                    nextValue ? "En attente de pièces" : "Intervention en cours"
+                )
+                .ilike("commande", orderItem.product);
+
+            if (syncError) {
+                console.warn(
+                    "⚠️ Synchronisation statut intervention :",
+                    syncError
+                );
+            }
+        }
+
+        await loadOrders();
+    } catch (error) {
+        console.error(
+            "❌ Mise à jour article reçu :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            "Impossible de modifier l'état de cet article."
+        );
+    }
+};
+const toggleOrderItemInstalled = async (orderItem) => {
+    try {
+        const nextValue = !orderItem.installed;
+
+        const { error } = await supabase
+            .from("order_items")
+            .update({
+                installed: nextValue,
+                installed_at: nextValue
+                    ? new Date().toISOString()
+                    : null,
+            })
+            .eq("id", orderItem.id);
+
+        if (error) {
+            throw error;
+        }
+
+        await loadOrders();
+    } catch (error) {
+        console.error(
+            "❌ Mise à jour article monté :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            "Impossible de modifier l'état de cet article."
+        );
+    }
+};
+const editOrderItem = (orderItem) => {
+    setEditingOrderItem(orderItem);
+
+    setNewOrder((previous) => ({
+        ...previous,
+        product: orderItem.product || "",
+        brand: orderItem.brand || "",
+        model: orderItem.model || "",
+        serial: orderItem.serial || "",
+        fournisseur: orderItem.fournisseur || "",
+        purchasePrice:
+            orderItem.purchase_price != null
+                ? String(orderItem.purchase_price)
+                : "",
+        marginPercent:
+            orderItem.margin_percent != null
+                ? String(orderItem.margin_percent)
+                : "",
+        quantity: String(orderItem.quantity || 1),
+        price: String(orderItem.unit_price || ""),
+        include_in_intervention:
+            !!orderItem.include_in_intervention,
+    }));
+
+    setShowForm(true);
+};
+
+const recalculateOrderSummary = async (orderId) => {
+    try {
+        const { data: items, error: itemsError } =
+            await supabase
+                .from("order_items")
+                .select("quantity, unit_price")
+                .eq("order_id", orderId);
+
+        if (itemsError) throw itemsError;
+
+        const safeItems = Array.isArray(items)
+            ? items
+            : [];
+
+        const itemsCount =
+            safeItems.reduce(
+                (sum, item) =>
+                    sum +
+                    Math.max(
+                        1,
+                        Number(item.quantity || 1)
+                    ),
+                0
+            );
+
+        const total =
+            safeItems.reduce(
+                (sum, item) =>
+                    sum +
+                    Number(item.unit_price || 0) *
+                        Math.max(
+                            1,
+                            Number(item.quantity || 1)
+                        ),
+                0
+            );
+
+        const { error: orderError } =
+            await supabase
+                .from("orders")
+                .update({
+                    total,
+                    price: total,
+                    items_count: itemsCount,
+                })
+                .eq("id", orderId);
+
+        if (orderError) throw orderError;
+
+        return true;
+    } catch (error) {
+        console.error(
+            "❌ Recalcul commande :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            "Impossible de recalculer le total de la commande."
+        );
+
+        return false;
+    }
+};
+
+const deleteOrderItem = async (orderItem) => {
+    openConfirm(
+        "Supprimer cet article",
+        `Supprimer "${orderItem.product}" ?`,
+        async () => {
+            try {
+                const { error } = await supabase
+                    .from("order_items")
+                    .delete()
+                    .eq("id", orderItem.id);
+
+                if (error) throw error;
+                await recalculateOrderSummary(
+                    orderItem.order_id
+                );
+                await loadOrders();
+
+                showAlert("Article supprimé");
+            } catch (err) {
+                console.error(err);
+
+                showAlert(
+                    "Erreur",
+                    "Impossible de supprimer cet article."
+                );
+            }
+        },
+        "Supprimer"
+    );
+};
+
     const toggleExpand = (id) => {
         setExpandedOrders((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -1035,6 +1716,7 @@ const deleteOnePhoto = async (ord, imgPath) => {
         const out = [];
         if (item.ordered) out.push("Passée");
         if (item.received) out.push("Reçue");
+		if (item.installed) out.push("Montée");
         if (item.recovered) out.push("Récupérée");
         if (item.saved) out.push("Sauvegardée");
         return out.join(" • ");
@@ -1094,6 +1776,95 @@ const deleteOnePhoto = async (ord, imgPath) => {
                             setNewOrder({ ...newOrder, model: t })
                         }
                     />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Fournisseur"
+                        placeholderTextColor="#000"
+                        value={newOrder.fournisseur}
+                        onChangeText={(t) =>
+                            setNewOrder({ ...newOrder, fournisseur: t })
+                        }
+                    />
+
+                    <View style={styles.qtyRow}>
+                        <TextInput
+                            style={[
+                                styles.input,
+                                { flex: 1.2, marginBottom: 0, marginRight: 6 },
+                            ]}
+                            placeholder="Prix d'achat (€)"
+                            placeholderTextColor="#000"
+                            keyboardType="numeric"
+                            value={newOrder.purchasePrice}
+                            onChangeText={(t) => {
+                                const estimate = computeEstimatedSalePrice(
+                                    t,
+                                    newOrder.marginPercent
+                                );
+                                if (estimate != null) {
+                                    setNewOrder({
+                                        ...newOrder,
+                                        purchasePrice: t,
+                                        price: estimate.toFixed(2),
+                                    });
+                                    return;
+                                }
+                                // Pas de marge saisie : si un prix unitaire existe déjà,
+                                // en déduire la marge correspondante.
+                                const margin = computeMarginFromPrices(
+                                    t,
+                                    newOrder.price
+                                );
+                                setNewOrder({
+                                    ...newOrder,
+                                    purchasePrice: t,
+                                    ...(margin != null
+                                        ? { marginPercent: margin.toFixed(2) }
+                                        : {}),
+                                });
+                            }}
+                        />
+                        <TextInput
+                            style={[
+                                styles.input,
+                                { width: 70, marginBottom: 0, marginRight: 6 },
+                            ]}
+                            placeholder="% marge"
+                            placeholderTextColor="#000"
+                            keyboardType="numeric"
+                            value={newOrder.marginPercent}
+                            onChangeText={(t) => {
+                                const estimate = computeEstimatedSalePrice(
+                                    newOrder.purchasePrice,
+                                    t
+                                );
+                                setNewOrder({
+                                    ...newOrder,
+                                    marginPercent: t,
+                                    ...(estimate != null
+                                        ? { price: estimate.toFixed(2) }
+                                        : {}),
+                                });
+                            }}
+                        />
+                        <View
+                            style={[
+                                styles.input,
+                                {
+                                    flex: 1.2,
+                                    marginBottom: 0,
+                                    justifyContent: "center",
+                                    backgroundColor: "#eef2ff",
+                                },
+                            ]}
+                        >
+                            <Text style={{ color: "#111", fontSize: 12 }}>
+                                {estimatedSalePrice != null
+                                    ? `≈ ${estimatedSalePrice.toFixed(2)} €`
+                                    : "Prix estimé"}
+                            </Text>
+                        </View>
+                    </View>
 
                     <TouchableOpacity
                         style={styles.checkboxRow}
@@ -1135,9 +1906,21 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                 ? ""
                                 : newOrder.price
                         }
-                        onChangeText={(t) =>
-                            setNewOrder({ ...newOrder, price: t })
-                        }
+                        onChangeText={(t) => {
+                            // Si un prix d'achat est déjà saisi, en déduire la marge
+                            // correspondante (et donc le prix estimé, aligné dessus).
+                            const margin = computeMarginFromPrices(
+                                newOrder.purchasePrice,
+                                t
+                            );
+                            setNewOrder({
+                                ...newOrder,
+                                price: t,
+                                ...(margin != null
+                                    ? { marginPercent: margin.toFixed(2) }
+                                    : {}),
+                            });
+                        }}
                         editable={!newOrder.include_in_intervention}
                     />
 
@@ -1239,16 +2022,151 @@ const deleteOnePhoto = async (ord, imgPath) => {
                             setNewOrder({ ...newOrder, deposit: t })
                         }
                     />
+{newOrderItems.length > 0 && (
+    <View
+        style={{
+            marginTop: 15,
+            marginBottom: 10,
+            borderWidth: 1,
+            borderColor: "#ddd",
+            borderRadius: 8,
+            backgroundColor: "#fafafa",
+            padding: 10,
+        }}
+    >
+        <Text
+            style={{
+                fontWeight: "bold",
+                fontSize: 16,
+                marginBottom: 10,
+            }}
+        >
+            Produits de la commande
+        </Text>
 
+        {newOrderItems.map((item) => (
+            <View
+                key={item.localId}
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                }}
+            >
+                <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "600" }}>
+                        {item.product}
+                    </Text>
+
+                    <Text
+                        style={{
+                            color: "#666",
+                            fontSize: 13,
+                        }}
+                    >
+                        {item.quantity} × {fmtMoney(item.unit_price)} €
+                    </Text>
+                    {item.fournisseur ? (
+                        <Text
+                            style={{
+                                color: "#888",
+                                fontSize: 12,
+                                fontStyle: "italic",
+                            }}
+                        >
+                            Fournisseur : {item.fournisseur}
+                        </Text>
+                    ) : null}
+                </View>
+
+                <Text
+                    style={{
+                        width: 80,
+                        textAlign: "right",
+                        fontWeight: "bold",
+                    }}
+                >
+                    {fmtMoney(item.total)} €
+                </Text>
+
+                <TouchableOpacity
+                    onPress={() =>
+                        setNewOrderItems((previous) =>
+                            previous.filter(
+                                (p) =>
+                                    p.localId !==
+                                    item.localId
+                            )
+                        )
+                    }
+                >
+                    <Text
+                        style={{
+                            color: "red",
+                            marginLeft: 12,
+                            fontWeight: "bold",
+                        }}
+                    >
+                        ✕
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        ))}
+
+        <View
+            style={{
+                borderTopWidth: 1,
+                borderTopColor: "#ddd",
+                marginTop: 10,
+                paddingTop: 10,
+            }}
+        >
+            <Text
+                style={{
+                    fontWeight: "bold",
+                    textAlign: "right",
+                }}
+            >
+                Total :
+                {" "}
+                {fmtMoney(
+                    newOrderItems.reduce(
+                        (sum, item) =>
+                            sum + item.total,
+                        0
+                    )
+                )} €
+            </Text>
+        </View>
+    </View>
+)}
                     <View style={{ alignItems: "center" }}>
                         <TouchableOpacity
                             style={styles.addButton}
-                            onPress={handleCreateOrder}
+                            onPress={handleAddProductToOrder}
                         >
-                            <Text style={styles.addButtonText}>
-                                Ajouter une commande
-                            </Text>
+<Text style={styles.addButtonText}>
+    {editingOrderItem
+        ? "Modifier le produit"
+        : "Ajouter le produit"}
+</Text>
                         </TouchableOpacity>
+						<TouchableOpacity
+    style={[
+        styles.addButton,
+        {
+            marginTop: 10,
+            backgroundColor: "#16a34a",
+        },
+    ]}
+	activeOpacity={0.8}
+    onPress={handleCreateOrder}
+>
+    <Text style={styles.addButtonText}>
+        Valider la commande
+    </Text>
+</TouchableOpacity>
                     </View>
                 </View>
             )}
@@ -1274,6 +2192,15 @@ const deleteOnePhoto = async (ord, imgPath) => {
                 contentContainerStyle={{ paddingBottom: 50 }}
                 renderItem={({ item, index }) => {
                     const isExpanded = expandedOrders.includes(item.id);
+					const orderItems = item.order_items || [];
+					const itemsQuantityCount = orderItems.reduce(
+    (sum, orderItem) =>
+        sum + Math.max(
+            1,
+            Number(orderItem.quantity || 1)
+        ),
+    0
+);
                     const paths = readPhotoPathsFromRow(item);
                     const urls = paths
                         .map(getPublicUrlFromPath)
@@ -1306,16 +2233,23 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                             style={styles.rowTitle}
                                             numberOfLines={1}
                                         >
-                                            {item.product || "-"}
+                                            {itemsQuantityCount > 1
+    ? `${itemsQuantityCount} produits`
+    : (orderItems[0]?.product || item.product || "-")}
                                         </Text>
                                         <Text
-                                            style={styles.rowSub}
-                                            numberOfLines={1}
-                                        >
-                                            {[item.brand, item.model]
-                                                .filter(Boolean)
-                                                .join(" ") || " "}
-                                        </Text>
+    style={styles.rowSub}
+    numberOfLines={1}
+>
+    {orderItems.length > 1
+        ? item.order_name || "Commande multi-produits"
+        : [
+              orderItems[0]?.brand || item.brand,
+              orderItems[0]?.model || item.model,
+          ]
+              .filter(Boolean)
+              .join(" ") || " "}
+</Text>
                                         {!!tinyStatus(item) && (
                                             <Text
                                                 style={styles.rowStatus}
@@ -1381,19 +2315,203 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                 <View style={styles.expandArea}>
                                     {!editing ? (
                                         <>
+										{orderItems.length > 0 && (
+    <View
+        style={{
+            marginBottom: 12,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: "#d1d5db",
+            borderRadius: 8,
+            backgroundColor: "#f8fafc",
+        }}
+    >
+        <Text
+            style={{
+                marginBottom: 8,
+                fontSize: 15,
+                fontWeight: "bold",
+                color: "#1f2937",
+            }}
+        >
+            Produits de la commande
+        </Text>
+
+        {orderItems.map((orderItem) => (
+            <View
+                key={orderItem.id}
+                style={{
+                    marginBottom: 7,
+                    paddingBottom: 7,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#e5e7eb",
+                }}
+            >
+<View
+    style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    }}
+>
+    <Text
+        style={{
+            fontSize: 14,
+            fontWeight: "700",
+            color: "#111827",
+            flex: 1,
+        }}
+    >
+        {orderItem.quantity || 1} ×{" "}
+        {orderItem.product}
+    </Text>
+
+<View
+    style={{
+        flexDirection: "row",
+        alignItems: "center",
+    }}
+>
+    <TouchableOpacity
+        onPress={() =>
+            editOrderItem(orderItem)
+        }
+    >
+        <Text
+            style={{
+                color: "#2563eb",
+                fontSize: 18,
+                marginRight: 12,
+            }}
+        >
+            ✏️
+        </Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+        onPress={() =>
+            deleteOrderItem(orderItem)
+        }
+    >
+        <Text
+            style={{
+                color: "#dc2626",
+                fontSize: 18,
+                fontWeight: "bold",
+            }}
+        >
+            🗑️
+        </Text>
+    </TouchableOpacity>
+</View>
+</View>
+
+                <Text
+                    style={{
+                        marginTop: 2,
+                        fontSize: 12,
+                        color: "#64748b",
+                    }}
+                >
+                    {[
+                        orderItem.brand,
+                        orderItem.model,
+                    ]
+                        .filter(Boolean)
+                        .join(" ") || "—"}
+                    {" · "}
+                    {fmtMoney(
+                        Number(
+                            orderItem.unit_price || 0
+                        ) *
+                            Number(
+                                orderItem.quantity || 1
+                            )
+                    )} €
+                </Text>
+                {orderItem.fournisseur ? (
+                    <Text
+                        style={{
+                            marginTop: 2,
+                            fontSize: 12,
+                            color: "#8b5cf6",
+                            fontStyle: "italic",
+                        }}
+                    >
+                        Fournisseur : {orderItem.fournisseur}
+                    </Text>
+                ) : null}
+				<View
+				style={{
+					flexDirection: "row",
+					marginTop: 6,
+					gap: 8,
+					flexWrap: "wrap",
+				}}
+			>
+				<TouchableOpacity
+					activeOpacity={0.75}
+					onPress={() =>
+						toggleOrderItemOrdered(orderItem)
+					}
+				>
+					<Text
+						style={{
+							color: orderItem.ordered
+								? "#16a34a"
+								: "#9ca3af",
+							fontSize: 12,
+							fontWeight: "600",
+						}}
+					>
+						{orderItem.ordered ? "✅" : "⬜"} Commandée
+					</Text>
+				</TouchableOpacity>
+
+				<TouchableOpacity
+					activeOpacity={0.75}
+					onPress={() =>
+						toggleOrderItemReceived(orderItem)
+					}
+				>
+					<Text
+						style={{
+							color: orderItem.received
+								? "#16a34a"
+								: "#9ca3af",
+							fontSize: 12,
+							fontWeight: "600",
+						}}
+					>
+						{orderItem.received ? "✅" : "⬜"} Reçue
+					</Text>
+				</TouchableOpacity>
+
+				<TouchableOpacity
+					activeOpacity={0.75}
+					onPress={() =>
+						toggleOrderItemInstalled(orderItem)
+					}
+				>
+					<Text
+						style={{
+							color: orderItem.installed
+								? "#16a34a"
+								: "#9ca3af",
+							fontSize: 12,
+							fontWeight: "600",
+						}}
+					>
+						{orderItem.installed ? "✅" : "⬜"} Montée
+					</Text>
+				</TouchableOpacity>
+			</View>
+						</View>
+					))}
+				</View>
+			)}
                                             <View style={styles.kvBlock}>
-                                                {renderKV(
-                                                    "Produit",
-                                                    item.product || "-"
-                                                )}
-                                                {renderKV(
-                                                    "Marque",
-                                                    item.brand || "-"
-                                                )}
-                                                {renderKV(
-                                                    "Modèle",
-                                                    item.model || "-"
-                                                )}
+
                                                 {renderKV(
                                                     "N° de série",
                                                     item.serial || "-"
@@ -1483,9 +2601,22 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                             {!item.saved && (
                                                 <TouchableOpacity
                                                     style={styles.editButton}
-                                                    onPress={() =>
-                                                        startEdit(item)
-                                                    }
+                                                    onPress={() => {
+                                                        // Ouvre le formulaire complet (produit, fournisseur,
+                                                        // prix d'achat, marge...) sur le premier article de
+                                                        // la commande — équivalent au crayon ✎, en plus
+                                                        // simple à cliquer. Ancien formulaire conservé en
+                                                        // repli pour les commandes sans article détaillé.
+                                                        const firstItem =
+                                                            item.order_items?.[0];
+                                                        if (firstItem) {
+                                                            editOrderItem(
+                                                                firstItem
+                                                            );
+                                                        } else {
+                                                            startEdit(item);
+                                                        }
+                                                    }}
                                                 >
                                                     <Text
                                                         style={
@@ -1766,27 +2897,15 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                                         openImageModal(u)
                                                     }
                                                     onLongPress={() =>
-                                                        Alert.alert(
+                                                        openConfirm(
                                                             "Supprimer la photo",
                                                             "Voulez-vous supprimer cette photo ?",
-                                                            [
-                                                                {
-                                                                    text: "Annuler",
-                                                                    style: "cancel",
-                                                                },
-                                                                {
-                                                                    text: "Supprimer",
-                                                                    style: "destructive",
-                                                                    onPress:
-                                                                        () =>
-                                                                            deleteOnePhoto(
-                                                                                item,
-                                                                                paths[
-                                                                                    idx
-                                                                                ]
-                                                                            ),
-                                                                },
-                                                            ]
+                                                            () =>
+                                                                deleteOnePhoto(
+                                                                    item,
+                                                                    paths[idx]
+                                                                ),
+                                                            "Supprimer"
                                                         )
                                                     }
                                                 >
@@ -2077,27 +3196,36 @@ const deleteOnePhoto = async (ord, imgPath) => {
                                         <TouchableOpacity
                                             style={[
                                                 styles.squareButton,
-                                                (!item.received ||
-                                                    item.notified) &&
+                                                !item.received &&
                                                     styles.squareButtonDisabled,
+                                                item.notified &&
+                                                    item.received && {
+                                                        backgroundColor: "#16a34a",
+                                                    },
                                             ]}
-                                            disabled={
-                                                !item.received || item.notified
-                                            }
+                                            disabled={!item.received}
                                             onPress={() =>
-                                                notifyOrderBySMS(item)
+                                                openConfirm(
+                                                    item.notified
+                                                        ? "Renvoyer la notification"
+                                                        : "Notifier le client",
+                                                    item.notified
+                                                        ? "Le client a déjà été notifié pour cette commande. Envoyer un nouveau SMS ?"
+                                                        : "Envoyer un SMS pour prévenir le client que sa commande est prête ?",
+                                                    () => notifyOrderBySMS(item),
+                                                    "Envoyer"
+                                                )
                                             }
                                         >
                                             <Text
                                                 style={[
                                                     styles.squareButtonText,
-                                                    (!item.received ||
-                                                        item.notified) &&
+                                                    !item.received &&
                                                         styles.squareButtonTextDisabled,
                                                 ]}
                                             >
                                                 {item.notified
-                                                    ? "Notifiée"
+                                                    ? "Renotifier"
                                                     : "Notifier"}
                                             </Text>
                                         </TouchableOpacity>
@@ -2184,10 +3312,182 @@ const deleteOnePhoto = async (ord, imgPath) => {
                         />
                     )}
                     <View style={styles.fullscreenClose}>
-                        <Text style={styles.fullscreenCloseText}>Fermer</Text>
+                        <Text style={styles.fullscreenCloseText}>✕</Text>
                     </View>
                 </Pressable>
             </Modal>
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
+
+            <AlertBox
+                visible={confirmDialog.visible}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                cancelText="Annuler"
+                confirmText={confirmDialog.confirmText || "Confirmer"}
+                onClose={closeConfirm}
+                onConfirm={() => {
+                    closeConfirm();
+                    if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+            />
+
+            {/* Choix de la source d'une photo de commande */}
+            <Modal
+                visible={!!photoChoiceOrder}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPhotoChoiceOrder(null)}
+            >
+                <Pressable
+                    style={styles.photoChoiceOverlay}
+                    onPress={() => setPhotoChoiceOrder(null)}
+                >
+                    <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+                        <Text style={styles.photoChoiceTitle}>Ajouter une image</Text>
+                        <Text style={styles.photoChoiceSubtitle}>
+                            Choisissez la source de l’image.
+                        </Text>
+
+                        {[
+                            {
+                                label: "📷 Appareil photo",
+                                onPress: () => takeAndUploadOrderPhoto(photoChoiceOrder),
+                            },
+                            {
+                                label: "🖼️ Galerie",
+                                onPress: () => pickAndUploadOrderPhoto(photoChoiceOrder),
+                            },
+                            {
+                                label: "🔍 Recherche web",
+                                onPress: () => openWebImageSearch(photoChoiceOrder),
+                            },
+                        ].map((option) => (
+                            <TouchableOpacity
+                                key={option.label}
+                                style={styles.photoChoiceOption}
+                                activeOpacity={0.75}
+                                onPress={() => {
+                                    setPhotoChoiceOrder(null);
+                                    option.onPress();
+                                }}
+                            >
+                                <Text style={styles.photoChoiceOptionText}>
+                                    {option.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceCancel}
+                            activeOpacity={0.75}
+                            onPress={() => setPhotoChoiceOrder(null)}
+                        >
+                            <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            {/* Rappel fournisseur manquant */}
+            <Modal
+                visible={!!fournisseurReminder}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setFournisseurReminder(null)}
+            >
+                <Pressable
+                    style={styles.photoChoiceOverlay}
+                    onPress={() => setFournisseurReminder(null)}
+                >
+                    <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+                        <Text style={styles.photoChoiceTitle}>Fournisseur manquant</Text>
+                        <Text style={styles.photoChoiceSubtitle}>
+                            {`Non renseigné pour : ${(
+                                fournisseurReminder?.missingItems || []
+                            )
+                                .map((it) => it.product)
+                                .filter(Boolean)
+                                .join(", ")}`}
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceOption}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                const target =
+                                    fournisseurReminder?.missingItems?.[0];
+                                setFournisseurReminder(null);
+                                if (target) editOrderItem(target);
+                            }}
+                        >
+                            <Text style={styles.photoChoiceOptionText}>
+                                ✏️ Renseigner le fournisseur
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceOption}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                const target = fournisseurReminder?.ord;
+                                setFournisseurReminder(null);
+                                if (target) confirmMarkAsOrdered(target);
+                            }}
+                        >
+                            <Text style={styles.photoChoiceOptionText}>
+                                ✅ Confirmer quand même
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceCancel}
+                            activeOpacity={0.75}
+                            onPress={() => setFournisseurReminder(null)}
+                        >
+                            <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            {/* Proposition de facturation après récupération d'une commande */}
+            <AlertBox
+                visible={!!invoicePromptOrder}
+                title="Facturer maintenant ?"
+                message="La commande vient d’être marquée récupérée. Voulez-vous créer la facture pour ce client maintenant ?"
+                cancelText="Plus tard"
+                confirmText="Facturer"
+                onClose={() => setInvoicePromptOrder(null)}
+                onConfirm={() => {
+                    const item = invoicePromptOrder;
+                    setInvoicePromptOrder(null);
+                    navigation.navigate("BillingPage", {
+                        expressData: {
+                            order_id: item.id,
+                            clientname: clientName,
+                            clientphone: clientPhone,
+                            product: item.product,
+                            brand: item.brand,
+                            model: item.model,
+                            price: String(
+                                item.total ?? (item.price || 0) * (item.quantity || 1)
+                            ),
+                            quantity: String(item.quantity || 1),
+                            description: `${item.product} ${item.brand} ${item.model}`,
+                            acompte: item.deposit?.toString() || "0",
+                            paymentmethod: item.paymentmethod || "",
+                            serial: item.serial || "",
+                            paid: item.paid || false,
+                        },
+                    });
+                }}
+            />
         </View>
 		</SafeAreaView>
     );
@@ -2199,6 +3499,62 @@ const styles = StyleSheet.create({
   backgroundColor: "#e6e6e6",
   paddingTop: StatusBar.currentHeight || 0, // évite que le haut passe sous la barre Android
 },
+
+    photoChoiceOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(15, 23, 42, 0.55)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 16,
+    },
+    photoChoiceCard: {
+        width: 340,
+        maxWidth: "100%",
+        backgroundColor: "#fff",
+        borderRadius: 24,
+        padding: 22,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    photoChoiceTitle: {
+        fontSize: 19,
+        fontWeight: "700",
+        color: "#111827",
+        textAlign: "center",
+        marginBottom: 4,
+    },
+    photoChoiceSubtitle: {
+        fontSize: 13,
+        color: "#6b7280",
+        textAlign: "center",
+        marginBottom: 16,
+    },
+    photoChoiceOption: {
+        paddingVertical: 14,
+        borderRadius: 14,
+        backgroundColor: "#F3F4F6",
+        alignItems: "center",
+        marginBottom: 10,
+    },
+    photoChoiceOptionText: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#111827",
+    },
+    photoChoiceCancel: {
+        paddingVertical: 14,
+        borderRadius: 14,
+        alignItems: "center",
+        marginTop: 4,
+    },
+    photoChoiceCancelText: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#dc2626",
+    },
 
     container: { flex: 1, padding: 12, backgroundColor: "#e6e6e6" },
     header: {
@@ -2449,21 +3805,23 @@ const styles = StyleSheet.create({
 
     fullscreenContainer: {
         flex: 1,
-        backgroundColor: "#000",
+        backgroundColor: "#0f172a",
         justifyContent: "center",
         alignItems: "center",
     },
     fullscreenImage: { width: "100%", height: "100%" },
     fullscreenClose: {
         position: "absolute",
-        top: 24,
-        right: 16,
-        backgroundColor: "rgba(0,0,0,0.65)",
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        top: 48,
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.15)",
+        alignItems: "center",
+        justifyContent: "center",
     },
-    fullscreenCloseText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+    fullscreenCloseText: { color: "#fff", fontWeight: "700", fontSize: 18 },
     headerRow: {
         flexDirection: "row",
         alignItems: "center",

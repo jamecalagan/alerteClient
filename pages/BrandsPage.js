@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AlertBox from '../components/AlertBox';
 
 export default function BrandsPage({ route, navigation }) {
     const { articleId } = route.params;
     const [brands, setBrands] = useState([]);
+    const [brandToDelete, setBrandToDelete] = useState(null);
     const numColumns = 3; // Nombre de colonnes
 
     useEffect(() => {
@@ -21,26 +23,19 @@ export default function BrandsPage({ route, navigation }) {
         }
     };
 
-    const handleDeleteBrand = async (brandId) => {
-        Alert.alert(
-            'Confirmation',
-            'Êtes-vous sûr de vouloir supprimer cette marque ?',
-            [
-                { text: 'Annuler', style: 'cancel' },
-                { 
-                    text: 'Supprimer', 
-                    style: 'destructive', 
-                    onPress: async () => {
-                        const { error } = await supabase.from('marque').delete().eq('id', brandId);
-                        if (error) {
-                            console.error('Erreur lors de la suppression de la marque:', error.message);
-                        } else {
-                            setBrands(brands.filter(brand => brand.id !== brandId));
-                        }
-                    } 
-                },
-            ]
-        );
+    const handleDeleteBrand = (brandId) => {
+        setBrandToDelete(brandId);
+    };
+
+    const confirmDeleteBrand = async () => {
+        const brandId = brandToDelete;
+        setBrandToDelete(null);
+        const { error } = await supabase.from('marque').delete().eq('id', brandId);
+        if (error) {
+            console.error('Erreur lors de la suppression de la marque:', error.message);
+        } else {
+            setBrands(brands.filter(brand => brand.id !== brandId));
+        }
     };
 
     const handleSelectBrand = (brandId) => {
@@ -74,6 +69,16 @@ export default function BrandsPage({ route, navigation }) {
                     </View>
                 )}
                 contentContainerStyle={styles.listContainer}
+            />
+
+            <AlertBox
+                visible={!!brandToDelete}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir supprimer cette marque ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setBrandToDelete(null)}
+                onConfirm={confirmDeleteBrand}
             />
         </View>
     );

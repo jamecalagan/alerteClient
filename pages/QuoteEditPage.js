@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Platform,
   Linking,
   Switch,
@@ -17,7 +16,9 @@ import * as Clipboard from "expo-clipboard";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const BTN_COLS = 2; // 2 colonnes (sobre)
 const GRID_BTN_WIDTH = BTN_COLS === 3 ? "32%" : "48%";
@@ -26,6 +27,15 @@ export default function QuoteEditPage() {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message || "");
+    setAlertVisible(true);
+  };
 
   // Params
   const editingId = route.params?.id || null;
@@ -46,6 +56,7 @@ export default function QuoteEditPage() {
   const [deposit, setDeposit] = useState("0");
   const [status, setStatus] = useState("en_attente");
   const [isSaved, setIsSaved] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [quoteId, setQuoteId] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [clientSuggestions, setClientSuggestions] = useState([]);
@@ -160,7 +171,7 @@ export default function QuoteEditPage() {
 
       setIsSaved(true);
     } else {
-      Alert.alert("Erreur", "Impossible de charger le devis.");
+      showAlert("Erreur", "Impossible de charger le devis.");
     }
   }
 
@@ -311,7 +322,7 @@ export default function QuoteEditPage() {
       const max = numbers.length > 0 ? Math.max(...numbers) : 0;
       const nextNumber = String(max + 1).padStart(4, "0");
       setQuoteNumber(`${prefix}-${nextNumber}`);
-    } catch {}
+    } catch { /* génération du numéro échouée, laissé vide */ }
   };
 
   const searchClients = async (text) => {
@@ -393,13 +404,13 @@ export default function QuoteEditPage() {
   const handleSave = async () => {
     try {
       if (!name || items.length === 0)
-        return Alert.alert(
+        return showAlert(
           "Erreur",
           "Le nom du client et une ligne de devis au moins sont requis."
         );
 
       if (useGlobalTotal && !globalTotal) {
-        return Alert.alert(
+        return showAlert(
           "Montant manquant",
           "Renseigne le coût total TTC pour ce devis."
         );
@@ -413,15 +424,15 @@ export default function QuoteEditPage() {
           .update({ status: "convertie", quote_id: id })
           .eq("id", quoteRequestId);
       }
-      Alert.alert(editingId ? "✅ Devis modifié" : "✅ Devis enregistré");
+      showAlert(editingId ? "✅ Devis modifié" : "✅ Devis enregistré");
     } catch (e) {
-      Alert.alert("Erreur", String(e.message || e));
+      showAlert("Erreur", String(e.message || e));
     }
   };
 
   const handlePrint = () => {
     if (!isSaved || !quoteId)
-      return Alert.alert("Enregistrez d'abord le devis avant d'imprimer.");
+      return showAlert("Enregistrez d'abord le devis avant d'imprimer.");
     navigation.navigate("QuotePrintPage", { id: quoteId });
   };
 
@@ -553,12 +564,12 @@ export default function QuoteEditPage() {
   const handleCreatePdfAndShare = async () => {
     try {
       if (!name || items.length === 0) {
-        Alert.alert("Erreur", "Nom client et au moins une ligne sont requis.");
+        showAlert("Erreur", "Nom client et au moins une ligne sont requis.");
         return;
       }
 
       if (useGlobalTotal && !globalTotal) {
-        Alert.alert(
+        showAlert(
           "Montant manquant",
           "Renseigne le coût total TTC pour ce devis."
         );
@@ -568,12 +579,12 @@ export default function QuoteEditPage() {
       const html = buildQuoteHtml();
       const { uri } = await Print.printToFileAsync({ html });
       if (!uri) {
-        Alert.alert("Erreur", "Impossible de générer le PDF.");
+        showAlert("Erreur", "Impossible de générer le PDF.");
         return;
       }
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert(
+        showAlert(
           "Partage indisponible",
           "Le partage natif n’est pas disponible sur cet appareil."
         );
@@ -586,14 +597,14 @@ export default function QuoteEditPage() {
       });
     } catch (e) {
       console.log("❌ handleCreatePdfAndShare:", e);
-      Alert.alert("Erreur", "Création ou partage du PDF impossible.");
+      showAlert("Erreur", "Création ou partage du PDF impossible.");
     }
   };
 
   const handleSmsTextOnly = async () => {
     try {
       if (!phone) {
-        Alert.alert("Téléphone manquant", "Ajoute un numéro pour envoyer le SMS.");
+        showAlert("Téléphone manquant", "Ajoute un numéro pour envoyer le SMS.");
         return;
       }
       const who = name ? `Bonjour M. ${name},` : "Bonjour,";
@@ -611,11 +622,11 @@ export default function QuoteEditPage() {
       } else {
         await Clipboard.setStringAsync(String(phone));
         await Linking.openURL("https://messages.google.com/web");
-        Alert.alert("Numéro copié", "Pas d’app SMS. Messages Web ouvert.");
+        showAlert("Numéro copié", "Pas d’app SMS. Messages Web ouvert.");
       }
     } catch (e) {
       console.log("❌ handleSmsTextOnly:", e);
-      Alert.alert("Erreur", "Impossible d’ouvrir l’envoi SMS.");
+      showAlert("Erreur", "Impossible d’ouvrir l’envoi SMS.");
     }
   };
 
@@ -628,7 +639,7 @@ export default function QuoteEditPage() {
   // === Convertir le devis en commande (garde-fous UI + BDD) ===
   const handleConvertToOrder = async () => {
     if (convertedOrderId) {
-      return Alert.alert(
+      return showAlert(
         "Déjà converti",
         "Ce devis a déjà été transformé en commande."
       );
@@ -651,7 +662,7 @@ export default function QuoteEditPage() {
         const existedId = String(q.converted_to_order_id);
         setConvertedOrderId(existedId);
         setStatus(q?.status || "converti");
-        Alert.alert("Déjà converti", "Ce devis a déjà une commande liée.");
+        showAlert("Déjà converti", "Ce devis a déjà une commande liée.");
         navigation.navigate("OrdersPage", {
           refreshAt: Date.now(),
           focusId: existedId,
@@ -738,7 +749,7 @@ export default function QuoteEditPage() {
         if (existingId) {
           setConvertedOrderId(existingId);
           setStatus("converti");
-          Alert.alert("Déjà converti", "Ce devis a déjà une commande liée.");
+          showAlert("Déjà converti", "Ce devis a déjà une commande liée.");
           navigation.navigate("OrdersPage", {
             refreshAt: Date.now(),
             focusId: existingId,
@@ -764,7 +775,7 @@ export default function QuoteEditPage() {
         .eq("id", qid);
 
       // 9) Confirme + navigue
-      Alert.alert(
+      showAlert(
         "✅ Converti",
         `Le devis a été transformé en commande #${shortId(newOrderId)}.`
       );
@@ -778,7 +789,7 @@ export default function QuoteEditPage() {
       });
     } catch (e) {
       console.log("❌ handleConvertToOrder:", e);
-      Alert.alert("Erreur", String(e.message || e));
+      showAlert("Erreur", String(e.message || e));
     } finally {
       setConverting(false);
     }
@@ -786,6 +797,27 @@ export default function QuoteEditPage() {
 
   // === UI ===
   return (
+    <View style={{ flex: 1 }}>
+      <TouchableOpacity
+        onPress={() => setPreviewMode((v) => !v)}
+        style={{
+          backgroundColor: previewMode ? "#374151" : "#2563eb",
+          paddingVertical: 12,
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+          {previewMode ? "✏️ Retour au formulaire" : "👁️ Aperçu du devis"}
+        </Text>
+      </TouchableOpacity>
+
+      {previewMode ? (
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: buildQuoteHtml() }}
+          style={{ flex: 1 }}
+        />
+      ) : (
     <KeyboardAwareScrollView
       enableOnAndroid
       extraScrollHeight={24}
@@ -1269,7 +1301,16 @@ export default function QuoteEditPage() {
       </View>
 
       <View style={{ height: 12 + insets.bottom }} />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </KeyboardAwareScrollView>
+      )}
+    </View>
   );
 }
 
@@ -1323,26 +1364,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-  gridBtn: {
-    width: GRID_BTN_WIDTH,
-    height: 48,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-    paddingHorizontal: 8,
-  },
-  gridBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "800",
   },
   // 👉 Styles pour le mode “coût global”
   switchRow: {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import * as Print from "expo-print";
 import { useRoute } from "@react-navigation/native";
+import CustomAlert from "../components/CustomAlert";
 
 // Normalise la signature pour <Image> et pour <img src="...">
 const normalizeSignatureUri = (sig) => {
@@ -33,6 +33,15 @@ const normalizeSignatureUri = (sig) => {
 export default function PrintPage() {
   const route = useRoute();
   const routeParams = route.params || {};
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const {
     clientInfo,
@@ -149,6 +158,13 @@ export default function PrintPage() {
           }
         </div>
 
+        <p style="font-size:7px; color:#666; text-align:justify; margin-top:15px;">
+          Conformément au RGPD, vos données personnelles (dont votre signature) sont
+          conservées par AVENIR INFORMATIQUE à des fins de preuve commerciale, pour une
+          durée conforme aux obligations légales. Vous disposez d'un droit d'accès, de
+          rectification et de suppression de vos données auprès de nos services.
+        </p>
+
         <div class="footer">
           AVENIR INFORMATIQUE - 16, place de l’Hôtel de Ville - 93700 Drancy<br/>
           Tél : 01 41 60 18 18
@@ -161,9 +177,9 @@ export default function PrintPage() {
         html: htmlContent,
       });
 
-      Alert.alert("Succès", "Le document a été envoyé à l'imprimante.");
+      showAlert("Succès", "Le document a été envoyé à l'imprimante.");
     } catch (error) {
-      Alert.alert("Erreur", "Une erreur est survenue lors de l'impression.");
+      showAlert("Erreur", "Une erreur est survenue lors de l'impression.");
       console.error("Erreur d'impression :", error);
     }
   };
@@ -254,14 +270,36 @@ export default function PrintPage() {
       <Text
         style={{
           fontSize: 10,
+          textAlign: "justify",
+          color: "#888",
+          marginTop: 30,
+        }}
+      >
+        Conformément au RGPD, vos données personnelles (dont votre signature) sont
+        conservées par AVENIR INFORMATIQUE à des fins de preuve commerciale, pour
+        une durée conforme aux obligations légales. Vous disposez d'un droit
+        d'accès, de rectification et de suppression de vos données auprès de nos
+        services.
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 10,
           textAlign: "center",
           color: "#555",
-          marginTop: 50,
+          marginTop: 20,
         }}
       >
         AVENIR INFORMATIQUE – 16, place de l&apos;Hôtel de Ville – 93700 Drancy
         – Tel : 01 41 60 18 18
       </Text>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }

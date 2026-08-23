@@ -7,7 +7,6 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Linking,
 } from "react-native";
 import {
@@ -17,6 +16,8 @@ import {
 } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import { printInvoice } from "../utils/printInvoice.js";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 // ================= Helpers =================
 const PER_PAGE = 4;
@@ -162,6 +163,16 @@ const ExpressListPage = () => {
   const navigation = useNavigation();
 
   const [loading, setLoading] = useState(true);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
 
@@ -178,7 +189,7 @@ const ExpressListPage = () => {
       setRows(data || []);
     } catch (e) {
       console.error(e);
-      Alert.alert("Erreur", "Impossible de charger les interventions.");
+      showAlert("Erreur", "Impossible de charger les interventions.");
     } finally {
       setLoading(false);
     }
@@ -323,7 +334,7 @@ const ExpressListPage = () => {
     (item) => {
       const kind = kindOf(item);
       if (!kind) {
-        Alert.alert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
+        showAlert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
         return;
       }
 
@@ -352,44 +363,33 @@ const ExpressListPage = () => {
       }
 
       // sécurité (ne devrait plus arriver)
-      Alert.alert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
+      showAlert("Erreur", `Type non géré : ${item?.type ?? "(inconnu)"}`);
     },
     [navigation]
   );
 
   // Supprimer
-  const handleDelete = useCallback(
-    (item) => {
-      Alert.alert(
-        "Confirmer la suppression",
-        `Supprimer la fiche pour ${
-          item.name || item.clientname || "ce client"
-        } ?`,
-        [
-          { text: "Annuler", style: "cancel" },
-          {
-            text: "Supprimer",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                const { error } = await supabase
-                  .from("express")
-                  .delete()
-                  .eq("id", item.id);
-                if (error) throw error;
-                Alert.alert("Supprimé", "L'enregistrement a été supprimé.");
-                fetchRows();
-              } catch (e) {
-                console.error(e);
-                Alert.alert("Erreur", "Échec de la suppression.");
-              }
-            },
-          },
-        ]
-      );
-    },
-    [fetchRows]
-  );
+  const handleDelete = useCallback((item) => {
+    setItemToDelete(item);
+  }, []);
+
+  const confirmDeleteItem = useCallback(async () => {
+    const item = itemToDelete;
+    setItemToDelete(null);
+    if (!item) return;
+    try {
+      const { error } = await supabase
+        .from("express")
+        .delete()
+        .eq("id", item.id);
+      if (error) throw error;
+      showAlert("Supprimé", "L'enregistrement a été supprimé.");
+      fetchRows();
+    } catch (e) {
+      console.error(e);
+      showAlert("Erreur", "Échec de la suppression.");
+    }
+  }, [itemToDelete, fetchRows]);
 
   // Imprimer (Aperçu facture identique à BillingPage via printInvoice)
   const handlePrint = useCallback(async (item) => {
@@ -438,7 +438,7 @@ const ExpressListPage = () => {
     async (item) => {
       const phone = item?.phone || item?.clientphone || "";
       if (!phone) {
-        Alert.alert("Erreur", "Numéro de téléphone manquant.");
+        showAlert("Erreur", "Numéro de téléphone manquant.");
         return;
       }
 
@@ -474,7 +474,7 @@ const ExpressListPage = () => {
         await fetchRows();
       } catch (err) {
         console.error("SMS error:", err);
-        Alert.alert("Erreur", "Impossible d’ouvrir la messagerie.");
+        showAlert("Erreur", "Impossible d’ouvrir la messagerie.");
       }
     },
     [fetchRows]
@@ -708,6 +708,25 @@ const ExpressListPage = () => {
           </View>
         </>
       )}
+
+      <AlertBox
+        visible={!!itemToDelete}
+        title="Confirmer la suppression"
+        message={`Supprimer la fiche pour ${
+          itemToDelete?.name || itemToDelete?.clientname || "ce client"
+        } ?`}
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 };
@@ -749,17 +768,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
 
-  card: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
   titleLine: { fontWeight: "bold", fontSize: 16 },
   subLine: { color: "#666", marginTop: 2 },
-  desc: { marginTop: 8, color: "#333" },
 
   row: { flexDirection: "row", gap: 10, marginTop: 8, flexWrap: "wrap" },
   tag: {
@@ -810,22 +820,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-
   statusPaid: {
     backgroundColor: "#eaf7ea",
     borderColor: "#28a745",
@@ -844,18 +838,6 @@ const styles = StyleSheet.create({
   dotGreen: { backgroundColor: "#28a745" },
   dotRed: { backgroundColor: "#dc3545" },
 
-  statusTextPaid: {
-    color: "#1f7a34",
-    fontWeight: "700",
-    fontSize: 12,
-    textTransform: "uppercase",
-  },
-  statusTextUnpaid: {
-    color: "#a12626",
-    fontWeight: "700",
-    fontSize: 12,
-    textTransform: "uppercase",
-  },
   // Groupe de pastilles (paiement + notification)
   statusGroup: {
     flexDirection: "row",

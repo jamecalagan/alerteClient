@@ -4,7 +4,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  Alert,
   SafeAreaView,
   ScrollView,
   Dimensions,
@@ -12,6 +11,7 @@ import {
 import SignatureScreen from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import CustomAlert from "../components/CustomAlert";
 
 // ———————————————————————————————————————————
 // Aide : formatage (identique à ClientPreviewPage)
@@ -48,6 +48,17 @@ export default function SignatureClient() {
   const [loading, setLoading] = useState(true);
   const [clientInfo, setClientInfo] = useState(null); // { name, phone, ficheNumber, createdAt }
   const [itv, setItv] = useState(null); // intervention
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [afterAlertGoBack, setAfterAlertGoBack] = useState(false);
+
+  const showAlert = (title, message, goBackAfter = false) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAfterAlertGoBack(goBackAfter);
+    setAlertVisible(true);
+  };
 
   const { width, height } = Dimensions.get("window");
 
@@ -118,11 +129,11 @@ export default function SignatureClient() {
       setClientInfo(client);
     } catch (e) {
       console.error("Erreur chargement signature page :", e);
-      Alert.alert(
+      showAlert(
         "Erreur",
-        "Impossible de charger les informations de la fiche."
+        "Impossible de charger les informations de la fiche.",
+        true
       );
-      navigation.goBack();
     } finally {
       setLoading(false);
     }
@@ -130,7 +141,6 @@ export default function SignatureClient() {
 
   useEffect(() => {
     fetchInterventionAndClient();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interventionId]);
 
   const buildPriceLine = (intervention) => {
@@ -162,16 +172,18 @@ export default function SignatureClient() {
     try {
       const { error } = await supabase
         .from("interventions")
-        .update({ signatureIntervention: signature })
+        .update({
+          signatureIntervention: signature,
+          signature_intervention_at: new Date().toISOString(),
+        })
         .eq("id", interventionId);
 
       if (error) throw error;
 
-      Alert.alert("Succès", "Signature enregistrée avec succès.");
-      navigation.goBack();
+      showAlert("Succès", "Signature enregistrée avec succès.", true);
     } catch (error) {
       console.error("Erreur sauvegarde signature:", error);
-      Alert.alert("Erreur", "Erreur lors de la sauvegarde de la signature.");
+      showAlert("Erreur", "Erreur lors de la sauvegarde de la signature.");
     }
   };
 
@@ -292,7 +304,7 @@ export default function SignatureClient() {
           <SignatureScreen
             ref={ref}
             onOK={handleSignature}
-            onEmpty={() => Alert.alert("Erreur", "La signature est vide.")}
+            onEmpty={() => showAlert("Erreur", "La signature est vide.")}
             descriptionText="Signez ici"
             clearText="Effacer"
             confirmText="Enregistrer"
@@ -326,6 +338,16 @@ export default function SignatureClient() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => {
+          setAlertVisible(false);
+          if (afterAlertGoBack) navigation.goBack();
+        }}
+      />
     </SafeAreaView>
   );
 }

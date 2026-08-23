@@ -9,7 +9,6 @@ import {
   Modal,
   ActivityIndicator,
   Image,
-  Alert,
   Animated,
   TouchableWithoutFeedback,
   Easing,
@@ -28,6 +27,9 @@ import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 import { Linking } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 // === Helpers montants ===
 const n = (v) => {
   const x = parseFloat(String(v ?? "").replace(",", "."));
@@ -129,11 +131,12 @@ const hasClientOrderNotified = (orders, clientId) => {
   );
 };
 
-// retourne un timestamp (ms) de la DERNIÈRE intervention d'un client
+// retourne un timestamp (ms) de la DERNIÈRE intervention OU commande d'un client
 const __latestInterventionMs = (client) => {
-  const list = Array.isArray(client?.interventions) ? client.interventions : [];
+  const interventions = Array.isArray(client?.interventions) ? client.interventions : [];
+  const orders = Array.isArray(client?.orders) ? client.orders : [];
   let best = 0;
-  for (const it of list) {
+  for (const it of [...interventions, ...orders]) {
     const d = new Date(__coalesceDate(it)).getTime();
     if (Number.isFinite(d) && d > best) best = d;
   }
@@ -171,12 +174,33 @@ const __CLOSED_ORDER = new Set([
 ]);
 
 const __isActiveIntervention = (row) => !__CLOSED_INT.has(__norm(row?.status));
-const __isActiveOrder = (o) =>
-  o && o.paid !== true && !__CLOSED_ORDER.has(__norm(o.status));
+const __isActiveOrder = (order) => {
+  if (!order) return false;
+
+  const isTrue = (value) =>
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "true" ||
+    value === "t";
+
+  const isDeleted = isTrue(order.deleted);
+  const isPaid = isTrue(order.paid);
+  const isSaved = isTrue(order.saved);
+  const isRecovered = isTrue(order.recovered);
+
+  return (
+    !isDeleted &&
+    !isPaid &&
+    !isSaved &&
+    !isRecovered
+  );
+};
 
 const __coalesceDate = (r) =>
   r?.created_at ||
   r?.createdAt ||
+  r?.createdat ||
   r?.updated_at ||
   r?.updatedAt ||
   r?.inserted_at ||
@@ -204,8 +228,29 @@ const __notifBellGreen = (client) => {
   return Boolean(lo?.notified === true);
 };
 
+// Récupère le path bucket "images/..." (public ou signé)
+const pathFromSupabaseUrl = (url) => {
+  try {
+    const m = url.match(
+      /\/storage\/v1\/object\/(public|sign)\/images\/(.+?)(\?|$)/
+    );
+    return m ? m[2] : null; // sans le "images/"
+  } catch {
+    return null;
+  }
+};
+
 export default function HomePage({ navigation, route, setUser }) {
   const flatListRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+  const searchRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
   const [clients, setClients] = useState([]);
   const [filteredClients, setFilteredClients] = useState([]);
   const [searchText, setSearchText] = useState("");
@@ -216,11 +261,38 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [alertVisible, setAlertVisible] = useState(false);
+  const [alertOnClose, setAlertOnClose] = useState(null);
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+
+  const showAlert = (title, message, onCloseAction = null) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOnClose(() => onCloseAction);
+    setAlertVisible(true);
+  };
+
   const [cleanupModalVisible, setCleanupModalVisible] = useState(false);
+  const handlePhotoCleanup = () => {
+    setCleanupModalVisible(false);
+    navigation.navigate("ImageCleanup");
+  };
   const [transportModalVisible, setTransportModalVisible] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
+  const [selectedCommandeDone, setSelectedCommandeDone] = useState(false);
+  const [selectedCommandeFournisseur, setSelectedCommandeFournisseur] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true); // Loader state
+  const [uploadingInterventionId, setUploadingInterventionId] = useState(null); // photo en cours d'envoi (ajout depuis la Home)
+  const [photoChoiceIntervention, setPhotoChoiceIntervention] = useState(null); // intervention pour laquelle la popup Caméra/Galerie/Web est ouverte
+  const [uploadingOrderPhotoId, setUploadingOrderPhotoId] = useState(null); // photo de commande en cours d'envoi (ajout depuis la Home)
+  const [photoChoiceOrder, setPhotoChoiceOrder] = useState(null); // commande pour laquelle la popup Caméra/Galerie/Web est ouverte
+  const [deletePhotoTarget, setDeletePhotoTarget] = useState(null); // { interventionId, uri } photo d'intervention à confirmer avant suppression
+  const [deleteOrderPhotoTarget, setDeleteOrderPhotoTarget] = useState(null); // { orderId, uri } photo de commande à confirmer avant suppression
+  const [uploadingOrderProductPhotoId, setUploadingOrderProductPhotoId] = useState(null); // photo d'appareil (commande) en cours d'envoi
+  const [photoChoiceOrderProduct, setPhotoChoiceOrderProduct] = useState(null); // commande pour laquelle la popup Caméra/Galerie (photo d'appareil) est ouverte
+  const [deleteOrderProductPhotoTarget, setDeleteOrderProductPhotoTarget] = useState(null); // { orderId, uri } photo d'appareil (commande) à confirmer avant suppression
+  const [imageModalUrl, setImageModalUrl] = useState(null); // photo affichée en plein écran (commande ou intervention)
+  const [imageModalVisible, setImageModalVisible] = useState(false);
   const [hasImagesToDelete, setHasImagesToDelete] = useState(false);
   const [notifyModalVisible, setNotifyModalVisible] = useState(false); // Gérer la visibilité de la modal de notification
   const [selectedInterventionId, setSelectedInterventionId] = useState(null); // Stocker l'ID de l'intervention sélectionnée
@@ -239,9 +311,33 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [noteVisible, setNoteVisible] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteIntervId, setNoteIntervId] = useState(null);
+  const [noteOrderId, setNoteOrderId] = useState(null);
   const [noteClientId, setNoteClientId] = useState(null);
 const [bottomTab, setBottomTab] = useState(null); // null = rien affiché
 const [sliderH, setSliderH] = useState(0);
+// Propositions en attente
+const [pendingProposals, setPendingProposals] =
+  useState([]);
+
+const [pendingProposalsLoading, setPendingProposalsLoading] =
+  useState(false);
+
+const [
+  pendingProposalsModalVisible,
+  setPendingProposalsModalVisible,
+] = useState(false);
+
+// Réparés non récupérés depuis plus de 30 jours
+const [overdueRepairedClients, setOverdueRepairedClients] =
+  useState([]);
+
+const [overdueRepairedLoading, setOverdueRepairedLoading] =
+  useState(false);
+
+const [
+  overdueRepairedModalVisible,
+  setOverdueRepairedModalVisible,
+] = useState(false);
 
 const toggleBottomTab = async (key) => {
   if (key === "orders") {
@@ -262,46 +358,67 @@ const toggleBottomTab = async (key) => {
     phone: "",
     reason: "",
   });
-  // Ouvre la modale pour la dernière intervention de la fiche
+  // Ouvre la modale pour la dernière intervention active, sinon la commande active
   const openNote = (clientItem) => {
     const li = clientItem?.latestIntervention;
-    if (!li?.id) {
-      Alert.alert(
-        "Aucune intervention",
-        "Cette fiche n'a pas d'intervention active."
-      );
+    if (li?.id) {
+      setNoteIntervId(li.id);
+      setNoteOrderId(null);
+      setNoteClientId(clientItem.id);
+      setNoteText(li.info_note || "");
+      setNoteVisible(true);
       return;
     }
-    setNoteIntervId(li.id);
-    setNoteClientId(clientItem.id);
-    setNoteText(li.info_note || "");
-    setNoteVisible(true);
+
+    const activeOrder = (clientItem?.orders || []).filter(__isActiveOrder)[0];
+    if (activeOrder?.id) {
+      setNoteIntervId(null);
+      setNoteOrderId(activeOrder.id);
+      setNoteClientId(clientItem.id);
+      setNoteText(activeOrder.info_note || "");
+      setNoteVisible(true);
+      return;
+    }
+
+    showAlert(
+      "Aucune fiche active",
+      "Cette fiche n'a ni intervention ni commande active."
+    );
   };
 
   // Sauvegarde en base + patch local super simple
   const saveNote = async () => {
-    if (!noteIntervId) return;
+    if (!noteIntervId && !noteOrderId) return;
+    const table = noteIntervId ? "interventions" : "orders";
+    const targetId = noteIntervId || noteOrderId;
+
     const { error } = await supabase
-      .from("interventions")
+      .from(table)
       .update({ info_note: noteText })
-      .eq("id", noteIntervId);
+      .eq("id", targetId);
 
     if (error) {
-      Alert.alert("Erreur", "Impossible d’enregistrer la note.");
+      showAlert("Erreur", "Impossible d’enregistrer la note.");
       return;
     }
 
     // Patch local minimal
     const patch = (c) => {
       if (c.id !== noteClientId) return c;
-      const interventions = (c.interventions || []).map((it) =>
-        it.id === noteIntervId ? { ...it, info_note: noteText } : it
+      if (noteIntervId) {
+        const interventions = (c.interventions || []).map((it) =>
+          it.id === noteIntervId ? { ...it, info_note: noteText } : it
+        );
+        const latest =
+          c.latestIntervention?.id === noteIntervId
+            ? { ...c.latestIntervention, info_note: noteText }
+            : c.latestIntervention;
+        return { ...c, interventions, latestIntervention: latest };
+      }
+      const orders = (c.orders || []).map((o) =>
+        o.id === noteOrderId ? { ...o, info_note: noteText } : o
       );
-      const latest =
-        c.latestIntervention?.id === noteIntervId
-          ? { ...c.latestIntervention, info_note: noteText }
-          : c.latestIntervention;
-      return { ...c, interventions, latestIntervention: latest };
+      return { ...c, orders };
     };
     setClients((prev) => prev.map(patch));
     setFilteredClients((prev) => prev.map(patch));
@@ -354,7 +471,7 @@ const toggleBottomTab = async (key) => {
   const openNotifyChooser = (client) => {
     const latest = __pickLatestActiveIntervention(client?.interventions || []);
     if (!latest) {
-      Alert.alert(
+      showAlert(
         "Aucune intervention active",
         "Ce client n'a pas de fiche active."
       );
@@ -462,15 +579,12 @@ const toggleBottomTab = async (key) => {
 
     if (error) {
       console.error("persistNotify:", error);
-      Alert.alert("Erreur", "Impossible d’enregistrer le signalement.");
+      showAlert("Erreur", "Impossible d’enregistrer le signalement.");
     }
   };
 
   const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
     useState(0);
-  const hasPendingOrder =
-    Array.isArray(orders) &&
-    orders.some((order) => order.client_id === String(item.id) && !order.paid);
   const [selectedClient, setSelectedClient] = useState(null);
   const BlinkingIcon = ({ source }) => {
     const opacity = useRef(new Animated.Value(1)).current;
@@ -587,6 +701,200 @@ const toggleBottomTab = async (key) => {
       </TouchableOpacity>
     );
   });
+  const loadPendingRepairProposals = async () => {
+  setPendingProposalsLoading(true);
+
+  try {
+    const {
+      data: proposalRows,
+      error: proposalError,
+    } = await supabase
+      .from("interventions")
+      .select(`
+        id,
+        client_id,
+        deviceType,
+        brand,
+        model,
+        description,
+        status,
+        createdAt,
+        repair_proposal,
+        repair_proposal_price,
+        repair_proposal_status,
+        repair_proposal_method,
+        repair_proposal_comment,
+        repair_proposal_date
+      `)
+      .eq("repair_proposal_made", true)
+      .eq("repair_proposal_status", "pending")
+      .order("repair_proposal_date", {
+        ascending: true,
+        nullsFirst: false,
+      });
+
+    if (proposalError) {
+      throw proposalError;
+    }
+
+    const proposals = proposalRows || [];
+
+    if (proposals.length === 0) {
+      setPendingProposals([]);
+      return;
+    }
+
+    const clientIds = [
+      ...new Set(
+        proposals
+          .map(
+            (proposal) =>
+              proposal.client_id
+          )
+          .filter(Boolean)
+      ),
+    ];
+
+    let clientsMap = {};
+
+    if (clientIds.length > 0) {
+      const {
+        data: clientRows,
+        error: clientError,
+      } = await supabase
+        .from("clients")
+        .select(
+          "id, name, phone, ficheNumber"
+        )
+        .in("id", clientIds);
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      clientsMap = Object.fromEntries(
+        (clientRows || []).map((client) => [
+          String(client.id),
+          client,
+        ])
+      );
+    }
+
+    setPendingProposals(
+      proposals.map((proposal) => ({
+        ...proposal,
+        client:
+          clientsMap[
+            String(proposal.client_id)
+          ] || null,
+      }))
+    );
+  } catch (error) {
+    console.error(
+      "❌ Chargement propositions :",
+      error
+    );
+
+    setPendingProposals([]);
+  } finally {
+    setPendingProposalsLoading(false);
+  }
+};
+
+// Charge les interventions réparées, non restituées, depuis plus de 30 jours
+const loadOverdueRepairedInterventions = async () => {
+  setOverdueRepairedLoading(true);
+
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const {
+      data: interventionRows,
+      error: interventionError,
+    } = await supabase
+      .from("interventions")
+      .select(
+        "id, client_id, deviceType, brand, model, repaired_at, updatedAt"
+      )
+      .eq("status", "Réparé")
+      .eq("restitue", false);
+
+    if (interventionError) {
+      throw interventionError;
+    }
+
+    // repaired_at (date réelle de passage à "Réparé") si disponible,
+    // sinon on retombe sur updatedAt pour les fiches antérieures à ce champ.
+    const overdueRows = (interventionRows || [])
+      .map((row) => ({
+        ...row,
+        __referenceDate: row.repaired_at || row.updatedAt,
+      }))
+      .filter(
+        (row) =>
+          row.__referenceDate &&
+          new Date(row.__referenceDate) <= thirtyDaysAgo
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.__referenceDate) - new Date(b.__referenceDate)
+      );
+
+    if (overdueRows.length === 0) {
+      setOverdueRepairedClients([]);
+      return;
+    }
+
+    const clientIds = [
+      ...new Set(
+        overdueRows
+          .map((row) => row.client_id)
+          .filter(Boolean)
+      ),
+    ];
+
+    let clientsMap = {};
+
+    if (clientIds.length > 0) {
+      const {
+        data: clientRows,
+        error: clientError,
+      } = await supabase
+        .from("clients")
+        .select("id, name, phone, ficheNumber")
+        .in("id", clientIds);
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      clientsMap = Object.fromEntries(
+        (clientRows || []).map((client) => [
+          String(client.id),
+          client,
+        ])
+      );
+    }
+
+    setOverdueRepairedClients(
+      overdueRows.map((row) => ({
+        ...row,
+        client: clientsMap[String(row.client_id)] || null,
+      }))
+    );
+  } catch (error) {
+    console.error(
+      "❌ Chargement réparés non récupérés :",
+      error
+    );
+
+    setOverdueRepairedClients([]);
+  } finally {
+    setOverdueRepairedLoading(false);
+  }
+};
+
 // Charge les commandes en cours (paid=false OU saved=false) pour l'encart
 const loadOrdersInProgress = async () => {
   try {
@@ -647,7 +955,10 @@ const sorted = activeRows
 
 const loadPopupData = useCallback(async () => {
   try {
-    const { data: clientsData, error: clientsError } = await supabase
+    const {
+      data: clientsData,
+      error: clientsError,
+    } = await supabase
       .from("clients")
       .select(
         `
@@ -668,17 +979,22 @@ const loadPopupData = useCallback(async () => {
           deposit,
           quantity,
           total,
-          paid,
-          saved,
-          deleted,
           product,
           brand,
           model,
-          order_photos
+          paid,
+          saved,
+          recovered,
+          notified,
+          deleted,
+          order_photos,
+          createdat
         )
         `
       )
-      .order("createdAt", { ascending: false });
+      .order("createdAt", {
+        ascending: false,
+      });
 
     if (clientsError) {
       throw clientsError;
@@ -686,51 +1002,62 @@ const loadPopupData = useCallback(async () => {
 
     const rows = (clientsData || [])
       .map((clientRow) => {
-        const interventions = Array.isArray(clientRow.interventions)
+        const interventions = Array.isArray(
+          clientRow.interventions
+        )
           ? clientRow.interventions
           : [];
 
-        const orders = (Array.isArray(clientRow.orders)
-          ? clientRow.orders
-          : []
+        const orders = (
+          Array.isArray(clientRow.orders)
+            ? clientRow.orders
+            : []
         ).map((order) => {
           let photoPaths = [];
 
           if (Array.isArray(order.order_photos)) {
-            photoPaths = order.order_photos.filter(Boolean);
+            photoPaths =
+              order.order_photos.filter(Boolean);
           } else if (
             typeof order.order_photos === "string" &&
             order.order_photos.trim()
           ) {
             try {
-              const parsed = JSON.parse(order.order_photos);
+              const parsed = JSON.parse(
+                order.order_photos
+              );
 
               photoPaths = Array.isArray(parsed)
                 ? parsed.filter(Boolean)
                 : [order.order_photos.trim()];
             } catch {
-              photoPaths = order.order_photos.includes(",")
-                ? order.order_photos
-                    .split(",")
-                    .map((photo) => photo.trim())
-                    .filter(Boolean)
-                : [order.order_photos.trim()];
+              photoPaths =
+                order.order_photos.includes(",")
+                  ? order.order_photos
+                      .split(",")
+                      .map((photo) => photo.trim())
+                      .filter(Boolean)
+                  : [order.order_photos.trim()];
             }
           }
 
           const photoUrls = photoPaths
             .map((photoPath) => {
-              if (/^https?:\/\//i.test(photoPath)) {
+              if (
+                /^https?:\/\//i.test(photoPath)
+              ) {
                 return photoPath;
               }
 
-              const cleanPath = photoPath.startsWith("images/")
-                ? photoPath.slice(7)
-                : photoPath;
+              const cleanPath =
+                photoPath.startsWith("images/")
+                  ? photoPath.slice(7)
+                  : photoPath;
 
-              const { data } = supabase.storage
-                .from("images")
-                .getPublicUrl(cleanPath);
+              const { data } =
+                supabase.storage
+                  .from("images")
+                  .getPublicUrl(cleanPath);
 
               return data?.publicUrl || null;
             })
@@ -742,22 +1069,18 @@ const loadPopupData = useCallback(async () => {
           };
         });
 
-        const interventionsEnCours = interventions.filter(
-          (intervention) =>
-            !["Réparé", "Récupéré", "Non réparable"].includes(
-              intervention.status
-            )
-        );
+        const interventionsEnCours =
+          interventions.filter(
+            (intervention) =>
+              ![
+                "Réparé",
+                "Récupéré",
+                "Non réparable",
+              ].includes(intervention.status)
+          );
 
-        const ordersEnCours = orders.filter((order) => {
-          const isDeleted =
-            order?.deleted === true ||
-            order?.deleted === "true" ||
-            order?.deleted === 1 ||
-            order?.deleted === "1";
-
-          return !isDeleted && (!order.paid || !order.saved);
-        });
+        const ordersEnCours =
+          orders.filter(__isActiveOrder);
 
         if (
           interventionsEnCours.length === 0 &&
@@ -766,54 +1089,94 @@ const loadPopupData = useCallback(async () => {
           return null;
         }
 
-        const totalIntervDu = interventionsEnCours
-          .filter((intervention) => Number(intervention.solderestant || 0) > 0)
-          .reduce(
-            (total, intervention) =>
-              total + Number(intervention.solderestant || 0),
+        const totalIntervDu =
+          interventionsEnCours
+            .filter(
+              (intervention) =>
+                Number(
+                  intervention.solderestant || 0
+                ) > 0
+            )
+            .reduce(
+              (total, intervention) =>
+                total +
+                Number(
+                  intervention.solderestant || 0
+                ),
+              0
+            );
+
+        const totalOrdersDue =
+          ordersEnCours.reduce(
+            (total, order) => {
+              const quantity = Math.max(
+                1,
+                Number.parseInt(
+                  order.quantity ?? 1,
+                  10
+                ) || 1
+              );
+
+              const price = Number(
+                order.price || 0
+              );
+
+              const orderTotal =
+                order.total != null &&
+                !Number.isNaN(
+                  Number(order.total)
+                )
+                  ? Number(order.total)
+                  : price * quantity;
+
+              const deposit = Number(
+                order.deposit || 0
+              );
+
+              return (
+                total +
+                Math.max(
+                  orderTotal - deposit,
+                  0
+                )
+              );
+            },
             0
           );
-
-        const totalOrdersDue = ordersEnCours.reduce((total, order) => {
-          const quantity = Math.max(
-            1,
-            Number.parseInt(order.quantity ?? 1, 10) || 1
-          );
-
-          const price = Number(order.price || 0);
-
-          const orderTotal =
-            order.total != null && !Number.isNaN(Number(order.total))
-              ? Number(order.total)
-              : price * quantity;
-
-          const deposit = Number(order.deposit || 0);
-
-          return total + Math.max(orderTotal - deposit, 0);
-        }, 0);
 
         return {
           client: {
             id: clientRow.id,
             name: clientRow.name,
             phone: clientRow.phone,
-            ficheNumber: clientRow.ficheNumber,
+            ficheNumber:
+              clientRow.ficheNumber,
           },
           interventionsEnCours,
           ordersEnCours,
           totals: {
-            due: totalIntervDu + totalOrdersDue,
+            due:
+              totalIntervDu +
+              totalOrdersDue,
             intervDue: totalIntervDu,
             orderDue: totalOrdersDue,
           },
         };
       })
       .filter(Boolean)
-      .sort((a, b) => b.totals.due - a.totals.due);
+      .sort(
+        (a, b) =>
+          b.totals.due -
+          a.totals.due
+      );
 
     setPopupData(rows);
   } catch (error) {
-    console.error("Popup load error:", error);
+    console.error(
+      "Popup load error:",
+      error
+    );
+
     setPopupData([]);
   }
 }, []);
@@ -834,7 +1197,7 @@ const loadPopupData = useCallback(async () => {
   });
   const [pages, setPages] = useState([]);
   const [sliderW, setSliderW] = useState(0);
-  const itemsPerPage = 3;
+  const itemsPerPage = 2;
 
 const checkImagesToDelete = async () => {
   try {
@@ -874,25 +1237,40 @@ const checkImagesToDelete = async () => {
     // Photos présentes dans intervention_images
     let extraCount = 0;
 
-    if (eligibleIds.size > 0) {
-      const { data: extraImages, error: extraError } =
-        await supabase
+    // Filtre défensif : seuls les vrais UUID sont envoyés au filtre .in(),
+    // et par lots, pour éviter un "Bad Request" si un id est invalide ou
+    // si la liste est trop longue pour une seule requête.
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validEligibleIds = [...eligibleIds].filter((id) => UUID_RE.test(id));
+
+    if (validEligibleIds.length > 0) {
+      const CHUNK_SIZE = 200;
+      let extraImages = [];
+
+      for (let i = 0; i < validEligibleIds.length; i += CHUNK_SIZE) {
+        const chunk = validEligibleIds.slice(i, i + CHUNK_SIZE);
+        const { data, error } = await supabase
           .from("intervention_images")
           .select("id, intervention_id, image_data")
-          .in("intervention_id", [...eligibleIds]);
+          .in("intervention_id", chunk);
 
-      if (extraError) {
-        console.warn(
-          "⚠️ Vérification intervention_images :",
-          extraError
-        );
-      } else {
-        extraCount = (extraImages || []).filter(
-          (image) =>
-            typeof image.image_data === "string" &&
-            image.image_data.trim().length > 0
-        ).length;
+        if (error) {
+          console.warn(
+            "⚠️ Vérification intervention_images :",
+            error
+          );
+          continue;
+        }
+
+        extraImages = extraImages.concat(data || []);
       }
+
+      extraCount = extraImages.filter(
+        (image) =>
+          typeof image.image_data === "string" &&
+          image.image_data.trim().length > 0
+      ).length;
     }
 
     // Vérification des dossiers Storage supplementaires/<interventionId>
@@ -919,8 +1297,10 @@ const checkImagesToDelete = async () => {
 
     const storageCount = eligibleStorageFolders.length;
 
-    const total =
-      photosCount + extraCount + storageCount;
+    // ImageCleanupPage ne traite que interventions.photos et intervention_images :
+    // storageCount n'est pas exploitable par cette page, donc exclu du déclenchement du bouton
+    // (sinon le bouton reste affiché en permanence sans rien à nettoyer sur cette page).
+    const total = photosCount + extraCount;
 
     console.log("🧹 Images anciennes détectées :", {
       interventions: interventionsData?.length || 0,
@@ -1025,6 +1405,19 @@ const checkImagesToDelete = async () => {
     if (currentPage < 1) setCurrentPage(1);
   }, [filteredClients]);
 
+  // Restaure la position de défilement après un rechargement (ex: ajout/suppression
+  // d'une photo) pour éviter de revenir sur la première fiche.
+  // Le délai laisse la FlatList (initialNumToRender=1) monter au moins l'élément
+  // ciblé avant de tenter le scroll, sinon scrollToIndex échoue immédiatement.
+  useEffect(() => {
+    if (pages.length === 0) return;
+    const targetIndex = Math.max(0, Math.min(currentPage - 1, pages.length - 1));
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [pages]);
+
 const closeAllModals = () => {
     setAlertVisible(false);
     setNotifyModalVisible(false);
@@ -1072,43 +1465,125 @@ const closeAllModals = () => {
                             0
                           );
 
-                        // Agrégation des commandes du client
-                        const ordAgg = summarizeClientOrders(item.orders || []);
-                        const ordDue = ordAgg.restStandalone; // seulement les commandes "simples"
-                        const ordTotal = ordAgg.totalStandalone;
-                        const ordDeposit = ordAgg.depositStandalone;
-                        const hasIncludedOrder = ordAgg.hasIncluded;
+// Intervention active utilisée pour les calculs et les commandes
+// Intervention active utilisée pour les calculs et les commandes
+const latestIntervention = item.latestIntervention;
 
-                        // Acompte éventuel sur l’intervention (pour le hint, s’il existe)
-                        const intervDeposit = _toNum(
-                          item?.latestIntervention?.partialPayment ??
-                            item?.latestIntervention?.acompte
-                        );
+const normalizeOrderText = (value) =>
+  (value ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 
-                        // Total à régler : intervention + commandes "simples" (on n’ajoute PAS les incluses)
-                        const totalDue = interDue + ordDue;
+// Toutes les commandes réellement ouvertes
+const openOrders = Array.isArray(item.orders)
+  ? item.orders.filter(__isActiveOrder)
+  : [];
 
-                        const isNotified =
-                          item.latestIntervention?.notifiedBy ||
-                          (item.orders || []).some((order) => order.notified);
+// Produit actuellement indiqué dans l’intervention
+const currentCommande = normalizeOrderText(
+  latestIntervention?.commande
+);
 
-                        const isEven = index % 2 === 0;
-                        const backgroundColor = isEven ? "#f9f9f9" : "#e0e0e0";
-                        const isExpanded = expandedClientId === item.id;
+let activeOrders = openOrders;
 
-                        const ongoingInterventions =
-                          item.interventions?.filter(
-                            (intervention) =>
-                              intervention.status !== "Réparé" &&
-                              intervention.status !== "Récupéré"
-                          ) || [];
-                        const totalInterventionsEnCours =
-                          ongoingInterventions.length;
-                        const totalInterventions = item.interventions
-                          ? item.interventions.length
-                          : 0;
-                        const latestIntervention = item.latestIntervention;
-                        const hasOrders = item.orders && item.orders.length > 0;
+// Lorsqu’une intervention possède un produit en commande,
+// conserver uniquement la dernière commande correspondante.
+if (latestIntervention && currentCommande) {
+  const matchingOrders = openOrders
+    .filter(
+      (order) =>
+        normalizeOrderText(order?.product) ===
+        currentCommande
+    )
+    .sort((a, b) => {
+      const dateA = new Date(
+        a?.createdat ||
+          a?.createdAt ||
+          a?.created_at ||
+          0
+      ).getTime();
+
+      const dateB = new Date(
+        b?.createdat ||
+          b?.createdAt ||
+          b?.created_at ||
+          0
+      ).getTime();
+
+      return dateB - dateA;
+    });
+
+  if (matchingOrders.length > 0) {
+    activeOrders = matchingOrders.slice(0, 1);
+  }
+}
+
+
+// Agrégation uniquement des commandes actives
+const ordAgg = summarizeClientOrders(activeOrders);
+
+const ordDue = ordAgg.restStandalone;
+const ordTotal = ordAgg.totalStandalone;
+const ordDeposit = ordAgg.depositStandalone;
+const hasIncludedOrder = ordAgg.hasIncluded;
+
+// Acompte éventuel sur l’intervention
+const intervDeposit = _toNum(
+  latestIntervention?.partialPayment ??
+    latestIntervention?.acompte
+);
+
+// Total à régler
+const totalDue = interDue + ordDue;
+
+const isNotified =
+  latestIntervention?.notifiedBy ||
+  activeOrders.some((order) => order.notified);
+
+const isEven = index % 2 === 0;
+
+const backgroundColor = isEven
+  ? "#f9f9f9"
+  : "#e0e0e0";
+
+const isExpanded = expandedClientId === item.id;
+
+const ongoingInterventions =
+  item.interventions?.filter(
+    (intervention) =>
+      intervention.status !== "Réparé" &&
+      intervention.status !== "Récupéré" &&
+      intervention.status !== "Non réparable"
+  ) || [];
+
+const totalInterventionsEnCours =
+  ongoingInterventions.length;
+
+const totalInterventions = item.interventions
+  ? item.interventions.length
+  : 0;
+
+const loanedItem =
+  latestIntervention?.loaned_item || "";
+
+const hasLoanedItem =
+  loanedItem.trim().length > 0 &&
+  latestIntervention?.loaned_item_returned !== true;
+
+const restitutionNote =
+  latestIntervention?.restitution_note || "";
+
+const hasRestitutionNote =
+  restitutionNote.trim() !== "" &&
+  latestIntervention?.restitution_note_done !== true;
+
+const hasReminder =
+  hasLoanedItem || hasRestitutionNote;
+
+const hasOrders = activeOrders.length > 0;
 
                         const status =
                           ongoingInterventions.length > 0
@@ -1119,16 +1594,41 @@ const closeAllModals = () => {
                         const totalImages =
                           latestIntervention?.photos?.length || 0;
                         const commande = latestIntervention?.commande;
-                        const orderColor = getOrderColor(item.orders || []);
-                        const shouldBlink = item.orders?.some(
-                          (order) => !order.paid
-                        );
+
+                        // Montant(s) proposé(s) au client quand un devis est en cours
+                        const devisIntervention =
+                          status === "Devis en cours"
+                            ? ongoingInterventions[0]
+                            : null;
+                        const devisLabel = (() => {
+                          if (!devisIntervention) return null;
+                          const hasRange =
+                            devisIntervention.estimate_min != null &&
+                            devisIntervention.estimate_max != null;
+                          if (hasRange) {
+                            const plafond =
+                              devisIntervention.estimate_type === "PLAFOND"
+                                ? " (plafonné)"
+                                : "";
+                            return `Devis proposé : ${devisIntervention.estimate_min} € - ${devisIntervention.estimate_max} €${plafond}`;
+                          }
+                          if (devisIntervention.devis_cost) {
+                            return `Devis proposé : ${devisIntervention.devis_cost} €`;
+                          }
+                          return null;
+                        })();
+const orderColor = getOrderColor(activeOrders);
+
+const shouldBlink = activeOrders.some(
+  (order) => !order.paid
+);
                         const labelUri =
                           item?.latestIntervention?.label_photo || null;
                         // Bleu si une commande du client est marquée notifiée (on tolère true/"true"/1)
-                        const orderNotified =
-                          Array.isArray(item.orders) &&
-                          item.orders.some((o) => isTruthy(o?.notified));
+const orderNotified =
+  activeOrders.some((order) =>
+    isTruthy(order?.notified)
+  );
 
                         return (
 <Animatable.View
@@ -1159,23 +1659,85 @@ const closeAllModals = () => {
       <Text style={styles.statusText}>{status}</Text>
     </View>
 
-    {latestIntervention?.description ? (
-      <Text
-        style={styles.descriptionText}
-        numberOfLines={2}
-      >
-        {latestIntervention.description}
-      </Text>
-    ) : null}
-  </View>
+<View style={{ flex: 1, marginLeft: 8 }}>
+  {(devisIntervention?.description || latestIntervention?.description) ? (
+    <Text
+      style={[styles.descriptionText, { flex: 0, marginLeft: 0 }]}
+      numberOfLines={2}
+    >
+      {devisIntervention?.description || latestIntervention.description}
+    </Text>
+  ) : null}
 
-  {(() => {
+  {devisLabel && (
+    <Text
+      style={[
+        styles.descriptionText,
+        {
+          flex: 0,
+          marginLeft: 0,
+          marginTop: 4,
+          fontWeight: "700",
+          fontStyle: "italic",
+          color: "#f57f17",
+        },
+      ]}
+    >
+      {devisLabel}
+    </Text>
+  )}
+</View>
+</View>
+
+{hasReminder && (
+  <View style={styles.reminderBox}>
+    <Text style={styles.reminderBoxTitle}>
+      RAPPELS
+    </Text>
+
+    {hasLoanedItem && (
+      <View style={[styles.reminderItem, styles.reminderItemLoan]}>
+        <Text style={styles.reminderLoanTitle}>
+          📦 ACCESSOIRE PRÊTÉ
+        </Text>
+
+        <Text
+          style={styles.reminderText}
+          numberOfLines={2}
+        >
+          {loanedItem}
+        </Text>
+      </View>
+    )}
+
+    {hasRestitutionNote && (
+      <View
+        style={[
+          styles.reminderItem,
+          styles.reminderItemInfo,
+          hasLoanedItem && styles.reminderItemSpacing,
+        ]}
+      >
+        <Text style={styles.reminderInfoTitle}>
+          💬 INFORMATION CLIENT
+        </Text>
+
+        <Text
+          style={styles.reminderText}
+          numberOfLines={3}
+        >
+          {restitutionNote}
+        </Text>
+      </View>
+    )}
+  </View>
+)}
+
+{(() => {
                                 // ====== 1) Construction des lignes du tableau ======
                                 const li = latestIntervention;
 
-                                const activeOrders = (item.orders || []).filter(
-                                  (o) => !o.paid || !o.saved
-                                );
+ 
 
                                 // format "produit · marque modèle" sur une seule ligne
                                 const formatOrderLine = (o) => {
@@ -1418,12 +1980,143 @@ const baseRows = [
                                         </View>
                                       )}
                                     </TouchableOpacity>
-{Array.isArray(activeOrders) &&
-  activeOrders.some(
+{(() => {
+  const hasIntervention = !!latestIntervention?.id;
+  const hasActiveOrders =
+    Array.isArray(activeOrders) && activeOrders.length > 0;
+  const primaryOrder = hasActiveOrders ? activeOrders[0] : null;
+
+  if (!hasIntervention && !primaryOrder) return null;
+
+  // Bloc vert "Photo du produit" (l'appareil, ex: le PC) : cible
+  // l'intervention si elle existe, sinon la première commande active.
+  const devicePhotos = hasIntervention
+    ? (Array.isArray(latestIntervention?.product_photos)
+        ? latestIntervention.product_photos.filter(Boolean)
+        : []
+      ).map((uri) => ({
+        uri,
+        onDelete: () => deleteInterventionPhoto(latestIntervention.id, uri),
+      }))
+    : (Array.isArray(primaryOrder?.product_photos)
+        ? primaryOrder.product_photos.filter(Boolean)
+        : []
+      ).map((uri) => ({
+        uri,
+        onDelete: () => deleteOrderProductPhoto(primaryOrder.id, uri),
+      }));
+
+  const isDevicePhotoUploading = hasIntervention
+    ? uploadingInterventionId === latestIntervention.id
+    : uploadingOrderProductPhotoId === primaryOrder?.id;
+
+  const handleAddDevicePhoto = () => {
+    if (hasIntervention) {
+      handleAddInterventionPhoto(latestIntervention);
+    } else if (primaryOrder) {
+      handleAddOrderProductPhoto(primaryOrder);
+    }
+  };
+
+  const devicePhotoBox = (
+    <View
+      style={{
+        marginTop: 8,
+        marginBottom: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: "#00c853",
+        borderRadius: 8,
+        backgroundColor: "#eaffea",
+      }}
+    >
+      <Text
+        style={{
+          color: "#0a6b2f",
+          fontWeight: "bold",
+          marginBottom: 6,
+        }}
+      >
+        Photo du produit
+      </Text>
+      {devicePhotos.length > 0 && (
+        <Text
+          style={{
+            color: "#0a6b2f",
+            fontSize: 12,
+            marginBottom: 6,
+          }}
+        >
+          Appui long sur une photo pour la supprimer
+        </Text>
+      )}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          flexDirection: "row",
+          gap: 8,
+        }}
+      >
+        {devicePhotos.map((entry, photoIndex) => (
+          <Pressable
+            key={`device-photo-${photoIndex}`}
+            onPress={() => openImageModal(entry.uri)}
+            onLongPress={entry.onDelete}
+          >
+            <Image
+              source={{ uri: entry.uri }}
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#0a6b2f",
+                resizeMode: "cover",
+              }}
+            />
+          </Pressable>
+        ))}
+        <TouchableOpacity
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: "#00c853",
+            backgroundColor: "#eaffea",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+          activeOpacity={0.8}
+          onPress={handleAddDevicePhoto}
+        >
+          {isDevicePhotoUploading ? (
+            <ActivityIndicator size="small" color="#00c853" />
+          ) : (
+            <Image
+              source={require("../assets/icons/upload.png")}
+              style={{ width: 28, height: 28, tintColor: "#00c853" }}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
+  if (!hasActiveOrders) {
+    return devicePhotoBox;
+  }
+
+  // Bloc violet "Photos des produits commandés" (la pièce, ex: la
+  // batterie) : une entrée + un bouton d'ajout par commande active.
+  const hasOrderPhotos = activeOrders.some(
     (order) =>
-      Array.isArray(order.order_photos) &&
-      order.order_photos.length > 0
-  ) && (
+      Array.isArray(order.order_photos) && order.order_photos.length > 0
+  );
+
+  const orderPhotoBox = (
     <View
       style={{
         marginTop: 8,
@@ -1444,35 +2137,91 @@ const baseRows = [
       >
         Photos des produits commandés
       </Text>
+      {hasOrderPhotos && (
+        <Text
+          style={{
+            color: "#270381",
+            fontSize: 12,
+            marginBottom: 6,
+          }}
+        >
+          Appui long sur une photo pour la supprimer
+        </Text>
+      )}
 
-      <View
-        style={{
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
           flexDirection: "row",
-          flexWrap: "wrap",
           gap: 8,
         }}
       >
-        {activeOrders.flatMap((order) =>
-          Array.isArray(order.order_photos)
+        {activeOrders.flatMap((order) => [
+          ...(Array.isArray(order.order_photos)
             ? order.order_photos.map((uri, photoIndex) => (
-                <Image
+                <Pressable
                   key={`${order.id}-order-photo-${photoIndex}`}
-                  source={{ uri }}
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: "#270381",
-                    resizeMode: "cover",
-                  }}
-                />
+                  onPress={() => openImageModal(uri)}
+                  onLongPress={() => deleteOrderPhoto(order.id, uri)}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: "#270381",
+                      resizeMode: "cover",
+                    }}
+                  />
+                </Pressable>
               ))
-            : []
-        )}
-      </View>
+            : []),
+          <TouchableOpacity
+            key={`${order.id}-add-order-photo`}
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "#270381",
+              backgroundColor: "#efe6ff",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            activeOpacity={0.8}
+            onPress={() => handleAddOrderPhoto(order)}
+          >
+            {uploadingOrderPhotoId === order.id ? (
+              <ActivityIndicator size="small" color="#270381" />
+            ) : (
+              <Image
+                source={require("../assets/icons/upload.png")}
+                style={{ width: 28, height: 28, tintColor: "#270381" }}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>,
+        ])}
+      </ScrollView>
     </View>
-  )}
+  );
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+      }}
+    >
+      {orderPhotoBox}
+      {devicePhotoBox}
+    </View>
+  );
+})()}
                                     {/* === BARRE D’ICÔNES EN BAS, ALIGNÉE À GAUCHE === */}
                                     <View
                                       style={styles.additionalIconsContainer}
@@ -1669,34 +2418,62 @@ const baseRows = [
                                         )}
                                       </TouchableOpacity>
 
-                                      {/* Icône commande transport (si en attente de pièces) */}
-                                      {status === "En attente de pièces" &&
-                                        commande &&
-                                        (li?.commande_effectuee ? (
-                                          <IconSquare
-                                            source={require("../assets/icons/shipping_fast.png")}
-                                            tintColor="#00fd00"
-                                            onPress={() => {
-                                              setSelectedCommande(commande);
-                                              setTransportModalVisible(true);
-                                            }}
-                                          />
-                                        ) : (
-                                          <IconSquare
-                                            source={require("../assets/icons/shipping.png")}
-                                            tintColor="#a073f3"
-                                            onPress={() => {
-                                              setSelectedCommande(commande);
-                                              setTransportModalVisible(true);
-                                            }}
-                                          />
-                                        ))}
-
-                                      {/* Note info (une seule fois) */}
+                                      {/* Icône commande transport (ancien champ texte "commande" OU nouvelles commandes structurées) */}
                                       {(() => {
+                                        const hasLegacyCommande = Boolean(commande);
+                                        if (!hasLegacyCommande && !hasOrders) return null;
+
+                                        const isDone = hasLegacyCommande
+                                          ? Boolean(li?.commande_effectuee)
+                                          : activeOrders.every((o) => o.received);
+
+                                        const label =
+                                          commande ||
+                                          activeOrders
+                                            .map((o) => o.product)
+                                            .filter(Boolean)
+                                            .join(", ");
+
+                                        const fournisseurLabel = hasLegacyCommande
+                                          ? ""
+                                          : Array.from(
+                                              new Set(
+                                                activeOrders
+                                                  .flatMap((o) =>
+                                                    Array.isArray(o.order_items)
+                                                      ? o.order_items
+                                                      : []
+                                                  )
+                                                  .map((oi) => oi.fournisseur)
+                                                  .filter(Boolean)
+                                              )
+                                            ).join(", ");
+
+                                        return (
+                                          <IconSquare
+                                            source={
+                                              isDone
+                                                ? require("../assets/icons/shipping_fast.png")
+                                                : require("../assets/icons/shipping.png")
+                                            }
+                                            tintColor={isDone ? "#00fd00" : "#a073f3"}
+                                            onPress={() => {
+                                              setSelectedCommande(label);
+                                              setSelectedCommandeDone(isDone);
+                                              setSelectedCommandeFournisseur(fournisseurLabel);
+                                              setTransportModalVisible(true);
+                                            }}
+                                          />
+                                        );
+                                      })()}
+
+                                      {/* Note info (intervention active, sinon commande active) */}
+                                      {(() => {
+                                        const noteSource =
+                                          li || activeOrders[0];
                                         const hasNote = Boolean(
-                                          li?.info_note &&
-                                            li.info_note.trim().length > 0
+                                          noteSource?.info_note &&
+                                            noteSource.info_note.trim().length > 0
                                         );
                                         return (
                                           <IconSquare
@@ -1866,6 +2643,678 @@ const baseRows = [
     navigation.navigate("ImageGallery", { clientId });
   };
 
+  // Ajout d'une photo à l'intervention directement depuis la Home
+  // (même bucket/dossier "supplementaires" que la création d'intervention).
+  const uploadInterventionPhotoAsset = async (interventionId, asset) => {
+    if (!interventionId || !asset?.uri) return;
+
+    setUploadingInterventionId(interventionId);
+
+    try {
+      const uriWithoutQuery = asset.uri.split("?")[0];
+      const rawExtension =
+        uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+      const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+      const extension = allowedExtensions.includes(rawExtension)
+        ? rawExtension
+        : "jpg";
+      const mimeType =
+        asset.mimeType ||
+        (extension === "png"
+          ? "image/png"
+          : extension === "webp"
+          ? "image/webp"
+          : "image/jpeg");
+
+      const filePath = `supplementaires/${interventionId}/${Date.now()}.${extension}`;
+
+      const file = {
+        uri: asset.uri,
+        name: filePath.split("/").pop(),
+        type: mimeType,
+      };
+
+      const { error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: mimeType,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(filePath);
+      const publicUrl = publicUrlData?.publicUrl || filePath;
+
+      // Relit les photos actuelles pour ne pas écraser une modification concurrente
+      const { data: currentRow, error: readError } = await supabase
+        .from("interventions")
+        .select("product_photos")
+        .eq("id", interventionId)
+        .single();
+
+      if (readError) throw readError;
+
+      const nextPhotos = [
+        ...(Array.isArray(currentRow?.product_photos)
+          ? currentRow.product_photos
+          : []),
+        publicUrl,
+      ];
+
+      const { error: updateError } = await supabase
+        .from("interventions")
+        .update({ product_photos: nextPhotos })
+        .eq("id", interventionId);
+
+      if (updateError) throw updateError;
+
+      showAlert("Photo ajoutée", "La photo a été ajoutée à l'intervention.");
+      await loadClients();
+    } catch (error) {
+      console.error("📷❌ Ajout photo intervention (Home) :", error);
+      showAlert(
+        "Erreur",
+        error?.message || "Impossible d'ajouter la photo."
+      );
+    } finally {
+      setUploadingInterventionId(null);
+    }
+  };
+
+  const uploadOrderPhotoAsset = async (orderId, asset) => {
+    if (!orderId || !asset?.uri) return;
+
+    setUploadingOrderPhotoId(orderId);
+
+    try {
+      const uriWithoutQuery = asset.uri.split("?")[0];
+      const rawExtension =
+        uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+      const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+      const extension = allowedExtensions.includes(rawExtension)
+        ? rawExtension
+        : "jpg";
+      const mimeType =
+        asset.mimeType ||
+        (extension === "png"
+          ? "image/png"
+          : extension === "webp"
+          ? "image/webp"
+          : "image/jpeg");
+
+      const filePath = `commandes/${orderId}/${Date.now()}.${extension}`;
+
+      const file = {
+        uri: asset.uri,
+        name: filePath.split("/").pop(),
+        type: mimeType,
+      };
+
+      const { error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: mimeType,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(filePath);
+      const publicUrl = publicUrlData?.publicUrl || filePath;
+
+      // Relit les photos actuelles pour ne pas écraser une modification concurrente
+      const { data: currentRow, error: readError } = await supabase
+        .from("orders")
+        .select("order_photos")
+        .eq("id", orderId)
+        .single();
+
+      if (readError) throw readError;
+
+      let rawPhotos = [];
+      if (Array.isArray(currentRow?.order_photos)) {
+        rawPhotos = currentRow.order_photos;
+      } else if (
+        typeof currentRow?.order_photos === "string" &&
+        currentRow.order_photos.trim()
+      ) {
+        const value = currentRow.order_photos.trim();
+        try {
+          const parsed = JSON.parse(value);
+          rawPhotos = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          rawPhotos = value.includes(",")
+            ? value.split(",").map((p) => p.trim()).filter(Boolean)
+            : [value];
+        }
+      }
+
+      const nextPhotos = [...rawPhotos, publicUrl];
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ order_photos: nextPhotos })
+        .eq("id", orderId);
+
+      if (updateError) throw updateError;
+
+      showAlert("Photo ajoutée", "La photo a été ajoutée à la commande.");
+      await loadClients();
+    } catch (error) {
+      console.error("📷❌ Ajout photo commande (Home) :", error);
+      showAlert(
+        "Erreur",
+        error?.message || "Impossible d'ajouter la photo."
+      );
+    } finally {
+      setUploadingOrderPhotoId(null);
+    }
+  };
+
+  // Photo de l'appareil (ex: le PC) lié à une commande sans intervention,
+  // distincte de la photo de la pièce commandée (order_photos ci-dessus).
+  const uploadOrderProductPhotoAsset = async (orderId, asset) => {
+    if (!orderId || !asset?.uri) return;
+
+    setUploadingOrderProductPhotoId(orderId);
+
+    try {
+      const uriWithoutQuery = asset.uri.split("?")[0];
+      const rawExtension =
+        uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+      const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+      const extension = allowedExtensions.includes(rawExtension)
+        ? rawExtension
+        : "jpg";
+      const mimeType =
+        asset.mimeType ||
+        (extension === "png"
+          ? "image/png"
+          : extension === "webp"
+          ? "image/webp"
+          : "image/jpeg");
+
+      const filePath = `commandes-appareil/${orderId}/${Date.now()}.${extension}`;
+
+      const file = {
+        uri: asset.uri,
+        name: filePath.split("/").pop(),
+        type: mimeType,
+      };
+
+      const { error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: mimeType,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(filePath);
+      const publicUrl = publicUrlData?.publicUrl || filePath;
+
+      // Relit les photos actuelles pour ne pas écraser une modification concurrente
+      const { data: currentRow, error: readError } = await supabase
+        .from("orders")
+        .select("product_photos")
+        .eq("id", orderId)
+        .single();
+
+      if (readError) throw readError;
+
+      const nextPhotos = [
+        ...(Array.isArray(currentRow?.product_photos)
+          ? currentRow.product_photos
+          : []),
+        publicUrl,
+      ];
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ product_photos: nextPhotos })
+        .eq("id", orderId);
+
+      if (updateError) throw updateError;
+
+      showAlert("Photo ajoutée", "La photo a été ajoutée.");
+      await loadClients();
+    } catch (error) {
+      console.error("📷❌ Ajout photo appareil (commande, Home) :", error);
+      showAlert(
+        "Erreur",
+        error?.message || "Impossible d'ajouter la photo."
+      );
+    } finally {
+      setUploadingOrderProductPhotoId(null);
+    }
+  };
+
+  const deleteInterventionPhoto = (interventionId, uri) => {
+    if (!interventionId || !uri) return;
+    setDeletePhotoTarget({ interventionId, uri });
+  };
+
+  const confirmDeleteInterventionPhoto = async () => {
+    const target = deletePhotoTarget;
+    setDeletePhotoTarget(null);
+    if (!target) return;
+    const { interventionId, uri } = target;
+
+    try {
+      const path = pathFromSupabaseUrl(uri);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("images")
+          .remove([path]);
+        if (storageError) {
+          console.error("🗑️❌ Suppression Storage :", storageError);
+        }
+      }
+
+      const { data: currentRow, error: readError } = await supabase
+        .from("interventions")
+        .select("product_photos")
+        .eq("id", interventionId)
+        .single();
+
+      if (readError) throw readError;
+
+      const nextPhotos = (
+        Array.isArray(currentRow?.product_photos)
+          ? currentRow.product_photos
+          : []
+      ).filter((p) => p !== uri);
+
+      const { error: updateError } = await supabase
+        .from("interventions")
+        .update({ product_photos: nextPhotos })
+        .eq("id", interventionId);
+
+      if (updateError) throw updateError;
+
+      await loadClients();
+    } catch (error) {
+      console.error("🗑️❌ Suppression photo intervention (Home) :", error);
+      showAlert("Erreur", error?.message || "Impossible de supprimer cette image.");
+    }
+  };
+
+  const deleteOrderPhoto = (orderId, uri) => {
+    if (!orderId || !uri) return;
+    setDeleteOrderPhotoTarget({ orderId, uri });
+  };
+
+  const confirmDeleteOrderPhoto = async () => {
+    const target = deleteOrderPhotoTarget;
+    setDeleteOrderPhotoTarget(null);
+    if (!target) return;
+    const { orderId, uri } = target;
+
+    try {
+      const path = pathFromSupabaseUrl(uri);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("images")
+          .remove([path]);
+        if (storageError) {
+          console.error("🗑️❌ Suppression Storage (commande) :", storageError);
+        }
+      }
+
+      const { data: currentRow, error: readError } = await supabase
+        .from("orders")
+        .select("order_photos")
+        .eq("id", orderId)
+        .single();
+
+      if (readError) throw readError;
+
+      let rawPhotos = [];
+      if (Array.isArray(currentRow?.order_photos)) {
+        rawPhotos = currentRow.order_photos;
+      } else if (
+        typeof currentRow?.order_photos === "string" &&
+        currentRow.order_photos.trim()
+      ) {
+        const value = currentRow.order_photos.trim();
+        try {
+          const parsed = JSON.parse(value);
+          rawPhotos = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          rawPhotos = value.includes(",")
+            ? value.split(",").map((p) => p.trim()).filter(Boolean)
+            : [value];
+        }
+      }
+
+      const toPublicUrl = (rawValue) => {
+        if (!rawValue || typeof rawValue !== "string") return null;
+        if (/^https?:\/\//i.test(rawValue)) return rawValue;
+        const cleanPath = rawValue.replace(/^\/+/, "").replace(/^images\//i, "");
+        const { data } = supabase.storage.from("images").getPublicUrl(cleanPath);
+        return data?.publicUrl || null;
+      };
+
+      const nextPhotos = rawPhotos.filter(
+        (rawValue) => toPublicUrl(rawValue) !== uri
+      );
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ order_photos: nextPhotos })
+        .eq("id", orderId);
+
+      if (updateError) throw updateError;
+
+      await loadClients();
+    } catch (error) {
+      console.error("🗑️❌ Suppression photo commande (Home) :", error);
+      showAlert("Erreur", error?.message || "Impossible de supprimer cette image.");
+    }
+  };
+
+  const deleteOrderProductPhoto = (orderId, uri) => {
+    if (!orderId || !uri) return;
+    setDeleteOrderProductPhotoTarget({ orderId, uri });
+  };
+
+  const confirmDeleteOrderProductPhoto = async () => {
+    const target = deleteOrderProductPhotoTarget;
+    setDeleteOrderProductPhotoTarget(null);
+    if (!target) return;
+    const { orderId, uri } = target;
+
+    try {
+      const path = pathFromSupabaseUrl(uri);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("images")
+          .remove([path]);
+        if (storageError) {
+          console.error("🗑️❌ Suppression Storage (appareil commande) :", storageError);
+        }
+      }
+
+      const { data: currentRow, error: readError } = await supabase
+        .from("orders")
+        .select("product_photos")
+        .eq("id", orderId)
+        .single();
+
+      if (readError) throw readError;
+
+      const nextPhotos = (
+        Array.isArray(currentRow?.product_photos)
+          ? currentRow.product_photos
+          : []
+      ).filter((p) => p !== uri);
+
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ product_photos: nextPhotos })
+        .eq("id", orderId);
+
+      if (updateError) throw updateError;
+
+      await loadClients();
+    } catch (error) {
+      console.error("🗑️❌ Suppression photo appareil (commande, Home) :", error);
+      showAlert("Erreur", error?.message || "Impossible de supprimer cette image.");
+    }
+  };
+
+  const openImageModal = (url) => {
+    setImageModalUrl(url);
+    setImageModalVisible(true);
+  };
+
+  const takeAndUploadInterventionPhoto = async (interventionId) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès à la caméra pour prendre des photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadInterventionPhotoAsset(interventionId, asset);
+  };
+
+  const pickAndUploadInterventionPhoto = async (interventionId) => {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès aux photos pour choisir une image."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadInterventionPhotoAsset(interventionId, asset);
+  };
+
+  const openWebImageSearchForIntervention = async (intervention) => {
+    try {
+      const query = [
+        intervention?.deviceType,
+        intervention?.brand,
+        intervention?.model,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      if (!query) {
+        showAlert(
+          "Recherche impossible",
+          "Aucun type, marque ou modèle n'est renseigné pour cette intervention."
+        );
+        return;
+      }
+
+      const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+        query
+      )}`;
+
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        showAlert("Erreur", "Aucun navigateur ne peut ouvrir cette recherche.");
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error("🌐❌ Recherche image intervention :", error);
+      showAlert("Erreur", "Impossible d'ouvrir la recherche d'images.");
+    }
+  };
+
+  const handleAddInterventionPhoto = (intervention) => {
+    if (!intervention?.id) return;
+    setPhotoChoiceIntervention(intervention);
+  };
+
+  const takeAndUploadOrderPhoto = async (orderId) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès à la caméra pour prendre des photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadOrderPhotoAsset(orderId, asset);
+  };
+
+  const pickAndUploadOrderPhoto = async (orderId) => {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès aux photos pour choisir une image."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadOrderPhotoAsset(orderId, asset);
+  };
+
+  const openWebImageSearchForOrder = async (order) => {
+    try {
+      const query = [order?.product, order?.brand, order?.model]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      if (!query) {
+        showAlert(
+          "Recherche impossible",
+          "Aucun produit, marque ou modèle n'est renseigné pour cette commande."
+        );
+        return;
+      }
+
+      const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(
+        query
+      )}`;
+
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        showAlert("Erreur", "Aucun navigateur ne peut ouvrir cette recherche.");
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error("🌐❌ Recherche image commande :", error);
+      showAlert("Erreur", "Impossible d'ouvrir la recherche d'images.");
+    }
+  };
+
+  const handleAddOrderPhoto = (order) => {
+    if (!order?.id) return;
+    setPhotoChoiceOrder(order);
+  };
+
+  const takeAndUploadOrderProductPhoto = async (orderId) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès à la caméra pour prendre des photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadOrderProductPhotoAsset(orderId, asset);
+  };
+
+  const pickAndUploadOrderProductPhoto = async (orderId) => {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès aux photos pour choisir une image."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      base64: false,
+      allowsEditing: false,
+      exif: false,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    await uploadOrderProductPhotoAsset(orderId, asset);
+  };
+
+  const handleAddOrderProductPhoto = (order) => {
+    if (!order?.id) return;
+    setPhotoChoiceOrderProduct(order);
+  };
+
   const loadClients = async (sortBy = "createdAt", orderAsc = false) => {
     setIsLoading(true);
     try {
@@ -1889,31 +3338,52 @@ const baseRows = [
 						commande,
 						commande_effectuee,
 						photos,
-						label_photo, 
+						product_photos,
+						label_photo,
 						notifiedBy,
 						notify_type,
 						accept_screen_risk,
 						devis_cost,
 						imprimee,
 						print_etiquette,
-                        is_estimate,
- estimate_min,
- estimate_max,
- estimate_type,
- estimate_accepted,
- info_note
-        ),
-        orders(
+            is_estimate,
+            estimate_min,
+            estimate_max,
+            estimate_type,
+            estimate_accepted,
+            info_note,
+            loaned_item,
+            loaned_item_returned,
+restitution_note,
+restitution_note_done
+),
+orders(
   id,
+  client_id,
   price,
   deposit,
+  quantity,
+  total,
   product,
   brand,
   model,
   paid,
   saved,
-  notified
+  recovered,
+  notified,
+  deleted,
+  createdat,
+  order_items(
+    id,
+    order_id,
+    product,
+    quantity,
+    ordered,
+    received,
+    installed
+  )
 )
+
     `
         )
         .order("createdAt", { ascending: false });
@@ -1922,7 +3392,7 @@ const baseRows = [
 
 const { data: ordersData, error: ordersError } = await supabase
   .from("orders")
-  .select("*");
+  .select("*, order_items(product, fournisseur)");
 
 if (ordersError) throw ordersError;
 
@@ -1935,7 +3405,21 @@ const normalizedOrdersData = (ordersData || [])
       order?.deleted === 1 ||
       order?.deleted === "1";
 
-    return !isDeleted;
+    const isPaid =
+      order?.paid === true ||
+      order?.paid === "true" ||
+      order?.paid === 1 ||
+      order?.paid === "1";
+
+    const isSaved =
+      order?.saved === true ||
+      order?.saved === "true" ||
+      order?.saved === 1 ||
+      order?.saved === "1";
+
+    // Une commande est affichée uniquement si elle est :
+    // non supprimée, non payée et non sauvegardée.
+    return !isDeleted && !isPaid && !isSaved;
   })
   .map((order) => {
     let rawPhotos = [];
@@ -2278,6 +3762,8 @@ const goToPreviousPage = () => {
       loadNotRepairedNotReturnedCount();
       loadExpressInProgress(); // ← AJOUT
       checkImagesToDelete();
+	  loadPendingRepairProposals();
+	  loadOverdueRepairedInterventions();
     }, [])
   );
 
@@ -2295,7 +3781,10 @@ const goToPreviousPage = () => {
       if (interventionsError) throw interventionsError;
 
       if (interventions && interventions.length > 0) {
-        setAlertVisible(true);
+        showAlert(
+          "Suppression impossible",
+          "Ce client ne peut pas être supprimé car il a des interventions associées."
+        );
         return;
       }
 
@@ -2317,7 +3806,7 @@ const goToPreviousPage = () => {
     if (!s) return null;
     if (s instanceof Date) return s;
     // Déjà avec fuseau ? (Z ou ±HH(:)MM)
-    const hasTZ = /[zZ]|[+\-]\d{2}:?\d{2}$/.test(s);
+    const hasTZ = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s);
     // Normalise séparateur ' ' -> 'T' pour ISO
     const iso = s.includes("T") ? s : s.replace(" ", "T");
     // Si pas de fuseau -> on force UTC en ajoutant 'Z'
@@ -2345,10 +3834,11 @@ const goToPreviousPage = () => {
 
   const filterClients = async (text) => {
     setSearchText(text);
+    const requestId = ++searchRequestIdRef.current;
 
     // si champ vide -> on remet la liste initiale
     if (!text || !text.trim()) {
-      setFilteredClients(clients);
+      if (requestId === searchRequestIdRef.current) setFilteredClients(clients);
       return;
     }
 
@@ -2381,7 +3871,8 @@ const goToPreviousPage = () => {
 interventions(
   id, status, deviceType, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+  photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note,
+  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
 )
 
         `
@@ -2414,7 +3905,8 @@ interventions(
 interventions(
   id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+  photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note, loaned_item, loaned_item_returned,
+  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
 )
 
         `
@@ -2431,7 +3923,8 @@ interventions(
 interventions(
   id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
-  photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note
+  photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note,
+  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
 )
 
         `
@@ -2442,20 +3935,20 @@ interventions(
       const { data: clientsData, error: clientError } = await clientQuery;
       if (clientError) {
         console.error("❌ Erreur chargement clients :", clientError);
-        setFilteredClients([]);
+        if (requestId === searchRequestIdRef.current) setFilteredClients([]);
         return;
       }
 
       // ————— 2) enrichissement avec orders (identique à ton flux) —————
       const combined = clientsData || [];
       if (combined.length === 0) {
-        setFilteredClients([]);
+        if (requestId === searchRequestIdRef.current) setFilteredClients([]);
         return;
       }
 
       const { data: ordersData, error: orderError } = await supabase
         .from("orders")
-        .select("*, client_id")
+        .select("*, client_id, order_items(product, fournisseur)")
         .in(
           "client_id",
           combined.map((c) => c.id)
@@ -2463,7 +3956,7 @@ interventions(
 
       if (orderError) {
         console.error("❌ Erreur chargement commandes :", orderError);
-        setFilteredClients(combined);
+        if (requestId === searchRequestIdRef.current) setFilteredClients(combined);
         return;
       }
 
@@ -2507,12 +4000,12 @@ interventions(
       enriched.sort(
         (a, b) => __latestInterventionMs(b) - __latestInterventionMs(a)
       );
-      setFilteredClients(enriched);
+      if (requestId === searchRequestIdRef.current) setFilteredClients(enriched);
     } catch (e) {
       console.error("❌ Erreur lors de la recherche des clients :", e);
-      setFilteredClients([]);
+      if (requestId === searchRequestIdRef.current) setFilteredClients([]);
     } finally {
-      setIsLoading(false);
+      if (requestId === searchRequestIdRef.current) setIsLoading(false);
     }
   };
 
@@ -2665,6 +4158,8 @@ interventions(
     setSearchText("");
     setFilteredClients(clients);
     setCurrentPage(1);
+    setExpandedClientId(null);
+    flatListRef.current?.scrollToIndex({ index: 0, animated: true });
   };
 
   const formatPhoneNumber = (phoneNumber) => {
@@ -2694,7 +4189,7 @@ interventions(
 
       if (error) {
         console.error("Erreur lors de la déconnexion :", error);
-        Alert.alert(
+        showAlert(
           "Erreur",
           "Impossible de se déconnecter. Veuillez réessayer."
         );
@@ -2704,7 +4199,7 @@ interventions(
       console.log("Déconnexion réussie ! Redirection vers Login...");
     } catch (err) {
       console.error("Erreur inattendue lors de la déconnexion :", err);
-      Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+      showAlert("Erreur", "Une erreur inattendue est survenue.");
     }
   };
 
@@ -3169,29 +4664,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
               <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => {
-                  Alert.alert(
-                    "Confirmation",
-                    "Êtes-vous sûr de vouloir vous déconnecter ?",
-                    [
-                      {
-                        text: "Annuler",
-                        style: "cancel",
-                      },
-                      {
-                        text: "Déconnexion",
-                        onPress: async () => {
-                          try {
-                            await handleLogout();
-                            toggleMenu();
-                          } catch (error) {
-                            console.error("Erreur de déconnexion :", error);
-                          }
-                        },
-                        style: "destructive",
-                      },
-                    ],
-                    { cancelable: true }
-                  );
+                  setLogoutConfirmVisible(true);
                 }}
               >
                 <Image
@@ -3373,7 +4846,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                       borderColor: "#888787",
                       backgroundColor: "#191f2f",
                     }}
-                  >
+                  > 
                     <Text style={{ color: "white" }}>Nettoyer les images</Text>
                   </TouchableOpacity>
                 )}
@@ -3433,7 +4906,12 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                     value={searchText}
                     onChangeText={(t) => {
                       setSearchText(t);
-                      filterClients(t);
+                      if (searchDebounceRef.current) {
+                        clearTimeout(searchDebounceRef.current);
+                      }
+                      searchDebounceRef.current = setTimeout(() => {
+                        filterClients(t);
+                      }, 300);
                     }}
                     autoCorrect={false}
                     autoCapitalize="characters"
@@ -3544,13 +5022,116 @@ const onPick = () => {
                   />
                   <Text style={styles.toggleText}>Fiches en cours</Text>
                 </TouchableOpacity>
+{pendingProposals.length > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() =>
+      setPendingProposalsModalVisible(true)
+    }
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#b45309",
+      borderRadius: 10,
+      backgroundColor: "#d97706",
+      elevation: 3,
+    }}
+  >
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+      }}
+    >
+      Propositions
+    </Text>
 
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text
+        style={{
+          color: "#b45309",
+          fontSize: 12,
+          fontWeight: "bold",
+        }}
+      >
+        {pendingProposals.length}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
+{overdueRepairedClients.length > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() =>
+      setOverdueRepairedModalVisible(true)
+    }
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#991b1b",
+      borderRadius: 10,
+      backgroundColor: "#dc2626",
+      elevation: 3,
+    }}
+  >
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+      }}
+    >
+      Non récupérés 30j+
+    </Text>
+
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text
+        style={{
+          color: "#991b1b",
+          fontSize: 12,
+          fontWeight: "bold",
+        }}
+      >
+        {overdueRepairedClients.length}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
                 <View>
                   <DateDisplay />
-                </View>
-
-                <View>
-                  <TimeDisplay />
                 </View>
               </View>
               {isLoading ? (
@@ -3577,13 +5158,26 @@ const onPick = () => {
                         bounces={false}
                         showsHorizontalScrollIndicator={false}
                         data={pages}
+                        initialNumToRender={1}
+                        maxToRenderPerBatch={1}
+                        windowSize={3}
+                        removeClippedSubviews={true}
                         keyExtractor={(_, idx) => `page-${idx}`}
+                        getItemLayout={(data, index) => ({
+                          length: sliderW,
+                          offset: sliderW * index,
+                          index,
+                        })}
                         onScrollToIndexFailed={({ index }) => {
-                          // fallback simple
-                          flatListRef.current?.scrollToIndex({
-                            index: Math.max(0, Math.min(index, sliderTotalPages - 1)),
-                            animated: true,
-                          });
+                          // fallback : on attend que la liste ait fini de monter
+                          // les éléments avant de réessayer, sinon le retry échoue
+                          // à nouveau immédiatement (boucle infinie / stack overflow).
+                          setTimeout(() => {
+                            flatListRef.current?.scrollToIndex({
+                              index: Math.max(0, Math.min(index, sliderTotalPages - 1)),
+                              animated: true,
+                            });
+                          }, 100);
                         }}
                         onMomentumScrollEnd={(e) => {
                           const w = e?.nativeEvent?.layoutMeasurement?.width || 0;
@@ -3715,11 +5309,112 @@ const onPick = () => {
           fontSize: 15,
           color: "#555",
           textAlign: "center",
-          marginBottom: 18,
+          marginBottom: 12,
         }}
       >
         Fiche N° {searchSelectedClient?.ficheNumber || "—"}
       </Text>
+
+      {/* —— Contacter le client —— */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginBottom: 18,
+          gap: 8,
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={!searchSelectedClient?.phone}
+          onPress={() => {
+            const phone = searchSelectedClient?.phone;
+            if (!phone) {
+              showAlert("Erreur", "Numéro de téléphone manquant.");
+              return;
+            }
+            Linking.openURL(`tel:${phone}`);
+          }}
+          style={{
+            flex: 1,
+            height: 46,
+            borderRadius: 10,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: searchSelectedClient?.phone
+              ? "#16a34a"
+              : "#d1d5db",
+          }}
+        >
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+            📞 Appeler
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={!searchSelectedClient?.phone}
+          onPress={async () => {
+            const phone = searchSelectedClient?.phone;
+            if (!phone) {
+              showAlert("Erreur", "Numéro de téléphone manquant.");
+              return;
+            }
+            const smsUrl = `sms:${phone}`;
+            const supported = await Linking.canOpenURL(smsUrl);
+            if (!supported) {
+              showAlert(
+                "Erreur",
+                "L'envoi de SMS n'est pas pris en charge sur cet appareil."
+              );
+              return;
+            }
+            Linking.openURL(smsUrl);
+          }}
+          style={{
+            flex: 1,
+            height: 46,
+            borderRadius: 10,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: searchSelectedClient?.phone
+              ? "#2563eb"
+              : "#d1d5db",
+          }}
+        >
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+            📩 SMS
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={!searchSelectedClient?.email}
+          onPress={() => {
+            const email = searchSelectedClient?.email;
+            if (!email) {
+              showAlert("Erreur", "Adresse e-mail manquante.");
+              return;
+            }
+            Linking.openURL(`mailto:${email}`);
+          }}
+          style={{
+            flex: 1,
+            height: 46,
+            borderRadius: 10,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: searchSelectedClient?.email
+              ? "#7c3aed"
+              : "#d1d5db",
+          }}
+        >
+          <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+            ✉️ E-mail
+          </Text>
+        </TouchableOpacity>
+      </View>
+
 <View
   style={{
     flexDirection: "row",
@@ -4119,7 +5814,7 @@ const onPick = () => {
                         style={styles.modalButton}
                         onPress={async () => {
                           if (!selectedClient?.phone) {
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Numéro de téléphone manquant."
                             );
@@ -4135,14 +5830,14 @@ const onPick = () => {
                               "SMS"
                             );
                             setNotifyModalVisible(false);
-                            Alert.alert(
+                            showAlert(
                               "📋 Numéro copié",
                               "Collez le numéro dans Messages Web."
                             );
                             Linking.openURL("https://messages.google.com/web");
                           } catch (err) {
                             console.error("Erreur Messages Web :", err);
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Impossible de notifier ce client."
                             );
@@ -4159,7 +5854,7 @@ const onPick = () => {
                         style={styles.modalButton}
                         onPress={async () => {
                           if (!selectedClient?.phone) {
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Numéro de téléphone manquant."
                             );
@@ -4171,7 +5866,7 @@ const onPick = () => {
                           try {
                             const supported = await Linking.canOpenURL(smsUrl);
                             if (!supported) {
-                              Alert.alert(
+                              showAlert(
                                 "Erreur",
                                 "L'envoi de SMS n'est pas pris en charge sur cet appareil."
                               );
@@ -4186,7 +5881,7 @@ const onPick = () => {
                             setNotifyModalVisible(false);
                           } catch (err) {
                             console.error("Erreur SMS SIM :", err);
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Impossible d’ouvrir l’app SMS."
                             );
@@ -4202,7 +5897,7 @@ const onPick = () => {
                         style={styles.modalButton}
                         onPress={async () => {
                           if (!selectedClient?.phone) {
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Numéro de téléphone manquant."
                             );
@@ -4214,7 +5909,7 @@ const onPick = () => {
                           try {
                             const supported = await Linking.canOpenURL(telUrl);
                             if (!supported) {
-                              Alert.alert(
+                              showAlert(
                                 "Erreur",
                                 "L’appel n’est pas supporté sur cet appareil."
                               );
@@ -4229,7 +5924,7 @@ const onPick = () => {
                             setNotifyModalVisible(false);
                           } catch (err) {
                             console.error("Erreur appel :", err);
-                            Alert.alert(
+                            showAlert(
                               "Erreur",
                               "Impossible d’initier l’appel."
                             );
@@ -4264,7 +5959,14 @@ const onPick = () => {
               >
                 <View style={styles.modalOverlay}>
                   <View style={styles.alertBox}>
-                    <Text style={styles.alertTitle}>Commande en cours</Text>
+                    <Text
+                      style={[
+                        styles.alertTitle,
+                        { color: selectedCommandeDone ? "#00a83c" : "#a073f3" },
+                      ]}
+                    >
+                      {selectedCommandeDone ? "Commande reçue" : "Commande passée"}
+                    </Text>
                     <Text
                       style={[
                         styles.alertMessage,
@@ -4276,6 +5978,18 @@ const onPick = () => {
                     >
                       {selectedCommande || "Aucune commande en cours"}
                     </Text>
+                    {selectedCommandeFournisseur ? (
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          color: "#6B7280",
+                          fontStyle: "italic",
+                          marginBottom: 12,
+                        }}
+                      >
+                        Fournisseur : {selectedCommandeFournisseur}
+                      </Text>
+                    ) : null}
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalButtonSecondary]}
                       onPress={() => setTransportModalVisible(false)}
@@ -4422,30 +6136,63 @@ const onPick = () => {
                 </View>
               </Modal>
 
-              <Modal
-                transparent
+              <CustomAlert
                 visible={alertVisible}
-                animationType="fade"
-                onRequestClose={() => setAlertVisible(false)}
-              >
-                <View style={styles.modalOverlay}>
-                  <View style={styles.alertBox}>
-                    <Text style={styles.alertTitle}>
-                      Suppression impossible
-                    </Text>
-                    <Text style={styles.alertMessage}>
-                      Ce client ne peut pas être supprimé car il a des
-                      interventions associées.
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonSecondary]}
-                      onPress={() => setAlertVisible(false)}
-                    >
-                      <Text style={styles.modalButtonTextSecondary}>OK</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </Modal>
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => {
+                  setAlertVisible(false);
+                  if (alertOnClose) alertOnClose();
+                }}
+              />
+
+              <AlertBox
+                visible={logoutConfirmVisible}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir vous déconnecter ?"
+                cancelText="Annuler"
+                confirmText="Déconnexion"
+                onClose={() => setLogoutConfirmVisible(false)}
+                onConfirm={async () => {
+                  setLogoutConfirmVisible(false);
+                  try {
+                    await handleLogout();
+                    toggleMenu();
+                  } catch (error) {
+                    console.error("Erreur de déconnexion :", error);
+                  }
+                }}
+              />
+
+              <AlertBox
+                visible={!!deletePhotoTarget}
+                title="Supprimer cette image ?"
+                message="Cette action supprimera l'image du stockage et de la fiche."
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setDeletePhotoTarget(null)}
+                onConfirm={confirmDeleteInterventionPhoto}
+              />
+
+              <AlertBox
+                visible={!!deleteOrderPhotoTarget}
+                title="Supprimer cette image ?"
+                message="Cette action supprimera l'image du stockage et de la commande."
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setDeleteOrderPhotoTarget(null)}
+                onConfirm={confirmDeleteOrderPhoto}
+              />
+
+              <AlertBox
+                visible={!!deleteOrderProductPhotoTarget}
+                title="Supprimer cette image ?"
+                message="Cette action supprimera l'image du stockage et de la commande."
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setDeleteOrderProductPhotoTarget(null)}
+                onConfirm={confirmDeleteOrderProductPhoto}
+              />
 
               {cleanupModalVisible && (
                 <Modal
@@ -4558,11 +6305,19 @@ const onPick = () => {
                       initialType: it.type || "all",
                     })
                   }
-                  onLongPress={() =>
-                    navigation.navigate("EditClientPage", {
-                      clientId: it.client_id,
-                    })
-                  }
+                  onLongPress={async () => {
+                    if (!it.client_id) return;
+                    const { data: client, error } = await supabase
+                      .from("clients")
+                      .select("*")
+                      .eq("id", it.client_id)
+                      .single();
+                    if (error || !client) {
+                      console.error("Erreur chargement client :", error);
+                      return;
+                    }
+                    navigation.navigate("EditClient", { client });
+                  }}
                   android_ripple={{ color: "#f1f5f9" }}
                   style={stylesNS.row}
                 >
@@ -4703,7 +6458,671 @@ const onPick = () => {
 </View>
 
 
+<Modal
+  visible={pendingProposalsModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() =>
+    setPendingProposalsModalVisible(false)
+  }
+>
+  <TouchableWithoutFeedback
+    onPress={() =>
+      setPendingProposalsModalVisible(false)
+    }
+  >
+    <View
+      style={{
+        flex: 1,
+        backgroundColor:
+          "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 21,
+                  fontWeight: "bold",
+                  color: "#1e293b",
+                }}
+              >
+                Estimations à confirmer
+              </Text>
 
+              <Text
+                style={{
+                  marginTop: 3,
+                  fontSize: 13,
+                  color: "#64748b",
+                }}
+              >
+                Clients en attente d’une
+                décision
+              </Text>
+            </View>
+
+            <View
+              style={{
+                minWidth: 38,
+                height: 38,
+                marginRight: 10,
+                paddingHorizontal: 8,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#d97706",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#ffffff",
+                  fontSize: 16,
+                  fontWeight: "bold",
+                }}
+              >
+                {pendingProposals.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() =>
+                setPendingProposalsModalVisible(
+                  false
+                )
+              }
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#475569",
+                  fontSize: 17,
+                  fontWeight: "bold",
+                }}
+              >
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              marginBottom: 12,
+              backgroundColor: "#e2e8f0",
+            }}
+          />
+
+          {pendingProposalsLoading ? (
+            <View
+              style={{
+                minHeight: 220,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <ActivityIndicator
+                size="large"
+                color="#d97706"
+              />
+
+              <Text
+                style={{
+                  marginTop: 10,
+                  color: "#64748b",
+                }}
+              >
+                Chargement…
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={pendingProposals}
+              keyExtractor={(item) =>
+                String(item.id)
+              }
+              showsVerticalScrollIndicator={
+                false
+              }
+              renderItem={({ item }) => {
+                const clientName =
+                  item.client?.name ||
+                  "Client inconnu";
+
+                const deviceText = [
+                  item.deviceType,
+                  item.brand,
+                  item.model,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    onPress={() => {
+                      setPendingProposalsModalVisible(
+                        false
+                      );
+
+                      navigation.navigate(
+                        "EditIntervention",
+                        {
+                          clientId:
+                            item.client_id,
+                          interventionId:
+                            item.id,
+                        }
+                      );
+                    }}
+                    style={{
+                      marginBottom: 10,
+                      padding: 13,
+                      borderWidth: 1,
+                      borderColor: "#fdba74",
+                      borderRadius: 12,
+                      backgroundColor:
+                        "#fff7ed",
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "bold",
+                            color: "#1e293b",
+                          }}
+                        >
+                          {clientName.toUpperCase()}
+                        </Text>
+
+                        <Text
+                          style={{
+                            marginTop: 2,
+                            fontSize: 12,
+                            color: "#64748b",
+                          }}
+                        >
+                          Fiche n°{" "}
+                          {item.client
+                            ?.ficheNumber ??
+                            "—"}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 99,
+                          backgroundColor:
+                            "#fef3c7",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#92400e",
+                            fontSize: 10,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          À CONFIRMER
+                        </Text>
+                      </View>
+                    </View>
+
+                    {!!deviceText && (
+                      <Text
+                        style={{
+                          marginTop: 9,
+                          fontSize: 13,
+                          fontWeight: "600",
+                          color: "#475569",
+                        }}
+                      >
+                        {deviceText}
+                      </Text>
+                    )}
+
+                    <View
+                      style={{
+                        marginTop: 10,
+                        padding: 10,
+                        borderRadius: 9,
+                        backgroundColor:
+                          "#ffffff",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: "bold",
+                          color: "#92400e",
+                        }}
+                      >
+                        RÉPARATION ENVISAGÉE
+                      </Text>
+
+                      <Text
+                        style={{
+                          marginTop: 4,
+                          fontSize: 14,
+                          fontWeight: "700",
+                          color: "#1f2937",
+                        }}
+                      >
+                        {item.repair_proposal ||
+                          "Non renseignée"}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          flex: 1,
+                          fontSize: 16,
+                          fontWeight: "bold",
+                          color: "#b45309",
+                        }}
+                      >
+                        {item.repair_proposal_price !=
+                        null
+                          ? `${Number(
+                              item.repair_proposal_price
+                            ).toFixed(2)} €`
+                          : "Montant non renseigné"}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "bold",
+                          color: "#2563eb",
+                        }}
+                      >
+                        Ouvrir la fiche ›
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
+<Modal
+  visible={overdueRepairedModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() =>
+    setOverdueRepairedModalVisible(false)
+  }
+>
+  <TouchableWithoutFeedback
+    onPress={() =>
+      setOverdueRepairedModalVisible(false)
+    }
+  >
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 21,
+                  fontWeight: "bold",
+                  color: "#1e293b",
+                }}
+              >
+                Réparés non récupérés
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 3,
+                  fontSize: 13,
+                  color: "#64748b",
+                }}
+              >
+                Prêts depuis plus de 30 jours, jamais récupérés
+              </Text>
+            </View>
+
+            <View
+              style={{
+                minWidth: 38,
+                height: 38,
+                marginRight: 10,
+                paddingHorizontal: 8,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#dc2626",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#ffffff",
+                  fontSize: 16,
+                  fontWeight: "bold",
+                }}
+              >
+                {overdueRepairedClients.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() =>
+                setOverdueRepairedModalVisible(false)
+              }
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#475569",
+                  fontSize: 17,
+                  fontWeight: "bold",
+                }}
+              >
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              marginBottom: 12,
+              backgroundColor: "#e2e8f0",
+            }}
+          />
+
+          {overdueRepairedLoading ? (
+            <View
+              style={{
+                minHeight: 220,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <ActivityIndicator size="large" color="#dc2626" />
+
+              <Text style={{ marginTop: 10, color: "#64748b" }}>
+                Chargement…
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={overdueRepairedClients}
+              keyExtractor={(item) => String(item.id)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const clientName =
+                  item.client?.name || "Client inconnu";
+
+                const deviceText = [
+                  item.deviceType,
+                  item.brand,
+                  item.model,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                const referenceDate =
+                  item.repaired_at || item.updatedAt;
+
+                const daysSince = referenceDate
+                  ? Math.floor(
+                      (Date.now() -
+                        new Date(referenceDate).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  : null;
+
+                return (
+                  <View
+                    style={{
+                      marginBottom: 10,
+                      padding: 13,
+                      borderWidth: 1,
+                      borderColor: "#fca5a5",
+                      borderRadius: 12,
+                      backgroundColor: "#fef2f2",
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "bold",
+                            color: "#1e293b",
+                          }}
+                        >
+                          {clientName.toUpperCase()}
+                        </Text>
+
+                        <Text
+                          style={{
+                            marginTop: 2,
+                            fontSize: 12,
+                            color: "#64748b",
+                          }}
+                        >
+                          Fiche n° {item.client?.ficheNumber ?? "—"}
+                          {item.client?.phone
+                            ? ` · ${item.client.phone}`
+                            : ""}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 5,
+                          borderRadius: 99,
+                          backgroundColor: "#fee2e2",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#991b1b",
+                            fontSize: 10,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {daysSince != null
+                            ? `${daysSince} JOURS`
+                            : "30 JOURS+"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {!!deviceText && (
+                      <Text
+                        style={{
+                          marginTop: 9,
+                          fontSize: 13,
+                          fontWeight: "600",
+                          color: "#475569",
+                        }}
+                      >
+                        {deviceText}
+                      </Text>
+                    )}
+
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        marginTop: 10,
+                        gap: 10,
+                      }}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        disabled={!item.client?.phone}
+                        onPress={() => {
+                          setOverdueRepairedModalVisible(false);
+
+                          navigation.navigate(
+                            "ClientNotificationsPage",
+                            {
+                              clientId: item.client_id,
+                              clientName: item.client?.name,
+                              phone: item.client?.phone,
+                              ficheNumber:
+                                item.client?.ficheNumber,
+                              interventionId: item.id,
+                              deviceType:
+                                item.deviceType || "appareil",
+                              mode: "pickup",
+                            }
+                          );
+                        }}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          backgroundColor: item.client?.phone
+                            ? "#dc2626"
+                            : "#d1d5db",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#ffffff",
+                            fontSize: 13,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          📩 Renotifier par SMS
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setOverdueRepairedModalVisible(false);
+
+                          navigation.navigate(
+                            "ClientInterventionsPage",
+                            { clientId: item.client_id }
+                          );
+                        }}
+                        style={{
+                          paddingVertical: 10,
+                          paddingHorizontal: 14,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          borderWidth: 1,
+                          borderColor: "#fca5a5",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: "#991b1b",
+                            fontSize: 13,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          Voir la fiche
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
 
         <BottomMenu
           onFilterCommande={filterClientsWithCommandeEnCours}
@@ -5013,10 +7432,287 @@ const onPick = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Choix de la source d'une photo d'intervention (ajout depuis la Home) */}
+      <Modal
+        visible={!!photoChoiceIntervention}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoChoiceIntervention(null)}
+      >
+        <Pressable
+          style={styles.photoChoiceOverlay}
+          onPress={() => setPhotoChoiceIntervention(null)}
+        >
+          <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+            <Text style={styles.photoChoiceTitle}>Ajouter une image</Text>
+            <Text style={styles.photoChoiceSubtitle}>
+              Choisissez la source de l'image.
+            </Text>
+
+            {[
+              {
+                label: "📷 Appareil photo",
+                onPress: () =>
+                  takeAndUploadInterventionPhoto(photoChoiceIntervention.id),
+              },
+              {
+                label: "🖼️ Galerie",
+                onPress: () =>
+                  pickAndUploadInterventionPhoto(photoChoiceIntervention.id),
+              },
+              {
+                label: "🔍 Recherche web",
+                onPress: () =>
+                  openWebImageSearchForIntervention(photoChoiceIntervention),
+              },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.label}
+                style={styles.photoChoiceOption}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setPhotoChoiceIntervention(null);
+                  option.onPress();
+                }}
+              >
+                <Text style={styles.photoChoiceOptionText}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.photoChoiceCancel}
+              activeOpacity={0.75}
+              onPress={() => setPhotoChoiceIntervention(null)}
+            >
+              <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Choix de la source d'une photo de commande (ajout depuis la Home) */}
+      <Modal
+        visible={!!photoChoiceOrder}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoChoiceOrder(null)}
+      >
+        <Pressable
+          style={styles.photoChoiceOverlay}
+          onPress={() => setPhotoChoiceOrder(null)}
+        >
+          <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+            <Text style={styles.photoChoiceTitle}>Ajouter une image</Text>
+            <Text style={styles.photoChoiceSubtitle}>
+              Choisissez la source de l'image.
+            </Text>
+
+            {[
+              {
+                label: "📷 Appareil photo",
+                onPress: () => takeAndUploadOrderPhoto(photoChoiceOrder.id),
+              },
+              {
+                label: "🖼️ Galerie",
+                onPress: () => pickAndUploadOrderPhoto(photoChoiceOrder.id),
+              },
+              {
+                label: "🔍 Recherche web",
+                onPress: () => openWebImageSearchForOrder(photoChoiceOrder),
+              },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.label}
+                style={styles.photoChoiceOption}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setPhotoChoiceOrder(null);
+                  option.onPress();
+                }}
+              >
+                <Text style={styles.photoChoiceOptionText}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.photoChoiceCancel}
+              activeOpacity={0.75}
+              onPress={() => setPhotoChoiceOrder(null)}
+            >
+              <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Choix de la source d'une photo d'appareil liée à une commande (ajout depuis la Home) */}
+      <Modal
+        visible={!!photoChoiceOrderProduct}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoChoiceOrderProduct(null)}
+      >
+        <Pressable
+          style={styles.photoChoiceOverlay}
+          onPress={() => setPhotoChoiceOrderProduct(null)}
+        >
+          <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+            <Text style={styles.photoChoiceTitle}>Ajouter une image</Text>
+            <Text style={styles.photoChoiceSubtitle}>
+              Choisissez la source de l'image.
+            </Text>
+
+            {[
+              {
+                label: "📷 Appareil photo",
+                onPress: () =>
+                  takeAndUploadOrderProductPhoto(photoChoiceOrderProduct.id),
+              },
+              {
+                label: "🖼️ Galerie",
+                onPress: () =>
+                  pickAndUploadOrderProductPhoto(photoChoiceOrderProduct.id),
+              },
+              {
+                label: "🔍 Recherche web",
+                onPress: () =>
+                  openWebImageSearchForOrder(photoChoiceOrderProduct),
+              },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.label}
+                style={styles.photoChoiceOption}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setPhotoChoiceOrderProduct(null);
+                  option.onPress();
+                }}
+              >
+                <Text style={styles.photoChoiceOptionText}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.photoChoiceCancel}
+              activeOpacity={0.75}
+              onPress={() => setPhotoChoiceOrderProduct(null)}
+            >
+              <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Zoom plein écran (photo de commande ou d'intervention) */}
+      <Modal
+        visible={imageModalVisible}
+        animationType="fade"
+        transparent={false}
+        presentationStyle="fullScreen"
+        statusBarTranslucent={true}
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <Pressable
+          style={styles.fullscreenContainer}
+          onPress={() => setImageModalVisible(false)}
+        >
+          {imageModalUrl && (
+            <Image
+              source={{ uri: imageModalUrl }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          )}
+          <View style={styles.fullscreenClose}>
+            <Text style={styles.fullscreenCloseText}>✕</Text>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 const styles = StyleSheet.create({
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullscreenImage: { width: "100%", height: "100%" },
+  fullscreenClose: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fullscreenCloseText: { color: "#fff", fontWeight: "700", fontSize: 18 },
+  photoChoiceOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  photoChoiceCard: {
+    width: 340,
+    maxWidth: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  photoChoiceTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  photoChoiceSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  photoChoiceOption: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  photoChoiceOptionText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  photoChoiceCancel: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  photoChoiceCancelText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#dc2626",
+  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(7, 7, 7, 0)",
@@ -5028,6 +7724,7 @@ const styles = StyleSheet.create({
     paddingBottom: 230, // ✅ réserve de l’espace en bas (onglets + BottomMenu)
   },
   toggleButton: {
+	height: 46,
     flexDirection: "row",
     flex: 1,
     alignItems: "center",
@@ -5035,7 +7732,7 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: "#cacaca",
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 0,
   },
   toggleText: {
     marginLeft: 2,
@@ -5112,11 +7809,6 @@ const styles = StyleSheet.create({
   contentText: {
     fontSize: 20,
     fontWeight: "bold",
-  },
-  repairedCountContainer: {
-    backgroundColor: "#cacaca", // Fond blanc pour le contraste
-    padding: 10,
-    borderRadius: 10,
   },
   repairedCountButton: {
     flexDirection: "row", // Pour aligner l'icône et le texte horizontalement
@@ -5462,9 +8154,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   buttonContainerMasquer: {
-    flexDirection: "row",
-    gap: 5,
-  },
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+},
   alertBox: {
     width: "85%",
     maxWidth: 400,
@@ -5564,24 +8257,6 @@ dotsRow: {
     backgroundColor: "#2563eb",
     transform: [{ scale: 1.15 }],
   },
-  backToStartBtn: {
-    position: "absolute",
-    top: -40,
-    right: 10,
-  alignSelf: "center",
-  marginTop: 10,
-  marginBottom: 10,
-  paddingHorizontal: 14,
-  paddingVertical: 10,
-  borderRadius: 12,
-  backgroundColor: "#111827",},
-  backToStartText: {
-  color: "#ffffff",
-  fontWeight: "800",
-  fontSize: 13,
-  letterSpacing: 0.2,
-},
-
   iconCircle: {
     backgroundColor: "#575757", // Couleur de fond gris
     width: 32, // Diamètre du cercle
@@ -5681,22 +8356,6 @@ dotsRow: {
     fontSize: 16,
     color: "#333333",
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-    marginBottom: 4,
-  },
-
-  searchInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-    color: "#000",
-  },
-
   searchIcon: {
     marginLeft: 8,
   },
@@ -6048,7 +8707,7 @@ elevation: 20,
     fontSize: 15,
     color: "#7f1d1d",
     marginTop: 6,
-  
+  },
   // ✅ Bouton fin de slider (retour aux 2 premières fiches)
   backToStartBtn: {
     alignSelf: "center",
@@ -6067,6 +8726,67 @@ elevation: 20,
     fontSize: 14,
     letterSpacing: 0.2,
   },
+reminderBox: {
+  width: "100%",
+  marginTop: 6,
+  marginBottom: 8,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  borderWidth: 1,
+  borderColor: "#cbd5e1",
+  borderRadius: 8,
+  backgroundColor: "#f8fafc",
+},
+
+reminderBoxTitle: {
+  marginBottom: 6,
+  fontSize: 11,
+  fontWeight: "bold",
+  color: "#475569",
+},
+
+reminderItem: {
+  paddingHorizontal: 9,
+  paddingVertical: 7,
+  borderRadius: 7,
+  backgroundColor: "#ffffff",
+},
+
+reminderItemInfo: {
+  backgroundColor: "#e0f2fe",
+  borderLeftWidth: 4,
+  borderLeftColor: "#0369a1",
+},
+
+reminderItemLoan: {
+  backgroundColor: "#fff7ed",
+  borderLeftWidth: 4,
+  borderLeftColor: "#b45309",
+},
+
+reminderItemSpacing: {
+  marginTop: 6,
+},
+
+reminderLoanTitle: {
+  fontSize: 12,
+  fontWeight: "bold",
+  color: "#b45309",
+  letterSpacing: 0.3,
+},
+
+reminderInfoTitle: {
+  fontSize: 12,
+  fontWeight: "bold",
+  color: "#0369a1",
+  letterSpacing: 0.3,
+},
+
+reminderText: {
+  marginTop: 2,
+  fontSize: 13,
+  fontWeight: "600",
+  color: "#334155",
 },
 });
 const stylesNS = StyleSheet.create({
@@ -6104,15 +8824,6 @@ const stylesNS = StyleSheet.create({
     textAlign: "center",
     marginBottom: 12,
   },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: "#f9fafb",
-    marginBottom: 8,
-  },
   rowIcon: { width: 26, height: 26, marginRight: 12 },
   rowTextWrap: { flex: 1 },
   rowTitle: { fontSize: 16, color: "#111827", fontWeight: "600" },
@@ -6130,7 +8841,6 @@ const stylesNS = StyleSheet.create({
   amountLine: { fontSize: 16, color: "#242424", fontWeight: "600" },
   amountMain: { fontWeight: "800", color: "#242424" },
   amountHint: { fontSize: 14, color: "#666", fontStyle: "italic" }, // affiché à droite
-  dueHint: { fontSize: 14, color: "#666", fontStyle: "italic" },
 
   dueRow: {
     width: "100%",
@@ -6199,7 +8909,7 @@ const stylesNS = StyleSheet.create({
     color: "#1e3a8a",
   },
 
-  closeBtn: {
+  ordersCloseBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -6378,40 +9088,6 @@ const stylesNS = StyleSheet.create({
     fontSize: 12,
     color: "#6b7280",
   },
-  tabsRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  backgroundColor: "#ccd9ec",
-  borderRadius: 10,
-  overflow: "hidden",
-  borderWidth: 1,
-  borderColor: "#aab7cc",
-  marginBottom: 8,
-},
-
-tabBtn: {
-  flex: 1,
-  paddingVertical: 10,
-  alignItems: "center",
-  justifyContent: "center",
-  flexDirection: "row",
-  gap: 6,
-},
-
-tabBtnActive: {
-  backgroundColor: "#ffffff",
-},
-
-tabText: {
-  fontSize: 14,
-  fontWeight: "800",
-  color: "#374151",
-},
-
-tabTextActive: {
-  color: "#111827",
-},
-
 tabBadge: {
   minWidth: 22,
   height: 22,

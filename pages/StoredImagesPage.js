@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     StyleSheet,
     Clipboard,
-    Alert,
     FlatList,
     ActivityIndicator,
     Modal,
@@ -17,12 +16,24 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 export default function StoredImagesPage() {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [rawProgress, setRawProgress] = useState(0);
     const animatedProgress = useRef(new Animated.Value(0)).current;
+    const [imagePathToDelete, setImagePathToDelete] = useState(null);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message || "");
+        setAlertVisible(true);
+    };
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedImage, setSelectedImage] = useState(null);
     const [search, setSearch] = useState("");
@@ -153,22 +164,11 @@ export default function StoredImagesPage() {
 
     const copyToClipboard = (url) => {
         Clipboard.setString(url);
-        Alert.alert("Lien copié dans le presse-papier");
+        showAlert("Lien copié dans le presse-papier");
     };
 
     const confirmDeleteImage = (path) => {
-        Alert.alert(
-            "Confirmer la suppression",
-            "Es-tu sûr de vouloir supprimer cette image ?",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: () => deleteImage(path),
-                },
-            ]
-        );
+        setImagePathToDelete(path);
     };
 
     const deleteImage = async (path) => {
@@ -176,7 +176,7 @@ export default function StoredImagesPage() {
         if (error) {
             console.error("Erreur suppression :", error);
         } else {
-            Alert.alert("Image supprimée");
+            showAlert("Image supprimée");
             setImages((prev) => prev.filter((img) => img.path !== path));
         }
     };
@@ -404,6 +404,27 @@ export default function StoredImagesPage() {
                     </TouchableOpacity>
                 </View>
             )}
+
+            <AlertBox
+                visible={!!imagePathToDelete}
+                title="Confirmer la suppression"
+                message="Es-tu sûr de vouloir supprimer cette image ?"
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setImagePathToDelete(null)}
+                onConfirm={() => {
+                    const path = imagePathToDelete;
+                    setImagePathToDelete(null);
+                    deleteImage(path);
+                }}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 }
@@ -476,7 +497,6 @@ const styles = StyleSheet.create({
         gap: 20,
     },
     pageButton: { fontSize: 18 },
-    pageNumber: { fontSize: 16, fontWeight: "bold" },
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.9)",

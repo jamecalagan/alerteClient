@@ -55,6 +55,5 @@ export const lightTheme = {
 	}
   });
   
-  const styles = getStyles(theme);
   
   

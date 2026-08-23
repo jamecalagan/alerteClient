@@ -6,15 +6,19 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function EditExpressPage() {
   const navigation = useNavigation();
   const route = useRoute();
   const { expressData } = route.params;
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [updateSucceeded, setUpdateSucceeded] = useState(false);
 
 const [form, setForm] = useState({
   name: "",
@@ -65,10 +69,15 @@ const [form, setForm] = useState({
 
     if (error) {
 		console.log("❌ Supabase update error:", error);
-      Alert.alert("Erreur", "Impossible de modifier la fiche.");
+      setAlertTitle("Erreur");
+      setAlertMessage("Impossible de modifier la fiche.");
+      setUpdateSucceeded(false);
+      setAlertVisible(true);
     } else {
-      Alert.alert("Succès", "Fiche mise à jour !");
-      navigation.goBack();
+      setAlertTitle("Succès");
+      setAlertMessage("Fiche mise à jour !");
+      setUpdateSucceeded(true);
+      setAlertVisible(true);
     }
   };
 
@@ -114,6 +123,16 @@ const [form, setForm] = useState({
       >
         <Text style={styles.buttonText}>Annuler</Text>
       </TouchableOpacity>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => {
+          setAlertVisible(false);
+          if (updateSucceeded) navigation.goBack();
+        }}
+      />
     </ScrollView>
   );
 }

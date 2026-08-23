@@ -317,21 +317,11 @@ const styles = StyleSheet.create({
   floatingLabel: { position: "absolute", top: 12, left: 12, fontSize: 13, color: "#888", zIndex: 1 },
   floatingLabelFocused: { top: -10, left: 10, fontSize: 12, color: "#444", backgroundColor: "#f9f9f9", paddingHorizontal: 4, borderRadius: 4 },
 
-  card: {
-    backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#dcdcdc",
-    padding: 16, borderRadius: 10, marginBottom: 14,
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
-  },
   number: { fontWeight: "600", fontSize: 16, marginBottom: 4, color: "#2c2c2c" },
   client: { fontSize: 15, marginBottom: 4, color: "#444" },
   meta: { fontSize: 13, color: "#555", marginBottom: 2 },
   date: { fontSize: 13, color: "#777" },
-  labelsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
-  statusLabel: { alignSelf: "flex-start", backgroundColor: "#888", color: "#fff", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, fontSize: 12, marginTop: 8 },
   total: { marginTop: 6, fontWeight: "600", fontSize: 15, textAlign: "right", color: "#111" },
-  actionRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, gap: 10 },
-  actionButton: { flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: "center", backgroundColor: "#999999" },
-  buttonText: { color: "#f5f5f5", fontWeight: "500", fontSize: 14 },
   empty: { textAlign: "center", marginTop: 20, color: "#999" },
   returnButton: { backgroundColor: "#888888", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 8, marginHorizontal: 16 },
   modalOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 999 },
@@ -378,10 +368,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: "#1d4ed8",
-  },
-  cardClientBlock: {
-    marginTop: 4,
-    marginBottom: 4,
   },
   cardClient: {
     fontSize: 14,

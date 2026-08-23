@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, TextInput, FlatList, Alert, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, FlatList, StyleSheet } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
+import CustomAlert from "../components/CustomAlert";
 
 const AddProductPage = () => {
     const navigation = useNavigation();
-    
+
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
+
     const [productList, setProductList] = useState([]);
     const [brandList, setBrandList] = useState([]);
     const [modelList, setModelList] = useState([]);
@@ -66,56 +77,56 @@ const AddProductPage = () => {
     };
 
 	const addProduct = async () => {
-		if (!newProduct.trim()) return Alert.alert("Erreur", "Nom du produit requis !");
+		if (!newProduct.trim()) return showAlert("Erreur", "Nom du produit requis !");
 		
 		const { data, error } = await supabase.from("article").insert([{ nom: newProduct }]).select().single();
 	
 		if (error) {
 			console.error("Erreur ajout produit :", error);
-			Alert.alert("Erreur", "Impossible d'ajouter le produit.");
+			showAlert("Erreur", "Impossible d'ajouter le produit.");
 		} else {
 			setSelectedProduct(data.id); // Sélectionner automatiquement le nouveau produit
 			setRecapProduct({ produit: data.nom, marque: null, modele: null }); // Initialisation recap
 			setNewProduct("");
-			Alert.alert("Succès", "Produit ajouté !");
+			showAlert("Succès", "Produit ajouté !");
 			loadProducts(); // Recharger les produits
 		}
 	};
 	
 
 	const addBrand = async () => {
-		if (!selectedProduct) return Alert.alert("Erreur", "Sélectionnez un produit.");
-		if (!newBrand.trim()) return Alert.alert("Erreur", "Nom de la marque requis !");
+		if (!selectedProduct) return showAlert("Erreur", "Sélectionnez un produit.");
+		if (!newBrand.trim()) return showAlert("Erreur", "Nom de la marque requis !");
 	
 		const { data, error } = await supabase.from("marque").insert([{ nom: newBrand, article_id: selectedProduct }]).select().single();
 	
 		if (error) {
 			console.error("Erreur ajout marque :", error);
-			Alert.alert("Erreur", "Impossible d'ajouter la marque.");
+			showAlert("Erreur", "Impossible d'ajouter la marque.");
 		} else {
 			setSelectedBrand(data.id);
 			setRecapProduct((prev) => ({ ...prev, marque: data.nom })); // Mise à jour recap
 			setNewBrand("");
-			Alert.alert("Succès", "Marque ajoutée !");
+			showAlert("Succès", "Marque ajoutée !");
 			loadBrands(selectedProduct);
 		}
 	};
 	
 
 	const addModel = async () => {
-		if (!selectedProduct) return Alert.alert("Erreur", "Sélectionnez un produit.");
-		if (!selectedBrand) return Alert.alert("Erreur", "Sélectionnez une marque.");
-		if (!newModel.trim()) return Alert.alert("Erreur", "Nom du modèle requis !");
+		if (!selectedProduct) return showAlert("Erreur", "Sélectionnez un produit.");
+		if (!selectedBrand) return showAlert("Erreur", "Sélectionnez une marque.");
+		if (!newModel.trim()) return showAlert("Erreur", "Nom du modèle requis !");
 	
 		const { data, error } = await supabase.from("modele").insert([{ nom: newModel, marque_id: selectedBrand, article_id: selectedProduct }]).select().single();
 	
 		if (error) {
 			console.error("Erreur ajout modèle :", error);
-			Alert.alert("Erreur", "Impossible d'ajouter le modèle.");
+			showAlert("Erreur", "Impossible d'ajouter le modèle.");
 		} else {
 			setRecapProduct((prev) => ({ ...prev, modele: data.nom })); // Mise à jour recap
 			setNewModel("");
-			Alert.alert("Succès", "Modèle ajouté !");
+			showAlert("Succès", "Modèle ajouté !");
 			loadModels(selectedBrand);
 		}
 	};
@@ -224,8 +235,15 @@ const AddProductPage = () => {
         <Text style={{ fontSize: 20, color: "#3c763d" }}>📌 Modèle : {recapProduct.modele}</Text>
     </View>
 )}
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
-		
+
     );
 };
 

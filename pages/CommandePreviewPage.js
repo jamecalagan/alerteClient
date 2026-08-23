@@ -1,12 +1,22 @@
 import React, { useRef, useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 export default function CommandePreviewPage({ route }) {
   const { order } = route.params || {};
   const client = order?.client || {};
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   // ===== Utilitaires =====
   const sanitizeNumber = (v) => {
@@ -69,7 +79,7 @@ export default function CommandePreviewPage({ route }) {
 
   const handlePrint = async () => {
     if (!signatureData) {
-      Alert.alert("Signature requise", "Veuillez faire signer la commande avant impression.");
+      showAlert("Signature requise", "Veuillez faire signer la commande avant impression.");
       return;
     }
 
@@ -176,7 +186,7 @@ export default function CommandePreviewPage({ route }) {
       if (!error) setIsPrinted(true);
     } catch (e) {
       console.error("❌ Impression:", e);
-      Alert.alert("Erreur", "Impossible d'imprimer ce document.");
+      showAlert("Erreur", "Impossible d'imprimer ce document.");
     }
   };
 
@@ -226,6 +236,13 @@ export default function CommandePreviewPage({ route }) {
       <TouchableOpacity style={styles.button} onPress={handlePrint}>
         <Text style={styles.buttonText}>🖨️ Imprimer la commande</Text>
       </TouchableOpacity>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }

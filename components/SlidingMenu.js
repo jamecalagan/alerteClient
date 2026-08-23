@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import {
     Animated,
     Text,
     TouchableOpacity,
     Image,
-    Alert,
     StyleSheet,
     View,
 } from "react-native";
+import AlertBox from "./AlertBox";
 
 export default function SlidingMenu({
     slideAnim,
@@ -17,6 +17,7 @@ export default function SlidingMenu({
     resetFilter,
     handleLogout,
 }) {
+    const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
     const getIconColor = (status) => {
         // Exemple de logique pour colorer les icônes en fonction du statut
         switch (status) {
@@ -153,24 +154,7 @@ export default function SlidingMenu({
 
             <TouchableOpacity
                 style={styles.drawerItem}
-                onPress={() => {
-                    Alert.alert(
-                        "Confirmation",
-                        "Êtes-vous sûr de vouloir vous déconnecter ?",
-                        [
-                            { text: "Annuler", style: "cancel" },
-                            {
-                                text: "Déconnexion",
-                                onPress: async () => {
-                                    toggleMenu();
-                                    await handleLogout();
-                                },
-                                style: "destructive",
-                            },
-                        ],
-                        { cancelable: true }
-                    );
-                }}
+                onPress={() => setLogoutConfirmVisible(true)}
             >
                 <Image
                     source={require("../assets/icons/disconnects.png")} // Icône pour déconnexion
@@ -294,6 +278,20 @@ export default function SlidingMenu({
                 />
                 <Text style={styles.drawerItemText}>RÉINITIALISER</Text>
             </TouchableOpacity>
+
+            <AlertBox
+                visible={logoutConfirmVisible}
+                title="Confirmation"
+                message="Êtes-vous sûr de vouloir vous déconnecter ?"
+                cancelText="Annuler"
+                confirmText="Déconnexion"
+                onClose={() => setLogoutConfirmVisible(false)}
+                onConfirm={async () => {
+                    setLogoutConfirmVisible(false);
+                    toggleMenu();
+                    await handleLogout();
+                }}
+            />
         </Animated.View>
     );
 }

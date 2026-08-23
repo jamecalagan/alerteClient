@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Print from "expo-print";
+import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
 
 const USB_COST = 20; // conforme à ExpressVideoPage
@@ -51,6 +52,8 @@ const BillingPage = () => {
   const order_id = expressData.order_id || null;
   const express_id =
     route.params?.express_id ?? expressData.express_id ?? null;
+  const intervention_id =
+    route.params?.intervention_id ?? expressData.intervention_id ?? null;
 
   const [quoteNumber, setQuoteNumber] = useState(null);
   const [clientSuggestions, setClientSuggestions] = useState([]);
@@ -71,6 +74,7 @@ const BillingPage = () => {
     { designation: "", quantity: "1", price: "", serial: "" },
   ]);
   const [isSaved, setIsSaved] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Numéro de facture auto
   const generateInvoiceNumber = async () => {
@@ -304,51 +308,7 @@ const BillingPage = () => {
   const totalht = totalttc / (1 + tvaRate);
   const totaltva = totalttc - totalht;
 
-  const handlePrint = async () => {
-    if (!clientname.trim())
-      return alert("❌ Merci d'entrer le nom du client.");
-    if (!clientphone.trim())
-      return alert("❌ Merci d'entrer le numéro de téléphone.");
-    if (!paymentmethod.trim())
-      return alert("❌ Merci de sélectionner un mode de paiement.");
-
-    if (lines.length === 0) {
-      return alert("❌ Merci d’ajouter au moins une ligne de prestation.");
-    }
-
-    if (useGlobalTotal) {
-      // Mode "coût total unique" : on ne demande pas les P.U.
-      if (
-        lines.some(
-          (l) =>
-            !String(l.designation).trim() || !String(l.quantity).trim()
-        )
-      ) {
-        return alert(
-          "❌ Merci de remplir toutes les lignes (désignation et quantité)."
-        );
-      }
-      if (!globalTotal || isNaN(n(globalTotal))) {
-        return alert(
-          "❌ Merci de renseigner le montant total TTC (coût global)."
-        );
-      }
-    } else {
-      // Mode classique
-      if (
-        lines.some(
-          (l) =>
-            !String(l.designation).trim() ||
-            !String(l.quantity).trim() ||
-            !String(l.price).trim()
-        )
-      ) {
-        return alert(
-          "❌ Merci de remplir toutes les lignes (désignation, quantité et P.U.)."
-        );
-      }
-    }
-
+  const buildInvoiceHtml = () => {
     const n2 = (x) =>
       (Number.isFinite(x) ? x.toFixed(2) : "0,00").replace(".", ",");
     const n2p = (x) => (Number.isFinite(x) ? x.toFixed(2) : "0.00");
@@ -578,11 +538,62 @@ const BillingPage = () => {
       <!-- Pied de page : infos société -->
       <div class="footer">
         <strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
+        RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457<br/>
         Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
-        En cas de litige, le tribunal de Bobigny est seul compétent. TVA non applicable, art. 293B du CGI.
+        En cas de litige, le tribunal de Bobigny est seul compétent.
       </div>
     </body>
   </html>`;
+
+    return html;
+  };
+
+  const handlePrint = async () => {
+    if (!clientname.trim())
+      return alert("❌ Merci d'entrer le nom du client.");
+    if (!clientphone.trim())
+      return alert("❌ Merci d'entrer le numéro de téléphone.");
+    if (!paymentmethod.trim())
+      return alert("❌ Merci de sélectionner un mode de paiement.");
+
+    if (lines.length === 0) {
+      return alert("❌ Merci d’ajouter au moins une ligne de prestation.");
+    }
+
+    if (useGlobalTotal) {
+      // Mode "coût total unique" : on ne demande pas les P.U.
+      if (
+        lines.some(
+          (l) =>
+            !String(l.designation).trim() || !String(l.quantity).trim()
+        )
+      ) {
+        return alert(
+          "❌ Merci de remplir toutes les lignes (désignation et quantité)."
+        );
+      }
+      if (!globalTotal || isNaN(n(globalTotal))) {
+        return alert(
+          "❌ Merci de renseigner le montant total TTC (coût global)."
+        );
+      }
+    } else {
+      // Mode classique
+      if (
+        lines.some(
+          (l) =>
+            !String(l.designation).trim() ||
+            !String(l.quantity).trim() ||
+            !String(l.price).trim()
+        )
+      ) {
+        return alert(
+          "❌ Merci de remplir toutes les lignes (désignation, quantité et P.U.)."
+        );
+      }
+    }
+
+    const html = buildInvoiceHtml();
 
     await Print.printAsync({ html });
   };
@@ -650,9 +661,10 @@ const BillingPage = () => {
         return alert("❌ Erreur lors de la vérification de la facture.");
       }
 
-      // 2) Vérifier que express_id et order_id existent réellement (sinon null)
+      // 2) Vérifier que express_id, order_id et intervention_id existent réellement (sinon null)
       let expressIdForDB = express_id ?? null;
       let orderIdForDB = order_id ?? null;
+      let interventionIdForDB = intervention_id ?? null;
 
       if (expressIdForDB != null) {
         const { data: exRow, error: exErr } = await supabase
@@ -675,6 +687,18 @@ const BillingPage = () => {
         if (orErr || !orRow) {
           console.warn("⚠️ order_id invalide → mise à null");
           orderIdForDB = null;
+        }
+      }
+
+      if (interventionIdForDB != null) {
+        const { data: itRow, error: itErr } = await supabase
+          .from("interventions")
+          .select("id")
+          .eq("id", interventionIdForDB)
+          .maybeSingle();
+        if (itErr || !itRow) {
+          console.warn("⚠️ intervention_id invalide → mise à null");
+          interventionIdForDB = null;
         }
       }
 
@@ -713,6 +737,7 @@ const BillingPage = () => {
         paid,
         express_id: expressIdForDB, // ✅ seulement si présent en BDD
         order_id: orderIdForDB, // ✅ idem
+        intervention_id: interventionIdForDB, // ✅ idem
       };
 
       // 5) Insert / Update
@@ -774,6 +799,26 @@ const BillingPage = () => {
 
   return (
     <View style={{ flex: 1 }}>
+      <TouchableOpacity
+        onPress={() => setPreviewMode((v) => !v)}
+        style={{
+          backgroundColor: previewMode ? "#374151" : "#2563eb",
+          paddingVertical: 12,
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+          {previewMode ? "✏️ Retour au formulaire" : "👁️ Aperçu de la facture"}
+        </Text>
+      </TouchableOpacity>
+
+      {previewMode ? (
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: buildInvoiceHtml() }}
+          style={{ flex: 1 }}
+        />
+      ) : (
       <ScrollView
         contentContainerStyle={[
           styles.container,
@@ -889,16 +934,12 @@ const BillingPage = () => {
           </Text>
           <TextInput
             value={invoicenumber}
-            onChangeText={setInvoiceNumber}
+            editable={false}
             style={[
               styles.input,
-              (focusedField === "invoice" || invoicenumber) && {
-                paddingTop: 18,
-              },
-              focusedField === "invoice" && styles.inputFocused,
+              { backgroundColor: "#F3F4F6", color: "#6B7280" },
+              invoicenumber && { paddingTop: 18 },
             ]}
-            onFocus={() => setFocusedField("invoice")}
-            onBlur={() => setFocusedField(null)}
           />
         </View>
 
@@ -1278,6 +1319,7 @@ const BillingPage = () => {
         </View>
 
       </ScrollView>
+      )}
 
       {/* Retour fixe */}
       <TouchableOpacity
@@ -1365,8 +1407,6 @@ const styles = StyleSheet.create({
 
   lineRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
 
-  cellHeader: { fontWeight: "bold", color: "#222" },
-
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1382,13 +1422,6 @@ const styles = StyleSheet.create({
   },
 
   buttonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-
-  paymentRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginVertical: 20,
-  },
 
   paymentButton: {
     flex: 1,

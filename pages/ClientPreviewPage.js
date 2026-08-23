@@ -6,12 +6,12 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
   SafeAreaView,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as Print from "expo-print";
+import CustomAlert from "../components/CustomAlert";
 
 // ———————————————————————————————————————————
 // Aide : formatage
@@ -34,6 +34,15 @@ const fmtDate = (v) => {
 
 export default function ClientPreviewPage() {
   const [clientInfo, setClientInfo] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const route = useRoute();
   const navigation = useNavigation();
 
@@ -156,19 +165,19 @@ export default function ClientPreviewPage() {
 
   const handlePrint = async () => {
     if (!clientInfo) {
-      Alert.alert("Erreur", "Les informations du client ne sont pas disponibles.");
+      showAlert("Erreur", "Les informations du client ne sont pas disponibles.");
       return;
     }
 
     const itv = clientInfo.latestIntervention;
     if (!itv) {
-      Alert.alert("Erreur", "Aucune intervention trouvée pour ce client.");
+      showAlert("Erreur", "Aucune intervention trouvée pour ce client.");
       return;
     }
 
     const ficheDate = itv?.createdAt ?? clientInfo.createdAt;
     const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-      clientInfo.name
+      String(clientInfo.ficheNumber ?? clientInfo.name)
     )}%20`;
     const priceBlock = buildPriceBlockHTML(itv);
 
@@ -362,7 +371,8 @@ export default function ClientPreviewPage() {
         <div class="company-details">
           <p class="single-line-details">
             AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy<br/>
-            Téléphone : 01 41 60 18 18
+            Téléphone : 01 41 60 18 18<br/>
+            SIRET : 422 240 457 00016 — RCS Bobigny B422 240 457 — N° TVA : FR32422240457
           </p>
         </div>
 
@@ -452,9 +462,16 @@ export default function ClientPreviewPage() {
             leur sauvegarde régulière.
           </p>
           <p class="terms-text">
-            Toute intervention effectuée par AVENIR INFORMATIQUE se fait sous
-            l’entière responsabilité du client. Le client reste seul responsable de
-            ses données.
+            En cas de perte de données lors d’une prestation et/ou d’une manipulation,
+            qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou
+            professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non
+            une sauvegarde récente ou ancienne de ses données sur un autre support.
+          </p>
+          <p class="terms-text">
+            Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait
+            sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en
+            aucun cas être tenue responsable de la perte éventuelle d’informations. Le
+            client reste donc seul responsable de ses données.
           </p>
           ${
             itv.accept_screen_risk
@@ -464,9 +481,16 @@ export default function ClientPreviewPage() {
                 </div>`
               : ""
           }
+          <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
           <p class="info-recup">
             Ce document (ou sa photo) est à présenter (par vous ou par un tiers
             désigné) le jour de la récupération de votre matériel.
+          </p>
+          <p class="terms-text" style="color:#666;">
+            Conformément au RGPD, vos données personnelles (dont votre signature) sont
+            conservées par AVENIR INFORMATIQUE à des fins de preuve commerciale, pour une
+            durée conforme aux obligations légales. Vous disposez d'un droit d'accès, de
+            rectification et de suppression de vos données auprès de nos services.
           </p>
         </div>
       </div>
@@ -486,7 +510,7 @@ export default function ClientPreviewPage() {
     try {
       await Print.printAsync({ html: htmlContent });
     } catch (error) {
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Erreur lors de l'impression : " + (error?.message || String(error))
       );
@@ -496,7 +520,7 @@ export default function ClientPreviewPage() {
   const handlePrintBoth = async () => {
     try {
       if (!clientInfo || !clientInfo.latestIntervention) {
-        Alert.alert("Erreur", "Les informations d'intervention ne sont pas disponibles.");
+        showAlert("Erreur", "Les informations d'intervention ne sont pas disponibles.");
         return;
       }
 
@@ -511,7 +535,7 @@ export default function ClientPreviewPage() {
         .single();
 
       if (checkupError || !checkupData) {
-        Alert.alert("Erreur", "Fiche de contrôle non trouvée pour ce client.");
+        showAlert("Erreur", "Fiche de contrôle non trouvée pour ce client.");
         return;
       }
 
@@ -519,7 +543,7 @@ export default function ClientPreviewPage() {
         phone.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
 
       const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-        clientInfo.name
+        String(clientInfo.ficheNumber ?? clientInfo.name)
       )}%20`;
 
       const min =
@@ -586,7 +610,7 @@ export default function ClientPreviewPage() {
   <img src="https://www.avenir-informatique.fr/logo.webp" class="logo" />
 </div>
 <div class="company-details">
-  <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy,<br> Téléphone : 01 41 60 18 18</p>
+  <p class="single-line-details">AVENIR INFORMATIQUE, 16 place de l'Hôtel de Ville 93700 Drancy,<br> Téléphone : 01 41 60 18 18<br>SIRET : 422 240 457 00016 — RCS Bobigny B422 240 457 — N° TVA : FR32422240457</p>
 </div>
 
 <div class="flex-row">
@@ -635,8 +659,10 @@ ${
     la commande ne pourra pas être annulée.
   </div>
 
-  <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
   <p class="terms-text">Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.</p>
+  <p class="terms-text">En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.</p>
+  <p class="terms-text">Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.</p>
+  <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
   ${
     intervention.accept_screen_risk
       ? `<div class="accept-risk">✅ J'accepte le risque de casse de l'écran – Produit : ${intervention.deviceType}</div>`
@@ -648,6 +674,7 @@ ${
       : ""
   }
   <p class="info-recup">Ce document (ou sa photo) est à présenter pour récupérer le matériel.</p>
+  <p class="terms-text" style="color:#666;">Conformément au RGPD, vos données personnelles (dont votre signature) sont conservées par AVENIR INFORMATIQUE à des fins de preuve commerciale, pour une durée conforme aux obligations légales. Vous disposez d'un droit d'accès, de rectification et de suppression de vos données auprès de nos services.</p>
 </div>
 
 <div class="section-title">Signature du Client</div>
@@ -684,7 +711,7 @@ ${checkupSignatureHtml}
 
       await Print.printAsync({ html: htmlContent });
     } catch (error) {
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Impossible d'imprimer les deux fiches : " + (error?.message || String(error))
       );
@@ -705,6 +732,9 @@ ${checkupSignatureHtml}
               16, place de l'Hôtel de Ville 93700 Drancy
             </Text>
             <Text style={styles.companyPhone}>01 41 60 18 18</Text>
+            <Text style={styles.companyLegal}>
+              SIRET : 422 240 457 00016 — RCS Bobigny B422 240 457
+            </Text>
           </View>
         </View>
 
@@ -848,6 +878,13 @@ ${checkupSignatureHtml}
           <Text style={styles.termsText}>
             En signant ce document, vous acceptez les conditions ci-dessus.
           </Text>
+          <Text style={[styles.termsText, { color: "#888" }]}>
+            Conformément au RGPD, vos données personnelles (dont votre signature)
+            sont conservées par AVENIR INFORMATIQUE à des fins de preuve
+            commerciale, pour une durée conforme aux obligations légales. Vous
+            disposez d'un droit d'accès, de rectification et de suppression de
+            vos données auprès de nos services.
+          </Text>
 
           {/* Signature + boutons impression */}
           <View style={styles.signatureSection}>
@@ -869,7 +906,7 @@ ${checkupSignatureHtml}
                     <Image
                       source={{
                         uri: `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(
-                          clientInfo.name
+                          String(clientInfo.ficheNumber ?? clientInfo.name)
                         )}%20`,
                       }}
                       style={{ width: 150, height: 60 }}
@@ -908,6 +945,13 @@ ${checkupSignatureHtml}
           </View>
         </View>
       </ScrollView>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -954,6 +998,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 14,
     color: "#555",
+  },
+  companyLegal: {
+    marginTop: 2,
+    fontSize: 10,
+    color: "#888",
+    textAlign: "center",
   },
 
   infoBlock: {

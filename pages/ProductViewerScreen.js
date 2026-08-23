@@ -6,16 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
-  Alert,
 } from "react-native";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ProductSearchEngine() {
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
+  const [alertVisible, setAlertVisible] = useState(false);
 
   const handleSearch = (type) => {
     if (!brand || !model) {
-      Alert.alert("Erreur", "Merci de saisir une marque et un modèle.");
+      setAlertVisible(true);
       return;
     }
 
@@ -70,6 +71,13 @@ export default function ProductSearchEngine() {
       >
         <Text style={styles.buttonText}>🖼️ Voir sur Google Images</Text>
       </TouchableOpacity>
+
+      <CustomAlert
+        visible={alertVisible}
+        title="Erreur"
+        message="Merci de saisir une marque et un modèle."
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }

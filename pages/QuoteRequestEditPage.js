@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, Platform,
+  View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Platform,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -9,6 +9,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const STORAGE_BUCKET = "quote-request-photos";
 
@@ -57,6 +58,15 @@ export default function QuoteRequestEditPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message || "");
+    setAlertVisible(true);
+  };
   const [uploading, setUploading] = useState(false);
 
   const fetchRequest = async () => {
@@ -98,7 +108,7 @@ export default function QuoteRequestEditPage() {
   const takePhoto = async () => {
     const camPerm = await ImagePicker.requestCameraPermissionsAsync();
     if (camPerm.status !== "granted") {
-      Alert.alert("Permission refusée", "Autorise l'appareil photo pour prendre des photos.");
+      showAlert("Permission refusée", "Autorise l'appareil photo pour prendre des photos.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -163,7 +173,7 @@ export default function QuoteRequestEditPage() {
 
   const handleSave = async () => {
     if (!clientName.trim()) {
-      Alert.alert("Information manquante", "Indique au moins le nom du client.");
+      showAlert("Information manquante", "Indique au moins le nom du client.");
       return;
     }
     setSaving(true);
@@ -191,14 +201,14 @@ export default function QuoteRequestEditPage() {
 
       const { error } = await supabase.from("quote_requests").update(payload).eq("id", id);
       if (error) {
-        Alert.alert("Erreur", "Mise à jour impossible : " + error.message);
+        showAlert("Erreur", "Mise à jour impossible : " + error.message);
         return;
       }
-      Alert.alert("✅ Demande mise à jour");
+      showAlert("✅ Demande mise à jour");
       setLocalPhotos([]); setRemovedPaths([]);
     } catch (e) {
       console.log(e);
-      Alert.alert("Erreur", "Une erreur est survenue.");
+      showAlert("Erreur", "Une erreur est survenue.");
     } finally {
       setSaving(false);
     }
@@ -359,6 +369,13 @@ export default function QuoteRequestEditPage() {
 
 
       <View style={{ height: 16 }} />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </KeyboardAwareScrollView>
   );
 }

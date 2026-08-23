@@ -11,19 +11,21 @@ import {
   Modal,
   Image,
   TouchableWithoutFeedback,
-  Alert,
   Keyboard,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system/legacy";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
 import * as ImageManipulator from "expo-image-manipulator";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+
+const REFERENCE_PHOTO_HINT = "Voir photo pour référence produit";
 
 const normalizeNumber = (v) => {
   if (v === null || v === undefined) return "";
@@ -32,7 +34,7 @@ const normalizeNumber = (v) => {
 
 const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
   const folder = isLabel ? "etiquettes" : "supplementaires";
-  const fileName = `${Date.now()}.jpg`;
+  const fileName = `${uuidv4()}.jpg`;
 
   const filePath = `${folder}/${interventionId}/${fileName}`;
   console.log("🧾 Chemin d'upload :", filePath);
@@ -78,6 +80,178 @@ const norm = (s) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+// Cause fréquente associée à chaque panne de la liste "fault_dictionary",
+// utilisée pour préremplir "Solution proposée" quand on choisit une panne.
+// Regroupé par device_type car certaines pannes portent le même intitulé
+// sur des appareils différents (ex: "Ne charge plus" console vs PC) sans
+// avoir la même cause.
+const PS5_SOLUTIONS = {
+  "Aucune image / HDMI":
+    "Port HDMI arraché ou pins abîmées, filtre/ESD, circuit HDMI",
+  "S'allume puis s'éteint":
+    "Alimentation, court-circuit carte mère, étage VRM, parfois APU",
+  "Aucun signe de vie":
+    "Alimentation ADP, fusible, court-circuit sur rail principal",
+  "Surchauffe / arrêt en jeu":
+    "Radiateur encrassé, ventilateur, métal liquide mal réparti/oxydation",
+  "Lecteur ne lit plus les jeux":
+    "Lentille/bloc optique, mécanisme, nappes, carte du lecteur",
+  "Lecteur avale/éjecte mal le disque":
+    "Mécanisme désynchronisé, moteur, capteurs",
+  "Erreur stockage / démarrage impossible":
+    "SSD interne/NAND, contrôleur, corruption système",
+  "Wi-Fi / Bluetooth faible ou absent":
+    "Antennes/connecteurs coaxiaux, module/circuit Wi-Fi-BT",
+  "Port USB ne fonctionne plus":
+    "Connecteur cassé, protection ESD, alimentation USB",
+  "Ventilateur tourne à fond en permanence":
+    "Refroidissement, sonde/température, radiateur obstrué",
+};
+
+const SWITCH_SOLUTIONS = {
+  "Ne charge plus":
+    "Port USB-C, M92T36, BQ24193/BQ24193R, fusible",
+  "Ne s'allume plus":
+    "M92T36, BQ24193, court-circuit, batterie",
+  "Charge très lentement / 0,4 A":
+    "USB-C, M92T36, négociation USB-PD",
+  "Pas d'image sur TV/dock":
+    "USB-C, P13USB/PI3USB, M92T36",
+  "USB-C cassé":
+    "Pins internes tordues/arrachées",
+  "Joy-Con non reconnu":
+    "Rail Joy-Con, nappe, connecteur",
+  "Joy-Con drift":
+    "Joystick analogique",
+  "Lecteur de jeux HS":
+    "Lecteur/cartouche, connecteur, carte fille",
+  "MicroSD non reconnue":
+    "Lecteur microSD/connecteur carte mère",
+  "Écran noir mais console active":
+    "LCD, rétroéclairage, nappe/connecteur",
+  "Ventilateur bruyant/HS":
+    "Ventilateur, poussière",
+  "Surchauffe":
+    "Pâte thermique, ventilateur, radiateur",
+  "Wi-Fi/Bluetooth":
+    "Antenne, coaxial, circuit RF",
+};
+
+const XBOX_SOLUTIONS = {
+  "Ne s'allume plus / aucun signe de vie":
+    "Bloc d'alimentation, fusible, court-circuit carte mère",
+  "S'allume puis s'éteint":
+    "Alimentation, court-circuit carte mère, étage VRM",
+  "Écran noir / pas de signal HDMI":
+    "Port HDMI, puce vidéo, GPU",
+  "Surchauffe / redémarrage en jeu":
+    "Pâte thermique, ventilateur encrassé, radiateur",
+  "Ventilateur bruyant/HS":
+    "Ventilateur, poussière",
+  "Erreur système / écran d'erreur":
+    "Corruption du stockage système, mise à jour ratée",
+  "Lecteur ne lit plus les disques":
+    "Lecteur optique, nappe, mécanisme",
+  "Stockage plein ou HS":
+    "SSD interne, carte d'extension de stockage",
+  "Wi-Fi/Bluetooth faible ou absent":
+    "Antenne, module Wi-Fi/Bluetooth",
+  "Port USB ne fonctionne plus":
+    "Connecteur cassé, protection ESD, alimentation USB",
+  "Manette ne se connecte plus":
+    "Synchronisation, batterie, module Bluetooth de la manette",
+};
+
+const PC_PORTABLE_SOLUTIONS = {
+  "Écran cassé":
+    "Dalle LCD/LED, nappe vidéo, charnières",
+  "Écran noir":
+    "Rétroéclairage, nappe vidéo, carte graphique, RAM",
+  "Pas d'affichage":
+    "Carte graphique, RAM, nappe vidéo, connecteur écran",
+  "Fonctionne uniquement sur secteur":
+    "Batterie HS ou à recalibrer, contrôleur de charge",
+  "Ne charge plus":
+    "Chargeur, connecteur de charge, contrôleur de charge, carte mère",
+  "Batterie ne tient plus la charge":
+    "Batterie usée, cycles de charge dépassés, calibrage",
+  "Clavier ne fonctionne plus":
+    "Nappe clavier, connecteur, liquide renversé, clavier HS",
+  "Connecteur de charge endommagé":
+    "Connecteur jack/USB-C cassé ou dessoudé, piste carte mère",
+  "Démarrage et arrêt aléatoires":
+    "Alimentation instable, RAM, surchauffe, carte mère",
+  "Ne démarre plus":
+    "Alimentation, RAM, carte mère, disque dur/SSD",
+  "Démarre puis s'éteint":
+    "Surchauffe, alimentation, court-circuit carte mère",
+  "Lenteur système":
+    "Disque dur HDD à remplacer par SSD, RAM insuffisante, virus/logiciels",
+  "Redémarre en boucle":
+    "RAM, disque dur/SSD, corruption système, surchauffe",
+  "Ordinateur très lent":
+    "Disque dur HDD, RAM insuffisante, virus, trop de logiciels au démarrage",
+  "Ventilateur bruyant":
+    "Poussière, roulement ventilateur, pâte thermique",
+  "Écran bleu":
+    "RAM défectueuse, pilote, disque dur, surchauffe",
+  "Mot de passe oublié":
+    "Réinitialisation compte Windows/BIOS",
+  "Windows ne démarre plus":
+    "Fichiers système corrompus, disque dur/SSD, mise à jour ratée",
+};
+
+const PC_FIXE_SOLUTIONS = {
+  "Pas d'affichage":
+    "Carte graphique, RAM, câble vidéo (HDMI/DisplayPort/VGA), moniteur",
+  "Ne démarre plus":
+    "Alimentation (bloc ATX), RAM, carte mère, disque dur/SSD",
+  "Redémarre en boucle":
+    "RAM, alimentation, carte mère, surchauffe",
+  "Ordinateur très lent":
+    "Disque dur HDD à remplacer par SSD, RAM insuffisante, virus/logiciels",
+  "Disque dur défectueux":
+    "Secteurs défectueux, câble SATA/alimentation, à remplacer",
+  "Windows ne démarre plus":
+    "Fichiers système corrompus, disque dur/SSD, mise à jour ratée",
+};
+
+const MANETTE_SOLUTIONS = {
+  "Joystick drift":
+    "Joystick analogique usé ou encrassé, à remplacer",
+  "Bouton bloqué / ne répond plus":
+    "Contact bouton, membrane, poussière",
+  "Ne se connecte plus / non détectée":
+    "Synchronisation Bluetooth, câble/port USB, pilote",
+  "Ne charge plus":
+    "Câble ou port de charge, batterie, contrôleur de charge",
+  "Batterie ne tient plus la charge":
+    "Batterie usée, cycles de charge dépassés",
+  "Se décharge rapidement même à l'arrêt":
+    "Batterie défaillante, fuite de courant, veille défectueuse",
+  "Vibration HS":
+    "Moteur de vibration, connecteur interne",
+  "Gâchettes dures ou bloquées":
+    "Ressort, mécanisme, poussière",
+  "Coque ou boutons cassés":
+    "Casse physique suite à une chute",
+  "Micro ou haut-parleur HS":
+    "Composant interne défectueux, connecteur",
+};
+
+// Clé = fault_dictionary.device_type exact (accents inclus)
+const FAULT_SUGGESTED_SOLUTIONS = {
+  "PlayStation 5": PS5_SOLUTIONS,
+  "Nintendo Switch": SWITCH_SOLUTIONS,
+  "Nintendo Switch Lite": SWITCH_SOLUTIONS,
+  "Nintendo Switch OLED": SWITCH_SOLUTIONS,
+  "Xbox Series X": XBOX_SOLUTIONS,
+  "Xbox Series S": XBOX_SOLUTIONS,
+  "PC portable": PC_PORTABLE_SOLUTIONS,
+  "PC Fixe": PC_FIXE_SOLUTIONS,
+  "Manette": MANETTE_SOLUTIONS,
+};
+
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params || {};
 
@@ -97,6 +271,18 @@ export default function AddInterventionPage({ route, navigation }) {
   const [password, setPassword] = useState("");
   const [commande, setCommande] = useState("");
   const [chargeur, setChargeur] = useState("Non");
+
+  // Modale de création rapide de commande (ouverte quand le statut passe à "En attente de pièces")
+  const [orderModalVisible, setOrderModalVisible] = useState(false);
+  const [orderProduct, setOrderProduct] = useState("");
+  const [orderBrand, setOrderBrand] = useState("");
+  const [orderModel, setOrderModel] = useState("");
+  const [orderUnitPrice, setOrderUnitPrice] = useState("");
+  const [orderQty, setOrderQty] = useState("1");
+  const [orderDeposit, setOrderDeposit] = useState("");
+  const [orderAmount, setOrderAmount] = useState(""); // montant de la dernière commande créée pour cette fiche
+  const [orderId, setOrderId] = useState(null); // id de la commande liée, pour le bouton "Voir la commande"
+  const [orderItems, setOrderItems] = useState([]); // produits déjà ajoutés à la commande en cours de création
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
@@ -113,6 +299,37 @@ export default function AddInterventionPage({ route, navigation }) {
   const [models, setModels] = useState([]);
   const [remarks, setRemarks] = useState("");
   const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
+  // Proposition de réparation faite avant la création de la fiche
+const [repairProposalMade, setRepairProposalMade] =
+  useState(false);
+
+const [repairProposal, setRepairProposal] =
+  useState("");
+
+const [repairProposalPrice, setRepairProposalPrice] =
+  useState("");
+
+const [repairProposalStatus, setRepairProposalStatus] =
+  useState("pending");
+
+const [repairProposalMethod, setRepairProposalMethod] =
+  useState("shop");
+
+const [repairProposalComment, setRepairProposalComment] =
+  useState("");
+  const [
+  loanedItemEnabled,
+  setLoanedItemEnabled,
+] = useState(false);
+// Matériel prêté
+const [loanedItem, setLoanedItem] =
+  useState("");
+
+const [
+  loanedItemReturned,
+  setLoanedItemReturned,
+] = useState(false);
+
   const [clientName, setClientName] = useState("");
   const [wantLabelPhoto, setWantLabelPhoto] = useState(false);
 
@@ -122,7 +339,7 @@ export default function AddInterventionPage({ route, navigation }) {
 
   const [partialPayment, setPartialPayment] = useState("");
 
-  // 👉 NOUVEAU : gestion “même matériel”
+  // 👉 gestion “même matériel”
   const [useSameDevice, setUseSameDevice] = useState(false);
   const [lastDevice, setLastDevice] = useState(null);
   const [loadingLastDevice, setLoadingLastDevice] = useState(false);
@@ -142,17 +359,54 @@ export default function AddInterventionPage({ route, navigation }) {
   const [modelQuery, setModelQuery] = useState("");
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
 
+	// ✅ Dictionnaire des descriptions de panne
+const [faultList, setFaultList] = useState([]);
+const [faultModalVisible, setFaultModalVisible] = useState(false);
+const [faultSearch, setFaultSearch] = useState("");
+const [faultLoading, setFaultLoading] = useState(false);
+
+const [newFaultModalVisible, setNewFaultModalVisible] =
+  useState(false);
+
+const [newFaultDescription, setNewFaultDescription] =
+  useState("");
+
+const [newFaultCategory, setNewFaultCategory] =
+  useState("");
+
+  const [alertOnClose, setAlertOnClose] = useState(null);
+
   const openAlert = (type, title, message) => {
     setAlertType(type);
     setAlertTitle(title);
     setAlertMessage(message);
+    setAlertOnClose(null);
     setAlertVisible(true);
   };
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const showAlert = (title, message, onCloseAction = null) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOnClose(() => onCloseAction);
+    setAlertVisible(true);
+  };
 
+  const [deletePhotoConfirmVisible, setDeletePhotoConfirmVisible] =
+    useState(false);
+  const [photoUriToDelete, setPhotoUriToDelete] = useState(null);
+
+  useEffect(() => {
+  loadProducts();
+  loadFaultDictionary();
+}, []);
+useEffect(() => {
+  if (
+    deviceType &&
+    deviceType !== "default"
+  ) {
+    loadFaultDictionary();
+  }
+}, [deviceType, customDeviceType, modelText, customModel]);
   useEffect(() => {
     const fetchClientName = async () => {
       const { data, error } = await supabase
@@ -171,7 +425,7 @@ export default function AddInterventionPage({ route, navigation }) {
     if (clientId) fetchClientName();
   }, [clientId]);
 
-  // 👉 NOUVEAU : on récupère la dernière intervention de ce client
+  // 👉 on récupère la dernière intervention de ce client
   useEffect(() => {
     const fetchLastDevice = async () => {
       if (!clientId) return;
@@ -205,6 +459,114 @@ export default function AddInterventionPage({ route, navigation }) {
 
     fetchLastDevice();
   }, [clientId]);
+
+  const getCurrentDeviceTypeName = () => {
+  if (deviceType === "Autre") {
+    return customDeviceType?.trim() || typeText?.trim() || "";
+  }
+
+  return deviceType && deviceType !== "default"
+    ? String(deviceType).trim()
+    : typeText?.trim() || "";
+};
+
+// Nom du modèle sélectionné (ex: "PlayStation 5"), pour affiner les
+// suggestions de pannes au-delà du simple type d'appareil (ex: "Console").
+const getCurrentModelName = () => {
+  if (model === "Autre") {
+    return customModel?.trim() || modelText?.trim() || "";
+  }
+  return modelText?.trim() || "";
+};
+
+// ✅ FIX #4 : requête sécurisée (deux requêtes fusionnées côté client,
+// évite tout souci d'échappement PostgREST dans .or() si currentType
+// contient une virgule ou un caractère spécial)
+const loadFaultDictionary = async () => {
+  setFaultLoading(true);
+
+  try {
+    const currentType = getCurrentDeviceTypeName();
+    const currentModel = getCurrentModelName();
+
+    if (currentType || currentModel) {
+      const baseSelect =
+        "id, device_type, category, description, active";
+
+      const queries = [
+        supabase
+          .from("fault_dictionary")
+          .select(baseSelect)
+          .eq("active", true)
+          .is("device_type", null),
+      ];
+
+      if (currentType) {
+        queries.push(
+          supabase
+            .from("fault_dictionary")
+            .select(baseSelect)
+            .eq("active", true)
+            .ilike("device_type", currentType)
+        );
+      }
+
+      // Suggestions spécifiques au modèle (ex: "PlayStation 5"), en plus
+      // de celles du type d'appareil (ex: "Console").
+      if (currentModel && norm(currentModel) !== norm(currentType)) {
+        queries.push(
+          supabase
+            .from("fault_dictionary")
+            .select(baseSelect)
+            .eq("active", true)
+            .ilike("device_type", currentModel)
+        );
+      }
+
+      const results = await Promise.all(queries);
+      for (const r of results) {
+        if (r.error) throw r.error;
+      }
+
+      const byId = new Map();
+      results.forEach((r) => (r.data || []).forEach((f) => byId.set(f.id, f)));
+
+      const merged = Array.from(byId.values()).sort((a, b) => {
+        const catCmp = (a.category || "").localeCompare(b.category || "");
+        return catCmp !== 0
+          ? catCmp
+          : (a.description || "").localeCompare(b.description || "");
+      });
+
+      setFaultList(merged);
+    } else {
+      const { data, error } = await supabase
+        .from("fault_dictionary")
+        .select("id, device_type, category, description, active")
+        .eq("active", true)
+        .order("category", { ascending: true })
+        .order("description", { ascending: true });
+
+      if (error) throw error;
+
+      setFaultList(data || []);
+    }
+  } catch (error) {
+    console.error(
+      "❌ Chargement descriptions de panne :",
+      error
+    );
+
+    showAlert(
+      "Erreur",
+      "Impossible de charger la liste des pannes."
+    );
+
+    setFaultList([]);
+  } finally {
+    setFaultLoading(false);
+  }
+};
 
   const loadProducts = async () => {
     const { data, error } = await supabase.from("article").select("*");
@@ -263,7 +625,33 @@ export default function AddInterventionPage({ route, navigation }) {
   const hasBrandExact = brands.some((b) => norm(b.nom) === norm(brandQuery));
   const hasModelExact = models.some((m) => norm(m.nom) === norm(modelQuery));
 
+const filteredFaults = faultList.filter((fault) => {
+  const searchValue = norm(faultSearch);
 
+  if (!searchValue) return true;
+
+  return (
+    norm(fault.description).includes(searchValue) ||
+    norm(fault.category).includes(searchValue) ||
+    norm(fault.device_type).includes(searchValue)
+  );
+});
+
+const groupedFaults = filteredFaults.reduce(
+  (groups, fault) => {
+    const category =
+      fault.category?.trim() || "Autres";
+
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+
+    groups[category].push(fault);
+
+    return groups;
+  },
+  {}
+);
 
   // ✅ synchro affichage TYPE
   useEffect(() => {
@@ -277,7 +665,6 @@ export default function AddInterventionPage({ route, navigation }) {
     if (deviceType && deviceType !== "default" && deviceType !== "Autre") {
       if (typeText !== deviceType) setTypeText(deviceType);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, deviceType, customDeviceType]);
 
   // ✅ synchro affichage MARQUE
@@ -290,7 +677,6 @@ export default function AddInterventionPage({ route, navigation }) {
     if (brand === "Autre" && customBrand && brandText !== customBrand) {
       setBrandText(customBrand);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brands, brand, customBrand]);
 
   // ✅ synchro affichage MODELE
@@ -303,7 +689,6 @@ export default function AddInterventionPage({ route, navigation }) {
     if (model === "Autre" && customModel && modelText !== customModel) {
       setModelText(customModel);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [models, model, customModel]);
 
   const pickLabelImage = async () => {
@@ -332,14 +717,14 @@ export default function AddInterventionPage({ route, navigation }) {
         );
 
         if (!publicUrl) {
-          Alert.alert("Erreur", "Échec de l'upload de l’étiquette.");
+          showAlert("Erreur", "Échec de l'upload de l’étiquette.");
           return;
         }
 
         setLabelPhoto(publicUrl);
         setIsPhotoTaken(true);
 
-        if (wantLabelPhoto && !reference) {setReference("Voir photo pour référence produit");}
+        if (wantLabelPhoto && !reference) {setReference(REFERENCE_PHOTO_HINT);}
 
 
         console.log("✅ Image d'étiquette (URL):", publicUrl);
@@ -377,7 +762,7 @@ export default function AddInterventionPage({ route, navigation }) {
         );
 
         if (!publicUrl) {
-          Alert.alert("Erreur", "Échec de l'upload de la photo.");
+          showAlert("Erreur", "Échec de l'upload de la photo.");
           return;
         }
 
@@ -392,22 +777,8 @@ export default function AddInterventionPage({ route, navigation }) {
   };
 
   const confirmDeletePhoto = (uri) => {
-    Alert.alert(
-      "Supprimer la photo",
-      "Voulez-vous vraiment supprimer cette photo ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: () => {
-            setPhotos((prev) => prev.filter((p) => p !== uri));
-            if (uri === labelPhoto) setLabelPhoto(null);
-            if (selectedImage === uri) setSelectedImage(null);
-          },
-        },
-      ]
-    );
+    setPhotoUriToDelete(uri);
+    setDeletePhotoConfirmVisible(true);
   };
 
   // ✅ utilisées encore (ex: reprise dernier matériel)
@@ -502,7 +873,7 @@ export default function AddInterventionPage({ route, navigation }) {
 
       if (error) {
         console.error("Erreur lors de l'ajout de la marque :", error);
-        Alert.alert("Erreur", "Impossible d'ajouter la nouvelle marque.");
+        showAlert("Erreur", "Impossible d'ajouter la nouvelle marque.");
         return null;
       }
       if (data && data[0]) {
@@ -528,7 +899,7 @@ export default function AddInterventionPage({ route, navigation }) {
 
       if (error) {
         console.error("Erreur lors de l'ajout du modèle :", error);
-        Alert.alert("Erreur", "Impossible d'ajouter le nouveau modèle.");
+        showAlert("Erreur", "Impossible d'ajouter le nouveau modèle.");
         return null;
       }
       if (data && data[0]) {
@@ -539,10 +910,13 @@ export default function AddInterventionPage({ route, navigation }) {
     return models.find((m) => m.id === model)?.id || null;
   };
 
-  // 👉 NOUVEAU : applique le dernier matériel sur la fiche
+  // 👉 FIX #1 : applique le dernier matériel sur la fiche
+  // On utilise directement les données RETOURNÉES par loadBrands/loadModels
+  // au lieu de relire le state React (brands/models), qui n'est pas encore
+  // mis à jour au moment de l'exécution de cette fonction (stale closure).
   const applyLastDevice = async () => {
     if (!lastDevice) {
-      Alert.alert(
+      showAlert(
         "Aucun matériel précédant",
         "Aucune intervention précédente trouvée pour ce client."
       );
@@ -563,25 +937,28 @@ export default function AddInterventionPage({ route, navigation }) {
 
       // Marque
       if (lastDevice.marque_id) {
-        if (lastDevice.article_id) await loadBrands(lastDevice.article_id);
+        let loadedBrands = brands;
+        if (lastDevice.article_id) {
+          loadedBrands = await loadBrands(lastDevice.article_id);
+        }
 
         setBrand(lastDevice.marque_id);
-        const b = brands.find((x) => x.id === lastDevice.marque_id);
+        const b = loadedBrands.find((x) => x.id === lastDevice.marque_id);
         if (b?.nom) {
           setBrandText(b.nom);
           setBrandQuery(b.nom);
         }
 
-        await loadModels(lastDevice.marque_id);
-      }
+        const loadedModels = await loadModels(lastDevice.marque_id);
 
-      // Modèle
-      if (lastDevice.modele_id) {
-        setModel(lastDevice.modele_id);
-        const m = models.find((x) => x.id === lastDevice.modele_id);
-        if (m?.nom) {
-          setModelText(m.nom);
-          setModelQuery(m.nom);
+        // Modèle (utilise directement loadedModels, pas le state `models`)
+        if (lastDevice.modele_id) {
+          setModel(lastDevice.modele_id);
+          const m = loadedModels.find((x) => x.id === lastDevice.modele_id);
+          if (m?.nom) {
+            setModelText(m.nom);
+            setModelQuery(m.nom);
+          }
         }
       }
 
@@ -590,7 +967,7 @@ export default function AddInterventionPage({ route, navigation }) {
       if (lastDevice.serial_number) setSerial_number(lastDevice.serial_number);
     } catch (err) {
       console.error("Erreur lors de la reprise du matériel :", err);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Impossible de reprendre automatiquement le matériel précédent."
       );
@@ -600,15 +977,116 @@ export default function AddInterventionPage({ route, navigation }) {
     }
   };
 
+const saveNewFault = async () => {
+  const cleanedDescription =
+    newFaultDescription.trim().replace(/\s+/g, " ");
+
+  const cleanedCategory =
+    newFaultCategory.trim().replace(/\s+/g, " ");
+
+  if (!cleanedDescription) {
+    showAlert(
+      "Description manquante",
+      "Saisis la description de la panne."
+    );
+    return;
+  }
+
+  const currentType = getCurrentDeviceTypeName();
+
+  try {
+    const existingFault = faultList.some(
+      (fault) =>
+        norm(fault.description) ===
+        norm(cleanedDescription)
+    );
+
+    if (existingFault) {
+      showAlert(
+        "Panne existante",
+        "Cette description existe déjà dans la liste."
+      );
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("fault_dictionary")
+      .insert([
+        {
+          device_type: currentType || null,
+          category: cleanedCategory || "Autres",
+          description: cleanedDescription,
+          active: true,
+        },
+      ])
+      .select(
+        "id, device_type, category, description, active"
+      )
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        showAlert(
+          "Panne existante",
+          "Cette description existe déjà."
+        );
+        return;
+      }
+
+      throw error;
+    }
+
+    setDescription(data.description.toUpperCase());
+
+    setNewFaultModalVisible(false);
+    setFaultModalVisible(false);
+    setNewFaultDescription("");
+    setNewFaultCategory("");
+
+    await loadFaultDictionary();
+  } catch (error) {
+    console.error(
+      "❌ Ajout description de panne :",
+      error
+    );
+
+    showAlert(
+      "Erreur",
+      error?.message ||
+        "Impossible d’ajouter cette description."
+    );
+  }
+};
+
+
   const handleSaveIntervention = async () => {
     const errors = [];
 
-    if (!reference) errors.push("Référence");
     if (!brand || brand === "default") errors.push("Marque");
     if (!model || model === "default") errors.push("Modèle");
     if (!description) errors.push("Description");
     if (deviceType === "default") errors.push("Type de produit");
     if (status === "default") errors.push("Statut");
+	if (repairProposalMade) {
+  if (!repairProposal.trim()) {
+    errors.push("Solution proposée");
+  }
+
+  if (!repairProposalStatus) {
+    errors.push("Décision du client");
+  }
+
+  if (!repairProposalMethod) {
+    errors.push("Mode de proposition");
+  }
+
+  if (
+    repairProposalPrice.trim() &&
+    parseEu(repairProposalPrice) <= 0
+  ) {
+    errors.push("Montant proposé valide");
+  }
+}
 
     if (status !== "Devis en cours" && !cost) errors.push("Coût de la réparation");
 
@@ -628,9 +1106,10 @@ export default function AddInterventionPage({ route, navigation }) {
     if (wantLabelPhoto && !labelPhoto) {errors.push("Photo d’étiquette");}
 
 
+    // ✅ FIX #3 : comparaison cohérente avec parseEu (gère virgule/point)
     if (
       paymentStatus === "reglement_partiel" &&
-      (!partialPayment || parseFloat(partialPayment) > parseFloat(cost))
+      (!partialPayment || parseEu(partialPayment) > parseEu(cost))
     ) {
       errors.push("Acompte valide");
     }
@@ -653,10 +1132,18 @@ export default function AddInterventionPage({ route, navigation }) {
     await performAddIntervention();
   };
 
-  const closeAlert = () => {
-    setAlertVisible(false);
-    if (alertTitle === "Succès") navigation.navigate("Home");
-  };
+ const closeAlert = () => {
+  setAlertVisible(false);
+
+  if (alertOnClose) {
+    alertOnClose();
+  } else if (alertTitle === "Succès") {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "MainTabs" }],
+    });
+  }
+};
 
   const performAddIntervention = async () => {
     const formattedDevisCost =
@@ -676,11 +1163,11 @@ export default function AddInterventionPage({ route, navigation }) {
     const modelId = await addModelIfNeeded(brandId, articleId);
 
     if (!articleId) {
-      Alert.alert("Erreur", "Type de produit introuvable. Veuillez réessayer.");
+      showAlert("Erreur", "Type de produit introuvable. Veuillez réessayer.");
       return;
     }
     if (!brandId) {
-      Alert.alert("Erreur", "Marque introuvable. Veuillez réessayer.");
+      showAlert("Erreur", "Marque introuvable. Veuillez réessayer.");
       return;
     }
 
@@ -690,6 +1177,46 @@ export default function AddInterventionPage({ route, navigation }) {
       model: customModel || models.find((m) => m.id === model)?.nom,
       serial_number,
       description,
+	  loaned_item:
+    loanedItemEnabled
+        ? loanedItem.trim()
+        : null,
+
+loaned_item_returned:
+    loanedItemEnabled
+        ? loanedItemReturned
+        : false,
+
+loaned_item_date:
+    loanedItemEnabled
+        ? new Date().toISOString()
+        : null,
+	  repair_proposal_made: repairProposalMade,
+
+repair_proposal: repairProposalMade
+  ? repairProposal.trim()
+  : null,
+
+repair_proposal_price:
+  repairProposalMade && repairProposalPrice.trim()
+    ? parseEu(repairProposalPrice)
+    : null,
+
+repair_proposal_status: repairProposalMade
+  ? repairProposalStatus
+  : null,
+
+repair_proposal_method: repairProposalMade
+  ? repairProposalMethod
+  : null,
+
+repair_proposal_comment: repairProposalMade
+  ? repairProposalComment.trim() || null
+  : null,
+
+repair_proposal_date: repairProposalMade
+  ? new Date().toISOString()
+  : null,
       cost: costValue,
       solderestant,
       status,
@@ -723,7 +1250,8 @@ export default function AddInterventionPage({ route, navigation }) {
       modele_id: modelId,
       remarks,
       paymentStatus,
-      partialPayment: partialPayment ? parseFloat(partialPayment) : null,
+      // ✅ FIX #3 : parseEu au lieu de parseFloat pour accepter la virgule décimale
+      partialPayment: partialPayment ? parseEu(partialPayment) : null,
       accept_screen_risk: acceptScreenRisk,
       createdAt: new Date().toISOString(),
     };
@@ -746,6 +1274,179 @@ export default function AddInterventionPage({ route, navigation }) {
     }
   };
 
+  // Création rapide d'une commande liée au client, déclenchée quand le statut
+  // passe à "En attente de pièces". L'intervention n'existe pas encore en base
+  // à ce stade : on préremplit simplement le champ "Commande" existant.
+  // Ajoute le produit en cours de saisie à la liste des produits de la commande,
+  // pour permettre de commander plusieurs composants en une seule commande.
+  const handleAddOrderItem = () => {
+    const product = orderProduct?.trim();
+    const price = parseEu(orderUnitPrice);
+
+    if (!product) {
+      showAlert("Champs manquants", "Le produit est requis.");
+      return;
+    }
+    if (!(price > 0)) {
+      showAlert("Montant invalide", "Saisis un prix unitaire valide (> 0).");
+      return;
+    }
+
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        localId: `${Date.now()}-${Math.random()}`,
+        product,
+        brand: orderBrand?.trim() || "",
+        model: orderModel?.trim() || "",
+        price,
+        qty: Math.max(1, Math.floor(parseEu(orderQty) || 1)),
+      },
+    ]);
+
+    setOrderProduct("");
+    setOrderBrand("");
+    setOrderModel("");
+    setOrderUnitPrice("");
+    setOrderQty("1");
+  };
+
+  const handleCreateOrderFromStatus = async () => {
+    try {
+      // Inclut automatiquement le produit en cours de saisie s'il est rempli,
+      // en plus de ceux déjà ajoutés à la liste via "+ Ajouter un autre produit".
+      const items = [...orderItems];
+      const pendingProduct = orderProduct?.trim();
+      if (pendingProduct) {
+        const pendingPrice = parseEu(orderUnitPrice);
+        if (!(pendingPrice > 0)) {
+          showAlert("Montant invalide", "Saisis un prix unitaire valide (> 0).");
+          return;
+        }
+        items.push({
+          localId: "pending",
+          product: pendingProduct,
+          brand: orderBrand?.trim() || "",
+          model: orderModel?.trim() || "",
+          price: pendingPrice,
+          qty: Math.max(1, Math.floor(parseEu(orderQty) || 1)),
+        });
+      }
+
+      if (items.length === 0) {
+        showAlert("Champs manquants", "Ajoute au moins un produit.");
+        return;
+      }
+
+      const deposit = Math.max(0, parseEu(orderDeposit));
+
+      const itemsWithTotal = items.map((item) => ({
+        ...item,
+        total: Math.round((item.price * item.qty + Number.EPSILON) * 100) / 100,
+      }));
+      const total = itemsWithTotal.reduce((sum, item) => sum + item.total, 0);
+      const first = itemsWithTotal[0];
+      const orderName =
+        itemsWithTotal.length === 1
+          ? first.product
+          : `${first.product} + ${itemsWithTotal.length - 1} autre${
+              itemsWithTotal.length > 2 ? "s" : ""
+            }`;
+
+      const payload = {
+        client_id: clientId,
+        order_name: orderName,
+        items_count: itemsWithTotal.length,
+        product: first.product,
+        brand: first.brand,
+        model: first.model,
+        price: total,
+        quantity: 1,
+        total,
+        deposit,
+        received: false,
+        paid: false,
+        recovered: false,
+        deleted: false,
+        createdat: new Date().toISOString(),
+      };
+
+      const { data: createdOrder, error: createOrderError } = await supabase
+        .from("orders")
+        .insert([payload])
+        .select("id")
+        .single();
+
+      if (createOrderError) {
+        console.error("❌ Insertion order :", createOrderError);
+        showAlert("Erreur", "Impossible de créer la commande.");
+        return;
+      }
+
+      const lignes = itemsWithTotal.map((item, index) => ({
+        order_id: createdOrder.id,
+        product: item.product,
+        brand: item.brand,
+        model: item.model,
+        serial: "",
+        quantity: item.qty,
+        unit_price: item.price,
+        include_in_intervention: false,
+        ordered: false,
+        received: false,
+        installed: false,
+        position: index + 1,
+      }));
+
+      const { error: createOrderItemError } = await supabase
+        .from("order_items")
+        .insert(lignes);
+
+      if (createOrderItemError) {
+        console.error("❌ Création order_items :", createOrderItemError);
+        showAlert(
+          "Erreur",
+          "La commande a été créée, mais ses produits n’ont pas pu être ajoutés."
+        );
+        return;
+      }
+
+      setCommande(orderName);
+      setOrderAmount(total);
+      setOrderId(createdOrder.id);
+      setOrderItems([]);
+      setOrderProduct("");
+      setOrderBrand("");
+      setOrderModel("");
+      setOrderUnitPrice("");
+      setOrderQty("1");
+      setOrderDeposit("");
+      setOrderModalVisible(false);
+      showAlert(
+        "✅ Commande",
+        `${itemsWithTotal.length} produit${itemsWithTotal.length > 1 ? "s" : ""} enregistré${
+          itemsWithTotal.length > 1 ? "s" : ""
+        }.`
+      );
+    } catch (e) {
+      console.error("❌ handleCreateOrderFromStatus:", e);
+      showAlert("Erreur", "Création de la commande impossible.");
+    }
+  };
+
+  const handleViewOrder = () => {
+    if (!orderId) return;
+    try {
+      navigation.navigate("OrdersPage", {
+        clientId,
+        clientName: clientName || "",
+      });
+    } catch (e) {
+      console.error("❌ handleViewOrder:", e);
+      showAlert("Erreur", "Impossible d'ouvrir les commandes.");
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -757,7 +1458,7 @@ export default function AddInterventionPage({ route, navigation }) {
         contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
         keyboardShouldPersistTaps="always"
       >
-        {/* 👉 NOUVEAU : case "même matériel" */}
+        {/* 👉 case "même matériel" */}
         {lastDevice && (
           <View style={styles.sameDeviceRow}>
             <TouchableOpacity
@@ -1185,7 +1886,23 @@ export default function AddInterventionPage({ route, navigation }) {
           <TextInput
             style={styles.referenceInput}
             value={reference.toUpperCase()}
-            onChangeText={(text) => setReference(text.toUpperCase())}
+            onFocus={() => {
+              // Efface l'indication "Voir photo..." dès qu'on tape ou scanne un code-barre dans le champ
+              if (reference === REFERENCE_PHOTO_HINT) setReference("");
+            }}
+            onChangeText={(text) => {
+              // Filet de sécurité si la douchette écrit avant que le focus n'ait déclenché l'effacement
+              if (
+                reference === REFERENCE_PHOTO_HINT &&
+                text.toUpperCase().startsWith(REFERENCE_PHOTO_HINT.toUpperCase())
+              ) {
+                setReference(
+                  text.slice(REFERENCE_PHOTO_HINT.length).toUpperCase()
+                );
+              } else {
+                setReference(text.toUpperCase());
+              }
+            }}
             autoCapitalize="characters"
             placeholderTextColor="#242424"
             placeholder="Référence du produit / Numéro de série / photo étiquette"
@@ -1256,25 +1973,285 @@ export default function AddInterventionPage({ route, navigation }) {
           )}
         </View>
         )}
-        <FloatingField label="Description de la panne">
-          <TextInput
-            style={styles.input}
-            value={description.toUpperCase()}
-            onChangeText={(text) => setDescription(text.toUpperCase())}
-            multiline
-            autoCapitalize="characters"
-          />
-        </FloatingField>
+<FloatingField label="Description de la panne">
+  <View style={styles.faultDescriptionContainer}>
+    <TextInput
+      style={styles.faultDescriptionInput}
+      value={description.toUpperCase()}
+      onChangeText={(text) =>
+        setDescription(text.toUpperCase())
+      }
+      multiline
+      autoCapitalize="characters"
+      placeholder="Décrivez la panne ou choisissez dans la liste"
+      placeholderTextColor="#7b7b7b"
+    />
+
+    <TouchableOpacity
+      style={styles.faultChooseButton}
+      onPress={async () => {
+        Keyboard.dismiss();
+        setFaultSearch("");
+        await loadFaultDictionary();
+        setFaultModalVisible(true);
+      }}
+    >
+      <MaterialIcons
+        name="list-alt"
+        size={22}
+        color="#ffffff"
+      />
+
+      <Text style={styles.faultChooseButtonText}>
+        Choisir
+      </Text>
+    </TouchableOpacity>
+  </View>
+</FloatingField>
 
         <FloatingField label="Mot de passe (si applicable)">
           <TextInput style={styles.input} value={password} onChangeText={setPassword} />
         </FloatingField>
+{/* Proposition de réparation immédiate */}
+<View style={styles.repairProposalBox}>
+  <TouchableOpacity
+    style={styles.repairProposalToggleRow}
+    onPress={() => {
+      const nextValue = !repairProposalMade;
 
-        <FloatingField label="Coût de la réparation (€)">
+      setRepairProposalMade(nextValue);
+
+      if (!nextValue) {
+        setRepairProposal("");
+        setRepairProposalPrice("");
+        setRepairProposalStatus("pending");
+        setRepairProposalMethod("shop");
+        setRepairProposalComment("");
+      }
+    }}
+  >
+    <View style={styles.repairProposalCheckbox}>
+      {repairProposalMade && (
+        <Image
+          source={require("../assets/icons/checked.png")}
+          style={{
+            width: 20,
+            height: 20,
+            tintColor: "#047857",
+          }}
+          resizeMode="contain"
+        />
+      )}
+    </View>
+
+    <View style={{ flex: 1 }}>
+      <Text style={styles.repairProposalToggleTitle}>
+        Proposition de réparation faite au client
+      </Text>
+
+      <Text style={styles.repairProposalToggleHelp}>
+        À utiliser si le matériel est testé devant le
+        client avant l’enregistrement de la fiche.
+      </Text>
+    </View>
+  </TouchableOpacity>
+
+  {repairProposalMade && (
+    <View style={styles.repairProposalContent}>
+      <FloatingField label="Solution proposée">
+        <TextInput
+          style={[
+            styles.input,
+            styles.repairProposalTextInput,
+          ]}
+          value={repairProposal}
+          onChangeText={setRepairProposal}
+          placeholder="Exemple : remplacement du circuit interne d’affichage"
+          placeholderTextColor="#777"
+          multiline
+          textAlignVertical="top"
+        />
+      </FloatingField>
+
+      <FloatingField label="Montant proposé (€) — facultatif">
+        <TextInput
+          style={styles.input}
+          value={repairProposalPrice}
+          onChangeText={(value) =>
+            setRepairProposalPrice(
+              normalizeNumber(value)
+            )
+          }
+          keyboardType="numeric"
+          placeholder="Exemple : 120"
+          placeholderTextColor="#777"
+        />
+      </FloatingField>
+
+      <FloatingField label="Décision du client">
+        <Picker
+          selectedValue={repairProposalStatus}
+          style={styles.input}
+          onValueChange={setRepairProposalStatus}
+        >
+          <Picker.Item
+            label="En attente de décision"
+            value="pending"
+          />
+
+          <Picker.Item
+            label="Acceptée immédiatement"
+            value="accepted"
+          />
+
+          <Picker.Item
+            label="Refusée"
+            value="refused"
+          />
+        </Picker>
+      </FloatingField>
+
+      <FloatingField label="Proposition faite">
+        <Picker
+          selectedValue={repairProposalMethod}
+          style={styles.input}
+          onValueChange={setRepairProposalMethod}
+        >
+          <Picker.Item
+            label="En présence du client"
+            value="shop"
+          />
+
+          <Picker.Item
+            label="Par téléphone"
+            value="phone"
+          />
+
+          <Picker.Item
+            label="Par SMS"
+            value="sms"
+          />
+
+          <Picker.Item
+            label="Par email"
+            value="email"
+          />
+        </Picker>
+      </FloatingField>
+
+      <FloatingField label="Commentaire facultatif">
+        <TextInput
+          style={[
+            styles.input,
+            styles.repairProposalCommentInput,
+          ]}
+          value={repairProposalComment}
+          onChangeText={setRepairProposalComment}
+          placeholder="Exemple : le client accepte la réparation si elle ne dépasse pas 120 €"
+          placeholderTextColor="#777"
+          multiline
+          textAlignVertical="top"
+        />
+      </FloatingField>
+
+      {repairProposalStatus === "accepted" && (
+        <View style={styles.repairProposalAcceptedBox}>
+          <Text
+            style={
+              styles.repairProposalAcceptedText
+            }
+          >
+            ✓ Accord du client enregistré lors de la
+            création de la fiche
+          </Text>
+        </View>
+      )}
+
+      {repairProposalStatus === "pending" && (
+        <View style={styles.repairProposalPendingBox}>
+          <Text
+            style={
+              styles.repairProposalPendingText
+            }
+          >
+            Proposition en attente de réponse du client
+          </Text>
+        </View>
+      )}
+
+      {repairProposalStatus === "refused" && (
+        <View style={styles.repairProposalRefusedBox}>
+          <Text
+            style={
+              styles.repairProposalRefusedText
+            }
+          >
+            Proposition refusée par le client
+          </Text>
+        </View>
+      )}
+    </View>
+  )}
+</View>
+{/* Matériel prêté */}
+<View style={styles.repairProposalBox}>
+  <TouchableOpacity
+    style={styles.repairProposalToggleRow}
+onPress={() => {
+    const next = !loanedItemEnabled;
+
+    setLoanedItemEnabled(next);
+
+    if (!next) {
+        setLoanedItem("");
+        setLoanedItemReturned(false);
+    }
+}}
+  >
+    <View style={styles.repairProposalCheckbox}>
+      {loanedItemEnabled && (
+        <Image
+          source={require("../assets/icons/checked.png")}
+          style={{
+            width: 20,
+            height: 20,
+            tintColor: "#d97706",
+          }}
+          resizeMode="contain"
+        />
+      )}
+    </View>
+
+    <View style={{ flex: 1 }}>
+      <Text style={styles.repairProposalToggleTitle}>
+        Matériel prêté au client
+      </Text>
+
+      <Text style={styles.repairProposalToggleHelp}>
+        Chargeur, alimentation, adaptateur...
+      </Text>
+    </View>
+  </TouchableOpacity>
+
+  {loanedItemEnabled && (
+    <View style={styles.repairProposalContent}>
+    <FloatingField label="Matériel prêté">
+      <TextInput
+        style={styles.input}
+        value={loanedItem}
+        onChangeText={setLoanedItem}
+        placeholder="Ex : Chargeur Lenovo USB-C 65W"
+        placeholderTextColor="#777"
+      />
+    </FloatingField>
+  </View>
+  )}
+</View>
+        <FloatingField label="Coût de l'intervention (€)">
           <TextInput
             style={styles.input}
             value={cost ? cost.toString() : ""}
-            onChangeText={setCost}
+            onChangeText={(t) => setCost(normalizeNumber(t))}
             keyboardType="numeric"
             placeholderTextColor="#191f2f"
             editable={status !== "Devis en cours"}
@@ -1367,10 +2344,11 @@ export default function AddInterventionPage({ route, navigation }) {
                   style={styles.input}
                   value={partialPayment}
                   onChangeText={(value) => {
-                    if (parseFloat(value) > parseFloat(cost)) {
-                      Alert.alert("Erreur", "L'acompte ne peut pas dépasser le montant total.");
+                    const v = normalizeNumber(value);
+                    if (parseEu(v) > parseEu(cost)) {
+                      showAlert("Erreur", "L'acompte ne peut pas dépasser le montant total.");
                     } else {
-                      setPartialPayment(value);
+                      setPartialPayment(v);
                     }
                   }}
                   keyboardType="numeric"
@@ -1380,7 +2358,10 @@ export default function AddInterventionPage({ route, navigation }) {
 
               <Text style={styles.label}>
                 Solde restant :{" "}
-                {cost && partialPayment ? (cost - partialPayment).toFixed(2) : cost} €
+                {cost && partialPayment
+                  ? (parseEu(cost) - parseEu(partialPayment)).toFixed(2)
+                  : cost}{" "}
+                €
               </Text>
             </View>
           )}
@@ -1392,25 +2373,55 @@ export default function AddInterventionPage({ route, navigation }) {
             status === "En attente de pièces" && { paddingHorizontal: 20 },
           ]}
         >
-          <View style={styles.fullwidthContainer}>
-            <FloatingField label="Statut">
-              <Picker
-                selectedValue={status}
-                style={styles.input}
-                onValueChange={(itemValue) => {
-                  setStatus(itemValue);
-                  if (itemValue === "Devis en cours") setCost("");
-                }}
-              >
-                <Picker.Item label="Sélectionnez un statut..." value="default" />
-                <Picker.Item label="En attente de pièces" value="En attente de pièces" />
-                <Picker.Item label="Devis en cours" value="Devis en cours" />
-                <Picker.Item label="Devis accepté" value="Devis accepté" />
-                <Picker.Item label="Intervention en cours" value="Intervention en cours" />
-                <Picker.Item label="Réparé" value="Réparé" />
-                <Picker.Item label="Non réparable" value="Non réparable" />
-              </Picker>
-            </FloatingField>
+          <View style={[styles.fullwidthContainer, { width: "100%" }]}>
+            <View style={{ width: "90%", alignSelf: "center", flexDirection: "row" }}>
+              <FloatingField label="Statut" style={{ width: "46%", marginRight: "8%" }}>
+                <View style={{ width: "100%", overflow: "hidden", borderRadius: 10 }}>
+                  <Picker
+                    selectedValue={status}
+                    style={[styles.input, { width: "100%", marginBottom: 0 }]}
+                    onValueChange={(itemValue) => {
+                      setStatus(itemValue);
+                      if (itemValue === "Devis en cours") setCost("");
+                      if (
+                        itemValue === "En attente de pièces" &&
+                        status !== "En attente de pièces"
+                      ) {
+                        setOrderProduct("");
+                        setOrderBrand("");
+                        setOrderModel("");
+                        setOrderUnitPrice("");
+                        setOrderQty("1");
+                        setOrderDeposit("");
+                        setOrderItems([]);
+                        setOrderModalVisible(true);
+                      }
+                    }}
+                  >
+                    <Picker.Item label="Sélectionnez un statut..." value="default" />
+                    <Picker.Item label="En attente de pièces" value="En attente de pièces" />
+                    <Picker.Item label="Devis en cours" value="Devis en cours" />
+                    <Picker.Item label="Devis accepté" value="Devis accepté" />
+                    <Picker.Item label="Intervention en cours" value="Intervention en cours" />
+                    <Picker.Item label="Réparé" value="Réparé" />
+                    <Picker.Item label="Non réparable" value="Non réparable" />
+                  </Picker>
+                </View>
+              </FloatingField>
+
+              <FloatingField label="Chargeur" style={{ width: "46%" }}>
+                <View style={{ width: "100%", overflow: "hidden", borderRadius: 10 }}>
+                  <Picker
+                    selectedValue={chargeur}
+                    style={[styles.input, { width: "100%", marginBottom: 0 }]}
+                    onValueChange={(itemValue) => setChargeur(itemValue)}
+                  >
+                    <Picker.Item label="Non" value="Non" />
+                    <Picker.Item label="Oui" value="Oui" />
+                  </Picker>
+                </View>
+              </FloatingField>
+            </View>
 
             {status === "Devis en cours" && (
               <TextInput
@@ -1419,7 +2430,7 @@ export default function AddInterventionPage({ route, navigation }) {
                 placeholderTextColor="#202020"
                 keyboardType="numeric"
                 value={devisCost}
-                onChangeText={(text) => setDevisCost(text)}
+                onChangeText={(text) => setDevisCost(normalizeNumber(text))}
               />
             )}
 
@@ -1469,17 +2480,16 @@ export default function AddInterventionPage({ route, navigation }) {
             )}
 
             {status !== "Devis en cours" && (
-              <View className="halfWidthContainer">
-                <FloatingField label="Coût de la réparation (€)">
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Coût total (€)"
-                    placeholderTextColor="#202020"
-                    keyboardType="numeric"
-                    value={cost}
-                    onChangeText={setCost}
-                  />
-                </FloatingField>
+              <View style={styles.halfWidthContainer}>
+                {orderAmount !== "" && (
+                  <Text style={styles.interventionText}>
+                    Coût total (commande comprise) :{" "}
+                    {(
+                      (parseEu(cost) || 0) + (parseFloat(orderAmount) || 0)
+                    ).toFixed(2)}{" "}
+                    €
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -1491,14 +2501,35 @@ export default function AddInterventionPage({ route, navigation }) {
 
             <View style={styles.commandeRowContainer}>
               <View style={styles.sameLineRow}>
-                <TextInput
-                  style={styles.inlineInput}
-                  value={commande.toUpperCase()}
-                  onChangeText={(text) => setCommande(text.toUpperCase())}
-                  autoCapitalize="characters"
-                  placeholder="Pièce ou produit à commander"
-                  placeholderTextColor="#202020"
-                />
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={[
+                      styles.inlineInput,
+                      orderAmount !== "" && { paddingRight: 80 },
+                    ]}
+                    value={commande.toUpperCase()}
+                    onChangeText={(text) => setCommande(text.toUpperCase())}
+                    autoCapitalize="characters"
+                    placeholder="Pièce ou produit à commander"
+                    placeholderTextColor="#202020"
+                  />
+                  {orderAmount !== "" && (
+                    <Text
+                      pointerEvents="none"
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: 0,
+                        height: 46,
+                        lineHeight: 46,
+                        fontWeight: "600",
+                        color: "#202020",
+                      }}
+                    >
+                      ({parseFloat(orderAmount).toFixed(2)} €)
+                    </Text>
+                  )}
+                </View>
 
                 <TouchableOpacity
                   style={[
@@ -1509,7 +2540,7 @@ export default function AddInterventionPage({ route, navigation }) {
                   disabled={!commande?.trim()}
                   onPress={() => {
                     if (!clientId) {
-                      Alert.alert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
+                      showAlert("Client manquant", "Impossible d'ouvrir les commandes sans client.");
                       return;
                     }
                     navigation.navigate("OrdersPage", {
@@ -1524,6 +2555,24 @@ export default function AddInterventionPage({ route, navigation }) {
                   <Text style={styles.inlineButtonText}>Créer commande</Text>
                 </TouchableOpacity>
               </View>
+
+              {orderId != null && (
+                <TouchableOpacity
+                  onPress={handleViewOrder}
+                  style={{
+                    marginTop: 8,
+                    alignSelf: "center",
+                    backgroundColor: "#191f2f",
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>
+                    Voir la commande
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -1537,17 +2586,6 @@ export default function AddInterventionPage({ route, navigation }) {
             placeholder="Ajoutez des remarques ici..."
             multiline
           />
-        </FloatingField>
-
-        <FloatingField label="Chargeur">
-          <Picker
-            selectedValue={chargeur}
-            style={styles.input}
-            onValueChange={(itemValue) => setChargeur(itemValue)}
-          >
-            <Picker.Item label="Non" value="Non" />
-            <Picker.Item label="Oui" value="Oui" />
-          </Picker>
         </FloatingField>
 
         {photos.length > 0 && (
@@ -1633,47 +2671,280 @@ export default function AddInterventionPage({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+	  {/* Modale d’ajout d’une panne */}
+<Modal
+  visible={newFaultModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() =>
+    setNewFaultModalVisible(false)
+  }
+>
+  <TouchableWithoutFeedback
+    onPress={() =>
+      setNewFaultModalVisible(false)
+    }
+  >
+    <View style={styles.faultModalOverlay}>
+      <TouchableWithoutFeedback>
+        <View style={styles.newFaultModalBox}>
+          <Text style={styles.newFaultTitle}>
+            Ajouter une panne
+          </Text>
 
-      {/* Alert */}
-      <Modal
-        transparent
-        visible={alertVisible}
-        animationType="fade"
-        onRequestClose={closeAlert}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.alertBox,
-              alertType === "success" ? styles.alertBoxSuccess : styles.alertBoxDanger,
-            ]}
-          >
-            <Text
-              style={[
-                styles.alertTitle,
-                alertType === "success" ? styles.alertTitleSuccess : styles.alertTitleDanger,
-              ]}
+          <Text style={styles.newFaultDevice}>
+            Type :{" "}
+            {getCurrentDeviceTypeName() ||
+              "Tous les appareils"}
+          </Text>
+
+          <Text style={styles.newFaultLabel}>
+            Description
+          </Text>
+
+          <TextInput
+            style={styles.newFaultInput}
+            value={newFaultDescription}
+            onChangeText={setNewFaultDescription}
+            placeholder="Exemple : s’éteint après quelques minutes"
+            placeholderTextColor="#7b8794"
+            multiline
+            autoFocus
+          />
+
+          <Text style={styles.newFaultLabel}>
+            Catégorie
+          </Text>
+
+          <TextInput
+            style={styles.newFaultInput}
+            value={newFaultCategory}
+            onChangeText={setNewFaultCategory}
+            placeholder="Exemple : Démarrage"
+            placeholderTextColor="#7b8794"
+          />
+
+          <View style={styles.newFaultActions}>
+            <TouchableOpacity
+              style={styles.newFaultCancelButton}
+              onPress={() => {
+                setNewFaultModalVisible(false);
+                setNewFaultDescription("");
+                setNewFaultCategory("");
+              }}
             >
-              {alertTitle}
-            </Text>
-
-            <Text style={styles.alertMessage}>{alertMessage}</Text>
-
-            <TouchableOpacity style={styles.modalButton} onPress={closeAlert}>
               <Text
-                style={[
-                  styles.modalButtonText,
-                  alertType === "success"
-                    ? styles.modalButtonTextSuccess
-                    : styles.modalButtonTextDanger,
-                ]}
+                style={
+                  styles.newFaultCancelButtonText
+                }
               >
-                OK
+                Annuler
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.newFaultSaveButton}
+              onPress={saveNewFault}
+            >
+              <Text
+                style={
+                  styles.newFaultSaveButtonText
+                }
+              >
+                Ajouter
               </Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+{/* Modale de sélection de la panne */}
+<Modal
+  visible={faultModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() =>
+    setFaultModalVisible(false)
+  }
+>
+  <TouchableWithoutFeedback
+    onPress={() => setFaultModalVisible(false)}
+  >
+    <View style={styles.faultModalOverlay}>
+      <TouchableWithoutFeedback>
+        <View style={styles.faultModalBox}>
+          <View style={styles.faultModalHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.faultModalTitle}>
+                Description de la panne
+              </Text>
+
+              <Text style={styles.faultModalSubtitle}>
+                {getCurrentDeviceTypeName() ||
+                  "Tous les types de produits"}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.faultModalClose}
+              onPress={() =>
+                setFaultModalVisible(false)
+              }
+            >
+              <Text style={styles.faultModalCloseText}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.faultSearchContainer}>
+            <MaterialIcons
+              name="search"
+              size={22}
+              color="#64748b"
+            />
+
+            <TextInput
+              style={styles.faultSearchInput}
+              value={faultSearch}
+              onChangeText={setFaultSearch}
+              placeholder="Rechercher une panne..."
+              placeholderTextColor="#7b8794"
+              autoFocus
+            />
+
+            {!!faultSearch && (
+              <TouchableOpacity
+                onPress={() => setFaultSearch("")}
+              >
+                <Text style={styles.faultSearchClear}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ScrollView
+            style={styles.faultListScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {faultLoading ? (
+              <Text style={styles.faultEmptyText}>
+                Chargement…
+              </Text>
+            ) : filteredFaults.length === 0 ? (
+              <Text style={styles.faultEmptyText}>
+                Aucune panne trouvée.
+              </Text>
+            ) : (
+              Object.entries(groupedFaults).map(
+                ([category, faults]) => (
+                  <View key={category}>
+                    <Text
+                      style={styles.faultCategoryTitle}
+                    >
+                      {category}
+                    </Text>
+
+                    {faults.map((fault) => (
+                      <TouchableOpacity
+                        key={String(fault.id)}
+                        style={styles.faultRow}
+                        onPress={() => {
+                          setDescription(
+                            fault.description.toUpperCase()
+                          );
+
+                          const suggestedSolution =
+                            FAULT_SUGGESTED_SOLUTIONS[fault.device_type]?.[
+                              fault.description
+                            ];
+                          if (suggestedSolution && !repairProposal.trim()) {
+                            setRepairProposal(suggestedSolution);
+                          }
+
+                          setFaultModalVisible(false);
+                          setFaultSearch("");
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={
+                              styles.faultRowDescription
+                            }
+                          >
+                            {fault.description}
+                          </Text>
+
+                          {!!fault.device_type && (
+                            <Text
+                              style={
+                                styles.faultRowDevice
+                              }
+                            >
+                              {fault.device_type}
+                            </Text>
+                          )}
+                        </View>
+
+                        <Text style={styles.faultRowArrow}>
+                          ›
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )
+              )
+            )}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.addFaultButton}
+            onPress={() => {
+              setNewFaultDescription(
+                faultSearch?.trim() || ""
+              );
+
+              setNewFaultCategory("");
+              setNewFaultModalVisible(true);
+            }}
+          >
+            <Text style={styles.addFaultButtonText}>
+              ➕ Ajouter une nouvelle panne
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+      {/* Alert */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={closeAlert}
+      />
+
+      <AlertBox
+        visible={deletePhotoConfirmVisible}
+        title="Supprimer la photo"
+        message="Voulez-vous vraiment supprimer cette photo ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setDeletePhotoConfirmVisible(false)}
+        onConfirm={() => {
+          setDeletePhotoConfirmVisible(false);
+          const uri = photoUriToDelete;
+          setPhotos((prev) => prev.filter((p) => p !== uri));
+          if (uri === labelPhoto) setLabelPhoto(null);
+          if (selectedImage === uri) setSelectedImage(null);
+          setPhotoUriToDelete(null);
+        }}
+      />
 
       {/* Modale rappel mot de passe */}
       <Modal
@@ -1708,6 +2979,201 @@ export default function AddInterventionPage({ route, navigation }) {
                 <Text style={styles.pwdBtnContinueText}>Continuer sans</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modale création commande rapide */}
+      <Modal
+        visible={orderModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOrderModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "92%",
+              maxHeight: "88%",
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              padding: 14,
+            }}
+          >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                textAlign: "center",
+                marginBottom: 10,
+              }}
+            >
+              Créer la commande
+            </Text>
+
+            <FloatingField label="Produit à commander">
+              <TextInput
+                style={styles.input}
+                value={orderProduct}
+                onChangeText={setOrderProduct}
+                placeholder="Ex: BATTERIE ASUS X512"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <FloatingField label="Marque">
+              <TextInput
+                style={styles.input}
+                value={orderBrand}
+                onChangeText={setOrderBrand}
+                placeholder="(facultatif)"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <FloatingField label="Modèle">
+              <TextInput
+                style={styles.input}
+                value={orderModel}
+                onChangeText={setOrderModel}
+                placeholder="(facultatif)"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <FloatingField label="Prix unitaire (€)">
+              <TextInput
+                style={styles.input}
+                value={orderUnitPrice}
+                onChangeText={setOrderUnitPrice}
+                keyboardType="decimal-pad"
+                placeholder="Ex: 80"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <FloatingField label="Quantité">
+              <TextInput
+                style={styles.input}
+                value={orderQty}
+                onChangeText={(t) => setOrderQty(t.replace(/[^\d]/g, ""))}
+                keyboardType="number-pad"
+                placeholder="1"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <TouchableOpacity
+              onPress={handleAddOrderItem}
+              style={{
+                alignSelf: "center",
+                marginBottom: 10,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#0d6efd",
+              }}
+            >
+              <Text style={{ color: "#0d6efd", fontWeight: "700" }}>
+                + Ajouter un autre produit
+              </Text>
+            </TouchableOpacity>
+
+            {orderItems.length > 0 && (
+              <View
+                style={{
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: "#ddd",
+                  borderRadius: 8,
+                  backgroundColor: "#fafafa",
+                  padding: 10,
+                }}
+              >
+                <Text style={{ fontWeight: "700", marginBottom: 6 }}>
+                  Produits ajoutés
+                </Text>
+                {orderItems.map((item) => (
+                  <View
+                    key={item.localId}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: "600" }}>{item.product}</Text>
+                      <Text style={{ color: "#666", fontSize: 12 }}>
+                        {item.qty} × {item.price.toFixed(2)} €
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setOrderItems((prev) =>
+                          prev.filter((p) => p.localId !== item.localId)
+                        )
+                      }
+                    >
+                      <Text
+                        style={{ color: "red", marginLeft: 10, fontWeight: "700" }}
+                      >
+                        ✕
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <FloatingField label="Acompte (€)">
+              <TextInput
+                style={styles.input}
+                value={orderDeposit}
+                onChangeText={setOrderDeposit}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor="#777"
+              />
+            </FloatingField>
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+              <TouchableOpacity
+                onPress={() => setOrderModalVisible(false)}
+                style={{
+                  flex: 1,
+                  backgroundColor: "#6c757d",
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateOrderFromStatus}
+                style={{
+                  flex: 1,
+                  backgroundColor: "#0d6efd",
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Créer</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
           </View>
         </View>
       </Modal>
@@ -2182,7 +3648,364 @@ labelToggleCheckbox: {
 labelToggleText: {
   fontSize: 16,
   fontWeight: "500",
+  fontStyle: "italic",
   color: "#242424",
 },
+faultDescriptionContainer: {
+  flexDirection: "row",
+  alignItems: "stretch",
+  width: "90%",
+  alignSelf: "center",
+},
 
+faultDescriptionInput: {
+  flex: 1,
+  minHeight: 75,
+  borderWidth: 1,
+  borderColor: "#a8a8a8",
+  borderRadius: 8,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  fontSize: 16,
+  color: "#111827",
+  backgroundColor: "#ffffff",
+  textAlignVertical: "top",
+},
+
+faultChooseButton: {
+  width: 92,
+  marginLeft: 8,
+  borderRadius: 8,
+  backgroundColor: "#2563eb",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingVertical: 10,
+},
+
+faultChooseButtonText: {
+  marginTop: 3,
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: "bold",
+},
+
+faultModalOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.65)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 18,
+},
+
+faultModalBox: {
+  width: "100%",
+  maxWidth: 680,
+  maxHeight: "90%",
+  backgroundColor: "#ffffff",
+  borderRadius: 16,
+  padding: 16,
+},
+
+faultModalHeader: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+  marginBottom: 12,
+},
+
+faultModalTitle: {
+  fontSize: 22,
+  fontWeight: "bold",
+  color: "#1f2937",
+},
+
+faultModalSubtitle: {
+  marginTop: 3,
+  fontSize: 14,
+  color: "#64748b",
+},
+
+faultModalClose: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: "#e5e7eb",
+  justifyContent: "center",
+  alignItems: "center",
+  marginLeft: 10,
+},
+
+faultModalCloseText: {
+  fontSize: 17,
+  fontWeight: "bold",
+  color: "#374151",
+},
+
+faultSearchContainer: {
+  flexDirection: "row",
+  alignItems: "center",
+  borderWidth: 1,
+  borderColor: "#94a3b8",
+  borderRadius: 10,
+  backgroundColor: "#f8fafc",
+  paddingHorizontal: 11,
+  marginBottom: 10,
+},
+
+faultSearchInput: {
+  flex: 1,
+  minHeight: 46,
+  paddingHorizontal: 8,
+  fontSize: 16,
+  color: "#111827",
+},
+
+faultSearchClear: {
+  paddingHorizontal: 8,
+  fontSize: 18,
+  color: "#64748b",
+},
+
+faultListScroll: {
+  maxHeight: 490,
+},
+
+faultCategoryTitle: {
+  marginTop: 10,
+  marginBottom: 5,
+  paddingHorizontal: 8,
+  fontSize: 14,
+  fontWeight: "bold",
+  color: "#1d4ed8",
+  textTransform: "uppercase",
+},
+
+faultRow: {
+  minHeight: 52,
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: 11,
+  paddingVertical: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: "#e5e7eb",
+},
+
+faultRowDescription: {
+  fontSize: 16,
+  color: "#1f2937",
+  fontWeight: "600",
+},
+
+faultRowDevice: {
+  marginTop: 2,
+  fontSize: 12,
+  color: "#94a3b8",
+},
+
+faultRowArrow: {
+  marginLeft: 10,
+  fontSize: 25,
+  color: "#94a3b8",
+},
+
+faultEmptyText: {
+  paddingVertical: 35,
+  textAlign: "center",
+  fontSize: 15,
+  color: "#64748b",
+},
+
+addFaultButton: {
+  marginTop: 12,
+  paddingVertical: 13,
+  borderRadius: 10,
+  backgroundColor: "#047857",
+  alignItems: "center",
+},
+
+addFaultButtonText: {
+  fontSize: 16,
+  fontWeight: "bold",
+  color: "#ffffff",
+},
+
+newFaultModalBox: {
+  width: "100%",
+  maxWidth: 560,
+  backgroundColor: "#ffffff",
+  borderRadius: 16,
+  padding: 18,
+},
+
+newFaultTitle: {
+  fontSize: 22,
+  fontWeight: "bold",
+  color: "#1f2937",
+},
+
+newFaultDevice: {
+  marginTop: 5,
+  marginBottom: 15,
+  fontSize: 14,
+  color: "#64748b",
+},
+
+newFaultLabel: {
+  marginTop: 10,
+  marginBottom: 6,
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#374151",
+},
+
+newFaultInput: {
+  minHeight: 48,
+  borderWidth: 1,
+  borderColor: "#94a3b8",
+  borderRadius: 10,
+  backgroundColor: "#f8fafc",
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  fontSize: 16,
+  color: "#111827",
+  textAlignVertical: "top",
+},
+
+newFaultActions: {
+  flexDirection: "row",
+  gap: 10,
+  marginTop: 20,
+},
+
+newFaultCancelButton: {
+  flex: 1,
+  paddingVertical: 13,
+  borderWidth: 1,
+  borderColor: "#94a3b8",
+  borderRadius: 10,
+  alignItems: "center",
+},
+
+newFaultCancelButtonText: {
+  color: "#475569",
+  fontSize: 16,
+  fontWeight: "700",
+},
+
+newFaultSaveButton: {
+  flex: 1,
+  paddingVertical: 13,
+  borderRadius: 10,
+  backgroundColor: "#047857",
+  alignItems: "center",
+},
+
+newFaultSaveButtonText: {
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: "bold",
+},
+repairProposalBox: {
+  width: "90%",
+  alignSelf: "center",
+  marginTop: 8,
+  marginBottom: 14,
+  padding: 12,
+  borderWidth: 1,
+  borderColor: "#94a3b8",
+  borderRadius: 12,
+  backgroundColor: "#f8fafc",
+},
+
+repairProposalToggleRow: {
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+repairProposalCheckbox: {
+  width: 27,
+  height: 27,
+  borderWidth: 2,
+  borderColor: "#047857",
+  borderRadius: 6,
+  justifyContent: "center",
+  alignItems: "center",
+  marginRight: 11,
+  backgroundColor: "#ffffff",
+},
+
+repairProposalToggleTitle: {
+  fontSize: 16,
+  fontWeight: "bold",
+  color: "#1f2937",
+},
+
+repairProposalToggleHelp: {
+  marginTop: 3,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#64748b",
+},
+
+repairProposalContent: {
+  marginTop: 14,
+  paddingTop: 10,
+  borderTopWidth: 1,
+  borderTopColor: "#cbd5e1",
+},
+
+repairProposalTextInput: {
+  minHeight: 75,
+},
+
+repairProposalCommentInput: {
+  minHeight: 70,
+},
+
+repairProposalAcceptedBox: {
+  marginTop: 8,
+  padding: 10,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#86efac",
+  backgroundColor: "#dcfce7",
+},
+
+repairProposalAcceptedText: {
+  color: "#166534",
+  fontSize: 14,
+  fontWeight: "700",
+  textAlign: "center",
+},
+
+repairProposalPendingBox: {
+  marginTop: 8,
+  padding: 10,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#fcd34d",
+  backgroundColor: "#fef3c7",
+},
+
+repairProposalPendingText: {
+  color: "#92400e",
+  fontSize: 14,
+  fontWeight: "700",
+  textAlign: "center",
+},
+
+repairProposalRefusedBox: {
+  marginTop: 8,
+  padding: 10,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: "#fca5a5",
+  backgroundColor: "#fee2e2",
+},
+
+repairProposalRefusedText: {
+  color: "#991b1b",
+  fontSize: 14,
+  fontWeight: "700",
+  textAlign: "center",
+},
 });

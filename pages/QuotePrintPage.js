@@ -1,16 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, Alert, TouchableOpacity } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 import * as Sharing from "expo-sharing";
 import * as MailComposer from "expo-mail-composer";
+import CustomAlert from "../components/CustomAlert";
 
 const QuotePrintPage = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params;
   const [quote, setQuote] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   useEffect(() => {
     fetchQuote();
@@ -24,7 +34,7 @@ const QuotePrintPage = () => {
       .single();
 
     if (error) {
-      Alert.alert("Erreur", "Impossible de charger le devis");
+      showAlert("Erreur", "Impossible de charger le devis");
       console.error(error);
     } else {
       setQuote(data);
@@ -564,7 +574,7 @@ const QuotePrintPage = () => {
           .update({ deja_envoye: true })
           .eq("id", quote.id);
 
-        Alert.alert(
+        showAlert(
           "✅ E-mail prêt",
           `Le devis a été ouvert dans votre application mail.`
         );
@@ -579,11 +589,11 @@ const QuotePrintPage = () => {
           .update({ deja_envoye: true })
           .eq("id", quote.id);
 
-        Alert.alert("✅ Partage terminé", "Le devis a bien été partagé.");
+        showAlert("✅ Partage terminé", "Le devis a bien été partagé.");
       }
     } catch (error) {
       console.error("❌ Erreur génération PDF :", error);
-      Alert.alert("Erreur", "Impossible de générer ou partager le PDF.");
+      showAlert("Erreur", "Impossible de générer ou partager le PDF.");
     }
   };
 
@@ -720,6 +730,13 @@ onPress={() =>
           </Text>
         </TouchableOpacity>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 };

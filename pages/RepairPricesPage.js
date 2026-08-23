@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
   Linking,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,8 @@ import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 /**
  * ------------------------------------------------------------
  * RepairPricesPage.js — v2.1
@@ -43,6 +44,16 @@ const [searchPart, setSearchPart] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [currentItem, setCurrentItem] = useState(null); // null = ajout
   const [form, setForm] = useState({ issue: "", symptoms: "", price_min: "", price_max: "" });
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const resetForm = () => setForm({ issue: "", symptoms: "", price_min: "", price_max: "" });
 
@@ -80,7 +91,7 @@ const fetchProductTypes = async () => {
     setProductTypes(types);
     if (!selectedType && types.length) setSelectedType(types[0]);
   } catch (e) {
-    Alert.alert("Erreur", "Impossible de charger les types de produit");
+    showAlert("Erreur", "Impossible de charger les types de produit");
   }
 };
 
@@ -97,7 +108,7 @@ const fetchProductTypes = async () => {
       if (error) throw error;
       setRepairs(data);
     } catch (e) {
-      Alert.alert("Erreur", "Impossible de charger les barèmes");
+      showAlert("Erreur", "Impossible de charger les barèmes");
     } finally {
       setLoading(false);
     }
@@ -107,7 +118,7 @@ const fetchProductTypes = async () => {
   const saveRepair = async () => {
     const { issue, symptoms, price_min, price_max } = form;
     if (!issue || !price_min || !price_max) {
-      Alert.alert("Champs manquants", "Issue et tarifs obligatoires");
+      showAlert("Champs manquants", "Issue et tarifs obligatoires");
       return;
     }
     try {
@@ -130,27 +141,24 @@ const fetchProductTypes = async () => {
       closeModal();
       fetchRepairs(selectedType);
     } catch (e) {
-      Alert.alert("Erreur", "Sauvegarde impossible : " + e.message);
+      showAlert("Erreur", "Sauvegarde impossible : " + e.message);
     }
   };
 
   /* ------------------------ delete ------------------------ */
-  const deleteRepair = async (id) => {
-    Alert.alert("Confirmer", "Supprimer cette entrée ?", [
-      { text: "Annuler" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.from("repair_prices").delete().eq("id", id);
-          if (error) {
-            Alert.alert("Erreur", "Suppression impossible : " + error.message);
-            return;
-          }
-          fetchRepairs(selectedType);
-        },
-      },
-    ]);
+  const deleteRepair = (id) => {
+    setItemToDelete(id);
+  };
+
+  const confirmDeleteRepair = async () => {
+    const id = itemToDelete;
+    setItemToDelete(null);
+    const { error } = await supabase.from("repair_prices").delete().eq("id", id);
+    if (error) {
+      showAlert("Erreur", "Suppression impossible : " + error.message);
+      return;
+    }
+    fetchRepairs(selectedType);
   };
 
   /* ----------------------- effects ------------------------ */
@@ -233,7 +241,7 @@ const fetchProductTypes = async () => {
   style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#09a4fd", width: "60%"}]}
   onPress={() => {
 if (!searchRef.trim() && !searchPart.trim()) {
-  Alert.alert("Erreur", "Veuillez saisir une référence ou une pièce.");
+  showAlert("Erreur", "Veuillez saisir une référence ou une pièce.");
   return;
 }
     const query = encodeURIComponent(`${selectedType} ${searchRef} ${searchPart}`);
@@ -260,50 +268,71 @@ if (!searchRef.trim() && !searchPart.trim()) {
       </View>
 
       {/* Modal Ajout / Édition */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={closeModal}>
         <View style={styles.modalBack}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{currentItem ? "Modifier" : "Ajouter"} une intervention</Text>
             <TextInput
               placeholder="Intitulé (issue)"
+              placeholderTextColor="#9CA3AF"
               value={form.issue}
               onChangeText={(t) => setForm({ ...form, issue: t })}
-              style={styles.input}
+              style={styles.modalInput}
             />
             <TextInput
               placeholder="Symptômes (optionnel)"
+              placeholderTextColor="#9CA3AF"
               value={form.symptoms}
               onChangeText={(t) => setForm({ ...form, symptoms: t })}
-              style={[styles.input, { height: 60 }]}
+              style={[styles.modalInput, { height: 60 }]}
               multiline
             />
             <View style={styles.row}>
               <TextInput
                 placeholder="Prix min"
+                placeholderTextColor="#9CA3AF"
                 value={form.price_min}
                 onChangeText={(t) => setForm({ ...form, price_min: t })}
                 keyboardType="numeric"
-                style={[styles.input, { flex: 1, marginRight: 5 }]}
+                style={[styles.modalInput, { flex: 1, marginRight: 5 }]}
               />
               <TextInput
                 placeholder="Prix max"
+                placeholderTextColor="#9CA3AF"
                 value={form.price_max}
                 onChangeText={(t) => setForm({ ...form, price_max: t })}
                 keyboardType="numeric"
-                style={[styles.input, { flex: 1, marginLeft: 5 }]}
+                style={[styles.modalInput, { flex: 1, marginLeft: 5 }]}
               />
             </View>
             <View style={styles.row}>
-              <TouchableOpacity style={styles.btn} onPress={saveRepair}>
+              <TouchableOpacity style={styles.btn} onPress={saveRepair} activeOpacity={0.85}>
                 <Text style={styles.btnText}>Enregistrer</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, { backgroundColor: "#aaa" }]} onPress={closeModal}>
-                <Text style={styles.btnText}>Annuler</Text>
+              <TouchableOpacity style={styles.btnCancel} onPress={closeModal} activeOpacity={0.7}>
+                <Text style={styles.btnCancelText}>Annuler</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <AlertBox
+        visible={!!itemToDelete}
+        title="Confirmer"
+        message="Supprimer cette entrée ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteRepair}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
 
 	</SafeAreaView>
 	</KeyboardAvoidingView>
@@ -355,13 +384,36 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  modalBack: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
-  modalContent: { width: "90%", backgroundColor: "#fff", borderRadius: 10, padding: 20 },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  modalBack: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.55)", alignItems: "center", justifyContent: "center", padding: 16 },
+  modalContent: {
+    width: "90%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: { fontSize: 19, fontWeight: "700", color: "#111827", marginBottom: 14, textAlign: "center" },
   input: { backgroundColor: "#f0f0f0", borderRadius: 6, padding: 10, marginVertical: 5 },
-  row: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
-  btn: { flex: 1, backgroundColor: "#2ecc71", padding: 12, borderRadius: 6, alignItems: "center", marginHorizontal: 5 },
-  btnText: { color: "#ffffff", fontWeight: "bold" },
+  modalInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 14,
+    padding: 12,
+    marginVertical: 5,
+    fontSize: 15,
+    color: "#111827",
+  },
+  row: { flexDirection: "row", justifyContent: "space-between", marginTop: 10, gap: 10 },
+  btn: { flex: 1, backgroundColor: "#22C55E", paddingVertical: 13, borderRadius: 14, alignItems: "center" },
+  btnText: { color: "#ffffff", fontWeight: "700", fontSize: 15 },
+  btnCancel: { flex: 1, backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB", paddingVertical: 13, borderRadius: 14, alignItems: "center" },
+  btnCancelText: { color: "#374151", fontWeight: "700", fontSize: 15 },
       optionButton: {
         width: 310,
         paddingVertical: 15,

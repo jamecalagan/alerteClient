@@ -9,12 +9,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
-  Alert,
   Linking,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 const STORAGE_BUCKET = "quote-request-photos";
 const QUOTES_PDF_BUCKET = "quotes-pdf";
@@ -86,6 +87,16 @@ export default function QuoteRequestsListPage({ navigation }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("toutes"); // "toutes" | "nouvelle" | "préparée" | "convertie"
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteRequestTarget, setDeleteRequestTarget] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -146,7 +157,7 @@ export default function QuoteRequestsListPage({ navigation }) {
   /** Envoi / Renvoi du SMS + persist BDD (et inclusion du PDF si dispo) */
   const notifyBySMS = async (req) => {
     if (!req?.phone) {
-      Alert.alert(
+      showAlert(
         "Information manquante",
         "Aucun numéro de téléphone n’est renseigné."
       );
@@ -169,7 +180,7 @@ export default function QuoteRequestsListPage({ navigation }) {
         await Linking.openURL(smsUrl);
       } else {
         await Clipboard.setStringAsync(String(req.phone));
-        Alert.alert(
+        showAlert(
           "Numéro copié",
           "Le numéro a été copié. Ouverture de Messages Web…"
         );
@@ -192,7 +203,7 @@ export default function QuoteRequestsListPage({ navigation }) {
 
       if (updErr) {
         console.error("⚠️ update sms fields:", updErr);
-        Alert.alert(
+        showAlert(
           "Avertissement",
           "SMS envoyé, mais impossible d’enregistrer l’indication en base."
         );
@@ -203,8 +214,8 @@ export default function QuoteRequestsListPage({ navigation }) {
       console.log("❌ notifyBySMS:", e);
       try {
         await Clipboard.setStringAsync(String(req.phone ?? ""));
-      } catch {}
-      Alert.alert(
+      } catch { /* copie presse-papiers échouée, ignoré */ }
+      showAlert(
         "Impossible d’ouvrir l’envoi SMS",
         "Le numéro a été copié dans le presse-papiers. Vous pouvez l’utiliser dans votre application de messagerie."
       );
@@ -254,13 +265,7 @@ export default function QuoteRequestsListPage({ navigation }) {
   };
 
   const deleteRequest = (req) => {
-    const warning = req.quote_id
-      ? "Cette demande est liée à un devis existant. Le devis NE sera pas supprimé.\n\nSupprimer quand même la demande ?"
-      : "Supprimer définitivement cette demande de devis ?";
-    Alert.alert("Supprimer la demande", warning, [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: () => doDelete(req) },
-    ]);
+    setDeleteRequestTarget(req);
   };
 
   const doDelete = async (req) => {
@@ -281,13 +286,13 @@ export default function QuoteRequestsListPage({ navigation }) {
         .delete()
         .eq("id", req.id);
       if (delErr) {
-        Alert.alert("Erreur", "Impossible de supprimer : " + delErr.message);
+        showAlert("Erreur", "Impossible de supprimer : " + delErr.message);
         return;
       }
       await loadRequests();
     } catch (e) {
       console.log("❌ doDelete:", e);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Une erreur est survenue pendant la suppression."
       );
@@ -514,6 +519,31 @@ export default function QuoteRequestsListPage({ navigation }) {
           refreshing={loading}
         />
       )}
+
+      <AlertBox
+        visible={!!deleteRequestTarget}
+        title="Supprimer la demande"
+        message={
+          deleteRequestTarget?.quote_id
+            ? "Cette demande est liée à un devis existant. Le devis NE sera pas supprimé.\n\nSupprimer quand même la demande ?"
+            : "Supprimer définitivement cette demande de devis ?"
+        }
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setDeleteRequestTarget(null)}
+        onConfirm={() => {
+          const req = deleteRequestTarget;
+          setDeleteRequestTarget(null);
+          doDelete(req);
+        }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }

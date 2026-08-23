@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Image,
   Platform,
 } from "react-native";
@@ -17,6 +16,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const DEBOUNCE_MS = 220;
 const STORAGE_BUCKET = "quote-request-photos";
@@ -66,6 +66,15 @@ const QuoteIntakePage = () => {
   const [uploading, setUploading] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
   const [lastSavedId, setLastSavedId] = useState(null);
 
   const resetForm = () => {
@@ -145,7 +154,7 @@ const QuoteIntakePage = () => {
   const requestCameraAndOpen = async () => {
     const camPerm = await ImagePicker.requestCameraPermissionsAsync();
     if (camPerm.status !== "granted") {
-      Alert.alert("Permission refusée", "Autorise l'appareil photo pour prendre des photos.");
+      showAlert("Permission refusée", "Autorise l'appareil photo pour prendre des photos.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -184,7 +193,7 @@ const QuoteIntakePage = () => {
         return [];
       }
       if (!token) {
-        Alert.alert("Session requise", "Connecte-toi pour téléverser des photos.");
+        showAlert("Session requise", "Connecte-toi pour téléverser des photos.");
         return [];
       }
 
@@ -224,7 +233,7 @@ const QuoteIntakePage = () => {
   /* ───────────── Enregistrement ───────────── */
   const handleSaveRequest = async () => {
     if (!clientName.trim()) {
-      Alert.alert("Information manquante", "Indique au moins le nom du client.");
+      showAlert("Information manquante", "Indique au moins le nom du client.");
       return;
     }
 
@@ -254,7 +263,7 @@ const QuoteIntakePage = () => {
         .single();
 
       if (error) {
-        Alert.alert("Erreur", "Sauvegarde impossible : " + error.message);
+        showAlert("Erreur", "Sauvegarde impossible : " + error.message);
         return;
       }
 
@@ -273,7 +282,7 @@ const QuoteIntakePage = () => {
         }
       }
 
-      Alert.alert(
+      showAlert(
         "✅ Demande enregistrée",
         uploadedUrls.length > 0
           ? `La prise d’infos a été archivée (avec ${uploadedUrls.length} photo(s)).`
@@ -281,7 +290,7 @@ const QuoteIntakePage = () => {
       );
     } catch (e) {
       console.log(e);
-      Alert.alert("Erreur", "Une erreur est survenue.");
+      showAlert("Erreur", "Une erreur est survenue.");
     } finally {
       setSaving(false);
     }
@@ -512,6 +521,13 @@ const QuoteIntakePage = () => {
       </View>
 
       <View style={{ height: 16 }} />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </KeyboardAwareScrollView>
   );
 };

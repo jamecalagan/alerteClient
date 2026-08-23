@@ -5,8 +5,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Alert, TouchableOpacity, Image, StatusBar } from 'react-native';
+import { TouchableOpacity, Image, StatusBar } from 'react-native';
 import { supabase } from './supabaseClient';
+import CustomAlert from './components/CustomAlert';
+import AlertBox from './components/AlertBox';
 import PrintPage from './pages/PrintPage'; // Assurez-vous que le chemin est correct
 import OrdersPage from './pages/OrdersPage';
 import ArchivesInterventionsPage from "./pages/ArchivesInterventionsPage";
@@ -76,50 +78,48 @@ const Tab = createBottomTabNavigator();
 
 // Onglets principaux
 function MainTabs({ navigation, setUser }) {
+	const [alertVisible, setAlertVisible] = useState(false);
+	const [alertTitle, setAlertTitle] = useState("");
+	const [alertMessage, setAlertMessage] = useState("");
+	const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+
+	const showAlert = (title, message) => {
+		setAlertTitle(title);
+		setAlertMessage(message);
+		setAlertVisible(true);
+	};
+
 	const handleLogout = async () => {
 		try {
 			console.log("Déconnexion en cours...");
-	
+
 			const { error } = await supabase.auth.signOut();
 			if (error) {
 				console.error("Erreur lors de la déconnexion :", error);
-				Alert.alert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
+				showAlert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
 				return;
 			}
-	
+
 			console.log("Déconnexion réussie ! Bascule vers AuthStack...");
-	
+
 			// ✅ Supprime toute tentative de `navigation.reset()` et utilise `setUser(null)`
 			setUser(null);
-	
+
 		} catch (err) {
 			console.error("Erreur inattendue lors de la déconnexion :", err);
-			Alert.alert("Erreur", "Une erreur inattendue est survenue.");
+			showAlert("Erreur", "Une erreur inattendue est survenue.");
 		}
 	};
-	
-	
-	  
+
+
+
 	  const confirmLogout = () => {
-		Alert.alert(
-		  "Confirmation",
-		  "Êtes-vous sûr de vouloir vous déconnecter ?", 
-		  [
-			{
-			  text: "Annuler",
-			  style: "cancel",
-			},
-			{
-			  text: "Déconnexion",
-			  onPress: () => handleLogout(), // Appelle la déconnexion
-			}
-		  ],
-		  { cancelable: true }
-		);
+		setLogoutConfirmVisible(true);
 	  };
-	  
+
 
     return (
+<>
 <Tab.Navigator
   screenOptions={({ route }) => ({
     headerShown: false, // Masque les en-têtes pour tous les écrans
@@ -233,6 +233,26 @@ function MainTabs({ navigation, setUser }) {
   />
 </Tab.Navigator>
 
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
+
+      <AlertBox
+        visible={logoutConfirmVisible}
+        title="Confirmation"
+        message="Êtes-vous sûr de vouloir vous déconnecter ?"
+        cancelText="Annuler"
+        confirmText="Déconnexion"
+        onClose={() => setLogoutConfirmVisible(false)}
+        onConfirm={() => {
+          setLogoutConfirmVisible(false);
+          handleLogout();
+        }}
+      />
+    </>
     );
 }
 

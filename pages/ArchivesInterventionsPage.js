@@ -1,9 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native";
 import { supabase } from "../supabaseClient";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 export default function ArchivesInterventionsPage({ navigation }) {
   const [items, setItems] = useState([]);
+  const [idToUnarchive, setIdToUnarchive] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const load = async () => {
     const { data, error } = await supabase
@@ -20,19 +32,13 @@ export default function ArchivesInterventionsPage({ navigation }) {
     return unsub;
   }, [navigation]);
 
-  const unarchive = async (id) => {
-    const confirm = await new Promise((resolve) => {
-      Alert.alert(
-        "Restaurer",
-        "Remettre cette fiche dans la liste active ?",
-        [
-          { text: "Annuler", style: "cancel", onPress: () => resolve(false) },
-          { text: "Restaurer", onPress: () => resolve(true) },
-        ],
-        { cancelable: true }
-      );
-    });
-    if (!confirm) return;
+  const unarchive = (id) => {
+    setIdToUnarchive(id);
+  };
+
+  const confirmUnarchive = async () => {
+    const id = idToUnarchive;
+    setIdToUnarchive(null);
 
     const { error } = await supabase
       .from("interventions")
@@ -41,9 +47,9 @@ export default function ArchivesInterventionsPage({ navigation }) {
 
     if (!error) {
       setItems((prev) => prev.filter((x) => x.id !== id));
-      Alert.alert("OK", "Fiche restaurée.");
+      showAlert("OK", "Fiche restaurée.");
     } else {
-      Alert.alert("Erreur", "Impossible de restaurer.");
+      showAlert("Erreur", "Impossible de restaurer.");
     }
   };
 
@@ -69,6 +75,23 @@ export default function ArchivesInterventionsPage({ navigation }) {
           </View>
         )}
         contentContainerStyle={{ paddingBottom: 40 }}
+      />
+
+      <AlertBox
+        visible={!!idToUnarchive}
+        title="Restaurer"
+        message="Remettre cette fiche dans la liste active ?"
+        cancelText="Annuler"
+        confirmText="Restaurer"
+        onClose={() => setIdToUnarchive(null)}
+        onConfirm={confirmUnarchive}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );

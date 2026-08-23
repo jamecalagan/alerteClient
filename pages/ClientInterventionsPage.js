@@ -11,12 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
-  Alert,
 } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 /* ─────────── Helpers format ─────────── */
 const formatPhone = (p) => (p ? String(p).replace(/(\d{2})(?=\d)/g, "$1 ") : "");
@@ -70,7 +71,7 @@ const toUrl = async (raw) => {
       .from("images")
       .createSignedUrl(key, 60 * 60 * 24 * 7);
     if (signed?.data?.signedUrl) return signed.data.signedUrl;
-  } catch {}
+  } catch { /* pas d'URL signée disponible */ }
   return "";
 };
 
@@ -117,7 +118,7 @@ const normalizePhotosField = (photos) => {
         return Array.isArray(arr)
           ? arr.map(cleanRefKeepToken).filter(Boolean)
           : [];
-      } catch {}
+      } catch { /* pas du JSON valide, ignoré */ }
     }
     const one = cleanRefKeepToken(raw);
     return one ? [one] : [];
@@ -162,6 +163,16 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   // Charger le client courant (incl. createdAt)
   useEffect(() => {
@@ -227,7 +238,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
                 );
                 photosTable = await Promise.all(raws.map((p) => toUrl(p)));
               }
-            } catch {}
+            } catch { /* pas de photos en base, ignoré */ }
 
             // Storage
             const fromSupp = await listFolderUrls("supplementaires", it.id);
@@ -325,25 +336,22 @@ export default function ClientInterventionsPage({ route, navigation }) {
         .delete()
         .eq("id", interventionId);
       if (error) {
-        Alert.alert("Erreur", "Une erreur est survenue lors de la suppression.");
+        showAlert("Erreur", "Une erreur est survenue lors de la suppression.");
         console.error("Erreur de suppression :", error);
         return;
       }
-      Alert.alert("Succès", "L'intervention a été supprimée avec succès.");
+      showAlert("Succès", "L'intervention a été supprimée avec succès.");
       setInterventions((prev) =>
         prev.filter((intervention) => intervention.id !== interventionId)
       );
     } catch (err) {
-      Alert.alert("Erreur", "Impossible de supprimer l'intervention.");
+      showAlert("Erreur", "Impossible de supprimer l'intervention.");
       console.error("Erreur :", err);
     }
   };
 
   const confirmDeleteIntervention = (interventionId) => {
-    Alert.alert("Confirmation", "Supprimer cette intervention ?", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", onPress: () => handleDeleteIntervention(interventionId) },
-    ]);
+    setInterventionIdToDelete(interventionId);
   };
 
   return (
@@ -549,11 +557,36 @@ export default function ClientInterventionsPage({ route, navigation }) {
           <TouchableOpacity
             style={styles.modalBackground}
             onPress={() => setSelectedImage(null)}
+            activeOpacity={1}
           >
+            <TouchableOpacity style={styles.imageCloseBtn} onPress={() => setSelectedImage(null)}>
+              <Text style={styles.imageCloseBtnText}>✕</Text>
+            </TouchableOpacity>
             <Image source={{ uri: selectedImage }} style={styles.fullImage} />
           </TouchableOpacity>
         </Modal>
       )}
+
+      <AlertBox
+        visible={!!interventionIdToDelete}
+        title="Confirmation"
+        message="Supprimer cette intervention ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setInterventionIdToDelete(null)}
+        onConfirm={() => {
+          const id = interventionIdToDelete;
+          setInterventionIdToDelete(null);
+          handleDeleteIntervention(id);
+        }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -657,7 +690,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#191f2f",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
   },
-  fullImage: { width: "90%", height: "90%", resizeMode: "contain" },
+  fullImage: { width: "90%", height: "90%", resizeMode: "contain", borderRadius: 16 },
+  imageCloseBtn: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  imageCloseBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 });

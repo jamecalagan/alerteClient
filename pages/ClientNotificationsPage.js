@@ -7,10 +7,11 @@ import {
     TextInput,
     TouchableOpacity,
     Linking,
-    Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation } from "@react-navigation/native";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 export default function ClientNotificationsPage() {
     const [lastNotified, setLastNotified] = useState([]);
     const [notifications, setNotifications] = useState([]);
@@ -25,6 +26,17 @@ export default function ClientNotificationsPage() {
     const route = useRoute();
     const [selectedClientId, setSelectedClientId] = useState(null);
     const [filteredItems, setFilteredItems] = useState([]);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+    const [urgentCount, setUrgentCount] = useState(0);
+    const [reviewConfirmItem, setReviewConfirmItem] = useState(null);
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     const navigation = useNavigation();
 
@@ -59,17 +71,7 @@ export default function ClientNotificationsPage() {
                     );
                 });
                 if (urgents.length > 0) {
-                    Alert.alert(
-                        "⛔️ Urgences détectées",
-                        `${urgents.length} client(s) ont été notifiés depuis plus de 30 jours sans récupération.`,
-                        [
-                            {
-                                text: "Voir",
-                                onPress: () => setFilterType("urgence"),
-                            },
-                            { text: "OK" },
-                        ]
-                    );
+                    setUrgentCount(urgents.length);
                 }
             }, 1000);
         });
@@ -251,14 +253,10 @@ export default function ClientNotificationsPage() {
                 return Array.from(map.values()).slice(0, 3);
             });
 
-            Alert.alert(
-                "✅ Notification envoyée",
-                `${client.name} a été notifié.`,
-                [{ text: "OK" }]
-            );
+            showAlert("✅ Notification envoyée", `${client.name} a été notifié.`);
         } else {
             console.error("Erreur Supabase :", error.message);
-            Alert.alert("Erreur", error.message);
+            showAlert("Erreur", error.message);
         }
     };
 
@@ -340,30 +338,7 @@ export default function ClientNotificationsPage() {
   <TouchableOpacity
     onPress={() => {
       if (!item.review_responded) {
-        Alert.alert(
-          "Avis reçu et répondu ?",
-          "Confirme que tu as bien reçu un avis et que tu y as répondu.",
-          [
-            { text: "Annuler", style: "cancel" },
-            {
-              text: "Oui, confirmé",
-              onPress: async () => {
-                await supabase
-                  .from("interventions")
-                  .update({ review_responded: true })
-                  .eq("id", item.intervention_id);
-
-                const updatedClient = {
-                  ...item,
-                  review_responded: true,
-                };
-                setNotifications((prev) =>
-                  prev.map((n) => (n.id === item.id ? updatedClient : n))
-                );
-              },
-            },
-          ]
-        );
+        setReviewConfirmItem(item);
       }
     }}
   >
@@ -706,6 +681,51 @@ export default function ClientNotificationsPage() {
                     <Text style={styles.pageButtonText}>Suivant ⏭</Text>
                 </TouchableOpacity>
             </View>
+
+            <AlertBox
+                visible={urgentCount > 0}
+                title="⛔️ Urgences détectées"
+                message={`${urgentCount} client(s) ont été notifiés depuis plus de 30 jours sans récupération.`}
+                cancelText="OK"
+                confirmText="Voir"
+                onClose={() => setUrgentCount(0)}
+                onConfirm={() => {
+                    setUrgentCount(0);
+                    setFilterType("urgence");
+                }}
+            />
+
+            <AlertBox
+                visible={!!reviewConfirmItem}
+                title="Avis reçu et répondu ?"
+                message="Confirme que tu as bien reçu un avis et que tu y as répondu."
+                cancelText="Annuler"
+                confirmText="Oui, confirmé"
+                onClose={() => setReviewConfirmItem(null)}
+                onConfirm={async () => {
+                    const item = reviewConfirmItem;
+                    setReviewConfirmItem(null);
+                    await supabase
+                        .from("interventions")
+                        .update({ review_responded: true })
+                        .eq("id", item.intervention_id);
+
+                    const updatedClient = {
+                        ...item,
+                        review_responded: true,
+                    };
+                    setNotifications((prev) =>
+                        prev.map((n) => (n.id === item.id ? updatedClient : n))
+                    );
+                }}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </View>
     );
 }
@@ -784,11 +804,6 @@ const styles = StyleSheet.create({
         gap: 6,
         marginLeft: 10,
     },
-    actionButton: {
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 20,
-    },
     actionText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
     paginationRow: {
         flexDirection: "row",
@@ -836,12 +851,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         marginBottom: 4,
         color: "#155724",
-    },
-    bannerText: {
-        color: "#155724",
-        fontSize: 14,
-        marginTop: 2,
-        textAlign: "center",
     },
     bannerRow: {
         flexDirection: "row",

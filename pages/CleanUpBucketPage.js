@@ -1,13 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Button, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Button, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
 import * as FileSystem from 'expo-file-system/legacy';
+import AlertBox from '../components/AlertBox';
+import CustomAlert from '../components/CustomAlert';
 
 
 export default function CleanUpBucketPage() {
   const [filesToDelete, setFilesToDelete] = useState([]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const BAD_PREFIXES = ['images/etiquettes/', 'images/supplementaires/'];
   const GOOD_PREFIXES = ['etiquettes/', 'supplementaires/'];
@@ -35,32 +47,23 @@ export default function CleanUpBucketPage() {
     fetchFiles();
   }, []);
 
-  const deleteBadFiles = async () => {
+  const deleteBadFiles = () => {
     if (filesToDelete.length === 0) return;
+    setDeleteConfirmVisible(true);
+  };
 
-    Alert.alert(
-      'Confirmer la suppression',
-      `Supprimer définitivement ${filesToDelete.length} fichiers ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            const { error } = await supabase.storage.from('images').remove(filesToDelete);
+  const confirmDeleteBadFiles = async () => {
+    setDeleteConfirmVisible(false);
+    setLoading(true);
+    const { error } = await supabase.storage.from('images').remove(filesToDelete);
 
-            if (error) {
-              Alert.alert('Erreur', error.message);
-            } else {
-              Alert.alert('Succès', `${filesToDelete.length} fichiers supprimés.`);
-              setFilesToDelete([]);
-            }
-            setLoading(false);
-          },
-        },
-      ]
-    );
+    if (error) {
+      showAlert('Erreur', error.message);
+    } else {
+      showAlert('Succès', `${filesToDelete.length} fichiers supprimés.`);
+      setFilesToDelete([]);
+    }
+    setLoading(false);
   };
 
   const compareAndFix = async () => {
@@ -142,6 +145,23 @@ export default function CleanUpBucketPage() {
           <Button title="🔁 Comparer & Corriger automatiquement" onPress={compareAndFix} color="#4e8cff" />
         </>
       )}
+
+      <AlertBox
+        visible={deleteConfirmVisible}
+        title="Confirmer la suppression"
+        message={`Supprimer définitivement ${filesToDelete.length} fichiers ?`}
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setDeleteConfirmVisible(false)}
+        onConfirm={confirmDeleteBadFiles}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }

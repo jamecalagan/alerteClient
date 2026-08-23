@@ -5,7 +5,6 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Image,
   TextInput,
   ScrollView,
@@ -14,18 +13,22 @@ import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import { useFocusEffect } from "@react-navigation/native";
+import CustomAlert from "../components/CustomAlert";
 
 /**
- * Liste des fiches de contrôle avec :
- *  • recherche par nom ou téléphone
- *  • suggestions cliquables (auto‑complétion)
- *  • historique des 5 dernières recherches (cliquables)
+ * Liste des fiches de contrôle avec:
+ *  •recherche par nom ou téléphone
+ *  •suggestions cliquables (auto‑complétion)
+ *  •historique des 5 dernières recherches (cliquables)
  */
 export default function CheckupListPage() {
   const [checkups, setCheckups] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
   const [searchHistory, setSearchHistory] = useState([]); // max 5 entrées
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
   const navigation = useNavigation();
 
   /* -------------------------------------------------- */
@@ -45,7 +48,9 @@ useFocusEffect(
       .order("created_at", { ascending: false });
 
     if (error) {
-      Alert.alert("Erreur", "Impossible de charger les fiches.");
+      setAlertTitle("Erreur");
+      setAlertMessage("Impossible de charger les fiches.");
+      setAlertVisible(true);
     } else {
       setCheckups(data);
       setFiltered(data);
@@ -75,8 +80,8 @@ useFocusEffect(
     const lower = text.toLowerCase();
     const results = checkups.filter(
       (item) =>
-        item.client_name.toLowerCase().includes(lower) ||
-        item.client_phone.toLowerCase().includes(lower)
+        (item.client_name || "").toLowerCase().includes(lower) ||
+        (item.client_phone || "").toLowerCase().includes(lower)
     );
     setFiltered(results);
   };
@@ -198,6 +203,13 @@ useFocusEffect(
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 20 }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );

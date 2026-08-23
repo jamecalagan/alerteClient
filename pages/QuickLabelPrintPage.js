@@ -6,14 +6,25 @@ import {
     TouchableOpacity,
     ScrollView,
     StyleSheet,
-    Alert,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import { useRoute } from "@react-navigation/native";
+import AlertBox from "../components/AlertBox";
+import CustomAlert from "../components/CustomAlert";
 
 export default function QuickLabelPrintPage({ navigation }) {
     const route = useRoute();
+    const [idToDelete, setIdToDelete] = useState(null);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+
+    const showAlert = (title, message) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertVisible(true);
+    };
 
     const emptyForm = {
         name: "",
@@ -158,13 +169,13 @@ export default function QuickLabelPrintPage({ navigation }) {
                 console.log("⚠️ Aucune ID trouvée pour cette étiquette.");
             }
         } catch (err) {
-            Alert.alert("Erreur impression", err.message);
+            showAlert("Erreur impression", err.message);
         }
     };
 
     const handleSave = async () => {
         if (!form.name || !form.phone) {
-            Alert.alert("Champs requis", "Nom et téléphone sont obligatoires.");
+            showAlert("Champs requis", "Nom et téléphone sont obligatoires.");
             return;
         }
 
@@ -178,11 +189,11 @@ export default function QuickLabelPrintPage({ navigation }) {
 
         const { data: existing, error: checkError } = await query;
         if (checkError) {
-            Alert.alert("Erreur", "Vérification impossible.");
+            showAlert("Erreur", "Vérification impossible.");
             return;
         }
         if (existing.length > 0) {
-            Alert.alert(
+            showAlert(
                 "Doublon",
                 "Une étiquette avec ce nom et ce téléphone existe déjà."
             );
@@ -198,7 +209,7 @@ export default function QuickLabelPrintPage({ navigation }) {
                 .eq("id", editingId);
 
             if (updateError) {
-                Alert.alert("Erreur", "Mise à jour impossible.");
+                showAlert("Erreur", "Mise à jour impossible.");
                 return;
             }
 
@@ -211,7 +222,7 @@ export default function QuickLabelPrintPage({ navigation }) {
                 .single();
 
             if (insertError) {
-                Alert.alert("Erreur", "Enregistrement impossible.");
+                showAlert("Erreur", "Enregistrement impossible.");
                 return;
             }
 
@@ -242,18 +253,7 @@ export default function QuickLabelPrintPage({ navigation }) {
     };
 
     const confirmDelete = (id) => {
-        Alert.alert(
-            "Supprimer cette étiquette ?",
-            "Cette action est irréversible.",
-            [
-                { text: "Annuler", style: "cancel" },
-                {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: () => deleteLabel(id),
-                },
-            ]
-        );
+        setIdToDelete(id);
     };
 
     const deleteLabel = async (id) => {
@@ -262,7 +262,7 @@ export default function QuickLabelPrintPage({ navigation }) {
             .delete()
             .eq("id", id);
         if (error) {
-            Alert.alert("Erreur", "La suppression a échoué.");
+            showAlert("Erreur", "La suppression a échoué.");
             return;
         }
         fetchLabels();
@@ -456,6 +456,27 @@ export default function QuickLabelPrintPage({ navigation }) {
                     <Text style={styles.buttonText}>⬅ Retour</Text>
                 </TouchableOpacity>
             </View>
+
+            <AlertBox
+                visible={!!idToDelete}
+                title="Supprimer cette étiquette ?"
+                message="Cette action est irréversible."
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setIdToDelete(null)}
+                onConfirm={() => {
+                    const id = idToDelete;
+                    setIdToDelete(null);
+                    deleteLabel(id);
+                }}
+            />
+
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onClose={() => setAlertVisible(false)}
+            />
         </ScrollView>
     );
 }

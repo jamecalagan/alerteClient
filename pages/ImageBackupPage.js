@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Alert,
   ActivityIndicator,
   ScrollView,
   Image,
@@ -11,6 +10,8 @@ import {
   Dimensions,
   Pressable,
 } from "react-native";
+import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
 
 // ⭐ Utiliser UNIQUEMENT la version legacy
 import * as FileSystem from "expo-file-system/legacy";
@@ -25,7 +26,7 @@ const getFileNameFromSAFUri = (uri) => {
   if (!uri) return "";
   try {
     const decoded = decodeURIComponent(uri);
-    const parts = decoded.split(/[\/]/);
+    const parts = decoded.split(/[/]/);
     return parts[parts.length - 1].split(":").pop();
   } catch {
     return uri;
@@ -34,11 +35,38 @@ const getFileNameFromSAFUri = (uri) => {
 
 export default function ImageBackupPage() {
   const [loading, setLoading] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message || "");
+    setAlertVisible(true);
+  };
   const [count, setCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [folders, setFolders] = useState([]);
   const [expandedFolders, setExpandedFolders] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [imageToDelete, setImageToDelete] = useState(null);
+
+  const deleteImage = async (folder, uri) => {
+    try {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.folder === folder
+            ? { ...f, images: f.images.filter((img) => img.uri !== uri) }
+            : f
+        )
+      );
+      if (selectedImage === uri) setSelectedImage(null);
+    } catch (e) {
+      console.error("Erreur suppression image locale :", e);
+      showAlert("Erreur", "Impossible de supprimer cette image.");
+    }
+  };
   const [lastBackupDate, setLastBackupDate] = useState(null);
   const [exportCount, setExportCount] = useState(0);
   const [exportTotal, setExportTotal] = useState(0);
@@ -159,7 +187,7 @@ export default function ImageBackupPage() {
         }
       }
 
-      Alert.alert("✅ Sauvegarde terminée");
+      showAlert("✅ Sauvegarde terminée");
       await listSavedImages();
       await AsyncStorage.setItem(
         "lastImageBackupReminder",
@@ -168,7 +196,7 @@ export default function ImageBackupPage() {
       await getLastBackupDate();
     } catch (e) {
       console.error(e);
-      Alert.alert("❌ Erreur pendant la sauvegarde");
+      showAlert("❌ Erreur pendant la sauvegarde");
     } finally {
       setLoading(false);
     }
@@ -185,7 +213,7 @@ export default function ImageBackupPage() {
       // Si aucun backup local, éviter l'exception directe
       const baseInfo = await FileSystem.getInfoAsync(baseDir);
       if (!baseInfo.exists) {
-        Alert.alert(
+        showAlert(
           "Aucune sauvegarde locale",
           "Aucun dossier 'backup' trouvé. Lance d'abord « Charger manquant »."
         );
@@ -196,7 +224,7 @@ export default function ImageBackupPage() {
       const picker =
         await StorageAccessFramework.requestDirectoryPermissionsAsync();
       if (!picker.granted) {
-        Alert.alert(
+        showAlert(
           "Permission refusée",
           "Impossible d'accéder au dossier sélectionné."
         );
@@ -236,7 +264,7 @@ export default function ImageBackupPage() {
       }
 
       if (filesToCopy.length === 0) {
-        Alert.alert(
+        showAlert(
           "👍 Rien à exporter",
           "Toutes les images sont déjà présentes dans le dossier cible."
         );
@@ -273,13 +301,13 @@ export default function ImageBackupPage() {
         }
       }
 
-      Alert.alert(
+      showAlert(
         "Export terminé",
         `${copied} nouvelle(s) image(s) exportée(s) !`
       );
     } catch (error) {
       console.error("❌ ERREUR générale export :", error);
-      Alert.alert(
+      showAlert(
         "Erreur",
         "Une erreur s'est produite pendant l'export : " +
           (error?.message || String(error))
@@ -297,11 +325,11 @@ export default function ImageBackupPage() {
           await FileSystem.deleteAsync(fullPath, { idempotent: true });
         }
       }
-      Alert.alert("🧹 Nettoyage terminé", "Fichiers mal placés supprimés.");
+      showAlert("🧹 Nettoyage terminé", "Fichiers mal placés supprimés.");
       await listSavedImages();
     } catch (e) {
       console.error("Erreur nettoyage :", e);
-      Alert.alert("❌ Erreur pendant le nettoyage.");
+      showAlert("❌ Erreur pendant le nettoyage.");
     }
   };
 
@@ -310,7 +338,7 @@ export default function ImageBackupPage() {
       const last = await AsyncStorage.getItem("lastImageBackupReminder");
       const now = Date.now();
       if (!last || now - parseInt(last, 10) > 7 * 24 * 60 * 60 * 1000) {
-        Alert.alert(
+        showAlert(
           "🕒 Rappel",
           "Pense à sauvegarder les images cette semaine !"
         );
@@ -416,8 +444,7 @@ export default function ImageBackupPage() {
                   <TouchableOpacity
                     key={image.uri}
                     onPress={() => setSelectedImage(image.uri)}
-                    // deleteImage doit être défini ailleurs dans ton fichier complet
-                    onLongPress={() => deleteImage && deleteImage(image.uri)}
+                    onLongPress={() => setImageToDelete({ folder, image })}
                   >
                     <Image source={{ uri: image.uri }} style={styles.thumbnail} />
                   </TouchableOpacity>
@@ -478,6 +505,27 @@ export default function ImageBackupPage() {
           <Text style={styles.backButtonText}>⬅ Retour</Text>
         </Pressable>
       </View>
+
+      <AlertBox
+        visible={!!imageToDelete}
+        title="Supprimer cette image ?"
+        message="L'image sera supprimée de la sauvegarde locale (le fichier original en ligne n'est pas affecté)."
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setImageToDelete(null)}
+        onConfirm={() => {
+          const target = imageToDelete;
+          setImageToDelete(null);
+          if (target) deleteImage(target.folder, target.image.uri);
+        }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </ScrollView>
   );
 }

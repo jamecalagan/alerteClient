@@ -24,6 +24,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useRoute } from "@react-navigation/native"; // Importer useRoute
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Print from "expo-print";
 
 import BottomNavigation from "../components/BottomNavigation";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -54,6 +55,8 @@ export default function RepairedInterventionsPage({ navigation }) {
   );
   const [selectedInterventionPhone, setSelectedInterventionPhone] = useState(null);
   const [selectedInterventionDeviceType, setSelectedInterventionDeviceType] = useState("appareil");
+
+  const [billingByIntervention, setBillingByIntervention] = useState({}); // { [intervention_id]: billing.id } — évite de recréer une facture
 
   const [repairedTotal, setRepairedTotal] = useState(0); // Montant total des interventions "Réparé"
   const [currentPage, setCurrentPage] = useState(1); // Page actuelle
@@ -117,6 +120,30 @@ export default function RepairedInterventionsPage({ navigation }) {
 
       setRepairedInterventions(interventionsWithImages);
 
+      // Récupère les factures déjà créées pour ces interventions (évite les doublons)
+      const interventionIds = interventionsWithImages
+        .map((intervention) => intervention.id)
+        .filter(Boolean);
+
+      if (interventionIds.length > 0) {
+        const { data: billingRows, error: billingError } = await supabase
+          .from("billing")
+          .select("id, intervention_id")
+          .in("intervention_id", interventionIds);
+
+        if (billingError) {
+          console.error("Erreur chargement factures existantes :", billingError);
+        } else {
+          const map = {};
+          (billingRows || []).forEach((row) => {
+            map[row.intervention_id] = row.id;
+          });
+          setBillingByIntervention(map);
+        }
+      } else {
+        setBillingByIntervention({});
+      }
+
       const savedStatus = {};
       interventionsWithImages.forEach((intervention) => {
         savedStatus[intervention.id] =
@@ -129,6 +156,126 @@ export default function RepairedInterventionsPage({ navigation }) {
         "Erreur lors du chargement des interventions réparées :",
         error
       );
+    }
+  };
+
+  // Aperçu (lecture seule) d'une facture déjà créée — même gabarit HTML que BillingEditPage.handlePrint
+  const openInvoicePreview = async (billingId) => {
+    try {
+      const { data, error } = await supabase
+        .from("billing")
+        .select("*")
+        .eq("id", billingId)
+        .single();
+
+      if (error || !data) {
+        console.error("Erreur chargement facture :", error);
+        alert("❌ Impossible de charger la facture.");
+        return;
+      }
+
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      const rows = lines
+        .map(
+          (line) => `
+  <tr>
+    <td style="border: 1px solid #000; padding: 6px;">${line.designation}${
+            line.serial ? ` (SN: ${line.serial})` : ""
+          }</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${
+      line.quantity
+    }</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
+      parseFloat(line.price) / 1.2
+    ).toFixed(2)} €</td>
+    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
+      parseFloat(line.price) * parseFloat(line.quantity)
+    ).toFixed(2)} €</td>
+  </tr>
+`
+        )
+        .join("");
+
+      const ttc = data.totalttc || 0;
+      const acompte = parseFloat(data.acompte || 0);
+      const tva = data.totaltva || 0;
+
+      const html = `
+  <html>
+    <body style="font-family: Arial, sans-serif; padding: 10px; margin: 0; background: #fff;">
+      <div style="max-width: 480px; height: 100%; min-height: 720px; margin: auto; display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="text-align: center; margin-bottom: 10px;">
+            <img src="https://www.avenir-informatique.fr/logo.webp" style="height: 40px;" />
+          </div>
+          <h2 style="text-align:center; font-size: 16px; margin: 10px 0;">FACTURE</h2>
+
+          <div style="font-size: 9px; margin-bottom: 8px;">
+            <p><strong>Client :</strong> ${data.clientname}<br/>
+            <strong>Téléphone :</strong> ${data.clientphone}<br/>
+            <strong>Adresse :</strong> ${
+              data.client_address || "Non renseignée"
+            }</p>
+          </div>
+
+          <div style="font-size: 9px; margin-bottom: 10px;">
+            <p><strong>Facture N° :</strong> ${data.invoicenumber}<br/>
+            <strong>Date :</strong> ${data.invoicedate}</p>
+          </div>
+
+          <table width="100%" style="border-collapse: collapse; margin-top: 20px; font-size: 9px;">
+            <thead style="background-color: #d3d3d3;">
+              <tr>
+                <th style="border: 1px solid #000; padding: 6px;">Désignation</th>
+                <th style="border: 1px solid #000; padding: 6px;">Qté</th>
+                <th style="border: 1px solid #000; padding: 6px;">P.U. HT</th>
+                <th style="border: 1px solid #000; padding: 6px;">Montant TTC</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div style="font-size: 9px; margin-top: 15px;">
+            <p style="text-align: right;">TVA (20%) : ${tva.toFixed(2)} €</p>
+            <p style="text-align: right;">Total TTC : ${ttc.toFixed(2)} €</p>
+            <p style="text-align: right;">Acompte versé : ${acompte.toFixed(
+              2
+            )} €</p>
+          </div>
+
+          <div style="background: #e0f7fa; padding: 8px; border-radius: 6px; margin-top: 10px;">
+            <h3 style="text-align: right; margin: 0; font-size: 10px; color: #00796b;">
+              Net à payer : ${(ttc - acompte).toFixed(2)} €
+            </h3>
+          </div>
+
+          <p style="text-align: right; margin-top: 8px; font-size: 9px;">
+            <strong>Mode de paiement :</strong> ${
+              data.paymentmethod || "....................................."
+            }
+          </p>
+        </div>
+
+        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+          <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
+          <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
+          <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
+          <p style="margin-top: 6px;">
+            Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
+            En cas de litige, le tribunal de Bobigny est seul compétent.
+          </p>
+        </div>
+      </div>
+    </body>
+  </html>
+`;
+
+      await Print.printAsync({ html });
+    } catch (e) {
+      console.error("Erreur aperçu facture :", e);
+      alert("❌ Erreur lors de l'affichage de la facture.");
     }
   };
 
@@ -703,7 +850,12 @@ export default function RepairedInterventionsPage({ navigation }) {
 
                 <TouchableOpacity
                   style={styles.actionBtnPrimary}
-                  onPress={() =>
+                  onPress={() => {
+                    const existingBillingId = billingByIntervention[item.id];
+                    if (existingBillingId) {
+                      openInvoicePreview(existingBillingId);
+                      return;
+                    }
                     navigation.navigate("BillingPage", {
                       expressData: {
                         name: item.clients?.name || "",
@@ -724,11 +876,13 @@ export default function RepairedInterventionsPage({ navigation }) {
                         paid: item.paymentStatus === "solde",
                         intervention_id: item.id,
                       },
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Ionicons name="receipt-outline" size={18} color="#fff" />
-                  <Text style={styles.actionBtnPrimaryText}>Facture</Text>
+                  <Text style={styles.actionBtnPrimaryText}>
+                    {billingByIntervention[item.id] ? "Voir facture" : "Facture"}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -928,6 +1082,7 @@ export default function RepairedInterventionsPage({ navigation }) {
 
       {alertVisible && (
         <CustomAlert
+          visible={alertVisible}
           title="Alerte"
           message={alertMessage}
           onClose={closeAlert}

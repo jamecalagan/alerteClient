@@ -339,6 +339,34 @@ const [
   setOverdueRepairedModalVisible,
 ] = useState(false);
 
+// Réparés dont le client n'a jamais été prévenu (notifiedBy vide)
+const [notNotifiedRepaired, setNotNotifiedRepaired] = useState([]);
+const [notNotifiedRepairedLoading, setNotNotifiedRepairedLoading] =
+  useState(false);
+const [
+  notNotifiedRepairedModalVisible,
+  setNotNotifiedRepairedModalVisible,
+] = useState(false);
+
+// Interventions "En attente de pièces" dont la pièce commandée est arrivée
+// mais pas encore montée (order_items.received=true, installed=false)
+const [partsReceivedInterventions, setPartsReceivedInterventions] =
+  useState([]);
+const [partsReceivedLoading, setPartsReceivedLoading] = useState(false);
+const [
+  partsReceivedModalVisible,
+  setPartsReceivedModalVisible,
+] = useState(false);
+
+// Interventions avec un solde restant dû à relancer
+const [outstandingBalances, setOutstandingBalances] = useState([]);
+const [outstandingBalancesLoading, setOutstandingBalancesLoading] =
+  useState(false);
+const [
+  outstandingBalancesModalVisible,
+  setOutstandingBalancesModalVisible,
+] = useState(false);
+
 const toggleBottomTab = async (key) => {
   if (key === "orders") {
     await loadOrdersInProgress();
@@ -892,6 +920,199 @@ const loadOverdueRepairedInterventions = async () => {
     setOverdueRepairedClients([]);
   } finally {
     setOverdueRepairedLoading(false);
+  }
+};
+
+// Charge les interventions "Réparé" dont le client n'a jamais été prévenu
+const loadNotNotifiedRepaired = async () => {
+  setNotNotifiedRepairedLoading(true);
+
+  try {
+    const { data: rows, error } = await supabase
+      .from("interventions")
+      .select("id, client_id, deviceType, brand, model, updatedAt")
+      .eq("status", "Réparé")
+      .eq("restitue", false)
+      .is("notifiedBy", null);
+
+    if (error) throw error;
+
+    const list = rows || [];
+
+    if (list.length === 0) {
+      setNotNotifiedRepaired([]);
+      return;
+    }
+
+    const clientIds = [
+      ...new Set(list.map((row) => row.client_id).filter(Boolean)),
+    ];
+
+    let clientsMap = {};
+
+    if (clientIds.length > 0) {
+      const { data: clientRows, error: clientError } = await supabase
+        .from("clients")
+        .select("id, name, phone, ficheNumber")
+        .in("id", clientIds);
+
+      if (clientError) throw clientError;
+
+      clientsMap = Object.fromEntries(
+        (clientRows || []).map((client) => [String(client.id), client])
+      );
+    }
+
+    setNotNotifiedRepaired(
+      list.map((row) => ({
+        ...row,
+        client: clientsMap[String(row.client_id)] || null,
+      }))
+    );
+  } catch (error) {
+    console.error("❌ Chargement réparés non prévenus :", error);
+    setNotNotifiedRepaired([]);
+  } finally {
+    setNotNotifiedRepairedLoading(false);
+  }
+};
+
+// Charge les interventions "En attente de pièces" dont la pièce commandée
+// est arrivée (order_items.received=true) mais pas encore montée (installed=false)
+const loadPartsReceivedInterventions = async () => {
+  setPartsReceivedLoading(true);
+
+  try {
+    const { data: waitingRows, error: waitingError } = await supabase
+      .from("interventions")
+      .select("id, client_id, deviceType, brand, model, commande, updatedAt")
+      .eq("status", "En attente de pièces");
+
+    if (waitingError) throw waitingError;
+
+    const waiting = waitingRows || [];
+
+    if (waiting.length === 0) {
+      setPartsReceivedInterventions([]);
+      return;
+    }
+
+    const clientIds = [
+      ...new Set(waiting.map((row) => row.client_id).filter(Boolean)),
+    ];
+
+    const { data: orderRows, error: orderError } = await supabase
+      .from("orders")
+      .select("id, client_id, product, order_items(id, product, received, installed)")
+      .in("client_id", clientIds.length > 0 ? clientIds : [-1]);
+
+    if (orderError) throw orderError;
+
+    const receivedNotInstalledByClient = {};
+    (orderRows || []).forEach((order) => {
+      (order.order_items || []).forEach((item) => {
+        if (item.received === true && item.installed !== true) {
+          const key = String(order.client_id);
+          if (!receivedNotInstalledByClient[key]) {
+            receivedNotInstalledByClient[key] = [];
+          }
+          receivedNotInstalledByClient[key].push(item.product || order.product);
+        }
+      });
+    });
+
+    const matchingInterventions = waiting.filter((row) =>
+      Boolean(receivedNotInstalledByClient[String(row.client_id)])
+    );
+
+    if (matchingInterventions.length === 0) {
+      setPartsReceivedInterventions([]);
+      return;
+    }
+
+    let clientsMap = {};
+
+    if (clientIds.length > 0) {
+      const { data: clientRows, error: clientError } = await supabase
+        .from("clients")
+        .select("id, name, phone, ficheNumber")
+        .in("id", clientIds);
+
+      if (clientError) throw clientError;
+
+      clientsMap = Object.fromEntries(
+        (clientRows || []).map((client) => [String(client.id), client])
+      );
+    }
+
+    setPartsReceivedInterventions(
+      matchingInterventions.map((row) => ({
+        ...row,
+        client: clientsMap[String(row.client_id)] || null,
+        receivedParts: receivedNotInstalledByClient[String(row.client_id)] || [],
+      }))
+    );
+  } catch (error) {
+    console.error("❌ Chargement pièces reçues :", error);
+    setPartsReceivedInterventions([]);
+  } finally {
+    setPartsReceivedLoading(false);
+  }
+};
+
+// Charge les interventions avec un solde restant dû (hors "Récupéré")
+const loadOutstandingBalances = async () => {
+  setOutstandingBalancesLoading(true);
+
+  try {
+    const { data: rows, error } = await supabase
+      .from("interventions")
+      .select(
+        "id, client_id, deviceType, brand, model, solderestant, status, updatedAt"
+      )
+      .neq("status", "Récupéré")
+      .gt("solderestant", 0)
+      .order("solderestant", { ascending: false });
+
+    if (error) throw error;
+
+    const list = rows || [];
+
+    if (list.length === 0) {
+      setOutstandingBalances([]);
+      return;
+    }
+
+    const clientIds = [
+      ...new Set(list.map((row) => row.client_id).filter(Boolean)),
+    ];
+
+    let clientsMap = {};
+
+    if (clientIds.length > 0) {
+      const { data: clientRows, error: clientError } = await supabase
+        .from("clients")
+        .select("id, name, phone, ficheNumber")
+        .in("id", clientIds);
+
+      if (clientError) throw clientError;
+
+      clientsMap = Object.fromEntries(
+        (clientRows || []).map((client) => [String(client.id), client])
+      );
+    }
+
+    setOutstandingBalances(
+      list.map((row) => ({
+        ...row,
+        client: clientsMap[String(row.client_id)] || null,
+      }))
+    );
+  } catch (error) {
+    console.error("❌ Chargement soldes restants :", error);
+    setOutstandingBalances([]);
+  } finally {
+    setOutstandingBalancesLoading(false);
   }
 };
 
@@ -3764,6 +3985,9 @@ const goToPreviousPage = () => {
       checkImagesToDelete();
 	  loadPendingRepairProposals();
 	  loadOverdueRepairedInterventions();
+	  loadNotNotifiedRepaired();
+	  loadPartsReceivedInterventions();
+	  loadOutstandingBalances();
     }, [])
   );
 
@@ -5130,9 +5354,123 @@ const onPick = () => {
     </View>
   </TouchableOpacity>
 )}
-                <View>
-                  <DateDisplay />
-                </View>
+{notNotifiedRepaired.length > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => setNotNotifiedRepairedModalVisible(true)}
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#1e40af",
+      borderRadius: 10,
+      backgroundColor: "#2563eb",
+      elevation: 3,
+    }}
+  >
+    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+      À prévenir
+    </Text>
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text style={{ color: "#1e40af", fontSize: 12, fontWeight: "bold" }}>
+        {notNotifiedRepaired.length}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
+{partsReceivedInterventions.length > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => setPartsReceivedModalVisible(true)}
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#5b21b6",
+      borderRadius: 10,
+      backgroundColor: "#7c3aed",
+      elevation: 3,
+    }}
+  >
+    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+      Pièce reçue
+    </Text>
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text style={{ color: "#5b21b6", fontSize: 12, fontWeight: "bold" }}>
+        {partsReceivedInterventions.length}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
+{outstandingBalances.length > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => setOutstandingBalancesModalVisible(true)}
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#115e59",
+      borderRadius: 10,
+      backgroundColor: "#0d9488",
+      elevation: 3,
+    }}
+  >
+    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+      Soldes dus
+    </Text>
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text style={{ color: "#115e59", fontSize: 12, fontWeight: "bold" }}>
+        {outstandingBalances.length}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
               </View>
               {isLoading ? (
                 <View style={styles.loaderContainer}>
@@ -7124,6 +7462,532 @@ const onPick = () => {
   </TouchableWithoutFeedback>
 </Modal>
 
+<Modal
+  visible={notNotifiedRepairedModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() => setNotNotifiedRepairedModalVisible(false)}
+>
+  <TouchableWithoutFeedback
+    onPress={() => setNotNotifiedRepairedModalVisible(false)}
+  >
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
+                Réparés à prévenir
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}>
+                Client jamais notifié que l'appareil est prêt
+              </Text>
+            </View>
+
+            <View
+              style={{
+                minWidth: 38,
+                height: 38,
+                marginRight: 10,
+                paddingHorizontal: 8,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#2563eb",
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
+                {notNotifiedRepaired.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setNotNotifiedRepairedModalVisible(false)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }} />
+
+          {notNotifiedRepairedLoading ? (
+            <View style={{ minHeight: 220, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#2563eb" />
+              <Text style={{ marginTop: 10, color: "#64748b" }}>Chargement…</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={notNotifiedRepaired}
+              keyExtractor={(item) => String(item.id)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const clientName = item.client?.name || "Client inconnu";
+                const deviceText = [item.deviceType, item.brand, item.model]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <View
+                    style={{
+                      marginBottom: 10,
+                      padding: 13,
+                      borderWidth: 1,
+                      borderColor: "#bfdbfe",
+                      borderRadius: 12,
+                      backgroundColor: "#eff6ff",
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
+                      {clientName.toUpperCase()}
+                    </Text>
+                    <Text style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                      Fiche n° {item.client?.ficheNumber ?? "—"}
+                      {item.client?.phone ? ` · ${item.client.phone}` : ""}
+                    </Text>
+
+                    {!!deviceText && (
+                      <Text style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}>
+                        {deviceText}
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        disabled={!item.client?.phone}
+                        onPress={() => {
+                          setNotNotifiedRepairedModalVisible(false);
+                          navigation.navigate("ClientNotificationsPage", {
+                            clientId: item.client_id,
+                            clientName: item.client?.name,
+                            phone: item.client?.phone,
+                            ficheNumber: item.client?.ficheNumber,
+                            interventionId: item.id,
+                            deviceType: item.deviceType || "appareil",
+                            mode: "pickup",
+                          });
+                        }}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          backgroundColor: item.client?.phone ? "#2563eb" : "#d1d5db",
+                        }}
+                      >
+                        <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+                          📩 Prévenir par SMS
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setNotNotifiedRepairedModalVisible(false);
+                          navigation.navigate("ClientInterventionsPage", {
+                            clientId: item.client_id,
+                          });
+                        }}
+                        style={{
+                          paddingVertical: 10,
+                          paddingHorizontal: 14,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          borderWidth: 1,
+                          borderColor: "#bfdbfe",
+                        }}
+                      >
+                        <Text style={{ color: "#1e40af", fontSize: 13, fontWeight: "bold" }}>
+                          Voir la fiche
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
+<Modal
+  visible={partsReceivedModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() => setPartsReceivedModalVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setPartsReceivedModalVisible(false)}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
+                Pièces reçues à monter
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}>
+                Commande reçue, réparation en attente de reprise
+              </Text>
+            </View>
+
+            <View
+              style={{
+                minWidth: 38,
+                height: 38,
+                marginRight: 10,
+                paddingHorizontal: 8,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#7c3aed",
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
+                {partsReceivedInterventions.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setPartsReceivedModalVisible(false)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }} />
+
+          {partsReceivedLoading ? (
+            <View style={{ minHeight: 220, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
+              <Text style={{ marginTop: 10, color: "#64748b" }}>Chargement…</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={partsReceivedInterventions}
+              keyExtractor={(item) => String(item.id)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const clientName = item.client?.name || "Client inconnu";
+                const deviceText = [item.deviceType, item.brand, item.model]
+                  .filter(Boolean)
+                  .join(" · ");
+                const partsText = (item.receivedParts || [])
+                  .filter(Boolean)
+                  .join(", ");
+
+                return (
+                  <View
+                    style={{
+                      marginBottom: 10,
+                      padding: 13,
+                      borderWidth: 1,
+                      borderColor: "#ddd6fe",
+                      borderRadius: 12,
+                      backgroundColor: "#f5f3ff",
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
+                      {clientName.toUpperCase()}
+                    </Text>
+                    <Text style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                      Fiche n° {item.client?.ficheNumber ?? "—"}
+                      {item.client?.phone ? ` · ${item.client.phone}` : ""}
+                    </Text>
+
+                    {!!deviceText && (
+                      <Text style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}>
+                        {deviceText}
+                      </Text>
+                    )}
+
+                    {!!partsText && (
+                      <Text style={{ marginTop: 4, fontSize: 12, color: "#5b21b6" }}>
+                        Pièce reçue : {partsText}
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setPartsReceivedModalVisible(false);
+                          navigation.navigate("ClientInterventionsPage", {
+                            clientId: item.client_id,
+                          });
+                        }}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          backgroundColor: "#7c3aed",
+                        }}
+                      >
+                        <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+                          Voir la fiche
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
+<Modal
+  visible={outstandingBalancesModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() => setOutstandingBalancesModalVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setOutstandingBalancesModalVisible(false)}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
+                Soldes restants dus
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}>
+                Total à relancer :{" "}
+                {outstandingBalances
+                  .reduce((sum, item) => sum + (Number(item.solderestant) || 0), 0)
+                  .toFixed(2)}{" "}
+                €
+              </Text>
+            </View>
+
+            <View
+              style={{
+                minWidth: 38,
+                height: 38,
+                marginRight: 10,
+                paddingHorizontal: 8,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#0d9488",
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
+                {outstandingBalances.length}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setOutstandingBalancesModalVisible(false)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }} />
+
+          {outstandingBalancesLoading ? (
+            <View style={{ minHeight: 220, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#0d9488" />
+              <Text style={{ marginTop: 10, color: "#64748b" }}>Chargement…</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={outstandingBalances}
+              keyExtractor={(item) => String(item.id)}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const clientName = item.client?.name || "Client inconnu";
+                const deviceText = [item.deviceType, item.brand, item.model]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <View
+                    style={{
+                      marginBottom: 10,
+                      padding: 13,
+                      borderWidth: 1,
+                      borderColor: "#99f6e4",
+                      borderRadius: 12,
+                      backgroundColor: "#f0fdfa",
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
+                          {clientName.toUpperCase()}
+                        </Text>
+                        <Text style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                          Fiche n° {item.client?.ficheNumber ?? "—"}
+                          {item.client?.phone ? ` · ${item.client.phone}` : ""}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 99,
+                          backgroundColor: "#ccfbf1",
+                        }}
+                      >
+                        <Text style={{ color: "#115e59", fontSize: 13, fontWeight: "bold" }}>
+                          {Number(item.solderestant).toFixed(2)} €
+                        </Text>
+                      </View>
+                    </View>
+
+                    {!!deviceText && (
+                      <Text style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}>
+                        {deviceText} · {item.status}
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setOutstandingBalancesModalVisible(false);
+                          navigation.navigate("ClientInterventionsPage", {
+                            clientId: item.client_id,
+                          });
+                        }}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          borderRadius: 9,
+                          alignItems: "center",
+                          backgroundColor: "#0d9488",
+                        }}
+                      >
+                        <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+                          Voir la fiche
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
         <BottomMenu
           onFilterCommande={filterClientsWithCommandeEnCours}
           navigation={navigation}
@@ -8290,11 +9154,10 @@ dotsRow: {
     flexDirection: "row", // Alignement horizontal
     alignItems: "center",
     borderRadius: 10, // Coins arrondis
-    paddingVertical: 11, // Espacement intérieur haut/bas
-    paddingHorizontal: 20, // Espacement intérieur gauche/droite
+    paddingVertical: 5, // Espacement intérieur haut/bas
+    paddingHorizontal: 16, // Espacement intérieur gauche/droite
     backgroundColor: "#cacaca", // Fond blanc pour le contraste
     alignSelf: "center", // Centrage du bloc
-    marginLeft: 10,
   },
   icon: {
     width: 20,

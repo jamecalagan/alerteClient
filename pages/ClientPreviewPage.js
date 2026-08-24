@@ -451,6 +451,15 @@ export default function ClientPreviewPage() {
             (ex : dalle écran, clavier, batterie, etc.), la commande ne pourra pas être annulée.
           </p>
 
+          <p class="alert-commande" style="font-style: italic;">
+            IMPORTANT — Devis provisoire : Le montant indiqué ci-dessus est établi avant
+            démontage complet de l’appareil. Si le diagnostic révèle qu’un élément coûteux
+            doit être remplacé, vous serez contacté(e) et votre accord sera systématiquement
+            demandé avant toute réparation supplémentaire ou tout dépassement du montant
+            indiqué. En cas de refus de votre part après démontage complet, des frais de
+            diagnostic de 40 € seront facturés.
+          </p>
+
           ${
             itv.remarks
               ? `<div class="box"><div class="alert">Remarque du technicien</div><div class="terms-text-bottom">${itv.remarks}</div></div>`
@@ -659,6 +668,13 @@ ${
     la commande ne pourra pas être annulée.
   </div>
 
+  <div class="alert-commande" style="font-style: italic;">
+    IMPORTANT — Devis provisoire : Le montant indiqué ci-dessus est établi avant démontage complet de l’appareil.
+    Si le diagnostic révèle qu’un élément coûteux doit être remplacé, vous serez contacté(e) et votre accord sera
+    systématiquement demandé avant toute réparation supplémentaire ou tout dépassement du montant indiqué.
+    En cas de refus de votre part après démontage complet, des frais de diagnostic de 40 € seront facturés.
+  </div>
+
   <p class="terms-text">Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.</p>
   <p class="terms-text">En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.</p>
   <p class="terms-text">Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.</p>
@@ -852,6 +868,14 @@ ${checkupSignatureHtml}
           <Text style={styles.orderNonCancelableText}>
             IMPORTANT : Si l’intervention nécessite la commande d’une pièce ou d’un produit (ex : dalle écran,
             clavier, batterie, etc.), la commande ne pourra pas être annulée.
+          </Text>
+
+          <Text style={[styles.orderNonCancelableText, { fontStyle: "italic" }]}>
+            IMPORTANT — Devis provisoire : Le montant indiqué ci-dessus est établi avant démontage complet de
+            l’appareil. Si le diagnostic révèle qu’un élément coûteux doit être remplacé, vous serez contacté(e)
+            et votre accord sera systématiquement demandé avant toute réparation supplémentaire ou tout
+            dépassement du montant indiqué. En cas de refus de votre part après démontage complet, des frais de
+            diagnostic de 40 € seront facturés.
           </Text>
 
           {itv?.remarks ? (

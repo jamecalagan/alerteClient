@@ -308,29 +308,27 @@ export default function ExpressVideoPage() {
                             onChangeText={setDescription}
                         />
 
-                        {Object.keys(cassetteCounts).map((key) => (
-                            <View key={key} style={{ marginBottom: 6 }}>
-                                <Text
-                                    style={[
-                                        styles.label,
-                                        { marginBottom: 2, marginTop: 6 },
-                                    ]}
-                                >
-                                    Nombre de {key}
-                                </Text>
-                                <TextInput
-                                    style={[styles.input, { marginBottom: 6 }]}
-                                    keyboardType="numeric"
-                                    value={cassetteCounts[key]}
-                                    onChangeText={(val) =>
-                                        setCassetteCounts({
-                                            ...cassetteCounts,
-                                            [key]: val,
-                                        })
-                                    }
-                                />
-                            </View>
-                        ))}
+                        <Text style={styles.label}>Nombre de cassettes</Text>
+                        <View style={styles.cassetteRow}>
+                            {Object.keys(cassetteCounts).map((key) => (
+                                <View key={key} style={styles.cassetteItem}>
+                                    <Text style={styles.cassetteLabel}>{key}</Text>
+                                    <TextInput
+                                        style={styles.cassetteInput}
+                                        keyboardType="numeric"
+                                        placeholder="0"
+                                        placeholderTextColor="#cbd5e1"
+                                        value={cassetteCounts[key]}
+                                        onChangeText={(val) =>
+                                            setCassetteCounts({
+                                                ...cassetteCounts,
+                                                [key]: val,
+                                            })
+                                        }
+                                    />
+                                </View>
+                            ))}
+                        </View>
 
                         <Text style={styles.label}>Prix unitaire (€)</Text>
                         <TextInput
@@ -341,21 +339,28 @@ export default function ExpressVideoPage() {
                         />
 
                         <Text style={styles.label}>Support de sortie</Text>
-                        {["Clé USB", "CD", "DVD", "Disque dur"].map((option) => (
-                            <TouchableOpacity
-                                key={option}
-                                style={[
-                                    styles.supportOption,
-                                    outputtype === option && styles.supportSelected,
-                                ]}
-                                onPress={() => setOutputtype(option)}
-                            >
-                                <Text>
-                                    {outputtype === option ? "✅ " : "▫️ "}
-                                    {option}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                        <View style={styles.supportRow}>
+                            {["Clé USB", "CD", "DVD", "Disque dur"].map((option) => (
+                                <TouchableOpacity
+                                    key={option}
+                                    style={[
+                                        styles.supportChip,
+                                        outputtype === option && styles.supportChipSelected,
+                                    ]}
+                                    onPress={() => setOutputtype(option)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.supportChipText,
+                                            outputtype === option &&
+                                                styles.supportChipTextSelected,
+                                        ]}
+                                    >
+                                        {option}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
                         {(outputtype === "Clé USB" ||
                             outputtype === "Disque dur") && (
@@ -400,23 +405,27 @@ export default function ExpressVideoPage() {
 <View style={styles.actionsRow}>
   {/* 1 — Retour */}
   <TouchableOpacity
-    style={styles.actionItem}
+    style={[styles.actionButton, styles.actionButtonSecondary]}
     onPress={() => navigation.goBack()}
   >
-    <Text style={styles.actionText}>Retour</Text>
+    <Text style={styles.actionButtonTextSecondary}>Retour</Text>
   </TouchableOpacity>
 
   {/* 2 — Enregistrer */}
   <TouchableOpacity
-    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    style={[styles.actionButton, styles.actionButtonPrimary]}
     onPress={handleSubmit}
   >
-    <Text style={styles.actionText}>Enregistrer</Text>
+    <Text style={styles.actionButtonText}>Enregistrer</Text>
   </TouchableOpacity>
 
-  {/* 3 — Réglée / Remettre en dû (toujours présent pour garder 25 %) */}
+  {/* 3 — Réglée / Remettre en dû (toujours présent pour garder la grille 2×2) */}
   <TouchableOpacity
-    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    style={[
+      styles.actionButton,
+      isPaid ? styles.actionButtonWarning : styles.actionButtonSuccess,
+      (!isEdit || !editData?.id) && styles.actionButtonDisabled,
+    ]}
     disabled={!isEdit || !editData?.id}
     onPress={async () => {
       if (!isEdit || !editData?.id) return; // sécurité
@@ -436,22 +445,17 @@ export default function ExpressVideoPage() {
       }
     }}
   >
-    <Text
-      style={[
-        styles.actionText,
-        (!isEdit || !editData?.id) && styles.actionTextDisabled,
-      ]}
-    >
-      {isPaid ? "Remettre en dû" : "Marquer comme réglée"}
+    <Text style={styles.actionButtonText}>
+      {isPaid ? "Remettre en dû" : "Marquer réglée"}
     </Text>
   </TouchableOpacity>
 
   {/* 4 — Étiquette rapide */}
   <TouchableOpacity
-    style={[styles.actionItem, styles.actionItemWithLeftBorder]}
+    style={[styles.actionButton, styles.actionButtonAccent]}
     onPress={handleGoToQuickLabel}
   >
-    <Text style={styles.actionText}>Étiquette rapide</Text>
+    <Text style={styles.actionButtonText}>Étiquette rapide</Text>
   </TouchableOpacity>
 </View>
 
@@ -479,27 +483,90 @@ const styles = StyleSheet.create({
     },
     label: {
         fontWeight: "600",
-        marginBottom: 4,
-        marginTop: 10,
-        color: "#333",
+        fontSize: 13,
+        marginBottom: 6,
+        marginTop: 12,
+        color: "#475569",
     },
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
-        padding: 8,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
         marginBottom: 10,
         width: "100%",
+        fontSize: 15,
+        color: "#1e293b",
     },
     textArea: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
-        padding: 10,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        padding: 12,
         marginBottom: 12,
         minHeight: 80,
         textAlignVertical: "top",
         width: "100%",
+        fontSize: 15,
+        color: "#1e293b",
+    },
+    cassetteRow: {
+        flexDirection: "row",
+        gap: 8,
+        marginBottom: 10,
+    },
+    cassetteItem: {
+        flex: 1,
+        alignItems: "center",
+    },
+    cassetteLabel: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#64748b",
+        marginBottom: 6,
+        textAlign: "center",
+    },
+    cassetteInput: {
+        width: "100%",
+        textAlign: "center",
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        paddingVertical: 10,
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#1e293b",
+    },
+    supportRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        marginBottom: 8,
+    },
+    supportChip: {
+        paddingVertical: 9,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#cbd5e1",
+        backgroundColor: "#f8fafc",
+    },
+    supportChipSelected: {
+        backgroundColor: "#dbeafe",
+        borderColor: "#3b82f6",
+    },
+    supportChipText: {
+        fontSize: 14,
+        color: "#334155",
+        fontWeight: "500",
+    },
+    supportChipTextSelected: {
+        color: "#1d4ed8",
+        fontWeight: "700",
     },
     suggestionItem: {
         paddingVertical: 10,
@@ -555,34 +622,59 @@ const styles = StyleSheet.create({
     },
     actionsRow: {
   flexDirection: "row",
-  alignItems: "center",
-  marginTop: 20,
-  paddingTop: 10,
-  borderTopWidth: 1,      // barre horizontale au-dessus
-  borderTopColor: "#ccc",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 22,
+  paddingTop: 18,
+  borderTopWidth: 1,
+  borderTopColor: "#e2e8f0",
 },
 
-actionItem: {
-  flex: 1,                // ➜ 4 blocs = 4 × 25 %
+actionButton: {
+  flexGrow: 1,
+  flexBasis: "47%",
+  paddingVertical: 13,
+  borderRadius: 12,
   alignItems: "center",
   justifyContent: "center",
-  paddingHorizontal: 4,
 },
 
-actionItemWithLeftBorder: {
-  borderLeftWidth: 1,     // barre verticale entre les blocs
-  borderLeftColor: "#ccc",
+actionButtonPrimary: {
+  backgroundColor: "#2563eb",
 },
 
-actionText: {
+actionButtonSecondary: {
+  backgroundColor: "#e2e8f0",
+},
+
+actionButtonSuccess: {
+  backgroundColor: "#16a34a",
+},
+
+actionButtonWarning: {
+  backgroundColor: "#ea580c",
+},
+
+actionButtonAccent: {
+  backgroundColor: "#7c3aed",
+},
+
+actionButtonDisabled: {
+  backgroundColor: "#cbd5e1",
+},
+
+actionButtonText: {
   fontSize: 14,
-  fontWeight: "600",
-  color: "#1f2933",
+  fontWeight: "700",
+  color: "#ffffff",
   textAlign: "center",
 },
 
-actionTextDisabled: {
-  color: "#9ca3af",       // gris plus clair quand désactivé
+actionButtonTextSecondary: {
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#334155",
+  textAlign: "center",
 },
 
 });

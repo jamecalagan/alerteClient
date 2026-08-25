@@ -13,6 +13,7 @@ import {
 import Signature from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function SignaturePage({ route, navigation }) {
   const { clientId, interventionId } = route.params || {};
@@ -356,6 +357,8 @@ export default function SignaturePage({ route, navigation }) {
               webStyle={webStyle}
             />
           </View>
+
+          <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
 
           <View style={styles.buttonsContainer}>
             <TouchableOpacity

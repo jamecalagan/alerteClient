@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient"; // ← adapte le chemin si besoin
+import BackButton from "../components/BackButton";
 
 const BUCKET = "images";
 // Sous-dossiers fournis par toi
@@ -29,7 +30,7 @@ const SUBFOLDERS = [
 // Extensions d'images autorisées
 const IMG_RE = /\.(jpg|jpeg|png|webp|gif)$/i;
 
-export default function InterventionImagesPage() {
+export default function InterventionImagesPage({ navigation }) {
   const route = useRoute();
   const { interventionId } = route.params || {};
 
@@ -144,6 +145,7 @@ export default function InterventionImagesPage() {
   if (loading) {
     return (
       <View style={styles.center}>
+        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
         <ActivityIndicator size="large" />
         <Text style={styles.muted}>Chargement des images…</Text>
       </View>
@@ -153,6 +155,7 @@ export default function InterventionImagesPage() {
   if (error) {
     return (
       <View style={styles.center}>
+        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
         <Text style={styles.error}>{error}</Text>
       </View>
     );
@@ -161,6 +164,7 @@ export default function InterventionImagesPage() {
   if (images.length === 0) {
     return (
       <View style={styles.center}>
+        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
         <Text style={styles.muted}>Aucune image trouvée pour cette intervention.</Text>
       </View>
     );
@@ -172,7 +176,8 @@ export default function InterventionImagesPage() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0c0f18", padding: 12 }}>
-      <Text style={{ color: "#fff", fontWeight: "600", marginBottom: 8 }}>
+      <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
+      <Text style={{ color: "#fff", fontWeight: "600", marginBottom: 8, marginTop: 44 }}>
         {images.length} image{images.length > 1 ? "s" : ""} trouvée{images.length > 1 ? "s" : ""}
       </Text>
 
@@ -301,6 +306,12 @@ const styles = StyleSheet.create({
   },
   muted: { color: "#9aa0a6", marginTop: 8 },
   error: { color: "#ffb4b4", fontWeight: "700" },
+  backButton: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 10,
+  },
 
   viewerBackdrop: {
     flex: 1,

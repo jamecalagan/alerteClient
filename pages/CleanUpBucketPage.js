@@ -4,9 +4,12 @@ import { supabase } from '../supabaseClient';
 import * as FileSystem from 'expo-file-system/legacy';
 import AlertBox from '../components/AlertBox';
 import CustomAlert from '../components/CustomAlert';
+import BackButton from '../components/BackButton';
+import { useNavigation } from '@react-navigation/native';
 
 
 export default function CleanUpBucketPage() {
+  const navigation = useNavigation();
   const [filesToDelete, setFilesToDelete] = useState([]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
@@ -145,6 +148,8 @@ export default function CleanUpBucketPage() {
           <Button title="🔁 Comparer & Corriger automatiquement" onPress={compareAndFix} color="#4e8cff" />
         </>
       )}
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
 
       <AlertBox
         visible={deleteConfirmVisible}

@@ -14,6 +14,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import BottomNavigation from "../components/BottomNavigation";
+import BackButton from "../components/BackButton";
 
 export default function ImageGallery({ route, navigation }) {
   const { clientId } = route.params;
@@ -312,6 +313,8 @@ const enrichedOrders = (ordersData || [])
           <Text style={styles.empty}>Aucune image disponible.</Text>
         )
       )}
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16, marginBottom: 8 }} />
 
       {/* 🔍 Zoom */}
       {selectedImage && (

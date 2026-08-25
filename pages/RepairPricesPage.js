@@ -20,6 +20,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 /**
  * ------------------------------------------------------------
  * RepairPricesPage.js — v2.1
@@ -259,12 +260,7 @@ if (!searchRef.trim() && !searchPart.trim()) {
       </TouchableOpacity>
 	        {/* Bouton Retour */}
       <View style={{ alignItems: "center", marginTop: 5 }}>
-        <TouchableOpacity
-          style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#a7a7a7", width: "60%" }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       {/* Modal Ajout / Édition */}

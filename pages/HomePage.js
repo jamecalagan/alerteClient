@@ -366,6 +366,8 @@ const [
   outstandingBalancesModalVisible,
   setOutstandingBalancesModalVisible,
 ] = useState(false);
+const [outstandingBalancesPage, setOutstandingBalancesPage] = useState(1);
+const OUTSTANDING_BALANCES_PAGE_SIZE = 5;
 
 const toggleBottomTab = async (key) => {
   if (key === "orders") {
@@ -5435,7 +5437,10 @@ const onPick = () => {
 {outstandingBalances.length > 0 && (
   <TouchableOpacity
     activeOpacity={0.8}
-    onPress={() => setOutstandingBalancesModalVisible(true)}
+    onPress={() => {
+      setOutstandingBalancesPage(1);
+      setOutstandingBalancesModalVisible(true);
+    }}
     style={{
       height: 46,
       minWidth: 130,
@@ -7906,8 +7911,12 @@ const onPick = () => {
               <Text style={{ marginTop: 10, color: "#64748b" }}>Chargement…</Text>
             </View>
           ) : (
+            <>
             <FlatList
-              data={outstandingBalances}
+              data={outstandingBalances.slice(
+                (outstandingBalancesPage - 1) * OUTSTANDING_BALANCES_PAGE_SIZE,
+                outstandingBalancesPage * OUTSTANDING_BALANCES_PAGE_SIZE
+              )}
               keyExtractor={(item) => String(item.id)}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
@@ -7984,6 +7993,99 @@ const onPick = () => {
                 );
               }}
             />
+            {outstandingBalances.length > OUTSTANDING_BALANCES_PAGE_SIZE && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 16,
+                  marginTop: 14,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() =>
+                    setOutstandingBalancesPage((p) => Math.max(1, p - 1))
+                  }
+                  disabled={outstandingBalancesPage === 1}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#f0fdfa",
+                    borderWidth: 1,
+                    borderColor: "#99f6e4",
+                  }}
+                >
+                  <Image
+                    source={require("../assets/icons/chevrong.png")}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      tintColor: outstandingBalancesPage === 1 ? "#cbd5e1" : "#0d9488",
+                    }}
+                  />
+                </TouchableOpacity>
+
+                <Text style={{ color: "#334155", fontSize: 13, fontWeight: "700" }}>
+                  Page {outstandingBalancesPage} sur{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                  )}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() =>
+                    setOutstandingBalancesPage((p) =>
+                      Math.min(
+                        Math.max(
+                          1,
+                          Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                        ),
+                        p + 1
+                      )
+                    )
+                  }
+                  disabled={
+                    outstandingBalancesPage >=
+                    Math.max(
+                      1,
+                      Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                    )
+                  }
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#f0fdfa",
+                    borderWidth: 1,
+                    borderColor: "#99f6e4",
+                  }}
+                >
+                  <Image
+                    source={require("../assets/icons/chevrond.png")}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      tintColor:
+                        outstandingBalancesPage >=
+                        Math.max(
+                          1,
+                          Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                        )
+                          ? "#cbd5e1"
+                          : "#0d9488",
+                    }}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+            </>
           )}
         </View>
       </TouchableWithoutFeedback>

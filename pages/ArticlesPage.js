@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AlertBox from '../components/AlertBox';
+import BackButton from '../components/BackButton';
 
 export default function ArticlesPage({ navigation }) {
     const [articles, setArticles] = useState([]);
@@ -69,6 +70,8 @@ export default function ArticlesPage({ navigation }) {
                 )}
                 contentContainerStyle={styles.listContainer}
             />
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
 
             <AlertBox
                 visible={!!articleToDelete}

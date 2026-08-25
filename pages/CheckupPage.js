@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 /* ───────── Helpers ───────── */
 
@@ -878,6 +879,8 @@ export default function CheckupPage() {
               </View>
             )}
           </View>
+
+          <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
         </View>
       </ScrollView>
 

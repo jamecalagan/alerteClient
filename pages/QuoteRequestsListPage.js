@@ -16,6 +16,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const STORAGE_BUCKET = "quote-request-photos";
 const QUOTES_PDF_BUCKET = "quotes-pdf";
@@ -468,6 +469,11 @@ export default function QuoteRequestsListPage({ navigation }) {
 
   return (
     <View style={styles.screen}>
+      <BackButton
+        onPress={() => navigation.goBack()}
+        style={{ alignSelf: "flex-start", marginBottom: 8 }}
+      />
+
       {/* Filtres statut */}
       <View style={styles.segment}>
         {["toutes", "nouvelle", "préparée", "convertie"].map((k) => {

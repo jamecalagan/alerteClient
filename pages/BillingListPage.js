@@ -14,6 +14,7 @@ import * as Sharing from "expo-sharing";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const pageSize = 3;
 
@@ -671,12 +672,7 @@ export default function BillingListPage() {
       </ScrollView>
 
       {/* Bouton retour fixe */}
-      <TouchableOpacity
-        style={styles.returnButtonFixed}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.returnButtonText}>Retour</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} />
 
       <AlertBox
         visible={confirmDialog.visible}
@@ -1027,21 +1023,4 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  /* Bouton retour fixe */
-  returnButtonFixed: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: "#6b4e16",
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    zIndex: 100,
-  },
-  returnButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
 });

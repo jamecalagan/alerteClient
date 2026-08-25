@@ -13,6 +13,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const BillingEditPage = () => {
     const route = useRoute();
@@ -525,6 +526,8 @@ const fetchInvoice = async () => {
                     <Text style={styles.buttonText}>🖨️ Réimprimer</Text>
                 </TouchableOpacity>
             </View>
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
         </ScrollView>
 
         <CustomAlert

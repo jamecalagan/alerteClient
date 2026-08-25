@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AlertBox from '../components/AlertBox';
+import BackButton from '../components/BackButton';
 
 export default function BrandsPage({ route, navigation }) {
     const { articleId } = route.params;
@@ -70,6 +71,8 @@ export default function BrandsPage({ route, navigation }) {
                 )}
                 contentContainerStyle={styles.listContainer}
             />
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
 
             <AlertBox
                 visible={!!brandToDelete}

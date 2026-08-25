@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const SelectInterventionPage = () => {
     const route = useRoute();
@@ -48,6 +49,7 @@ const SelectInterventionPage = () => {
         return (
             <>
                 <Text>Chargement des interventions...</Text>
+                <BackButton onPress={() => navigation.goBack()} />
                 {alertBox}
             </>
         );
@@ -57,6 +59,7 @@ const SelectInterventionPage = () => {
         return (
             <>
                 <Text>Aucune intervention disponible pour ce client.</Text>
+                <BackButton onPress={() => navigation.goBack()} />
                 {alertBox}
             </>
         );
@@ -86,6 +89,7 @@ const SelectInterventionPage = () => {
                     </TouchableOpacity>
                 )}
             />
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
             {alertBox}
         </View>
     );

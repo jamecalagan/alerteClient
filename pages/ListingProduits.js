@@ -4,8 +4,9 @@ import { supabase } from '../supabaseClient';
 import { MaterialIcons } from '@expo/vector-icons';
 import AlertBox from '../components/AlertBox';
 import CustomAlert from '../components/CustomAlert';
+import BackButton from '../components/BackButton';
 
-export default function ProductManagementPage() {
+export default function ProductManagementPage({ navigation }) {
     const [products, setProducts] = useState([]);
     const [brands, setBrands] = useState([]);
     const [models, setModels] = useState([]);
@@ -132,6 +133,8 @@ export default function ProductManagementPage() {
                     )}
                 />
             )}
+
+            <BackButton onPress={() => navigation.goBack()} />
 
             <AlertBox
                 visible={!!itemToDelete}

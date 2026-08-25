@@ -5,9 +5,11 @@ import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const PrintExpressPage = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const {
   id,
   name,
@@ -357,6 +359,8 @@ await Print.printAsync({ html: htmlContent });
     <Text style={styles.buttonText}>🖨️ Imprimer</Text>
   </TouchableOpacity>
 </View>
+
+<BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
 
 <CustomAlert
   visible={alertVisible}

@@ -14,11 +14,12 @@ import {
 import { supabase } from "../supabaseClient";
 import { Picker } from "@react-native-picker/picker";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 let debounceTimeout = null;
 const ITEMS_PER_PAGE = 2; // Nombre de fiches par page
 
-const SearchClientsPage = () => {
+const SearchClientsPage = ({ navigation }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [clients, setClients] = useState([]);
     const [paginatedClients, setPaginatedClients] = useState([]);
@@ -309,6 +310,8 @@ const SearchClientsPage = () => {
         <View style={styles.container}>
             <Text style={styles.title}>Recherche clients/interventions</Text>
 
+            <BackButton onPress={() => navigation.goBack()} style={{ alignSelf: "flex-start", marginBottom: 10 }} />
+
             <TextInput
                 style={styles.input}
                 placeholder="Rechercher par nom, téléphone ou numéro de fiche..."
@@ -529,7 +532,13 @@ const SearchClientsPage = () => {
                         onPress={goToPreviousPage}
                         disabled={currentPage === 1}
                     >
-                        <Text style={styles.pageButtonText}>Précédent</Text>
+                        <Image
+                            source={require("../assets/icons/chevrong.png")}
+                            style={[
+                                styles.pageButtonIcon,
+                                { tintColor: currentPage === 1 ? "#cbd5e1" : "#4338ca" },
+                            ]}
+                        />
                     </TouchableOpacity>
                     <Text style={styles.pageText}>
                         Page {currentPage} sur {totalPages}
@@ -542,7 +551,16 @@ const SearchClientsPage = () => {
                         onPress={goToNextPage}
                         disabled={currentPage === totalPages}
                     >
-                        <Text style={styles.pageButtonText}>Suivant</Text>
+                        <Image
+                            source={require("../assets/icons/chevrond.png")}
+                            style={[
+                                styles.pageButtonIcon,
+                                {
+                                    tintColor:
+                                        currentPage === totalPages ? "#cbd5e1" : "#4338ca",
+                                },
+                            ]}
+                        />
                     </TouchableOpacity>
                 </View>
             )}
@@ -713,28 +731,33 @@ const styles = StyleSheet.create({
     },
     paginationContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "center",
+        gap: 16,
         marginTop: 10,
     },
     pageButton: {
-        backgroundColor: "#0c0f18",
-        padding: 10,
-        borderRadius: 2,
-        borderColor: "#888787",
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#eef2ff",
         borderWidth: 1,
+        borderColor: "#c7d2fe",
     },
     disabledButton: {
-        backgroundColor: "#0c0f18",
+        backgroundColor: "#f3f4f6",
+        borderColor: "#e5e7eb",
     },
-    pageButtonText: {
-        color: "#888787",
-        fontSize: 14,
+    pageButtonIcon: {
+        width: 18,
+        height: 18,
     },
     pageText: {
-        fontSize: 16,
-        fontWeight: "medium",
-        color: "#888787",
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#374151",
     },
     item: {
         padding: 15,

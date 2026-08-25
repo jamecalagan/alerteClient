@@ -14,6 +14,7 @@ import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import { useFocusEffect } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 /**
  * Liste des fiches de contrôle avec:
@@ -204,6 +205,8 @@ useFocusEffect(
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
 
       <CustomAlert
         visible={alertVisible}

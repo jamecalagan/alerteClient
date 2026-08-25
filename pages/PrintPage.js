@@ -10,6 +10,7 @@ import {
 import * as Print from "expo-print";
 import { useRoute } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 // Normalise la signature pour <Image> et pour <img src="...">
 const normalizeSignatureUri = (sig) => {
@@ -30,7 +31,7 @@ const normalizeSignatureUri = (sig) => {
   return `data:image/png;base64,${s}`;
 };
 
-export default function PrintPage() {
+export default function PrintPage({ navigation }) {
   const route = useRoute();
   const routeParams = route.params || {};
   const [alertVisible, setAlertVisible] = useState(false);
@@ -293,6 +294,8 @@ export default function PrintPage() {
         AVENIR INFORMATIQUE – 16, place de l&apos;Hôtel de Ville – 93700 Drancy
         – Tel : 01 41 60 18 18
       </Text>
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
 
       <CustomAlert
         visible={alertVisible}

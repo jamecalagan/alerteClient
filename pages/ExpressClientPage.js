@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import BackButton from "../components/BackButton";
 
 const ExpressClientPage = () => {
     const navigation = useNavigation();
@@ -453,12 +454,7 @@ const ExpressClientPage = () => {
                 data={[]}
                 renderItem={null}
             />
-			    <TouchableOpacity
-        style={styles.returnButtonFixed}
-        onPress={() => navigation.goBack()}
-    >
-        <Text style={styles.buttonText}>⬅ Retour</Text>
-    </TouchableOpacity>
+			    <BackButton onPress={() => navigation.goBack()} />
         </KeyboardAvoidingView>
     );
 };
@@ -533,17 +529,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         height: 55,
     },
-	returnButtonFixed: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: "#6c757d",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    zIndex: 100,
-},
 });
 
 export default ExpressClientPage;

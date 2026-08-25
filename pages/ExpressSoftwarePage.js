@@ -12,6 +12,7 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function ExpressSoftwarePage() {
   const navigation = useNavigation();
@@ -343,16 +344,7 @@ const [isPaid, setIsPaid] = useState(
   </TouchableOpacity>
 )}
             <View style={{ alignItems: "center", marginTop: 16 }}>
-              <TouchableOpacity
-                style={[
-                  styles.optionButton,
-                  styles.shadowBox,
-                  { backgroundColor: "#a7a7a7", width: "60%" },
-                ]}
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={styles.buttonText}>⬅ Retour</Text>
-              </TouchableOpacity>
+              <BackButton onPress={() => navigation.goBack()} />
             </View>
           </View>
         }
@@ -418,20 +410,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#f9f9f9",
-  },
-  optionButton: {
-    width: 310,
-    paddingVertical: 15,
-    backgroundColor: "#3e4c69",
-    borderRadius: 50,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  shadowBox: {
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
 });

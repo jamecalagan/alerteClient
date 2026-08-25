@@ -7,11 +7,13 @@ import {
     TextInput,
     TouchableOpacity,
     Linking,
+    Image,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 export default function ClientNotificationsPage() {
     const [lastNotified, setLastNotified] = useState([]);
     const [notifications, setNotifications] = useState([]);
@@ -651,13 +653,20 @@ export default function ClientNotificationsPage() {
                 <TouchableOpacity
                     style={[
                         styles.pageButton,
-                        currentPage === 1 && { backgroundColor: "#ccc" },
+                        currentPage === 1 && styles.pageButtonDisabled,
                     ]}
+                    disabled={currentPage === 1}
                     onPress={() => {
                         if (currentPage > 1) setCurrentPage(currentPage - 1);
                     }}
                 >
-                    <Text style={styles.pageButtonText}>⏮ Précédent</Text>
+                    <Image
+                        source={require("../assets/icons/chevrong.png")}
+                        style={[
+                            styles.pageButtonIcon,
+                            { tintColor: currentPage === 1 ? "#cbd5e1" : "#4338ca" },
+                        ]}
+                    />
                 </TouchableOpacity>
                 <Text style={styles.pageIndicator}>
                     Page {currentPage} /{" "}
@@ -669,18 +678,39 @@ export default function ClientNotificationsPage() {
                 <TouchableOpacity
                     style={[
                         styles.pageButton,
-                        filtered.length < itemsPerPage && {
-                            backgroundColor: "#ccc",
-                        },
+                        currentPage >=
+                            Math.max(1, Math.ceil(filteredItems.length / itemsPerPage)) &&
+                            styles.pageButtonDisabled,
                     ]}
+                    disabled={
+                        currentPage >=
+                        Math.max(1, Math.ceil(filteredItems.length / itemsPerPage))
+                    }
                     onPress={() => {
-                        if (filtered.length === itemsPerPage)
-                            setCurrentPage(currentPage + 1);
+                        const totalPages = Math.max(
+                            1,
+                            Math.ceil(filteredItems.length / itemsPerPage)
+                        );
+                        if (currentPage < totalPages) setCurrentPage(currentPage + 1);
                     }}
                 >
-                    <Text style={styles.pageButtonText}>Suivant ⏭</Text>
+                    <Image
+                        source={require("../assets/icons/chevrond.png")}
+                        style={[
+                            styles.pageButtonIcon,
+                            {
+                                tintColor:
+                                    currentPage >=
+                                    Math.max(1, Math.ceil(filteredItems.length / itemsPerPage))
+                                        ? "#cbd5e1"
+                                        : "#4338ca",
+                            },
+                        ]}
+                    />
                 </TouchableOpacity>
             </View>
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
 
             <AlertBox
                 visible={urgentCount > 0}
@@ -807,19 +837,28 @@ const styles = StyleSheet.create({
     actionText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
     paginationRow: {
         flexDirection: "row",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "center",
+        gap: 16,
         marginTop: 10,
         paddingHorizontal: 10,
     },
     pageButton: {
-        backgroundColor: "#007bff",
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
     },
-    pageButtonText: { color: "#fff", fontWeight: "bold" },
-    pageIndicator: { fontSize: 16, fontWeight: "bold", color: "#333" },
+    pageButtonDisabled: {
+        backgroundColor: "#f3f4f6",
+        borderColor: "#e5e7eb",
+    },
+    pageButtonIcon: { width: 18, height: 18 },
+    pageIndicator: { fontSize: 14, fontWeight: "700", color: "#333" },
     messageInput: {
         backgroundColor: "#f6f6f6",
         paddingHorizontal: 10,

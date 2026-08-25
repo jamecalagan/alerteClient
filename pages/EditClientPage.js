@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 import * as Print from "expo-print";
 
 export default function EditClientPage({ route, navigation }) {
@@ -1139,6 +1140,8 @@ const openRepairEstimate = async (intervention) => {
           <Text style={styles.buttonText}>Sauvegarder</Text>
         </TouchableOpacity>
       </View>
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
 <Modal
   visible={estimateVisible}
   transparent

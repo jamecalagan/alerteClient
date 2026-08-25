@@ -3,8 +3,9 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native
 import { supabase } from '../supabaseClient';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AlertBox from '../components/AlertBox';
+import BackButton from '../components/BackButton';
 
-export default function ModelsPage({ route }) {
+export default function ModelsPage({ route, navigation }) {
     const { brandId } = route.params;
     const [models, setModels] = useState([]);
     const [modelToDelete, setModelToDelete] = useState(null);
@@ -66,6 +67,8 @@ export default function ModelsPage({ route }) {
                 )}
                 contentContainerStyle={styles.listContainer}
             />
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
 
             <AlertBox
                 visible={!!modelToDelete}

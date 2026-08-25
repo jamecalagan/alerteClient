@@ -3,10 +3,13 @@ import {
   View, Text, ScrollView, Image, Button, StyleSheet, TouchableOpacity
 } from 'react-native';
 import { supabase } from '../supabaseClient';
+import { useNavigation } from '@react-navigation/native';
 import AlertBox from '../components/AlertBox';
 import CustomAlert from '../components/CustomAlert';
+import BackButton from '../components/BackButton';
 
 export default function ImageCleanupPage() {
+  const navigation = useNavigation();
   const [interventions, setInterventions] = useState([]);
   const [extraImages, setExtraImages] = useState([]);
   const [clients, setClients] = useState([]);
@@ -1134,6 +1137,8 @@ const isSelected =
         message={alertMessage}
         onClose={() => setAlertVisible(false)}
       />
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
     </ScrollView>
   );
 }

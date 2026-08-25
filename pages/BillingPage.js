@@ -13,6 +13,7 @@ import * as Print from "expo-print";
 import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const USB_COST = 20; // conforme à ExpressVideoPage
 const HDD_COST = 45;
@@ -1348,12 +1349,7 @@ const BillingPage = () => {
       )}
 
       {/* Retour fixe */}
-      <TouchableOpacity
-        style={styles.returnButtonFixed}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.buttonText}>⬅ Retour</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} />
 
       <CustomAlert
         visible={alertVisible}
@@ -1454,8 +1450,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-
   paymentButton: {
     flex: 1,
     backgroundColor: "#ddd",
@@ -1501,17 +1495,6 @@ const styles = StyleSheet.create({
 
   deleteButtonText: { color: "white", fontSize: 22, fontWeight: "bold" },
 
-  returnButtonFixed: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: "#6c757d",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    zIndex: 100,
-  },
     fieldBlock: {
     marginBottom: 16,
   },

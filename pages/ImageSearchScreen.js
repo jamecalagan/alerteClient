@@ -1,8 +1,9 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
+import BackButton from "../components/BackButton";
 
-export default function ImageSearchScreen({ route }) {
+export default function ImageSearchScreen({ route, navigation }) {
   const query = route?.params?.query || "";
 
   const url = query
@@ -11,6 +12,7 @@ export default function ImageSearchScreen({ route }) {
   return (
     <View style={styles.container}>
       <WebView source={{ uri: url }} />
+      <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
     </View>
   );
 }
@@ -18,5 +20,10 @@ export default function ImageSearchScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backButton: {
+    position: "absolute",
+    top: 40,
+    left: 12,
   },
 });

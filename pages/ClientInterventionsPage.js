@@ -18,6 +18,7 @@ import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 /* ─────────── Helpers format ─────────── */
 const formatPhone = (p) => (p ? String(p).replace(/(\d{2})(?=\d)/g, "$1 ") : "");
@@ -545,6 +546,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
         )}
 
         <BottomNavigation navigation={navigation} currentRoute={route.name} />
+
+        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 12 }} />
       </View>
 
       {/* Modale image */}

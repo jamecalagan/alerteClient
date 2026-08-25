@@ -8,6 +8,7 @@ import {
   Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import BackButton from "../components/BackButton";
 
 const ExpressTypeSelectorPage = () => {
   const navigation = useNavigation();
@@ -171,12 +172,7 @@ const ExpressTypeSelectorPage = () => {
       </View>
 
       <View style={{ alignItems: "center", marginTop: 16 }}>
-        <TouchableOpacity
-          style={[styles.optionButton, styles.shadowBox, { backgroundColor: "#6b7280", width: "60%" }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
     </View>
   );

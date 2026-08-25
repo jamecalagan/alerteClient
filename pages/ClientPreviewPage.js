@@ -12,6 +12,7 @@ import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as Print from "expo-print";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 // ———————————————————————————————————————————
 // Aide : formatage
@@ -939,9 +940,7 @@ ${checkupSignatureHtml}
                 </View>
 
                 <View style={styles.bottomActionsRow}>
-                  <TouchableOpacity style={styles.bottomAction} onPress={() => navigation.goBack()}>
-                    <Text style={styles.bottomActionText}>Retour</Text>
-                  </TouchableOpacity>
+                  <BackButton onPress={() => navigation.goBack()} />
 
                   <View style={styles.bottomDivider} />
 

@@ -19,6 +19,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const BTN_COLS = 2; // 2 colonnes (sobre)
 const GRID_BTN_WIDTH = BTN_COLS === 3 ? "32%" : "48%";
@@ -1292,12 +1293,7 @@ export default function QuoteEditPage() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.gridBtn, styles.gridBtnNeutral]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.gridBtnText}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <View style={{ height: 12 + insets.bottom }} />
@@ -1571,9 +1567,6 @@ const styles = StyleSheet.create({
   },
   gridBtnPurple: {
     backgroundColor: "#8b5cf6",
-  },
-  gridBtnNeutral: {
-    backgroundColor: "#6b7280",
   },
   gridBtnDisabled: {
     backgroundColor: "#d1d5db",

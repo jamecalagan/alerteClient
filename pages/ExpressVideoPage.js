@@ -12,6 +12,7 @@ import {
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function ExpressVideoPage() {
     const navigation = useNavigation();
@@ -404,12 +405,7 @@ export default function ExpressVideoPage() {
 
 <View style={styles.actionsRow}>
   {/* 1 — Retour */}
-  <TouchableOpacity
-    style={[styles.actionButton, styles.actionButtonSecondary]}
-    onPress={() => navigation.goBack()}
-  >
-    <Text style={styles.actionButtonTextSecondary}>Retour</Text>
-  </TouchableOpacity>
+  <BackButton onPress={() => navigation.goBack()} />
 
   {/* 2 — Enregistrer */}
   <TouchableOpacity
@@ -594,13 +590,6 @@ const styles = StyleSheet.create({
     supportSelected: {
         backgroundColor: "#d1ecf1",
     },
-    returnButton: {
-        backgroundColor: "#a7a7a7",
-        padding: 12,
-        borderRadius: 8,
-        alignItems: "center",
-        margin: 16,
-    },
     optionButton: {
         width: 310,
         paddingVertical: 15,
@@ -643,10 +632,6 @@ actionButtonPrimary: {
   backgroundColor: "#2563eb",
 },
 
-actionButtonSecondary: {
-  backgroundColor: "#e2e8f0",
-},
-
 actionButtonSuccess: {
   backgroundColor: "#16a34a",
 },
@@ -667,13 +652,6 @@ actionButtonText: {
   fontSize: 14,
   fontWeight: "700",
   color: "#ffffff",
-  textAlign: "center",
-},
-
-actionButtonTextSecondary: {
-  fontSize: 14,
-  fontWeight: "700",
-  color: "#334155",
   textAlign: "center",
 },
 

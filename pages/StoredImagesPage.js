@@ -18,6 +18,7 @@ import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function StoredImagesPage() {
     const [images, setImages] = useState([]);
@@ -394,14 +395,10 @@ export default function StoredImagesPage() {
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity
-                        style={styles.bottomBackButton}
+                    <BackButton
                         onPress={() => navigation.goBack()}
-                    >
-                        <Text style={styles.bottomBackButtonText}>
-                            ⬅ Retour à l'accueil
-                        </Text>
-                    </TouchableOpacity>
+                        label="Retour à l'accueil"
+                    />
                 </View>
             )}
 
@@ -538,8 +535,6 @@ const styles = StyleSheet.create({
         fontWeight: "800",
         color: "#ffffff",
     },
-    backButton: { marginBottom: 10 },
-    backButtonText: { color: "#007bff", fontSize: 16 },
     countText: {
         fontSize: 12,
         fontWeight: "bold",
@@ -563,17 +558,6 @@ const styles = StyleSheet.create({
         borderColor: "#ccc",
         alignItems: "center",
         justifyContent: "center",
-    },
-    bottomBackButton: {
-        backgroundColor: "#007bff",
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 6,
-    },
-    bottomBackButtonText: {
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: "bold",
     },
 	filterRow: {
     flexDirection: "row",

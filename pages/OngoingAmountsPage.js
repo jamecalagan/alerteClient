@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
 } from "react-native";
 import { supabase } from "../supabaseClient";
+import BackButton from "../components/BackButton";
 
 export default function OngoingAmountsPage({ navigation }) {
     const [clientsDue, setClientsDue] = useState([]);
@@ -145,9 +146,7 @@ export default function OngoingAmountsPage({ navigation }) {
                     </View>
                 </>
             )}
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.backButtonText}>Retour</Text>
-            </TouchableOpacity>
+            <BackButton onPress={() => navigation.goBack()} />
         </View>
     );
 }
@@ -191,14 +190,4 @@ const styles = StyleSheet.create({
     },
     totalText: { fontSize: 20, fontWeight: "500", color: "#ffffff", textAlign: "center" },
     noRowsText: { fontSize: 18, color: "#888787", textAlign: "center", marginTop: 50 },
-    backButton: {
-        marginTop: 20,
-        padding: 15,
-        backgroundColor: "#0c0f18",
-        borderRadius: 2,
-        borderWidth: 1,
-        borderColor: "#888787",
-        alignItems: "center",
-    },
-    backButtonText: { color: "#ffffff", fontWeight: "500", fontSize: 16 },
 });

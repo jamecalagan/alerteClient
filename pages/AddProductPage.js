@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, FlatList, StyleSheet } from "r
 import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const AddProductPage = () => {
     const navigation = useNavigation();
@@ -235,6 +236,8 @@ const AddProductPage = () => {
         <Text style={{ fontSize: 20, color: "#3c763d" }}>📌 Modèle : {recapProduct.modele}</Text>
     </View>
 )}
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
 
             <CustomAlert
                 visible={alertVisible}

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Linking,
+  Image,
 } from "react-native";
 import {
   useNavigation,
@@ -18,6 +19,7 @@ import { supabase } from "../supabaseClient";
 import { printInvoice } from "../utils/printInvoice.js";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 // ================= Helpers =================
 const PER_PAGE = 4;
@@ -717,7 +719,13 @@ const ExpressListPage = () => {
               disabled={page <= 1}
               onPress={() => setPage((p) => Math.max(1, p - 1))}
             >
-              <Text style={styles.pagerBtnText}>◀ Précédent</Text>
+              <Image
+                source={require("../assets/icons/chevrong.png")}
+                style={[
+                  styles.pagerIcon,
+                  { tintColor: page <= 1 ? "#cbd5e1" : "#4338ca" },
+                ]}
+              />
             </TouchableOpacity>
 
             <Text style={styles.pagerInfo}>
@@ -732,11 +740,19 @@ const ExpressListPage = () => {
               disabled={page >= totalPages}
               onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
             >
-              <Text style={styles.pagerBtnText}>Suivant ▶</Text>
+              <Image
+                source={require("../assets/icons/chevrond.png")}
+                style={[
+                  styles.pagerIcon,
+                  { tintColor: page >= totalPages ? "#cbd5e1" : "#4338ca" },
+                ]}
+              />
             </TouchableOpacity>
           </View>
         </>
       )}
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginBottom: 12 }} />
 
       <AlertBox
         visible={!!itemToDelete}
@@ -831,22 +847,27 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   pagerBtn: {
-    backgroundColor: "#0d6efd",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
   pagerBtnDisabled: {
-    backgroundColor: "#c7d7ff",
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
   },
-  pagerBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
+  pagerIcon: {
+    width: 18,
+    height: 18,
   },
   pagerInfo: {
     minWidth: 100,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#333",
   },
   statusPaid: {

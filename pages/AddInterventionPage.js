@@ -18,6 +18,7 @@ import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -2670,6 +2671,8 @@ onPress={() => {
             <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
           </TouchableOpacity>
         </View>
+
+        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
       </ScrollView>
 	  {/* Modale d’ajout d’une panne */}
 <Modal

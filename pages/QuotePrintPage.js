@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient";
 import * as Sharing from "expo-sharing";
 import * as MailComposer from "expo-mail-composer";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const QuotePrintPage = () => {
   const navigation = useNavigation();
@@ -730,6 +731,8 @@ onPress={() =>
           </Text>
         </TouchableOpacity>
       </View>
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
 
       <CustomAlert
         visible={alertVisible}

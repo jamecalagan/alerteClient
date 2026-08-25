@@ -27,6 +27,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from "expo-print";
 
 import BottomNavigation from "../components/BottomNavigation";
+import BackButton from "../components/BackButton";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
@@ -906,15 +907,11 @@ export default function RepairedInterventionsPage({ navigation }) {
                   </View>
                 )}
 
-              <TouchableOpacity
-                style={styles.backButton}
+              <BackButton
                 onPress={() =>
                   navigation.navigate("RepairedInterventionsListPage")
                 }
-              >
-                <Ionicons name="arrow-back" size={18} color="#fff" />
-                <Text style={styles.backButtonText}>Retour</Text>
-              </TouchableOpacity>
+              />
             </View>
           );
         }}
@@ -1366,21 +1363,6 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 10,
-  },
-
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#334155",
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  backButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
   },
 
   modalOverlay: {

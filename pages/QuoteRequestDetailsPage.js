@@ -16,6 +16,7 @@ import * as Print from "expo-print";
 import * as MailComposer from "expo-mail-composer";
 import * as FileSystem from 'expo-file-system/legacy';
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 import * as Sharing from "expo-sharing";
 
@@ -313,9 +314,7 @@ export default function QuoteRequestDetailsPage() {
     return (
       <View style={styles.center}>
         <Text style={{ marginBottom: 12, textAlign: "center" }}>Identifiant de demande manquant.</Text>
-        <TouchableOpacity style={[styles.gridBtn, styles.btnLight, { width: 160 }]} onPress={() => navigation.goBack()}>
-          <Text style={styles.gridBtnTextLight}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
     );
   }
@@ -444,9 +443,7 @@ export default function QuoteRequestDetailsPage() {
         <TouchableOpacity style={[styles.gridBtn, styles.btnLight]} onPress={savePdfPickMode}>
           <Text style={styles.gridBtnTextLight}>Partager / Enregistrer PDF</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.gridBtn, styles.btnLight]} onPress={() => navigation.goBack()}>
-          <Text style={styles.gridBtnTextLight}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       {/* Footer harmonisé */}

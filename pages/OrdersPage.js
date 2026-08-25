@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 
 // === Réglages bucket/chemin ===
 const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
@@ -3262,16 +3263,7 @@ const deleteOrderItem = async (orderItem) => {
                                             </Text>
                                         </TouchableOpacity>
 
-                                        <TouchableOpacity
-                                            style={styles.squareButton}
-                                            onPress={() => navigation.goBack()}
-                                        >
-                                            <Text
-                                                style={styles.squareButtonText}
-                                            >
-                                                Retour
-                                            </Text>
-                                        </TouchableOpacity>
+                                        <BackButton onPress={() => navigation.goBack()} />
                                     </View>
                                 </View>
                             )}

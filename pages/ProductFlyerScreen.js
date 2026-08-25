@@ -4,8 +4,9 @@ import { WebView } from "react-native-webview";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
-export default function ProductFlyerScreen({ route }) {
+export default function ProductFlyerScreen({ route, navigation }) {
   const { product } = route.params;
   const [formatChoiceVisible, setFormatChoiceVisible] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -241,6 +242,7 @@ body {
       />
       <Button title="🖨️ Imprimer l'affiche" onPress={handlePrint} />
 	  <Button title="💾 Sauvegarder dans Supabase" onPress={saveOrUpdateFlyer} />
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10, marginBottom: 10 }} />
 
       <Modal
         visible={formatChoiceVisible}

@@ -8,8 +8,9 @@ import {
   Linking,
 } from "react-native";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
-export default function ProductSearchEngine() {
+export default function ProductSearchEngine({ navigation }) {
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [alertVisible, setAlertVisible] = useState(false);
@@ -71,6 +72,8 @@ export default function ProductSearchEngine() {
       >
         <Text style={styles.buttonText}>🖼️ Voir sur Google Images</Text>
       </TouchableOpacity>
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
 
       <CustomAlert
         visible={alertVisible}

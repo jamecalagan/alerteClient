@@ -6,12 +6,14 @@ import {
     TouchableOpacity,
     ScrollView,
     StyleSheet,
+    Image,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
 import { useRoute } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function QuickLabelPrintPage({ navigation }) {
     const route = useRoute();
@@ -39,6 +41,9 @@ export default function QuickLabelPrintPage({ navigation }) {
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     const [labels, setLabels] = useState([]);
+    const [labelsPage, setLabelsPage] = useState(1);
+    const LABELS_PER_PAGE = 5;
+    const labelsTotalPages = Math.max(1, Math.ceil(labels.length / LABELS_PER_PAGE));
     const [editingId, setEditingId] = useState(null);
     const isEditing = editingId !== null;
 
@@ -48,6 +53,12 @@ export default function QuickLabelPrintPage({ navigation }) {
         fetchLabels();
         fetchClients();
     }, []);
+
+    // Recadre la page si la liste rétrécit (suppression, filtre...)
+    useEffect(() => {
+        const maxPage = Math.max(1, Math.ceil(labels.length / LABELS_PER_PAGE));
+        if (labelsPage > maxPage) setLabelsPage(maxPage);
+    }, [labels.length]);
 
     // Pré-remplissage depuis ExpressVideoPage
     useEffect(() => {
@@ -373,7 +384,12 @@ export default function QuickLabelPrintPage({ navigation }) {
 
             <Text style={styles.subTitle}>🗂 Étiquettes enregistrées</Text>
 
-            {labels.map((lbl) => (
+            {labels
+                .slice(
+                    (labelsPage - 1) * LABELS_PER_PAGE,
+                    labelsPage * LABELS_PER_PAGE
+                )
+                .map((lbl) => (
                 <View key={lbl.id} style={styles.labelCard}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.labelLine}>
@@ -444,17 +460,58 @@ export default function QuickLabelPrintPage({ navigation }) {
                     </View>
                 </View>
             ))}
+
+            {labels.length > LABELS_PER_PAGE && (
+                <View style={styles.pagination}>
+                    <TouchableOpacity
+                        style={[
+                            styles.pageButton,
+                            labelsPage === 1 && styles.pageButtonDisabled,
+                        ]}
+                        onPress={() =>
+                            setLabelsPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={labelsPage === 1}
+                    >
+                        <Image
+                            source={require("../assets/icons/chevrong.png")}
+                            style={[
+                                styles.pageButtonIcon,
+                                { tintColor: labelsPage === 1 ? "#cbd5e1" : "#4338ca" },
+                            ]}
+                        />
+                    </TouchableOpacity>
+
+                    <Text style={styles.pageIndicator}>
+                        Page {labelsPage} sur {labelsTotalPages}
+                    </Text>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.pageButton,
+                            labelsPage === labelsTotalPages && styles.pageButtonDisabled,
+                        ]}
+                        onPress={() =>
+                            setLabelsPage((prev) => Math.min(labelsTotalPages, prev + 1))
+                        }
+                        disabled={labelsPage === labelsTotalPages}
+                    >
+                        <Image
+                            source={require("../assets/icons/chevrond.png")}
+                            style={[
+                                styles.pageButtonIcon,
+                                {
+                                    tintColor:
+                                        labelsPage === labelsTotalPages ? "#cbd5e1" : "#4338ca",
+                                },
+                            ]}
+                        />
+                    </TouchableOpacity>
+                </View>
+            )}
+
             <View style={{ alignItems: "center", marginTop: 16 }}>
-                <TouchableOpacity
-                    style={[
-                        styles.optionButton,
-                        styles.shadowBox,
-                        { backgroundColor: "#a7a7a7", width: "60%" },
-                    ]}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.buttonText}>⬅ Retour</Text>
-                </TouchableOpacity>
+                <BackButton onPress={() => navigation.goBack()} />
             </View>
 
             <AlertBox
@@ -485,6 +542,36 @@ const styles = StyleSheet.create({
     container: {
         padding: 16,
         backgroundColor: "#e9e9e9",
+    },
+    pagination: {
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 16,
+        marginTop: 8,
+    },
+    pageButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
+    },
+    pageButtonDisabled: {
+        backgroundColor: "#f3f4f6",
+        borderColor: "#e5e7eb",
+    },
+    pageButtonIcon: {
+        width: 18,
+        height: 18,
+    },
+    pageIndicator: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#374151",
     },
     title: {
         fontSize: 20,
@@ -557,24 +644,9 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
     smallTxt: { color: "#ffffff", fontSize: 16 },
-    optionButton: {
-        width: 310,
-        paddingVertical: 15,
-        backgroundColor: "#3e4c69",
-        borderRadius: 50,
-        alignItems: "center",
-        marginTop: 20,
-    },
     optionText: {
         fontSize: 18,
         color: "#ffffff",
-    },
-    shadowBox: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
     },
     suggestionBox: {
         backgroundColor: "#fff",

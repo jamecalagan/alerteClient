@@ -14,6 +14,7 @@ import {
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 
 const ITEMS_PER_PAGE = 2;
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -908,12 +909,7 @@ export default function AllOrdersPage({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.returnButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.returnButtonText}>Retour</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} />
 
       <AlertBox
         visible={!!orderIdToDelete}
@@ -1212,22 +1208,6 @@ const styles = StyleSheet.create({
   pageIndicator: {
     fontSize: 12,
     color: "#374151",
-  },
-
-  returnButton: {
-    marginTop: 6,
-    alignSelf: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
-  },
-  returnButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
   },
 
   totalPreview: {

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
+import BackButton from "../components/BackButton";
 
 const QuoteListPage = () => {
   const navigation = useNavigation();
@@ -270,9 +271,7 @@ const QuoteListPage = () => {
         contentContainerStyle={{ paddingBottom: 24 }}
       />
 
-      <TouchableOpacity style={styles.returnButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>⬅ Retour</Text>
-      </TouchableOpacity>
+      <BackButton onPress={() => navigation.goBack()} />
 
       {/* Confirmation suppression */}
       {showConfirm && (
@@ -323,7 +322,6 @@ const styles = StyleSheet.create({
   date: { fontSize: 13, color: "#777" },
   total: { marginTop: 6, fontWeight: "600", fontSize: 15, textAlign: "right", color: "#111" },
   empty: { textAlign: "center", marginTop: 20, color: "#999" },
-  returnButton: { backgroundColor: "#888888", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 8, marginHorizontal: 16 },
   modalOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 999 },
   modalContent: { backgroundColor: "#fff", padding: 24, borderRadius: 10, width: "85%", elevation: 8, alignItems: "center" },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginTop: 16 },

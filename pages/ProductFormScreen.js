@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function ProductFormScreen() {
     const navigation = useNavigation();
@@ -378,6 +379,8 @@ export default function ProductFormScreen() {
                     </TouchableOpacity>
                 )}
             </View>
+
+            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
 
             <AlertBox
                 visible={confirmDialog.visible}

@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 const STORAGE_BUCKET = "quote-request-photos";
 
@@ -220,9 +221,7 @@ export default function QuoteRequestEditPage() {
         <Text style={{ textAlign:"center", marginBottom:12 }}>
           Impossible d’ouvrir l’édition : identifiant de demande manquant.
         </Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ backgroundColor:"#6b4e16", padding:12, borderRadius:8 }}>
-          <Text style={{ color:"#fff", fontWeight:"800" }}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
     );
   }
@@ -240,9 +239,7 @@ export default function QuoteRequestEditPage() {
         <TouchableOpacity onPress={fetchRequest} style={{ backgroundColor:"#0b6bcb", padding:12, borderRadius:8, marginBottom:8 }}>
           <Text style={{ color:"#fff", fontWeight:"800" }}>↻ Réessayer</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ backgroundColor:"#6b4e16", padding:12, borderRadius:8 }}>
-          <Text style={{ color:"#fff", fontWeight:"800" }}>⬅ Retour</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
     );
   }
@@ -361,9 +358,7 @@ export default function QuoteRequestEditPage() {
 
           <Text style={styles.actionsDivider}>|</Text>
 
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.actionsText}>Retour</Text>
-          </TouchableOpacity>
+          <BackButton onPress={() => navigation.goBack()} />
         </View>
       </View>
 
@@ -428,11 +423,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: 4,
-  },
-  actionsText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#2563eb",
   },
   actionsTextPrimary: {
     fontSize: 13,

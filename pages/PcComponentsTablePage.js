@@ -12,6 +12,7 @@ import * as Clipboard from "expo-clipboard";
 import { useRoute } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 // ----------------------------
 //  Templates de composants
@@ -420,6 +421,8 @@ export default function PcComponentsTablePage({ navigation }) {
           Tu peux aussi sélectionner ce texte manuellement, puis le coller dans
           ton champ prestations / produits.
         </Text>
+
+        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10 }} />
       </View>
 
       <CustomAlert

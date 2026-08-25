@@ -3,9 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "rea
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
+import { useNavigation } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function CommandePreviewPage({ route }) {
+  const navigation = useNavigation();
   const { order } = route.params || {};
   const client = order?.client || {};
   const [alertVisible, setAlertVisible] = useState(false);
@@ -236,6 +239,8 @@ export default function CommandePreviewPage({ route }) {
       <TouchableOpacity style={styles.button} onPress={handlePrint}>
         <Text style={styles.buttonText}>🖨️ Imprimer la commande</Text>
       </TouchableOpacity>
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
 
       <CustomAlert
         visible={alertVisible}

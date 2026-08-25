@@ -19,6 +19,7 @@ import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 
@@ -3413,6 +3414,8 @@ onPress={() => {
                         <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
                     </TouchableOpacity>
                 </View>
+
+                <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
             </ScrollView>
 
             {/* === MODALES (Type / Marque / Modèle / Alertes / etc.) : inchangées === */}

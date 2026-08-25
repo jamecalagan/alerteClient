@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Button, StyleSheet } from 'react-native';
 import { supabase } from '../supabaseClient';
 import * as FileSystem from 'expo-file-system/legacy';
+import BackButton from '../components/BackButton';
 
 
 const uploadSignatureToStorage = async (base64Data, id, type = '') => {
@@ -42,7 +43,7 @@ const uploadSignatureToStorage = async (base64Data, id, type = '') => {
   }
 };
 
-export default function MigrateOldImagesPage() {
+export default function MigrateOldImagesPage({ navigation }) {
   const [signaturesClient, setSignaturesClient] = useState([]);
   const [signaturesIntervention, setSignaturesIntervention] = useState([]);
   const [signaturesOrder, setSignaturesOrder] = useState([]);
@@ -206,6 +207,8 @@ export default function MigrateOldImagesPage() {
       {signaturesClient.length === 0 && signaturesIntervention.length === 0 && signaturesOrder.length === 0 && !loading && (
         <Text style={{ marginTop: 20 }}>Aucune signature à migrer.</Text>
       )}
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
     </ScrollView>
   );
 }

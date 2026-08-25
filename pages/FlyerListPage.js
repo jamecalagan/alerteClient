@@ -12,6 +12,7 @@ import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function FlyerListPage() {
     const [flyers, setFlyers] = useState([]);
@@ -140,12 +141,7 @@ export default function FlyerListPage() {
                 }
             />
             <View style={{ marginBottom: 16 }}></View>
-						<TouchableOpacity
-							style={styles.returnButtonFixed}
-							onPress={() => navigation.goBack()}
-						>
-							<Text style={styles.buttonText}>⬅ Retour</Text>
-						</TouchableOpacity>
+						<BackButton onPress={() => navigation.goBack()} />
 
             <AlertBox
                 visible={!!flyerToDelete}
@@ -218,11 +214,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: "center",
     },
-    buttonText: {
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
     thumbnail: {
         width: 60,
         height: 60,
@@ -246,16 +237,5 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: "#ccc",
         marginVertical: 6,
-    },
-	    returnButtonFixed: {
-        position: "absolute",
-        bottom: 16,
-        left: 16,
-        right: 16,
-        backgroundColor: "#6c757d",
-        padding: 14,
-        borderRadius: 8,
-        alignItems: "center",
-        zIndex: 100,
     },
 });

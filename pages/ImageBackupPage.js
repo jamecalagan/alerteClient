@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+import BackButton from "../components/BackButton";
 
 // ⭐ Utiliser UNIQUEMENT la version legacy
 import * as FileSystem from "expo-file-system/legacy";
@@ -498,12 +499,7 @@ export default function ImageBackupPage() {
         </Text>
       )}
       <View style={{ padding: 10 }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>⬅ Retour</Text>
-        </Pressable>
+        <BackButton onPress={() => navigation.goBack()} />
       </View>
 
       <AlertBox
@@ -617,18 +613,6 @@ const styles = StyleSheet.create({
   closeText: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#ccc",
-    alignSelf: "center",
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  backButtonText: {
-    fontWeight: "bold",
-    fontSize: 14,
   },
   pagination: {
     flexDirection: "row",

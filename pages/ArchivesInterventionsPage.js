@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import BackButton from "../components/BackButton";
 
 export default function ArchivesInterventionsPage({ navigation }) {
   const [items, setItems] = useState([]);
@@ -76,6 +77,8 @@ export default function ArchivesInterventionsPage({ navigation }) {
         )}
         contentContainerStyle={{ paddingBottom: 40 }}
       />
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
 
       <AlertBox
         visible={!!idToUnarchive}

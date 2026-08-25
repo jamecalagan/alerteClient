@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { supabase } from "../supabaseClient";
@@ -57,6 +57,15 @@ export default function BillingListPage() {
   useEffect(() => {
     fetchBills();
   }, [showDeleted]);
+
+  // Recharge à chaque retour sur cette page (ex. après modification d'une
+  // facture depuis BillingEditPage), pour ne pas afficher un statut payé
+  // périmé.
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchBills();
+    }, [showDeleted])
+  );
 
   useEffect(() => {
     setCurrentPage(1);

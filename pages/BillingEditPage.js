@@ -12,6 +12,7 @@ import {
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
+import CustomAlert from "../components/CustomAlert";
 
 const BillingEditPage = () => {
     const route = useRoute();
@@ -21,6 +22,17 @@ const BillingEditPage = () => {
 
     const [invoice, setInvoice] = useState(null);
     const [isSaved, setIsSaved] = useState(false);
+
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+    const [alertMessage, setAlertMessage] = useState("");
+    const [alertOnClose, setAlertOnClose] = useState(null);
+    const showAlert = (title, message, onCloseAction = null) => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertOnClose(() => onCloseAction);
+        setAlertVisible(true);
+    };
     useEffect(() => {
         if (id) fetchInvoice();
     }, [id]);
@@ -33,14 +45,19 @@ const fetchInvoice = async () => {
         .single();
 
     if (error) {
-        alert("Erreur de chargement");
+        showAlert("Erreur", "Erreur de chargement");
     } else {
         // 🔐 Sécurité sur les lignes
         const safeLines = Array.isArray(data.lines)
             ? data.lines.map((line) => ({
                   designation: line?.designation || "",
                   quantity: line?.quantity?.toString() || "1",
-                  price: line?.price?.toString() || "",
+                  // ⚠️ certaines anciennes factures (commandes) stockent le
+                  // prix sous la clé "unit_price" au lieu de "price"
+                  price:
+                      line?.price?.toString() ||
+                      line?.unit_price?.toString() ||
+                      "",
                   serial: line?.serial || "",
               }))
             : [
@@ -78,10 +95,27 @@ const fetchInvoice = async () => {
             .eq("id", id);
 
         if (error) {
-            alert("Erreur de sauvegarde");
+            showAlert("Erreur", "Erreur de sauvegarde");
         } else {
-            alert("✅ Facture mise à jour");
+            // Garde le statut "Soldée/Non soldée" de la fiche express aligné
+            // sur le statut payé de la facture liée.
+            if (invoice.express_id) {
+                const { error: expressPaidError } = await supabase
+                    .from("express")
+                    .update({ paid: invoice.paid })
+                    .eq("id", invoice.express_id);
+                if (expressPaidError) {
+                    console.warn(
+                        "⚠️ Erreur synchronisation statut payé express :",
+                        expressPaidError
+                    );
+                }
+            }
+
             setIsSaved(true);
+            showAlert("Succès", "Facture mise à jour.", () => {
+                navigation.navigate("BillingListPage");
+            });
 
             // 🔁 Mettre à jour l'acompte dans la commande liée si serial et client_id sont connus
             const serial = invoice.lines?.[0]?.serial;
@@ -217,9 +251,25 @@ const fetchInvoice = async () => {
         await Print.printAsync({ html });
     };
 
-    if (!invoice) return <Text style={{ padding: 20 }}>Chargement...</Text>;
+    if (!invoice) {
+        return (
+            <>
+                <Text style={{ padding: 20 }}>Chargement...</Text>
+                <CustomAlert
+                    visible={alertVisible}
+                    title={alertTitle}
+                    message={alertMessage}
+                    onClose={() => {
+                        setAlertVisible(false);
+                        if (alertOnClose) alertOnClose();
+                    }}
+                />
+            </>
+        );
+    }
 
     return (
+        <>
         <ScrollView style={styles.container}>
             <Text style={styles.title}>Modifier la facture</Text>
 
@@ -317,6 +367,31 @@ const fetchInvoice = async () => {
                         setIsSaved(false);
                     }}
                 />
+            </View>
+
+            <View style={styles.paidRow}>
+                <Text style={styles.paidLabel}>État du règlement</Text>
+                <TouchableOpacity
+                    onPress={() => {
+                        setInvoice({ ...invoice, paid: !invoice.paid });
+                        setIsSaved(false);
+                    }}
+                    style={[
+                        styles.paidPill,
+                        invoice.paid ? styles.paidPillOn : styles.paidPillOff,
+                    ]}
+                >
+                    <Text
+                        style={[
+                            styles.paidPillText,
+                            invoice.paid
+                                ? styles.paidPillTextOn
+                                : styles.paidPillTextOff,
+                        ]}
+                    >
+                        {invoice.paid ? "Payée" : "Non payée"}
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <Text style={styles.subtitle}>Prestations :</Text>
@@ -451,6 +526,17 @@ const fetchInvoice = async () => {
                 </TouchableOpacity>
             </View>
         </ScrollView>
+
+        <CustomAlert
+            visible={alertVisible}
+            title={alertTitle}
+            message={alertMessage}
+            onClose={() => {
+                setAlertVisible(false);
+                if (alertOnClose) alertOnClose();
+            }}
+        />
+        </>
     );
 };
 
@@ -515,6 +601,41 @@ const styles = StyleSheet.create({
         backgroundColor: "#eef6ff",
         paddingHorizontal: 5,
         borderRadius: 4,
+    },
+    paidRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 20,
+    },
+    paidLabel: {
+        fontWeight: "bold",
+        fontSize: 14,
+        color: "#333",
+    },
+    paidPill: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    paidPillOn: {
+        backgroundColor: "#dcfce7",
+        borderColor: "#16a34a",
+    },
+    paidPillOff: {
+        backgroundColor: "#fee2e2",
+        borderColor: "#dc2626",
+    },
+    paidPillText: {
+        fontWeight: "bold",
+        fontSize: 13,
+    },
+    paidPillTextOn: {
+        color: "#15803d",
+    },
+    paidPillTextOff: {
+        color: "#b91c1c",
     },
 });
 

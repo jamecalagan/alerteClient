@@ -12,6 +12,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
+import CustomAlert from "../components/CustomAlert";
 
 const USB_COST = 20; // conforme à ExpressVideoPage
 const HDD_COST = 45;
@@ -54,6 +55,15 @@ const BillingPage = () => {
     route.params?.express_id ?? expressData.express_id ?? null;
   const intervention_id =
     route.params?.intervention_id ?? expressData.intervention_id ?? null;
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const showAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
   const [quoteNumber, setQuoteNumber] = useState(null);
   const [clientSuggestions, setClientSuggestions] = useState([]);
@@ -294,7 +304,8 @@ const BillingPage = () => {
 
       setLines(newLines);
     }
-  }, [route.params]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const removeLine = (indexToRemove) => {
     setLines(lines.filter((_, i) => i !== indexToRemove));
@@ -757,14 +768,29 @@ const BillingPage = () => {
 
       if (saveError) {
         console.error("Erreur sauvegarde :", saveError);
-        alert("❌ Erreur lors de la sauvegarde de la facture.");
+        showAlert("Erreur", "Erreur lors de la sauvegarde de la facture.");
       } else {
-        alert("✅ Facture enregistrée avec succès.");
+        // Garde le statut "Soldée/Non soldée" de la fiche express aligné
+        // sur le statut payé de la facture liée.
+        if (expressIdForDB) {
+          const { error: expressPaidError } = await supabase
+            .from("express")
+            .update({ paid })
+            .eq("id", expressIdForDB);
+          if (expressPaidError) {
+            console.error(
+              "Erreur synchronisation statut payé express :",
+              expressPaidError
+            );
+          }
+        }
+
+        showAlert("Succès", "Facture enregistrée avec succès.");
         setIsSaved(true);
       }
     } catch (e) {
       console.error("Erreur inattendue :", e);
-      alert("❌ Erreur inattendue lors de la sauvegarde.");
+      showAlert("Erreur", "Erreur inattendue lors de la sauvegarde.");
     }
   };
 
@@ -1328,6 +1354,13 @@ const BillingPage = () => {
       >
         <Text style={styles.buttonText}>⬅ Retour</Text>
       </TouchableOpacity>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 };

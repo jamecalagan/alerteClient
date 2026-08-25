@@ -9157,11 +9157,10 @@ dotsRow: {
     flexDirection: "row", // Alignement horizontal
     alignItems: "center",
     borderRadius: 10, // Coins arrondis
-    paddingVertical: 11, // Espacement intérieur haut/bas
-    paddingHorizontal: 20, // Espacement intérieur gauche/droite
+    paddingVertical: 5, // Espacement intérieur haut/bas
+    paddingHorizontal: 16, // Espacement intérieur gauche/droite
     backgroundColor: "#cacaca", // Fond blanc pour le contraste
     alignSelf: "center", // Centrage du bloc
-    marginLeft: 10,
   },
   icon: {
     width: 20,

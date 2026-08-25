@@ -244,7 +244,7 @@ const ExpressListPage = () => {
 
   // Facturer : prépare les lignes, puis navigate vers BillingPage
   const goToInvoice = useCallback(
-    (item) => {
+    async (item) => {
       if (!item) return;
 
       const {
@@ -276,6 +276,27 @@ const ExpressListPage = () => {
         });
       }
 
+      // Vérifie si une facture existe déjà pour cette fiche express, pour
+      // pré-remplir le numéro/mode de paiement au lieu d'en recréer une vide.
+      // (.limit(1) plutôt que .maybeSingle() : tolère les doublons déjà
+      // existants en base sans faire échouer la requête)
+      const { data: existingBillingRows, error: existingBillingError } =
+        await supabase
+          .from("billing")
+          .select("invoicenumber, paymentmethod, acompte, paid")
+          .eq("express_id", item.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+      if (existingBillingError) {
+        console.error(
+          "Erreur vérification facture existante :",
+          existingBillingError
+        );
+      }
+
+      const existingBilling = existingBillingRows?.[0] || null;
+
       navigation.navigate("BillingPage", {
         express_id: item.id,
         expressData: {
@@ -285,6 +306,14 @@ const ExpressListPage = () => {
           unitPrice: unitService, // peut être null si mixte
           description,
           lines,
+          ...(existingBilling
+            ? {
+                invoicenumber: existingBilling.invoicenumber,
+                paymentmethod: existingBilling.paymentmethod,
+                acompte: existingBilling.acompte,
+                paid: existingBilling.paid,
+              }
+            : {}),
         },
       });
     },

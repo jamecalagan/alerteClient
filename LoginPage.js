@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ImageBackground, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons'; // Importer les icônes
 import CustomAlert from './components/CustomAlert'; // Assure-toi d'importer le composant CustomAlert
 import { supabase } from './supabaseClient';
@@ -49,8 +49,8 @@ export default function LoginPage({ navigation }) {
 
   return (
     <ImageBackground source={backgroundImage} style={styles.backgroundImage}>
-      <View style={styles.overlay}>
-       
+      <ScrollView contentContainerStyle={styles.overlay} keyboardShouldPersistTaps="handled">
+
         <Image source={require('./assets/logo_phone.png')} style={styles.logo} />
         <Text style={styles.title}>Connexion</Text>
 
@@ -101,7 +101,7 @@ export default function LoginPage({ navigation }) {
         <CustomAlert visible={alertVisible} title={alertTitle} message={alertMessage} onClose={() => setAlertVisible(false)} />
 
 		<Text style={styles.copyright}>-- Alerte Client Copyright 2024 Avenir Informatique --</Text>
-      </View>
+      </ScrollView>
     </ImageBackground>
   );
 }
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   overlay: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: 'rgba(39, 39, 39, 0.863)',
     padding: 60,
   },

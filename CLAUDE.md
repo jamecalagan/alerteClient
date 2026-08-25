@@ -67,8 +67,6 @@ c:\AlerteClient
 
 `Stack.Screen` (dans `AuthStack`, séparé) : `Login`, `SignUp`.
 
-**Point de vigilance connu** : `pages/HomePage.js` (bloc `onLongPress` sur une ligne Express) appelle `navigation.navigate("EditClientPage", ...)` — ce nom de route n'existe pas (le nom enregistré est `EditClient`). C'est un bug préexistant identifié par analyse, à corriger uniquement si explicitement demandé.
-
 ## Tables et colonnes Supabase confirmées (par grep du code, usage réel observé)
 
 - **clients** : `id`, `name`, `phone`, `email`, `ficheNumber`, `createdAt`, `updatedAt`, `banned`, `ban_reason`, `banned_at`, `banned_by` + relation imbriquée `interventions(...)`.

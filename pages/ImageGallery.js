@@ -222,6 +222,7 @@ const enrichedOrders = (ordersData || [])
   /* ------------------------------------------------------------------ */
   return (
     <View style={styles.container}>
+      <View style={styles.content}>
       <Text style={styles.title}>Galerie d'images</Text>
 
       {/* 🔄 Bouton forcer rechargement */}
@@ -314,7 +315,10 @@ const enrichedOrders = (ordersData || [])
         )
       )}
 
-      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16, marginBottom: 8 }} />
+      <BackButton
+        onPress={() => navigation.goBack()}
+        style={{ marginTop: 16, marginBottom: 90 }}
+      />
 
       {/* 🔍 Zoom */}
       {selectedImage && (
@@ -342,6 +346,7 @@ const enrichedOrders = (ordersData || [])
         onConfirm={handleConfirmDelete}
         onClose={() => setAlertVisible(false)}
       />
+      </View>
 
       <BottomNavigation navigation={navigation} currentRoute={route.name} />
     </View>
@@ -350,7 +355,8 @@ const enrichedOrders = (ordersData || [])
 
 /* -------------------------------- STYLES ------------------------------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#e9e9e9" },
+  container: { flex: 1, backgroundColor: "#e9e9e9" },
+  content: { flex: 1, padding: 20 },
   title: {
     fontSize: 24,
     fontWeight: "500",

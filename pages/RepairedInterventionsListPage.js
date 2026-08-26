@@ -262,6 +262,7 @@ const handleBulkRestitution = async () => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.content}>
       {/* ───── en-tête ───── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Produits réparés</Text>
@@ -535,6 +536,7 @@ const handleBulkRestitution = async () => {
           </TouchableOpacity>
         </View>
       )}
+      </View>
 
       <BottomNavigation navigation={navigation} currentRoute="RepairedInterventionsListPage" />
 
@@ -573,7 +575,8 @@ const handleBulkRestitution = async () => {
 
 /* ───────────────── styles ───────────────── */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc", padding: 16 },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+  content: { flex: 1, padding: 16 },
 
   header: {
     flexDirection: "row",

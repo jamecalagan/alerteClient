@@ -361,7 +361,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, padding: 20 }}>
         <Text style={styles.title}>Interventions du client</Text>
 
         <TextInput
@@ -544,11 +544,11 @@ export default function ClientInterventionsPage({ route, navigation }) {
             )}
           />
         )}
-
-        <BottomNavigation navigation={navigation} currentRoute={route.name} />
-
-        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 90 }} />
       </View>
+
+      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+
+      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 90 }} />
 
       {/* Modale image */}
       {selectedImage && (
@@ -595,7 +595,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
+  container: { flex: 1, backgroundColor: "#e0e0e0" },
   title: {
     fontSize: 24,
     color: "#242424",

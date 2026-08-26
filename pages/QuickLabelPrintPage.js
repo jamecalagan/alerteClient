@@ -42,7 +42,7 @@ export default function QuickLabelPrintPage({ navigation }) {
 
     const [labels, setLabels] = useState([]);
     const [labelsPage, setLabelsPage] = useState(1);
-    const LABELS_PER_PAGE = 5;
+    const LABELS_PER_PAGE = 3;
     const labelsTotalPages = Math.max(1, Math.ceil(labels.length / LABELS_PER_PAGE));
     const [editingId, setEditingId] = useState(null);
     const isEditing = editingId !== null;

@@ -34,6 +34,17 @@ export default function InterventionImagesPage({ navigation }) {
   const route = useRoute();
   const { interventionId } = route.params || {};
 
+  // Selon le chemin de navigation emprunté pour arriver ici, il peut ne pas
+  // y avoir d'historique "retour" (erreur "GO_BACK was not handled") — on
+  // se replie alors sur la liste des clients récupérés.
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("RecoveredClientsPage");
+    }
+  };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]); // [{id, uri, source, name}]
@@ -145,7 +156,7 @@ export default function InterventionImagesPage({ navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
+        <BackButton onPress={handleBack} style={styles.backButton} />
         <ActivityIndicator size="large" />
         <Text style={styles.muted}>Chargement des images…</Text>
       </View>
@@ -155,7 +166,7 @@ export default function InterventionImagesPage({ navigation }) {
   if (error) {
     return (
       <View style={styles.center}>
-        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
+        <BackButton onPress={handleBack} style={styles.backButton} />
         <Text style={styles.error}>{error}</Text>
       </View>
     );
@@ -164,7 +175,7 @@ export default function InterventionImagesPage({ navigation }) {
   if (images.length === 0) {
     return (
       <View style={styles.center}>
-        <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
+        <BackButton onPress={handleBack} style={styles.backButton} />
         <Text style={styles.muted}>Aucune image trouvée pour cette intervention.</Text>
       </View>
     );
@@ -176,7 +187,7 @@ export default function InterventionImagesPage({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0c0f18", padding: 12 }}>
-      <BackButton onPress={() => navigation.goBack()} style={styles.backButton} />
+      <BackButton onPress={handleBack} style={styles.backButton} />
       <Text style={{ color: "#fff", fontWeight: "600", marginBottom: 8, marginTop: 44 }}>
         {images.length} image{images.length > 1 ? "s" : ""} trouvée{images.length > 1 ? "s" : ""}
       </Text>

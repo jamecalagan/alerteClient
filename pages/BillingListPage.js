@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  Image,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as FileSystem from "expo-file-system/legacy";
@@ -608,53 +609,42 @@ export default function BillingListPage() {
         })}
 
         {/* Pagination */}
-        <View style={styles.pagination}>
+        <View style={styles.pager}>
           <TouchableOpacity
-            style={[
-              styles.pageButton,
-              currentPage === 1 && styles.pageButtonDisabled,
-            ]}
-            onPress={() =>
-              setCurrentPage((prev) => Math.max(prev - 1, 1))
-            }
-            disabled={currentPage === 1}
+            style={[styles.pagerBtn, currentPage <= 1 && styles.pagerBtnDisabled]}
+            disabled={currentPage <= 1}
+            onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           >
-            <Text
+            <Image
+              source={require("../assets/icons/chevrong.png")}
               style={[
-                styles.pageButtonText,
-                currentPage === 1 && styles.pageButtonTextDisabled,
+                styles.pagerIcon,
+                { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
               ]}
-            >
-              Précédent
-            </Text>
+            />
           </TouchableOpacity>
 
-          <Text style={styles.pageIndicator}>
-            Page {currentPage}/{totalPages}
+          <Text style={styles.pagerInfo}>
+            Page {currentPage} / {totalPages}
           </Text>
 
           <TouchableOpacity
             style={[
-              styles.pageButton,
-              currentPage === totalPages &&
-                styles.pageButtonDisabled,
+              styles.pagerBtn,
+              currentPage >= totalPages && styles.pagerBtnDisabled,
             ]}
+            disabled={currentPage >= totalPages}
             onPress={() =>
-              setCurrentPage((prev) =>
-                Math.min(prev + 1, totalPages)
-              )
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
             }
-            disabled={currentPage === totalPages}
           >
-            <Text
+            <Image
+              source={require("../assets/icons/chevrond.png")}
               style={[
-                styles.pageButtonText,
-                currentPage === totalPages &&
-                  styles.pageButtonTextDisabled,
+                styles.pagerIcon,
+                { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
               ]}
-            >
-              Suivant
-            </Text>
+            />
           </TouchableOpacity>
         </View>
 
@@ -981,35 +971,36 @@ const styles = StyleSheet.create({
   },
 
   /* Pagination */
-  pagination: {
+  pager: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
     marginTop: 16,
   },
-  pageButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
+    borderColor: "#c7d2fe",
   },
-  pageButtonDisabled: {
+  pagerBtnDisabled: {
     backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
   },
-  pageButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1f2937",
+  pagerIcon: {
+    width: 18,
+    height: 18,
   },
-  pageButtonTextDisabled: {
-    color: "#9ca3af",
-  },
-  pageIndicator: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
   },
 
   /* Suppression groupée */

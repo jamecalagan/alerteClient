@@ -469,11 +469,6 @@ export default function QuoteRequestsListPage({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <BackButton
-        onPress={() => navigation.goBack()}
-        style={{ alignSelf: "flex-start", marginBottom: 8 }}
-      />
-
       {/* Filtres statut */}
       <View style={styles.segment}>
         {["toutes", "nouvelle", "préparée", "convertie"].map((k) => {
@@ -525,6 +520,8 @@ export default function QuoteRequestsListPage({ navigation }) {
           refreshing={loading}
         />
       )}
+
+      <BackButton onPress={() => navigation.goBack()} />
 
       <AlertBox
         visible={!!deleteRequestTarget}
@@ -608,6 +605,7 @@ const styles = StyleSheet.create({
   /* Filtres */
   segment: {
     flexDirection: "row",
+    marginTop: 30,
     marginBottom: 8,
   },
   segBtn: {

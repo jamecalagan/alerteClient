@@ -547,7 +547,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
         <BottomNavigation navigation={navigation} currentRoute={route.name} />
 
-        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 12 }} />
+        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 90 }} />
       </View>
 
       {/* Modale image */}

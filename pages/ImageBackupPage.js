@@ -470,25 +470,40 @@ export default function ImageBackupPage() {
           />
         </View>
       )}
-      <View style={styles.pagination}>
+      <View style={styles.pager}>
         <Pressable
+          style={[styles.pagerBtn, currentPage <= 1 && styles.pagerBtnDisabled]}
+          disabled={currentPage <= 1}
           onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          style={styles.pageButton}
-          disabled={currentPage === 1}
         >
-          <Text style={styles.pageText}>⬅ Précédent</Text>
+          <Image
+            source={require("../assets/icons/chevrong.png")}
+            style={[
+              styles.pagerIcon,
+              { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+            ]}
+          />
         </Pressable>
-        <Text style={styles.pageNumber}>
+        <Text style={styles.pagerInfo}>
           Page {currentPage} / {totalPages}
         </Text>
         <Pressable
+          style={[
+            styles.pagerBtn,
+            currentPage >= totalPages && styles.pagerBtnDisabled,
+          ]}
+          disabled={currentPage >= totalPages}
           onPress={() =>
             setCurrentPage((prev) => Math.min(prev + 1, totalPages))
           }
-          style={styles.pageButton}
-          disabled={currentPage === totalPages}
         >
-          <Text style={styles.pageText}>Suivant ➡</Text>
+          <Image
+            source={require("../assets/icons/chevrond.png")}
+            style={[
+              styles.pagerIcon,
+              { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
+            ]}
+          />
         </Pressable>
       </View>
       {lastBackupDate && (
@@ -614,23 +629,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  pagination: {
+  pager: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
     paddingVertical: 10,
     marginTop: 10,
   },
-  pageButton: {
-    padding: 10,
-    backgroundColor: "#ddd",
-    borderRadius: 8,
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
-  pageText: {
-    fontWeight: "bold",
+  pagerBtnDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
   },
-  pageNumber: {
-    fontSize: 14,
-    fontWeight: "bold",
+  pagerIcon: {
+    width: 18,
+    height: 18,
+  },
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
   },
 });

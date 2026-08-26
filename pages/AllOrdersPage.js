@@ -865,47 +865,42 @@ export default function AllOrdersPage({ navigation }) {
       />
 
       {/* Pagination */}
-      <View style={styles.paginationBar}>
+      <View style={styles.pager}>
         <TouchableOpacity
-          style={[
-            styles.pageButton,
-            currentPage === 1 && styles.disabledButton,
-          ]}
+          style={[styles.pagerBtn, currentPage <= 1 && styles.pagerBtnDisabled]}
+          disabled={currentPage <= 1}
           onPress={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-          disabled={currentPage === 1}
         >
-          <Text
+          <Image
+            source={require("../assets/icons/chevrong.png")}
             style={[
-              styles.pageButtonText,
-              currentPage === 1 && styles.pageButtonTextDisabled,
+              styles.pagerIcon,
+              { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
             ]}
-          >
-            Précédente
-          </Text>
+          />
         </TouchableOpacity>
 
-        <Text style={styles.pageIndicator}>
-          Page {currentPage}/{totalPages || 1}
+        <Text style={styles.pagerInfo}>
+          Page {currentPage} / {totalPages || 1}
         </Text>
 
         <TouchableOpacity
           style={[
-            styles.pageButton,
-            currentPage === totalPages && styles.disabledButton,
+            styles.pagerBtn,
+            currentPage >= totalPages && styles.pagerBtnDisabled,
           ]}
+          disabled={currentPage >= totalPages}
           onPress={() =>
             currentPage < totalPages && setCurrentPage(currentPage + 1)
           }
-          disabled={currentPage === totalPages}
         >
-          <Text
+          <Image
+            source={require("../assets/icons/chevrond.png")}
             style={[
-              styles.pageButtonText,
-              currentPage === totalPages && styles.pageButtonTextDisabled,
+              styles.pagerIcon,
+              { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
             ]}
-          >
-            Suivante
-          </Text>
+          />
         </TouchableOpacity>
       </View>
 
@@ -1181,33 +1176,38 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  paginationBar: {
+  pager: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 16,
     marginTop: 8,
     marginBottom: 4,
   },
-  pageButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: "#2563eb",
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
-  pageButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#f9fafb",
+  pagerBtnDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
   },
-  pageButtonTextDisabled: {
-    color: "#9ca3af",
+  pagerIcon: {
+    width: 18,
+    height: 18,
   },
-  disabledButton: {
-    backgroundColor: "#e5e7eb",
-  },
-  pageIndicator: {
-    fontSize: 12,
-    color: "#374151",
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
   },
 
   totalPreview: {

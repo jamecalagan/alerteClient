@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Button, TouchableOpacity, Modal, Pressable, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, Modal, Pressable, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
@@ -21,29 +21,29 @@ export default function ProductFlyerScreen({ route, navigation }) {
 
   const saveOrUpdateFlyer = async () => {
 	const { contact, ...cleanedProduct } = product;
-  
+
 	if (cleanedProduct.id) {
 	  // ✅ Fiche existante → on met à jour
 	  const { id, ...dataToUpdate } = cleanedProduct;
-  
+
 	  const { error } = await supabase
 		.from("flyers")
 		.update(dataToUpdate)
 		.eq("id", id);
-  
+
 	  if (error) {
 		showAlert("❌ Erreur", "Impossible de modifier l'affiche.");
 		console.error(error);
 	  } else {
 		showAlert("✅ Modifié", "Affiche mise à jour avec succès.");
 	  }
-  
+
 	} else {
 	  // ✅ Nouvelle fiche → on insère
 	  const { error } = await supabase
 		.from("flyers")
 		.insert([cleanedProduct]);
-  
+
 	  if (error) {
 		showAlert("❌ Erreur", "Impossible de sauvegarder l'affiche.");
 		console.error(error);
@@ -52,8 +52,8 @@ export default function ProductFlyerScreen({ route, navigation }) {
 	  }
 	}
   };
-  
-  
+
+
 const getHtmlContent = (product, format = "A5") => {
   const baseStyle = {
     h1: format === "A4" ? 30 : 20,
@@ -235,14 +235,33 @@ body {
 
   return (
     <View style={styles.container}>
-      <WebView
-        originWhitelist={["*"]}
-        source={{ html: getHtmlContent(product, "A5") }}
-        style={styles.preview}
-      />
-      <Button title="🖨️ Imprimer l'affiche" onPress={handlePrint} />
-	  <Button title="💾 Sauvegarder dans Supabase" onPress={saveOrUpdateFlyer} />
-      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 10, marginBottom: 10 }} />
+      <View style={styles.previewWrap}>
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: getHtmlContent(product, "A5") }}
+          style={styles.preview}
+        />
+      </View>
+
+      <View style={styles.actionsBar}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.printButton]}
+          onPress={handlePrint}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.actionButtonText}>🖨️ Imprimer l'affiche</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.saveButton]}
+          onPress={saveOrUpdateFlyer}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.actionButtonText}>💾 Sauvegarder</Text>
+        </TouchableOpacity>
+
+        <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 4 }} />
+      </View>
 
       <Modal
         visible={formatChoiceVisible}
@@ -298,10 +317,37 @@ body {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  previewWrap: {
+    flex: 1,
+    overflow: "hidden",
   },
   preview: {
     flex: 1,
-    marginBottom: 10,
+  },
+  actionsBar: {
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+    padding: 14,
+    gap: 10,
+  },
+  actionButton: {
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  printButton: {
+    backgroundColor: "#2563eb",
+  },
+  saveButton: {
+    backgroundColor: "#16a34a",
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   formatOverlay: {

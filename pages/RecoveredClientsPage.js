@@ -246,7 +246,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [visibleSignatures, setVisibleSignatures] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 6;
+  const pageSize = 9;
   const [expandedCards, setExpandedCards] = useState({});
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -577,6 +577,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
 
       <FlatList
         ref={flatListRef}
+        style={{ flex: 1 }}
         onScrollToIndexFailed={(info) => {
           console.warn("Échec du défilement :", info);
 
@@ -795,32 +796,39 @@ export default function RecoveredClientsPage({ navigation, route }) {
         }}
       />
 
-      <View style={styles.paginationContainer}>
+      <View style={styles.pager}>
         <TouchableOpacity
+          style={[styles.pagerBtn, currentPage <= 1 && styles.pagerBtnDisabled]}
+          disabled={currentPage <= 1}
           onPress={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          style={styles.chevronButton}
         >
-          <Icon
-            name="chevron-left"
-            size={18}
-            color={currentPage === 1 ? "#cbd5e1" : "#334155"}
+          <Image
+            source={require("../assets/icons/chevrong.png")}
+            style={[
+              styles.pagerIcon,
+              { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+            ]}
           />
         </TouchableOpacity>
 
-        <Text style={styles.paginationText}>
-          Page {currentPage} sur {totalPages || 1}
+        <Text style={styles.pagerInfo}>
+          Page {currentPage} / {totalPages || 1}
         </Text>
 
         <TouchableOpacity
+          style={[
+            styles.pagerBtn,
+            currentPage >= totalPages && styles.pagerBtnDisabled,
+          ]}
+          disabled={currentPage >= totalPages}
           onPress={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          style={styles.chevronButton}
         >
-          <Icon
-            name="chevron-right"
-            size={18}
-            color={currentPage === totalPages ? "#cbd5e1" : "#334155"}
+          <Image
+            source={require("../assets/icons/chevrond.png")}
+            style={[
+              styles.pagerIcon,
+              { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
+            ]}
           />
         </TouchableOpacity>
       </View>
@@ -1063,28 +1071,38 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 
-  paginationContainer: {
+  pager: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 16,
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 16,
     marginVertical: 10,
-    marginBottom: 20,
+    marginBottom: 90,
   },
-  chevronButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    alignItems: "center",
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#c7d2fe",
   },
-  paginationText: {
-    color: "#334155",
-    fontSize: 13,
-    fontWeight: "600",
+  pagerBtnDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+  },
+  pagerIcon: {
+    width: 18,
+    height: 18,
+  },
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
   },
 
   modalBackground: {

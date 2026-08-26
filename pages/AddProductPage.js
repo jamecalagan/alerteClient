@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, TextInput, FlatList, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, FlatList, ScrollView, StyleSheet } from "react-native";
 import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
@@ -79,9 +79,9 @@ const AddProductPage = () => {
 
 	const addProduct = async () => {
 		if (!newProduct.trim()) return showAlert("Erreur", "Nom du produit requis !");
-		
+
 		const { data, error } = await supabase.from("article").insert([{ nom: newProduct }]).select().single();
-	
+
 		if (error) {
 			console.error("Erreur ajout produit :", error);
 			showAlert("Erreur", "Impossible d'ajouter le produit.");
@@ -93,14 +93,14 @@ const AddProductPage = () => {
 			loadProducts(); // Recharger les produits
 		}
 	};
-	
+
 
 	const addBrand = async () => {
 		if (!selectedProduct) return showAlert("Erreur", "Sélectionnez un produit.");
 		if (!newBrand.trim()) return showAlert("Erreur", "Nom de la marque requis !");
-	
+
 		const { data, error } = await supabase.from("marque").insert([{ nom: newBrand, article_id: selectedProduct }]).select().single();
-	
+
 		if (error) {
 			console.error("Erreur ajout marque :", error);
 			showAlert("Erreur", "Impossible d'ajouter la marque.");
@@ -112,15 +112,15 @@ const AddProductPage = () => {
 			loadBrands(selectedProduct);
 		}
 	};
-	
+
 
 	const addModel = async () => {
 		if (!selectedProduct) return showAlert("Erreur", "Sélectionnez un produit.");
 		if (!selectedBrand) return showAlert("Erreur", "Sélectionnez une marque.");
 		if (!newModel.trim()) return showAlert("Erreur", "Nom du modèle requis !");
-	
+
 		const { data, error } = await supabase.from("modele").insert([{ nom: newModel, marque_id: selectedBrand, article_id: selectedProduct }]).select().single();
-	
+
 		if (error) {
 			console.error("Erreur ajout modèle :", error);
 			showAlert("Erreur", "Impossible d'ajouter le modèle.");
@@ -131,111 +131,157 @@ const AddProductPage = () => {
 			loadModels(selectedBrand);
 		}
 	};
-	
-	
+
+    const StepBadge = ({ n }) => (
+        <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>{n}</Text>
+        </View>
+    );
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.header}>Gestion des Produits</Text>
+        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+            <Text style={styles.header}>Gestion des produits</Text>
 
+            {showProducts && (
+                <View style={styles.card}>
+                    <View style={styles.cardTitleRow}>
+                        <StepBadge n="1" />
+                        <Text style={styles.cardTitle}>Sélectionner ou ajouter un produit</Text>
+                    </View>
 
-{showProducts && (
-    <>
-        <Text style={styles.sectionTitle}>1. Sélectionner ou Ajouter un Produit</Text>
-        <FlatList
-            data={[...productList].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }))} 
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={2}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={[styles.box, selectedProduct === item.id && styles.selectedBox]}
-                    onPress={() => loadBrands(item.id)}
-                >
-                    <Text style={styles.boxText}>{item.nom}</Text>
-                </TouchableOpacity>
+                    <FlatList
+                        data={[...productList].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }))}
+                        keyExtractor={(item) => item.id.toString()}
+                        numColumns={2}
+                        scrollEnabled={false}
+                        columnWrapperStyle={styles.gridRow}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[styles.chip, selectedProduct === item.id && styles.chipSelected]}
+                                onPress={() => loadBrands(item.id)}
+                                activeOpacity={0.85}
+                            >
+                                <Text
+                                    style={[
+                                        styles.chipText,
+                                        selectedProduct === item.id && styles.chipTextSelected,
+                                    ]}
+                                >
+                                    {item.nom}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+
+                    <TextInput
+                        value={newProduct}
+                        onChangeText={setNewProduct}
+                        placeholder="Ajouter un produit"
+                        placeholderTextColor="#94a3b8"
+                        style={styles.input}
+                    />
+                    <TouchableOpacity style={styles.addButton} onPress={addProduct} activeOpacity={0.85}>
+                        <Text style={styles.addButtonText}>+ Ajouter le produit</Text>
+                    </TouchableOpacity>
+                </View>
             )}
-        />
-        <TextInput
-            value={newProduct}
-            onChangeText={setNewProduct}
-            placeholder="Ajouter un produit"
-			placeholderTextColor="#888787"
-            style={styles.input}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addProduct}>
-            <Text style={styles.buttonText}>Ajouter Produit</Text>
-        </TouchableOpacity>
-    </>
-)}
 
-
-      
             {showBrands && (
-                <>
-                    <Text style={styles.sectionTitle}>2. Sélectionner ou Ajouter une Marque</Text>
+                <View style={styles.card}>
+                    <View style={styles.cardTitleRow}>
+                        <StepBadge n="2" />
+                        <Text style={styles.cardTitle}>Sélectionner ou ajouter une marque</Text>
+                    </View>
+
                     <FlatList
                         data={brandList}
                         keyExtractor={(item) => item.id.toString()}
                         numColumns={2}
+                        scrollEnabled={false}
+                        columnWrapperStyle={styles.gridRow}
                         renderItem={({ item }) => (
                             <TouchableOpacity
-                                style={[styles.box, selectedBrand === item.id && styles.selectedBox]}
+                                style={[styles.chip, selectedBrand === item.id && styles.chipSelected]}
                                 onPress={() => loadModels(item.id)}
+                                activeOpacity={0.85}
                             >
-                                <Text style={styles.boxText}>{item.nom}</Text>
+                                <Text
+                                    style={[
+                                        styles.chipText,
+                                        selectedBrand === item.id && styles.chipTextSelected,
+                                    ]}
+                                >
+                                    {item.nom}
+                                </Text>
                             </TouchableOpacity>
                         )}
                     />
+
                     <TextInput
                         value={newBrand}
                         onChangeText={setNewBrand}
                         placeholder="Ajouter une marque"
-						placeholderTextColor="#888787"
+                        placeholderTextColor="#94a3b8"
                         style={styles.input}
                     />
-                    <TouchableOpacity style={styles.addButton} onPress={addBrand}>
-                        <Text style={styles.buttonText}>Ajouter Marque</Text>
+                    <TouchableOpacity style={styles.addButton} onPress={addBrand} activeOpacity={0.85}>
+                        <Text style={styles.addButtonText}>+ Ajouter la marque</Text>
                     </TouchableOpacity>
-                </>
+                </View>
             )}
 
-      
             {showModels && (
-                <>
-                    <Text style={styles.sectionTitle}>3. Sélectionner ou Ajouter un Modèle</Text>
+                <View style={styles.card}>
+                    <View style={styles.cardTitleRow}>
+                        <StepBadge n="3" />
+                        <Text style={styles.cardTitle}>Sélectionner ou ajouter un modèle</Text>
+                    </View>
+
                     <FlatList
                         data={modelList}
                         keyExtractor={(item) => item.id.toString()}
                         numColumns={2}
+                        scrollEnabled={false}
+                        columnWrapperStyle={styles.gridRow}
                         renderItem={({ item }) => (
                             <TouchableOpacity
-                                style={[styles.box, selectedModel === item.id && styles.selectedBox]}
+                                style={[styles.chip, selectedModel === item.id && styles.chipSelected]}
                                 onPress={() => setSelectedModel(item.id)}
+                                activeOpacity={0.85}
                             >
-                                <Text style={styles.boxText}>{item.nom}</Text>
+                                <Text
+                                    style={[
+                                        styles.chipText,
+                                        selectedModel === item.id && styles.chipTextSelected,
+                                    ]}
+                                >
+                                    {item.nom}
+                                </Text>
                             </TouchableOpacity>
                         )}
                     />
+
                     <TextInput
                         value={newModel}
                         onChangeText={setNewModel}
                         placeholder="Ajouter un modèle"
-						placeholderTextColor="#888787"
+                        placeholderTextColor="#94a3b8"
                         style={styles.input}
                     />
-                    <TouchableOpacity style={styles.addButton} onPress={addModel}>
-                        <Text style={styles.buttonText}>Ajouter Modèle</Text>
+                    <TouchableOpacity style={styles.addButton} onPress={addModel} activeOpacity={0.85}>
+                        <Text style={styles.addButtonText}>+ Ajouter le modèle</Text>
                     </TouchableOpacity>
-                </>
+                </View>
             )}
-			{recapProduct && recapProduct.produit && recapProduct.marque && recapProduct.modele && (
-    <View style={{ marginTop: 20, padding: 10, backgroundColor: "#dff0d8", borderRadius: 5 }}>
-        <Text style={{ fontSize: 20, fontWeight: "bold", color: "#3c763d" }}>✅ Récapitulatif :</Text>
-        <Text style={{ fontSize: 20, color: "#3c763d" }}>🛠 Produit : {recapProduct.produit}</Text>
-        <Text style={{ fontSize: 20, color: "#3c763d" }}>🏭 Marque : {recapProduct.marque}</Text>
-        <Text style={{ fontSize: 20, color: "#3c763d" }}>📌 Modèle : {recapProduct.modele}</Text>
-    </View>
-)}
+
+            {recapProduct && recapProduct.produit && recapProduct.marque && recapProduct.modele && (
+                <View style={styles.recapCard}>
+                    <Text style={styles.recapTitle}>✅ Récapitulatif</Text>
+                    <Text style={styles.recapLine}>🛠 Produit : {recapProduct.produit}</Text>
+                    <Text style={styles.recapLine}>🏭 Marque : {recapProduct.marque}</Text>
+                    <Text style={styles.recapLine}>📌 Modèle : {recapProduct.modele}</Text>
+                </View>
+            )}
 
             <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
 
@@ -245,21 +291,131 @@ const AddProductPage = () => {
                 message={alertMessage}
                 onClose={() => setAlertVisible(false)}
             />
-        </View>
-
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
-    header: { fontSize: 20, fontWeight: "medium", color: "#242424", textAlign: "center", marginBottom: 15 },
-    sectionTitle: { fontSize: 16, fontWeight: "medium",color: "#242424", marginTop: 15, marginBottom: 10 },
-    input: { borderWidth: 1, padding: 10, borderRadius: 2, borderColor:"#cacaca", marginBottom: 10, color: "#888787", fontWeight: "bold" },
-    addButton: { backgroundColor: "#191f2f", padding: 10, borderRadius: 5, alignItems: "center", marginBottom: 10 },
-    buttonText: { color: "#888787", fontWeight: "bold" },
-    box: { flex: 1, padding: 15, margin: 5, borderWidth: 1, borderRadius: 2, borderColor:"#888787", alignItems: "center", justifyContent: "center", backgroundColor: "#cacaca" },
-    selectedBox: { backgroundColor: "#28a745", borderColor: "#28a745" },
-    boxText: { fontWeight: "medium", color: "#242424", },
+    container: { flex: 1, backgroundColor: "#f8fafc" },
+    contentContainer: { padding: 16, paddingBottom: 40 },
+    header: {
+        fontSize: 22,
+        fontWeight: "800",
+        color: "#0f172a",
+        textAlign: "center",
+        marginBottom: 16,
+    },
+
+    card: {
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    cardTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 14,
+    },
+    cardTitle: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#1e293b",
+    },
+    stepBadge: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: "#2563eb",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    stepBadgeText: {
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "700",
+    },
+
+    gridRow: {
+        gap: 8,
+        marginBottom: 8,
+    },
+    chip: {
+        flex: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#f8fafc",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    chipSelected: {
+        backgroundColor: "#dbeafe",
+        borderColor: "#2563eb",
+    },
+    chipText: {
+        fontWeight: "600",
+        color: "#334155",
+        textAlign: "center",
+    },
+    chipTextSelected: {
+        color: "#1d4ed8",
+        fontWeight: "700",
+    },
+
+    input: {
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#f8fafc",
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        marginTop: 10,
+        marginBottom: 10,
+        fontSize: 15,
+        color: "#1e293b",
+    },
+    addButton: {
+        backgroundColor: "#2563eb",
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: "center",
+    },
+    addButtonText: {
+        color: "#ffffff",
+        fontWeight: "700",
+        fontSize: 14,
+    },
+
+    recapCard: {
+        backgroundColor: "#dcfce7",
+        borderWidth: 1,
+        borderColor: "#86efac",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 6,
+    },
+    recapTitle: {
+        fontSize: 16,
+        fontWeight: "800",
+        color: "#15803d",
+        marginBottom: 6,
+    },
+    recapLine: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#166534",
+        marginTop: 2,
+    },
 });
 
 export default AddProductPage;

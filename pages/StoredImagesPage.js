@@ -367,21 +367,37 @@ export default function StoredImagesPage() {
 
             {!loading && (
                 <View style={styles.bottomBar}>
-                    <View style={styles.pagination}>
+                    <View style={styles.pager}>
                         <TouchableOpacity
+                            style={[
+                                styles.pagerBtn,
+                                currentPage <= 1 && styles.pagerBtnDisabled,
+                            ]}
+                            disabled={currentPage <= 1}
                             onPress={() =>
                                 setCurrentPage((prev) => Math.max(prev - 1, 1))
                             }
-                            disabled={currentPage === 1}
                         >
-                            <Text style={styles.pageButton}>⬅️</Text>
+                            <Image
+                                source={require("../assets/icons/chevrong.png")}
+                                style={[
+                                    styles.pagerIcon,
+                                    { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+                                ]}
+                            />
                         </TouchableOpacity>
 
-                        <Text style={styles.pageNumber}>
-                            Page {currentPage} sur {totalPages}
+                        <Text style={styles.pagerInfo}>
+                            Page {currentPage} / {totalPages}
                         </Text>
 
                         <TouchableOpacity
+                            style={[
+                                styles.pagerBtn,
+                                indexOfLastImage >= filteredImages.length &&
+                                    styles.pagerBtnDisabled,
+                            ]}
+                            disabled={indexOfLastImage >= filteredImages.length}
                             onPress={() =>
                                 setCurrentPage((prev) =>
                                     indexOfLastImage < filteredImages.length
@@ -389,9 +405,19 @@ export default function StoredImagesPage() {
                                         : prev
                                 )
                             }
-                            disabled={indexOfLastImage >= filteredImages.length}
                         >
-                            <Text style={styles.pageButton}>➡️</Text>
+                            <Image
+                                source={require("../assets/icons/chevrond.png")}
+                                style={[
+                                    styles.pagerIcon,
+                                    {
+                                        tintColor:
+                                            indexOfLastImage >= filteredImages.length
+                                                ? "#cbd5e1"
+                                                : "#4338ca",
+                                    },
+                                ]}
+                            />
                         </TouchableOpacity>
                     </View>
 
@@ -486,14 +512,37 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 13,
     },
-    pagination: {
+    pager: {
         flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        marginBottom: 20,
+    },
+    pagerBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         justifyContent: "center",
         alignItems: "center",
-        marginBottom: 20,
-        gap: 20,
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
     },
-    pageButton: { fontSize: 18 },
+    pagerBtnDisabled: {
+        backgroundColor: "#f3f4f6",
+        borderColor: "#e5e7eb",
+    },
+    pagerIcon: {
+        width: 18,
+        height: 18,
+    },
+    pagerInfo: {
+        minWidth: 100,
+        textAlign: "center",
+        fontWeight: "700",
+        color: "#333",
+    },
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.9)",
@@ -540,11 +589,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         color: "#555",
         marginTop: 4,
-    },
-    pageNumber: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#444",
     },
     bottomBar: {
         position: "absolute",

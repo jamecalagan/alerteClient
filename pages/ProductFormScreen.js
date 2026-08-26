@@ -206,7 +206,7 @@ export default function ProductFormScreen() {
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
             <Text style={styles.title}>
                 {form.id
                     ? "✏️ Modifier l'affiche"
@@ -262,14 +262,14 @@ export default function ProductFormScreen() {
             {/* Ligne Recherche / Choisir */}
 <View style={styles.buttonRow}>
   <TouchableOpacity
-    style={[styles.buttonHalf, { backgroundColor: "#0077cc" }]}
+    style={[styles.buttonHalf, { backgroundColor: "#2563eb" }]}
     onPress={() => Linking.openURL("https://www.google.com/imghp")}
   >
     <Text style={styles.buttonText}>🔎 Rechercher</Text>
   </TouchableOpacity>
 
   <TouchableOpacity
-    style={[styles.buttonHalf, { backgroundColor: "#444" }]}
+    style={[styles.buttonHalf, { backgroundColor: "#334155" }]}
     onPress={pickImageFromDevice}
   >
     <Text style={styles.buttonText}>🖼️ Choisir</Text>
@@ -286,7 +286,7 @@ export default function ProductFormScreen() {
           <>
             <Image
               source={{ uri: form[key] }}
-              style={{ width: 70, height: 70, borderRadius: 6 }}
+              style={{ width: 60, height: 60, borderRadius: 6 }}
             />
             <TouchableOpacity
               onPress={() =>
@@ -318,8 +318,8 @@ export default function ProductFormScreen() {
                         <Image
                             source={{ uri: form.imageUrl }}
                             style={{
-                                width: 300,
-                                height: 200,
+                                width: 220,
+                                height: 150,
                                 borderRadius: 8,
                             }}
                             resizeMode="contain"
@@ -361,7 +361,7 @@ export default function ProductFormScreen() {
             {/* Ligne Générer / Supprimer */}
             <View style={styles.buttonRow}>
                 <TouchableOpacity
-                    style={[styles.buttonHalf]}
+                    style={[styles.buttonHalf, { backgroundColor: "#16a34a" }]}
                     onPress={handleSubmit}
                 >
                     <Text style={styles.buttonText}>🖨️ Générer</Text>
@@ -371,7 +371,7 @@ export default function ProductFormScreen() {
                     <TouchableOpacity
                         style={[
                             styles.buttonHalf,
-                            { backgroundColor: "#b00020" },
+                            { backgroundColor: "#dc2626" },
                         ]}
                         onPress={handleDelete}
                     >
@@ -406,82 +406,94 @@ export default function ProductFormScreen() {
 }
 
 const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: "#f8fafc",
+    },
     container: {
-        padding: 20,
-        paddingBottom: 40,
+        padding: 16,
+        paddingBottom: 24,
     },
     title: {
-        fontSize: 22,
-        fontWeight: "bold",
-        marginBottom: 20,
+        fontSize: 19,
+        fontWeight: "800",
+        color: "#0f172a",
+        marginBottom: 12,
         textAlign: "center",
     },
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        padding: 14,
-        borderRadius: 10,
-        marginBottom: 16,
-        fontSize: 16,
-        minHeight: 50,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#ffffff",
+        padding: 10,
+        borderRadius: 12,
+        marginBottom: 10,
+        fontSize: 15,
+        minHeight: 42,
+        color: "#1e293b",
     },
     label: {
-        fontSize: 16,
-        fontWeight: "bold",
-        marginBottom: 8,
-        marginTop: 20,
-        textAlign: "center", // ← ajoute ceci
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#334155",
+        marginBottom: 6,
+        marginTop: 12,
+        textAlign: "center",
     },
 
     pickerWrapper: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        marginBottom: 16,
+        borderColor: "#e2e8f0",
+        backgroundColor: "#ffffff",
+        borderRadius: 12,
+        marginBottom: 10,
         overflow: "hidden",
     },
     picker: {
-        height: 50,
-        fontSize: 16,
+        height: 44,
+        fontSize: 15,
     },
     textarea: {
         textAlignVertical: "top",
-        minHeight: 120,
+        minHeight: 80,
     },
     button: {
-        backgroundColor: "#4caf50",
-        padding: 14,
-        borderRadius: 8,
-        marginTop: 10,
+        backgroundColor: "#16a34a",
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 8,
         alignItems: "center",
     },
     buttonText: {
         color: "#fff",
-        fontWeight: "bold",
-        fontSize: 16,
+        fontWeight: "700",
+        fontSize: 13,
+        textAlign: "center",
     },
     buttonRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: 10,
-        gap: 10,
+        marginTop: 8,
+        gap: 8,
     },
     buttonHalf: {
         flex: 1,
-        backgroundColor: "#4caf50",
-        padding: 14,
-        borderRadius: 8,
-        alignItems: "center",
-    },
-    extraImageBox: {
-        width: 70,
-        height: 70,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: "#ccc",
+        backgroundColor: "#16a34a",
+        paddingVertical: 12,
+        paddingHorizontal: 6,
+        borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#f8f8f8",
+    },
+    extraImageBox: {
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#ffffff",
         position: "relative", // nécessaire pour bien placer la croix
     },
     removeCross: {
@@ -498,18 +510,19 @@ const styles = StyleSheet.create({
     },
 
     extraContainer: {
-        marginTop: 20,
-        padding: 12,
-        backgroundColor: "#f2f2f2",
-        borderRadius: 10,
+        marginTop: 12,
+        padding: 10,
+        backgroundColor: "#ffffff",
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: "#ddd",
+        borderColor: "#e2e8f0",
     },
     extraLabel: {
-        fontSize: 16,
-        fontWeight: "bold",
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#334155",
         textAlign: "center",
-        marginBottom: 10,
+        marginBottom: 8,
     },
     extraRow: {
         flexDirection: "row",

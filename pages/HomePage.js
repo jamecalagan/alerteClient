@@ -1067,26 +1067,76 @@ const loadOutstandingBalances = async () => {
   setOutstandingBalancesLoading(true);
 
   try {
-    const { data: rows, error } = await supabase
+    // 1) Interventions avec solde restant dû (hors "Récupéré")
+    const { data: interventionRows, error: interventionError } = await supabase
       .from("interventions")
       .select(
         "id, client_id, deviceType, brand, model, solderestant, status, updatedAt"
       )
       .neq("status", "Récupéré")
-      .gt("solderestant", 0)
-      .order("solderestant", { ascending: false });
+      .gt("solderestant", 0);
 
-    if (error) throw error;
+    if (interventionError) throw interventionError;
 
-    const list = rows || [];
+    // 2) Commandes non supprimées, avec calcul du reste dû (total - acompte)
+    const { data: orderRows, error: orderError } = await supabase
+      .from("orders")
+      .select(
+        "id, client_id, product, brand, model, price, quantity, deposit, total, paid, deleted"
+      )
+      .or("deleted.eq.false,deleted.is.null");
 
-    if (list.length === 0) {
+    if (orderError) throw orderError;
+
+    const outstandingOrders = (orderRows || [])
+      .map((order) => {
+        const isDeleted =
+          order?.deleted === true ||
+          order?.deleted === "true" ||
+          order?.deleted === 1 ||
+          order?.deleted === "1";
+        if (isDeleted) return null;
+        if (order?.paid === true || order?.paid === "true") return null;
+
+        const qty = Math.max(1, Number(order.quantity) || 1);
+        const total =
+          order.total != null
+            ? Number(order.total)
+            : (Number(order.price) || 0) * qty;
+        const remaining = Math.round((total - (Number(order.deposit) || 0)) * 100) / 100;
+
+        if (remaining <= 0) return null;
+
+        return {
+          id: `order-${order.id}`,
+          client_id: order.client_id,
+          source: "order",
+          label: [order.product, order.brand, order.model]
+            .filter(Boolean)
+            .join(" "),
+          solderestant: remaining,
+        };
+      })
+      .filter(Boolean);
+
+    const outstandingInterventions = (interventionRows || []).map((row) => ({
+      id: `intervention-${row.id}`,
+      client_id: row.client_id,
+      source: "intervention",
+      label: [row.deviceType, row.brand, row.model].filter(Boolean).join(" "),
+      status: row.status,
+      solderestant: Number(row.solderestant) || 0,
+    }));
+
+    const combined = [...outstandingInterventions, ...outstandingOrders];
+
+    if (combined.length === 0) {
       setOutstandingBalances([]);
       return;
     }
 
     const clientIds = [
-      ...new Set(list.map((row) => row.client_id).filter(Boolean)),
+      ...new Set(combined.map((row) => row.client_id).filter(Boolean)),
     ];
 
     let clientsMap = {};
@@ -1104,12 +1154,28 @@ const loadOutstandingBalances = async () => {
       );
     }
 
-    setOutstandingBalances(
-      list.map((row) => ({
-        ...row,
-        client: clientsMap[String(row.client_id)] || null,
-      }))
+    // Regroupement par client : un seul montant total (intervention + commandes)
+    const byClient = {};
+    combined.forEach((row) => {
+      const key = String(row.client_id);
+      if (!byClient[key]) {
+        byClient[key] = {
+          id: key,
+          client_id: row.client_id,
+          client: clientsMap[key] || null,
+          solderestant: 0,
+          items: [],
+        };
+      }
+      byClient[key].solderestant += row.solderestant;
+      byClient[key].items.push(row);
+    });
+
+    const merged = Object.values(byClient).sort(
+      (a, b) => b.solderestant - a.solderestant
     );
+
+    setOutstandingBalances(merged);
   } catch (error) {
     console.error("❌ Chargement soldes restants :", error);
     setOutstandingBalances([]);
@@ -7921,9 +7987,11 @@ const onPick = () => {
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
                 const clientName = item.client?.name || "Client inconnu";
-                const deviceText = [item.deviceType, item.brand, item.model]
-                  .filter(Boolean)
-                  .join(" · ");
+                const detailLines = (item.items || []).map((it) => {
+                  const label = it.label || (it.source === "order" ? "Commande" : "Intervention");
+                  const suffix = it.source === "order" ? "commande" : it.status || "intervention";
+                  return `${label} (${suffix}) · ${it.solderestant.toFixed(2)} €`;
+                });
 
                 return (
                   <View
@@ -7961,11 +8029,14 @@ const onPick = () => {
                       </View>
                     </View>
 
-                    {!!deviceText && (
-                      <Text style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}>
-                        {deviceText} · {item.status}
+                    {detailLines.map((line, idx) => (
+                      <Text
+                        key={idx}
+                        style={{ marginTop: idx === 0 ? 9 : 2, fontSize: 13, fontWeight: "600", color: "#475569" }}
+                      >
+                        {line}
                       </Text>
-                    )}
+                    ))}
 
                     <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
                       <TouchableOpacity

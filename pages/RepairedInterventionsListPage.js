@@ -42,6 +42,9 @@ const [isUpdating, setIsUpdating] = useState(false);
   const initialFilter = route.params?.initialFilter ?? "Réparé";
   const [filter, setFilter] = useState(initialFilter);
 
+  const PAGE_SIZE = 4;
+  const [currentPage, setCurrentPage] = useState(1);
+
   useEffect(() => {
     if (initialFilter && (initialFilter === "Réparé" || initialFilter === "Non réparable")) {
       setFilter(initialFilter);
@@ -90,6 +93,7 @@ const [isUpdating, setIsUpdating] = useState(false);
       : base;
 
     setFiltered(res);
+    setCurrentPage(1);
 
     if (q.length > 0) {
       const uniq = new Set();
@@ -140,7 +144,9 @@ const handleCardLongPress = (item) => {
 };
 
 const handleSelectAllVisible = () => {
-  const visibleIds = filtered.map((item) => item.id);
+  const visibleIds = filtered
+    .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    .map((item) => item.id);
 
   const allVisibleSelected =
     visibleIds.length > 0 &&
@@ -248,6 +254,12 @@ const handleBulkRestitution = async () => {
 
   const formatPhoneNumber = (n) => n?.replace(/(\d{2})(?=\d)/g, "$1 ") || "";
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedData = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   return (
     <View style={styles.container}>
       {/* ───── en-tête ───── */}
@@ -308,26 +320,26 @@ const handleBulkRestitution = async () => {
         <TouchableOpacity
           style={styles.selectAllBtn}
           onPress={handleSelectAllVisible}
-          disabled={filtered.length === 0 || isUpdating}
+          disabled={paginatedData.length === 0 || isUpdating}
           activeOpacity={0.8}
         >
           <View
             style={[
               styles.checkbox,
-              filtered.length > 0 &&
-                filtered.every((item) => selectedIds.includes(item.id)) &&
+              paginatedData.length > 0 &&
+                paginatedData.every((item) => selectedIds.includes(item.id)) &&
                 styles.checkboxSelected,
             ]}
           >
-            {filtered.length > 0 &&
-              filtered.every((item) => selectedIds.includes(item.id)) && (
+            {paginatedData.length > 0 &&
+              paginatedData.every((item) => selectedIds.includes(item.id)) && (
                 <Text style={styles.checkmark}>✓</Text>
               )}
           </View>
 
           <Text style={styles.selectAllText}>
-            {filtered.length > 0 &&
-            filtered.every((item) => selectedIds.includes(item.id))
+            {paginatedData.length > 0 &&
+            paginatedData.every((item) => selectedIds.includes(item.id))
               ? "Tout désélectionner"
               : "Tout sélectionner"}
           </Text>
@@ -363,7 +375,8 @@ const handleBulkRestitution = async () => {
 
       {/* ───── liste ───── */}
       <FlatList
-        data={filtered}
+        style={{ flex: 1 }}
+        data={paginatedData}
         keyExtractor={(it) => String(it.id)}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
@@ -398,14 +411,16 @@ const handleBulkRestitution = async () => {
                 activeOpacity={0.85}
               >
                 <View style={styles.cardTopRow}>
-                  <View style={styles.ficheBadge}>
-                    <Text style={styles.ficheBadgeText}>N° {ficheNum}</Text>
-                  </View>
-                  {isNonReparable && (
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusBadgeText}>Non réparable</Text>
+                  <View style={styles.cardTopRowLeft}>
+                    <View style={styles.ficheBadge}>
+                      <Text style={styles.ficheBadgeText}>N° {ficheNum}</Text>
                     </View>
-                  )}
+                    {isNonReparable && (
+                      <View style={styles.statusBadge}>
+                        <Text style={styles.statusBadgeText}>Non réparable</Text>
+                      </View>
+                    )}
+                  </View>
                   <View
                     style={[styles.checkbox, selected && styles.checkboxSelected]}
                   >
@@ -418,14 +433,14 @@ const handleBulkRestitution = async () => {
                 </Text>
                 <Text style={styles.clientPhone}>{clientPhone}</Text>
 
-                <View style={styles.deviceRow}>
+                <View style={[styles.deviceRow, styles.rowAlignRight]}>
                   <Ionicons name="hardware-chip-outline" size={15} color="#64748b" />
                   <Text style={styles.deviceText} numberOfLines={1}>
                     {deviceLine}
                   </Text>
                 </View>
 
-                <View style={styles.notifRow}>
+                <View style={[styles.notifRow, styles.rowAlignRight]}>
                   {item.notifiedBy === "SMS" ? (
                     <View style={[styles.notifPill, styles.notifPillOk]}>
                       <Image
@@ -478,6 +493,48 @@ const handleBulkRestitution = async () => {
           );
         }}
       />
+
+      {/* ───── pagination ───── */}
+      {filtered.length > 0 && (
+        <View style={styles.pager}>
+          <TouchableOpacity
+            style={[styles.pagerBtn, currentPage <= 1 && styles.pagerBtnDisabled]}
+            disabled={currentPage <= 1}
+            onPress={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          >
+            <Image
+              source={require("../assets/icons/chevrong.png")}
+              style={[
+                styles.pagerIcon,
+                { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+              ]}
+            />
+          </TouchableOpacity>
+
+          <Text style={styles.pagerInfo}>
+            Page {currentPage} / {totalPages}
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.pagerBtn,
+              currentPage >= totalPages && styles.pagerBtnDisabled,
+            ]}
+            disabled={currentPage >= totalPages}
+            onPress={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+          >
+            <Image
+              source={require("../assets/icons/chevrond.png")}
+              style={[
+                styles.pagerIcon,
+                { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
+              ]}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <BottomNavigation navigation={navigation} currentRoute="RepairedInterventionsListPage" />
 
@@ -712,7 +769,15 @@ const styles = StyleSheet.create({
   cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
+  },
+  cardTopRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rowAlignRight: {
+    justifyContent: "flex-end",
   },
   ficheBadge: {
     backgroundColor: "#eef2ff",
@@ -793,4 +858,38 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   archiveBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
+  pager: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 90,
+  },
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  pagerBtnDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+  },
+  pagerIcon: {
+    width: 18,
+    height: 18,
+  },
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
+  },
 });

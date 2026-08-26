@@ -495,39 +495,49 @@ export default function AdminPage({ navigation, route }) {
             </TouchableOpacity>
 
             {/* Pagination */}
-            <View style={styles.paginationContainer}>
-              <TouchableOpacity
-                onPress={resetToFirstPage}
-                style={styles.chevronButton}
-              >
-                <MaterialIcons name="first-page" size={20} color="#334155" />
+            <View style={styles.pager}>
+              <TouchableOpacity onPress={resetToFirstPage} style={styles.pagerBtn}>
+                <MaterialIcons name="first-page" size={20} color="#4338ca" />
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[
+                  styles.pagerBtn,
+                  currentPage <= 1 && styles.pagerBtnDisabled,
+                ]}
+                disabled={currentPage <= 1}
                 onPress={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                style={styles.chevronButton}
               >
-                <MaterialIcons
-                  name="chevron-left"
-                  size={20}
-                  color={currentPage === 1 ? "#cbd5e1" : "#334155"}
+                <Image
+                  source={require("../assets/icons/chevrong.png")}
+                  style={[
+                    styles.pagerIcon,
+                    { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+                  ]}
                 />
               </TouchableOpacity>
 
-              <Text style={styles.paginationText}>
-                Page {currentPage} sur {totalPages}
+              <Text style={styles.pagerInfo}>
+                Page {currentPage} / {totalPages}
               </Text>
 
               <TouchableOpacity
+                style={[
+                  styles.pagerBtn,
+                  currentPage >= totalPages && styles.pagerBtnDisabled,
+                ]}
+                disabled={currentPage >= totalPages}
                 onPress={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                style={styles.chevronButton}
               >
-                <MaterialIcons
-                  name="chevron-right"
-                  size={20}
-                  color={currentPage === totalPages ? "#cbd5e1" : "#334155"}
+                <Image
+                  source={require("../assets/icons/chevrond.png")}
+                  style={[
+                    styles.pagerIcon,
+                    {
+                      tintColor:
+                        currentPage >= totalPages ? "#cbd5e1" : "#4338ca",
+                    },
+                  ]}
                 />
               </TouchableOpacity>
             </View>
@@ -918,25 +928,39 @@ const styles = StyleSheet.create({
   },
   webSearchButtonText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
-  paginationContainer: {
+  pager: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 16,
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 16,
     marginTop: 6,
     marginBottom: 90,
   },
-  chevronButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    alignItems: "center",
+  pagerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eef2ff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#c7d2fe",
   },
-  paginationText: { color: "#334155", fontSize: 13, fontWeight: "600" },
+  pagerBtnDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+  },
+  pagerIcon: {
+    width: 18,
+    height: 18,
+  },
+  pagerInfo: {
+    minWidth: 100,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
+  },
 
   // Modales (fond)
   modalOverlay: {

@@ -4497,6 +4497,7 @@ interventions(
 
   const DateDisplay = () => {
     const [currentDate, setCurrentDate] = useState("");
+    const [dateVisible, setDateVisible] = useState(false);
 
     useEffect(() => {
       const now = new Date();
@@ -4511,13 +4512,17 @@ interventions(
     }, []);
 
     return (
-      <View style={styles.dateContainer}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => setDateVisible((prev) => !prev)}
+        style={styles.dateContainer}
+      >
         <Image
           source={require("../assets/icons/calendar.png")}
           style={styles.icon}
         />
-        <Text style={styles.dateText}>{currentDate}</Text>
-      </View>
+        {dateVisible && <Text style={styles.dateText}>{currentDate}</Text>}
+      </TouchableOpacity>
     );
   };
   const TimeDisplay = () => {
@@ -4843,6 +4848,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                 style={styles.menuIcon}
               />
             </TouchableOpacity>
+            <DateDisplay />
             <Animated.View
               style={[
                 styles.drawer,
@@ -5542,9 +5548,6 @@ const onPick = () => {
     </View>
   </TouchableOpacity>
 )}
-                <View>
-                  <DateDisplay />
-                </View>
               </View>
               {isLoading ? (
                 <View style={styles.loaderContainer}>
@@ -9330,10 +9333,13 @@ dotsRow: {
     flexDirection: "row", // Alignement horizontal
     alignItems: "center",
     borderRadius: 10, // Coins arrondis
-    paddingVertical: 5, // Espacement intérieur haut/bas
-    paddingHorizontal: 16, // Espacement intérieur gauche/droite
-    backgroundColor: "#cacaca", // Fond blanc pour le contraste
-    alignSelf: "center", // Centrage du bloc
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#cacaca",
+    position: "absolute", // Icône compacte, à côté du bouton menu
+    top: 20,
+    right: 63,
+    zIndex: 10,
   },
   icon: {
     width: 20,

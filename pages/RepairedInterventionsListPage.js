@@ -57,7 +57,7 @@ const [isUpdating, setIsUpdating] = useState(false);
       .from("interventions")
       .select(
         `
-          id, status, notifiedBy, deviceType, brand, model, archived, archived_at,
+          id, status, notifiedBy, deviceType, brand, model, archived, archived_at, on_hold,
           clients (name, ficheNumber, phone)
         `
       )
@@ -238,6 +238,26 @@ const handleBulkRestitution = async () => {
     }
   };
 
+  /* ───────────────── Mise de côté ───────────────── */
+  const toggleOnHold = async (item) => {
+    const nextValue = !item.on_hold;
+
+    const { error } = await supabase
+      .from("interventions")
+      .update({ on_hold: nextValue })
+      .eq("id", item.id);
+
+    if (error) {
+      console.error("Erreur mise de côté :", error);
+      showAlert("Erreur", "Impossible de mettre à jour cette fiche.");
+      return;
+    }
+
+    setAllInterventions((prev) =>
+      prev.map((x) => (x.id === item.id ? { ...x, on_hold: nextValue } : x))
+    );
+  };
+
   /* ───────────────── Rendu ───────────────── */
   const Blinking = ({ src, tint }) => {
     const opacity = useRef(new Animated.Value(1)).current;
@@ -403,6 +423,7 @@ const handleBulkRestitution = async () => {
                 styles.card,
                 isNonReparable && styles.cardDanger,
                 selected && styles.cardSelected,
+                item.on_hold && styles.cardOnHold,
               ]}
             >
               <TouchableOpacity
@@ -419,6 +440,11 @@ const handleBulkRestitution = async () => {
                     {isNonReparable && (
                       <View style={styles.statusBadge}>
                         <Text style={styles.statusBadgeText}>Non réparable</Text>
+                      </View>
+                    )}
+                    {item.on_hold && (
+                      <View style={styles.onHoldBadge}>
+                        <Text style={styles.onHoldBadgeText}>Mise de côté</Text>
                       </View>
                     )}
                   </View>
@@ -474,6 +500,22 @@ const handleBulkRestitution = async () => {
                     </View>
                   )}
                 </View>
+              </TouchableOpacity>
+
+              {/* Mettre de côté / Réactiver — toujours visible */}
+              <TouchableOpacity
+                style={[styles.onHoldBtn, item.on_hold && styles.onHoldBtnActive]}
+                onPress={() => toggleOnHold(item)}
+                activeOpacity={0.9}
+              >
+                <Text
+                  style={[
+                    styles.onHoldBtnText,
+                    item.on_hold && styles.onHoldBtnTextActive,
+                  ]}
+                >
+                  {item.on_hold ? "Réactiver" : "Mettre de côté"}
+                </Text>
               </TouchableOpacity>
 
               {/* 👇 Bouton ARCHIVER visible uniquement pour "Non réparable" */}
@@ -768,6 +810,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#2563eb",
   },
+  cardOnHold: {
+    opacity: 0.55,
+  },
+  onHoldBadge: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginLeft: 8,
+  },
+  onHoldBadgeText: {
+    color: "#475569",
+    fontWeight: "700",
+    fontSize: 11,
+  },
 
   cardTopRow: {
     flexDirection: "row",
@@ -861,6 +918,29 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   archiveBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
+  onHoldBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#f1f5f9",
+    marginTop: 10,
+  },
+  onHoldBtnActive: {
+    borderColor: "#0d9488",
+    backgroundColor: "#ccfbf1",
+  },
+  onHoldBtnText: {
+    color: "#64748b",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  onHoldBtnTextActive: {
+    color: "#0d9488",
+  },
 
   pager: {
     flexDirection: "row",

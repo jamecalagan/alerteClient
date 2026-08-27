@@ -305,15 +305,12 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [ordersList, setOrdersList] = useState([]); // ← NE PAS RENOMMER
   const [notifyLocalMap, setNotifyLocalMap] = useState({});
   const [isBannedMatch, setIsBannedMatch] = useState(false);
-  const [openExpress, setOpenExpress] = useState(true);
-  const [openOrders, setOpenOrders] = useState(true);
   // —— Note ultra simple
   const [noteVisible, setNoteVisible] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteIntervId, setNoteIntervId] = useState(null);
   const [noteOrderId, setNoteOrderId] = useState(null);
   const [noteClientId, setNoteClientId] = useState(null);
-const [bottomTab, setBottomTab] = useState(null); // null = rien affiché
 const [sliderH, setSliderH] = useState(0);
 // Propositions en attente
 const [pendingProposals, setPendingProposals] =
@@ -368,14 +365,25 @@ const [
 ] = useState(false);
 const [outstandingBalancesPage, setOutstandingBalancesPage] = useState(1);
 const OUTSTANDING_BALANCES_PAGE_SIZE = 5;
+const [showOnHoldBalances, setShowOnHoldBalances] = useState(false);
+// Clients avec au moins un montant actif (hors mises de côté) — sert au
+// badge et à la liste par défaut de la modale "Soldes restants dus".
+const activeOutstandingBalances = outstandingBalances.filter(
+  (c) => c.solderestant > 0
+);
+const onHoldBalancesCount = outstandingBalances.reduce(
+  (sum, c) => sum + c.items.filter((it) => it.on_hold).length,
+  0
+);
+const displayedOutstandingBalances = showOnHoldBalances
+  ? outstandingBalances
+  : outstandingBalances
+      .map((c) => ({ ...c, items: c.items.filter((it) => !it.on_hold) }))
+      .filter((c) => c.items.length > 0);
 
-const toggleBottomTab = async (key) => {
-  if (key === "orders") {
-    await loadOrdersInProgress();
-  }
-
-  setBottomTab((prev) => (prev === key ? null : key));
-};
+// Popups Express / Commandes (boutons du haut, à côté de la Galerie Cloud)
+const [expressModalVisible, setExpressModalVisible] = useState(false);
+const [ordersModalVisible, setOrdersModalVisible] = useState(false);
 
 
   const [notifySheetVisible, setNotifySheetVisible] = useState(false);
@@ -454,6 +462,50 @@ const toggleBottomTab = async (key) => {
     setFilteredClients((prev) => prev.map(patch));
 
     setNoteVisible(false);
+  };
+
+  // Mise de côté depuis la fiche client (liste "Fiches en cours") — cible
+  // l'intervention active si elle existe, sinon la commande active.
+  const toggleClientOnHold = async (client, intervention, order) => {
+    const target = intervention
+      ? { table: "interventions", id: intervention.id, nextValue: !intervention.on_hold }
+      : order
+      ? { table: "orders", id: order.id, nextValue: !order.on_hold }
+      : null;
+
+    if (!target) return;
+
+    const { error } = await supabase
+      .from(target.table)
+      .update({ on_hold: target.nextValue })
+      .eq("id", target.id);
+
+    if (error) {
+      console.error("Erreur mise de côté :", error);
+      showAlert("Erreur", "Impossible de mettre à jour cette fiche.");
+      return;
+    }
+
+    const patch = (c) => {
+      if (c.id !== client.id) return c;
+      if (target.table === "interventions") {
+        const interventions = (c.interventions || []).map((it) =>
+          it.id === target.id ? { ...it, on_hold: target.nextValue } : it
+        );
+        const latest =
+          c.latestIntervention?.id === target.id
+            ? { ...c.latestIntervention, on_hold: target.nextValue }
+            : c.latestIntervention;
+        return { ...c, interventions, latestIntervention: latest };
+      }
+      const orders = (c.orders || []).map((o) =>
+        o.id === target.id ? { ...o, on_hold: target.nextValue } : o
+      );
+      return { ...c, orders };
+    };
+
+    setClients((prev) => prev.map(patch));
+    setFilteredClients((prev) => prev.map(patch));
   };
 
   const openBannedAlert = (item) => {
@@ -1071,7 +1123,7 @@ const loadOutstandingBalances = async () => {
     const { data: interventionRows, error: interventionError } = await supabase
       .from("interventions")
       .select(
-        "id, client_id, deviceType, brand, model, solderestant, status, updatedAt"
+        "id, client_id, deviceType, brand, model, solderestant, status, updatedAt, on_hold"
       )
       .neq("status", "Récupéré")
       .gt("solderestant", 0);
@@ -1082,7 +1134,7 @@ const loadOutstandingBalances = async () => {
     const { data: orderRows, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id, client_id, product, brand, model, price, quantity, deposit, total, paid, deleted"
+        "id, client_id, product, brand, model, price, quantity, deposit, total, paid, deleted, on_hold"
       )
       .or("deleted.eq.false,deleted.is.null");
 
@@ -1109,23 +1161,27 @@ const loadOutstandingBalances = async () => {
 
         return {
           id: `order-${order.id}`,
+          rawId: order.id,
           client_id: order.client_id,
           source: "order",
           label: [order.product, order.brand, order.model]
             .filter(Boolean)
             .join(" "),
           solderestant: remaining,
+          on_hold: !!order.on_hold,
         };
       })
       .filter(Boolean);
 
     const outstandingInterventions = (interventionRows || []).map((row) => ({
       id: `intervention-${row.id}`,
+      rawId: row.id,
       client_id: row.client_id,
       source: "intervention",
       label: [row.deviceType, row.brand, row.model].filter(Boolean).join(" "),
       status: row.status,
       solderestant: Number(row.solderestant) || 0,
+      on_hold: !!row.on_hold,
     }));
 
     const combined = [...outstandingInterventions, ...outstandingOrders];
@@ -1154,7 +1210,9 @@ const loadOutstandingBalances = async () => {
       );
     }
 
-    // Regroupement par client : un seul montant total (intervention + commandes)
+    // Regroupement par client : un seul montant total (intervention + commandes).
+    // Les éléments mis de côté (on_hold) restent affichés mais ne comptent plus
+    // dans le total actif à relancer.
     const byClient = {};
     combined.forEach((row) => {
       const key = String(row.client_id);
@@ -1167,7 +1225,9 @@ const loadOutstandingBalances = async () => {
           items: [],
         };
       }
-      byClient[key].solderestant += row.solderestant;
+      if (!row.on_hold) {
+        byClient[key].solderestant += row.solderestant;
+      }
       byClient[key].items.push(row);
     });
 
@@ -1182,6 +1242,38 @@ const loadOutstandingBalances = async () => {
   } finally {
     setOutstandingBalancesLoading(false);
   }
+};
+
+// Bascule "mise de côté" d'une fiche (intervention ou commande) dans la
+// liste des soldes dus — elle reste affichée mais son montant ne compte
+// plus dans le total à relancer.
+const toggleOnHoldBalance = async (item) => {
+  const table = item.source === "order" ? "orders" : "interventions";
+  const nextValue = !item.on_hold;
+
+  const { error } = await supabase
+    .from(table)
+    .update({ on_hold: nextValue })
+    .eq("id", item.rawId);
+
+  if (error) {
+    console.error("❌ Mise de côté :", error);
+    showAlert("Erreur", "Impossible de mettre à jour cette fiche.");
+    return;
+  }
+
+  setOutstandingBalances((prev) =>
+    prev.map((client) => {
+      const items = client.items.map((it) =>
+        it.id === item.id ? { ...it, on_hold: nextValue } : it
+      );
+      const solderestant = items.reduce(
+        (sum, it) => (it.on_hold ? sum : sum + it.solderestant),
+        0
+      );
+      return { ...client, items, solderestant };
+    })
+  );
 };
 
 // Charge les commandes en cours (paid=false OU saved=false) pour l'encart
@@ -1259,7 +1351,8 @@ const loadPopupData = useCallback(async () => {
           solderestant,
           cost,
           commande,
-          info_note
+          info_note,
+          on_hold
         ),
         orders(
           id,
@@ -1277,7 +1370,8 @@ const loadPopupData = useCallback(async () => {
           notified,
           deleted,
           order_photos,
-          createdat
+          createdat,
+          on_hold
         )
         `
       )
@@ -1384,7 +1478,7 @@ const loadPopupData = useCallback(async () => {
               (intervention) =>
                 Number(
                   intervention.solderestant || 0
-                ) > 0
+                ) > 0 && !intervention.on_hold
             )
             .reduce(
               (total, intervention) =>
@@ -1398,6 +1492,7 @@ const loadPopupData = useCallback(async () => {
         const totalOrdersDue =
           ordersEnCours.reduce(
             (total, order) => {
+              if (order.on_hold) return total;
               const quantity = Math.max(
                 1,
                 Number.parseInt(
@@ -1433,6 +1528,10 @@ const loadPopupData = useCallback(async () => {
             0
           );
 
+        const allOnHold =
+          interventionsEnCours.every((i) => i.on_hold) &&
+          ordersEnCours.every((o) => o.on_hold);
+
         return {
           client: {
             id: clientRow.id,
@@ -1443,6 +1542,7 @@ const loadPopupData = useCallback(async () => {
           },
           interventionsEnCours,
           ordersEnCours,
+          allOnHold,
           totals: {
             due:
               totalIntervDu +
@@ -1654,30 +1754,43 @@ const checkImagesToDelete = async () => {
       return [];
     }
   };
-  const calculateTotalOngoingCost = (clients) => {
-    const allInterventions = clients.flatMap((client) =>
-      client.interventions.filter((intervention) =>
-        ["Réparé", "Intervention en cours", "En attente de pièces"].includes(
-          intervention.status
-        )
-      )
-    );
-
-    const totalCost = allInterventions.reduce(
-      (sum, intervention) => sum + (intervention.solderestant || 0),
-      0
-    );
-
-    return totalCost.toFixed(2);
-  };
-
+  // Même périmètre que OngoingAmountsPage.js : interventions non
+  // récupérées/non réparables avec solde dû + commandes non payées.
   const [totalCost, setTotalCost] = useState(0);
-  useEffect(() => {
-    if (clients.length > 0) {
-      const total = calculateTotalOngoingCost(clients);
-      setTotalCost(total);
+  const loadOngoingTotal = async () => {
+    try {
+      const { data: interventions, error: errInt } = await supabase
+        .from("interventions")
+        .select("solderestant")
+        .neq("status", "Récupéré")
+        .neq("status", "Non réparable")
+        .gt("solderestant", 0);
+
+      if (errInt) throw errInt;
+
+      const { data: orders, error: errOrd } = await supabase
+        .from("orders")
+        .select("price, deposit")
+        .eq("deleted", false)
+        .or("paid.eq.false,paid.is.null");
+
+      if (errOrd) throw errOrd;
+
+      const interventionsTotal = (interventions || []).reduce(
+        (sum, i) => sum + (i.solderestant || 0),
+        0
+      );
+
+      const ordersTotal = (orders || []).reduce((sum, o) => {
+        const remaining = (o.price || 0) - (o.deposit || 0);
+        return remaining > 0 ? sum + remaining : sum;
+      }, 0);
+
+      setTotalCost((interventionsTotal + ordersTotal).toFixed(2));
+    } catch (error) {
+      console.error("❌ Chargement montant en cours :", error);
     }
-  }, [clients]);
+  };
 
   
   useEffect(() => {
@@ -2310,6 +2423,8 @@ const baseRows = [
   const devicePhotoBox = (
     <View
       style={{
+        width: "100%",
+        alignSelf: "stretch",
         marginTop: 8,
         marginBottom: 8,
         padding: 8,
@@ -2345,6 +2460,8 @@ const baseRows = [
         contentContainerStyle={{
           flexDirection: "row",
           gap: 8,
+          flexGrow: 1,
+          justifyContent: "center",
         }}
       >
         {devicePhotos.map((entry, photoIndex) => (
@@ -2408,6 +2525,8 @@ const baseRows = [
   const orderPhotoBox = (
     <View
       style={{
+        width: "100%",
+        alignSelf: "stretch",
         marginTop: 8,
         marginBottom: 8,
         padding: 8,
@@ -2444,6 +2563,8 @@ const baseRows = [
         contentContainerStyle={{
           flexDirection: "row",
           gap: 8,
+          flexGrow: 1,
+          justifyContent: "center",
         }}
       >
         {activeOrders.flatMap((order) => [
@@ -2502,12 +2623,11 @@ const baseRows = [
     <View
       style={{
         flexDirection: "row",
-        flexWrap: "wrap",
         gap: 8,
       }}
     >
-      {orderPhotoBox}
-      {devicePhotoBox}
+      <View style={{ flex: 1 }}>{orderPhotoBox}</View>
+      <View style={{ flex: 1 }}>{devicePhotoBox}</View>
     </View>
   );
 })()}
@@ -2545,6 +2665,26 @@ const baseRows = [
                                           />
                                         );
                                       })()}
+
+                                      {/* Mettre de côté — uniquement fiche dépliée, pour ne pas encombrer la liste */}
+                                      {isExpanded && (latestIntervention || activeOrders[0]) && (
+                                        <IconSquare
+                                          source={require("../assets/icons/clock.png")}
+                                          tintColor={
+                                            latestIntervention?.on_hold ||
+                                            activeOrders[0]?.on_hold
+                                              ? "#0d9488"
+                                              : "#888787"
+                                          }
+                                          onPress={() =>
+                                            toggleClientOnHold(
+                                              item,
+                                              latestIntervention,
+                                              activeOrders[0]
+                                            )
+                                          }
+                                        />
+                                      )}
 
                                       {/* Edit client */}
                                       {item.latestIntervention
@@ -2896,7 +3036,8 @@ const baseRows = [
         .from("interventions")
         .select("*")
         .eq("status", "Réparé")
-        .eq("restitue", false);
+        .eq("restitue", false)
+        .or("on_hold.eq.false,on_hold.is.null");
 
       if (error) throw error;
 
@@ -3644,7 +3785,8 @@ const baseRows = [
             loaned_item,
             loaned_item_returned,
 restitution_note,
-restitution_note_done
+restitution_note_done,
+on_hold
 ),
 orders(
   id,
@@ -3662,6 +3804,7 @@ orders(
   notified,
   deleted,
   createdat,
+  on_hold,
   order_items(
     id,
     order_id,
@@ -4056,6 +4199,7 @@ const goToPreviousPage = () => {
 	  loadNotNotifiedRepaired();
 	  loadPartsReceivedInterventions();
 	  loadOutstandingBalances();
+	  loadOngoingTotal();
     }, [])
   );
 
@@ -5084,51 +5228,6 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
             </Animated.View>
             <View style={styles.overlay}>
               <View style={styles.headerContainer}>
-                <View style={styles.repairedCountContainer}>
-                  {/* Bouton — Réparés en attente */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      repairedNotReturnedCountSafe > 0 &&
-                      navigation.navigate("RepairedInterventionsListPage", {
-                        initialFilter: "Réparé",
-                      })
-                    }
-                    disabled={repairedNotReturnedCountSafe === 0}
-                    style={[
-                      styles.counterBtn,
-                      styles.btnRepaired,
-                      repairedNotReturnedCountSafe === 0 && styles.btnDisabled,
-                    ]}
-                  >
-                    <Text style={styles.counterBtnText}>
-                      Produits réparés en attente de restitution :{" "}
-                      {repairedNotReturnedCountSafe}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Bouton — Non réparables */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() =>
-                      notRepairableCountSafe > 0 &&
-                      navigation.navigate("RepairedInterventionsListPage", {
-                        initialFilter: "Non réparable",
-                      })
-                    }
-                    disabled={notRepairableCountSafe === 0}
-                    style={[
-                      styles.counterBtn,
-                      styles.btnNR,
-                      { marginTop: 6 },
-                      notRepairableCountSafe === 0 && styles.btnDisabled,
-                    ]}
-                  >
-                    <Text style={styles.counterBtnText}>
-                      Produits non réparables : {notRepairableCountSafe}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
 
                 {isLoading && <ActivityIndicator size="large" color="blue" />}
 
@@ -5152,32 +5251,52 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                 {!isLoading && hasImagesToDelete === false && (
                   <View style={styles.images_numberText}>
                     <TouchableOpacity
+                      activeOpacity={0.85}
                       onPress={() => navigation.navigate("StoredImages")}
-                      style={{
-                        marginRight: 40,
-                        marginTop: 1,
-                        padding: 12,
-                        borderRadius: 10,
-                        backgroundColor: "#cacaca",
-                        elevation: 1,
-                      }}
+                      style={styles.homeActionBtn}
                     >
-                      <Text style={{ color: "#242424" }}>
+                      <Text style={styles.homeActionBtnText}>
                         Accès à la Galerie Cloud
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                      activeOpacity={0.85}
                       onPress={() =>
                         navigation.navigate("OngoingAmountsPage", {
                           interventions: allInterventions,
                         })
                       }
+                      style={styles.homeActionBtn}
                     >
-                      <Text style={styles.totalText}>
+                      <Text style={styles.homeActionBtnText}>
                         En cours : {totalCost} €
                       </Text>
                     </TouchableOpacity>
+
+                    {expressList.length > 0 && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setExpressModalVisible(true)}
+                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          EXPRESS ({expressList.length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {ordersList.length > 0 && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setOrdersModalVisible(true)}
+                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          COMMANDES ({ordersList.length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
 
@@ -5374,6 +5493,62 @@ const onPick = () => {
     </View>
   </TouchableOpacity>
 )}
+{repairedNotReturnedCountSafe > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() =>
+      navigation.navigate("RepairedInterventionsListPage", {
+        initialFilter: "Réparé",
+      })
+    }
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#166534",
+      borderRadius: 10,
+      backgroundColor: "#15803d",
+      elevation: 3,
+    }}
+  >
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+      }}
+    >
+      Réparés en attente
+    </Text>
+
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text
+        style={{
+          color: "#166534",
+          fontSize: 12,
+          fontWeight: "bold",
+        }}
+      >
+        {repairedNotReturnedCountSafe}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
 {overdueRepairedClients.length > 0 && (
   <TouchableOpacity
     activeOpacity={0.8}
@@ -5506,7 +5681,7 @@ const onPick = () => {
     </View>
   </TouchableOpacity>
 )}
-{outstandingBalances.length > 0 && (
+{activeOutstandingBalances.length > 0 && (
   <TouchableOpacity
     activeOpacity={0.8}
     onPress={() => {
@@ -5543,7 +5718,7 @@ const onPick = () => {
       }}
     >
       <Text style={{ color: "#115e59", fontSize: 12, fontWeight: "bold" }}>
-        {outstandingBalances.length}
+        {activeOutstandingBalances.length}
       </Text>
     </View>
   </TouchableOpacity>
@@ -5610,7 +5785,7 @@ const onPick = () => {
                             <ScrollView
                               nestedScrollEnabled
                               showsVerticalScrollIndicator={false}
-                              contentContainerStyle={{ paddingBottom: 50 }}
+                              contentContainerStyle={{ paddingBottom: 130 }}
                             >
                               {(pageItems || []).map((cli, i) => (
                                 <View key={String(cli.id)} style={{ marginBottom: 3 }}>
@@ -6647,230 +6822,273 @@ const onPick = () => {
           </View>
         </TouchableWithoutFeedback>
 
-<View pointerEvents="box-none">
-  {(expressList.length > 0 || ordersList.length > 0) && (
-    <View style={stylesNS.expressWrap}>
-      {/* ===== Barre d’onglets (1 seule ligne) ===== */}
-      <View style={stylesNS.tabsRow}>
-        <Pressable
-          onPress={() => toggleBottomTab("express")}
-          android_ripple={{ color: "#e5e7eb" }}
-          style={[
-            stylesNS.tabBtn,
-            bottomTab === "express" && stylesNS.tabBtnActive,
-          ]}
+{/* ===== Popup Express (déclenchée par le bouton EXPRESS en haut) ===== */}
+<Modal
+  visible={expressModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() => setExpressModalVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setExpressModalVisible(false)}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
         >
-          <Text
-            style={[
-              stylesNS.tabText,
-              bottomTab === "express" && stylesNS.tabTextActive,
-            ]}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
           >
-            EXPRESS ({expressList.length})
-          </Text>
-        </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
+                Fiches Express en cours
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}>
+                {expressList.length} fiche{expressList.length > 1 ? "s" : ""}
+              </Text>
+            </View>
 
-        <Pressable
-          onPress={() => toggleBottomTab("orders")}
-          android_ripple={{ color: "#e5e7eb" }}
-          style={[
-            stylesNS.tabBtn,
-            bottomTab === "orders" && stylesNS.tabBtnActive,
-          ]}
-        >
-          <Text
-            style={[
-              stylesNS.tabText,
-              bottomTab === "orders" && stylesNS.tabTextActive,
-            ]}
-          >
-            COMMANDES ({ordersList.length})
-          </Text>
-        </Pressable>
-      </View>
+            <TouchableOpacity
+              onPress={() => setExpressModalVisible(false)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* ===== Contenu selon onglet ===== */}
-      {bottomTab === "express" && expressList.length > 0 && (
-        <View style={stylesNS.card}>
-          <Pressable
-            style={stylesNS.cardHeader}
-            onPress={() => setOpenExpress((v) => !v)}
-            android_ripple={{ color: "#e5e7eb" }}
-          >
-            <Text style={stylesNS.cardTitle}>
-              Fiches EXPRESS en cours : {expressList.length}
-            </Text>
-            <Image
-              source={require("../assets/icons/chevrond.png")}
-              style={[
-                stylesNS.cardChevron,
-                { transform: [{ rotate: openExpress ? "90deg" : "-90deg" }] },
-              ]}
-            />
-          </Pressable>
+          <View style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }} />
 
-          {openExpress && (
-            <View style={stylesNS.cardBody}>
-              {expressList.slice(0, 5).map((it) => (
-                <Pressable
-                  key={it.id}
-                  onPress={() =>
-                    navigation.navigate("ExpressListPage", {
-                      initialSearch: it.phone || it.name || "",
-                      initialType: it.type || "all",
-                    })
+          <FlatList
+            data={expressList}
+            keyExtractor={(it) => String(it.id)}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: it }) => (
+              <Pressable
+                onPress={() => {
+                  setExpressModalVisible(false);
+                  navigation.navigate("ExpressListPage", {
+                    initialSearch: it.phone || it.name || "",
+                    initialType: it.type || "all",
+                  });
+                }}
+                onLongPress={async () => {
+                  if (!it.client_id) return;
+                  const { data: client, error } = await supabase
+                    .from("clients")
+                    .select("*")
+                    .eq("id", it.client_id)
+                    .single();
+                  if (error || !client) {
+                    console.error("Erreur chargement client :", error);
+                    return;
                   }
-                  onLongPress={async () => {
-                    if (!it.client_id) return;
-                    const { data: client, error } = await supabase
-                      .from("clients")
-                      .select("*")
-                      .eq("id", it.client_id)
-                      .single();
-                    if (error || !client) {
-                      console.error("Erreur chargement client :", error);
-                      return;
-                    }
-                    navigation.navigate("EditClient", { client });
+                  setExpressModalVisible(false);
+                  navigation.navigate("EditClient", { client });
+                }}
+                android_ripple={{ color: "#f1f5f9" }}
+                style={stylesNS.row}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={stylesNS.rowMain} numberOfLines={1}>
+                    {(it.name || "CLIENT").toUpperCase()} —{" "}
+                    {it.type && it.type.toLowerCase().startsWith("vid")
+                      ? "Transferts"
+                      : it.product || it.device || "Produit"}
+                  </Text>
+                  <Text style={stylesNS.rowSub} numberOfLines={1}>
+                    {it.price ? `${Number(it.price).toFixed(2)} €` : "—"} ·{" "}
+                    {it.created_at
+                      ? new Date(it.created_at).toLocaleDateString("fr-FR")
+                      : "—"}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    stylesNS.pill,
+                    it?.notified ? stylesNS.pillOk : stylesNS.pillDue,
+                  ]}
+                >
+                  {it?.notified ? "Notifié" : "À notifier"}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+
+{/* ===== Popup Commandes (déclenchée par le bouton COMMANDES en haut) ===== */}
+<Modal
+  visible={ordersModalVisible}
+  transparent={true}
+  animationType="fade"
+  statusBarTranslucent={true}
+  onRequestClose={() => setOrdersModalVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setOrdersModalVisible(false)}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.70)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 12,
+      }}
+    >
+      <TouchableWithoutFeedback>
+        <View
+          style={{
+            width: "96%",
+            maxWidth: 1050,
+            maxHeight: "88%",
+            padding: 18,
+            borderRadius: 18,
+            backgroundColor: "#ffffff",
+            elevation: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
+                Commandes en cours
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}>
+                {ordersList.length} commande{ordersList.length > 1 ? "s" : ""}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setOrdersModalVisible(false)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#e5e7eb",
+              }}
+            >
+              <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
+                ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }} />
+
+          <FlatList
+            data={ordersList}
+            keyExtractor={(o) => String(o.id)}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: o }) => {
+              const cli = o.__client || {};
+              const price = Number(o.price || 0);
+              const deposit = Number(o.deposit || 0);
+              const rest = Math.max(0, price - deposit);
+
+              const statusText = o.recovered
+                ? "Restituée"
+                : o.paid
+                ? "Payée"
+                : o.received
+                ? "Reçue"
+                : "Passée";
+
+              const statusStyle = o.recovered
+                ? stylesNS.pillTerminee
+                : o.paid
+                ? stylesNS.pillPayee
+                : o.received
+                ? stylesNS.pillEnCours
+                : stylesNS.pillAttente;
+
+              return (
+                <Pressable
+                  onPress={() => {
+                    setOrdersModalVisible(false);
+                    navigation.navigate("OrdersPage", {
+                      clientId: cli.id || o.client_id,
+                      clientName: cli.name,
+                      clientPhone: cli.phone,
+                      clientNumber: cli.ficheNumber,
+                    });
                   }}
-                  android_ripple={{ color: "#f1f5f9" }}
+                  android_ripple={{ color: "#e9efff" }}
                   style={stylesNS.row}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={stylesNS.rowMain} numberOfLines={1}>
-                      {(it.name || "CLIENT").toUpperCase()} —{" "}
-                      {it.type && it.type.toLowerCase().startsWith("vid")
-                        ? "Transferts"
-                        : it.product || it.device || "Produit"}
+                      {(cli.name || "CLIENT").toUpperCase()}{" "}
+                      {o.product || "Produit"} — {o.brand || "Marque"}
                     </Text>
                     <Text style={stylesNS.rowSub} numberOfLines={1}>
-                      {it.price ? `${Number(it.price).toFixed(2)} €` : "—"} ·{" "}
-                      {it.created_at
-                        ? new Date(it.created_at).toLocaleDateString("fr-FR")
-                        : "—"}
+                      {price ? `${price.toFixed(2)} €` : "—"} · Fiche{" "}
+                      {cli.ficheNumber ?? "—"}
                     </Text>
                   </View>
 
-                  <Text
-                    style={[
-                      stylesNS.pill,
-                      it?.notified ? stylesNS.pillOk : stylesNS.pillDue,
-                    ]}
-                  >
-                    {it?.notified ? "Notifié" : "À notifier"}
-                  </Text>
+                  <View style={{ alignItems: "flex-end", gap: 6 }}>
+                    <Text style={[stylesNS.pill, statusStyle]}>
+                      {statusText}
+                    </Text>
+                    <Text style={stylesNS.encartMoney}>
+                      {deposit > 0 ? "Reste à régler" : "À régler"} :{" "}
+                      {rest.toFixed(2)} €
+                    </Text>
+                    {deposit > 0 && (
+                      <Text style={stylesNS.encartSub}>
+                        acompte de {deposit.toFixed(2)} € — total{" "}
+                        {price.toFixed(2)} €
+                      </Text>
+                    )}
+                  </View>
                 </Pressable>
-              ))}
-
-              {expressList.length > 5 && (
-                <Text style={stylesNS.moreText}>
-                  … et {expressList.length - 5} de plus
-                </Text>
-              )}
-            </View>
-          )}
+              );
+            }}
+          />
         </View>
-      )}
-
-      {bottomTab === "orders" && ordersList.length > 0 && (
-        <View style={stylesNS.card}>
-          <Pressable
-            style={stylesNS.cardHeader}
-            onPress={() => setOpenOrders((v) => !v)}
-            android_ripple={{ color: "#e5e7eb" }}
-          >
-            <Text style={stylesNS.cardTitle}>
-              Commandes en cours : {ordersList.length}
-            </Text>
-            <Image
-              source={require("../assets/icons/chevrond.png")}
-              style={[
-                stylesNS.cardChevron,
-                { transform: [{ rotate: openOrders ? "90deg" : "-90deg" }] },
-              ]}
-            />
-          </Pressable>
-
-          {openOrders && (
-            <View style={stylesNS.cardBody}>
-              {ordersList.slice(0, 5).map((o) => {
-                const cli = o.__client || {};
-                const price = Number(o.price || 0);
-                const deposit = Number(o.deposit || 0);
-                const rest = Math.max(0, price - deposit);
-
-                const statusText = o.recovered
-                  ? "Restituée"
-                  : o.paid
-                  ? "Payée"
-                  : o.received
-                  ? "Reçue"
-                  : "Passée";
-
-                const statusStyle = o.recovered
-                  ? stylesNS.pillTerminee
-                  : o.paid
-                  ? stylesNS.pillPayee
-                  : o.received
-                  ? stylesNS.pillEnCours
-                  : stylesNS.pillAttente;
-
-                return (
-                  <Pressable
-                    key={o.id}
-                    onPress={() =>
-                      navigation.navigate("OrdersPage", {
-                        clientId: cli.id || o.client_id,
-                        clientName: cli.name,
-                        clientPhone: cli.phone,
-                        clientNumber: cli.ficheNumber,
-                      })
-                    }
-                    android_ripple={{ color: "#e9efff" }}
-                    style={stylesNS.row}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={stylesNS.rowMain} numberOfLines={1}>
-                        {(cli.name || "CLIENT").toUpperCase()}{" "}
-                        {o.product || "Produit"} — {o.brand || "Marque"}
-                      </Text>
-                      <Text style={stylesNS.rowSub} numberOfLines={1}>
-                        {price ? `${price.toFixed(2)} €` : "—"} · Fiche{" "}
-                        {cli.ficheNumber ?? "—"}
-                      </Text>
-                    </View>
-
-                    <View style={{ alignItems: "flex-end", gap: 6 }}>
-                      <Text style={[stylesNS.pill, statusStyle]}>
-                        {statusText}
-                      </Text>
-                      <Text style={stylesNS.encartMoney}>
-                        {deposit > 0 ? "Reste à régler" : "À régler"} :{" "}
-                        {rest.toFixed(2)} €
-                      </Text>
-                      {deposit > 0 && (
-                        <Text style={stylesNS.encartSub}>
-                          acompte de {deposit.toFixed(2)} € — total{" "}
-                          {price.toFixed(2)} €
-                        </Text>
-                      )}
-                    </View>
-                  </Pressable>
-                );
-              })}
-
-              {ordersList.length > 5 && (
-                <Text style={stylesNS.moreText}>
-                  … et {ordersList.length - 5} de plus
-                </Text>
-              )}
-            </View>
-          )}
-        </View>
-      )}
+      </TouchableWithoutFeedback>
     </View>
-  )}
-</View>
+  </TouchableWithoutFeedback>
+</Modal>
 
 
 <Modal
@@ -7951,7 +8169,7 @@ const onPick = () => {
               }}
             >
               <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}>
-                {outstandingBalances.length}
+                {activeOutstandingBalances.length}
               </Text>
             </View>
 
@@ -7982,7 +8200,7 @@ const onPick = () => {
           ) : (
             <>
             <FlatList
-              data={outstandingBalances.slice(
+              data={displayedOutstandingBalances.slice(
                 (outstandingBalancesPage - 1) * OUTSTANDING_BALANCES_PAGE_SIZE,
                 outstandingBalancesPage * OUTSTANDING_BALANCES_PAGE_SIZE
               )}
@@ -7990,11 +8208,6 @@ const onPick = () => {
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
                 const clientName = item.client?.name || "Client inconnu";
-                const detailLines = (item.items || []).map((it) => {
-                  const label = it.label || (it.source === "order" ? "Commande" : "Intervention");
-                  const suffix = it.source === "order" ? "commande" : it.status || "intervention";
-                  return `${label} (${suffix}) · ${it.solderestant.toFixed(2)} €`;
-                });
 
                 return (
                   <View
@@ -8032,14 +8245,55 @@ const onPick = () => {
                       </View>
                     </View>
 
-                    {detailLines.map((line, idx) => (
-                      <Text
-                        key={idx}
-                        style={{ marginTop: idx === 0 ? 9 : 2, fontSize: 13, fontWeight: "600", color: "#475569" }}
-                      >
-                        {line}
-                      </Text>
-                    ))}
+                    {(item.items || []).map((it, idx) => {
+                      const label =
+                        it.label || (it.source === "order" ? "Commande" : "Intervention");
+                      const suffix =
+                        it.source === "order" ? "commande" : it.status || "intervention";
+
+                      return (
+                        <View
+                          key={it.id}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            marginTop: idx === 0 ? 9 : 4,
+                            opacity: it.on_hold ? 0.5 : 1,
+                          }}
+                        >
+                          <Text
+                            style={{ flex: 1, fontSize: 13, fontWeight: "600", color: "#475569" }}
+                          >
+                            {label} ({suffix}) · {it.solderestant.toFixed(2)} €
+                            {it.on_hold ? " — mise de côté" : ""}
+                          </Text>
+
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => toggleOnHoldBalance(it)}
+                            style={{
+                              marginLeft: 8,
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: it.on_hold ? "#0d9488" : "#cbd5e1",
+                              backgroundColor: it.on_hold ? "#ccfbf1" : "#f1f5f9",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: "bold",
+                                color: it.on_hold ? "#0d9488" : "#64748b",
+                              }}
+                            >
+                              {it.on_hold ? "Réactiver" : "Mettre de côté"}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
 
                     <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
                       <TouchableOpacity
@@ -8067,7 +8321,7 @@ const onPick = () => {
                 );
               }}
             />
-            {outstandingBalances.length > OUTSTANDING_BALANCES_PAGE_SIZE && (
+            {displayedOutstandingBalances.length > OUTSTANDING_BALANCES_PAGE_SIZE && (
               <View
                 style={{
                   flexDirection: "row",
@@ -8107,7 +8361,7 @@ const onPick = () => {
                   Page {outstandingBalancesPage} sur{" "}
                   {Math.max(
                     1,
-                    Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                    Math.ceil(displayedOutstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
                   )}
                 </Text>
 
@@ -8117,7 +8371,7 @@ const onPick = () => {
                       Math.min(
                         Math.max(
                           1,
-                          Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                          Math.ceil(displayedOutstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
                         ),
                         p + 1
                       )
@@ -8127,7 +8381,7 @@ const onPick = () => {
                     outstandingBalancesPage >=
                     Math.max(
                       1,
-                      Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                      Math.ceil(displayedOutstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
                     )
                   }
                   style={{
@@ -8150,7 +8404,7 @@ const onPick = () => {
                         outstandingBalancesPage >=
                         Math.max(
                           1,
-                          Math.ceil(outstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
+                          Math.ceil(displayedOutstandingBalances.length / OUTSTANDING_BALANCES_PAGE_SIZE)
                         )
                           ? "#cbd5e1"
                           : "#0d9488",
@@ -8158,6 +8412,25 @@ const onPick = () => {
                   />
                 </TouchableOpacity>
               </View>
+            )}
+
+            {onHoldBalancesCount > 0 && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setShowOnHoldBalances((v) => !v);
+                  setOutstandingBalancesPage(1);
+                }}
+                style={{ marginTop: 12, alignItems: "center" }}
+              >
+                <Text style={{ color: "#0d9488", fontSize: 13, fontWeight: "700" }}>
+                  {showOnHoldBalances
+                    ? "Masquer les mises de côté"
+                    : `Afficher aussi les ${onHoldBalancesCount} mise${
+                        onHoldBalancesCount > 1 ? "s" : ""
+                      } de côté`}
+                </Text>
+              </TouchableOpacity>
             )}
             </>
           )}
@@ -8227,12 +8500,32 @@ const onPick = () => {
                       padding: 10,
                       marginBottom: 10,
                       backgroundColor: "#f9f9f9",
+                      opacity: item.allOnHold ? 0.5 : 1,
                     }}
                   >
-                    <Text style={{ fontWeight: "bold" }}>
-                      {item.client.name?.toUpperCase()} — Fiche{" "}
-                      {item.client.ficheNumber}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={{ fontWeight: "bold" }}>
+                        {item.client.name?.toUpperCase()} — Fiche{" "}
+                        {item.client.ficheNumber}
+                      </Text>
+                      {item.allOnHold && (
+                        <View
+                          style={{
+                            marginLeft: 8,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 8,
+                            backgroundColor: "#e2e8f0",
+                          }}
+                        >
+                          <Text
+                            style={{ color: "#475569", fontWeight: "700", fontSize: 11 }}
+                          >
+                            Mise de côté
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     {item.interventionsEnCours.length > 0 && (
                       <Text style={{ marginTop: 4 }}>
                         🔧 Interventions en cours :{" "}
@@ -8879,12 +9172,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
     alignItems: "center",
-    marginBottom: 2, // Vous pouvez ajuster la marge en fonction de l'espace que vous souhaitez
-    marginTop: 20,
+    marginBottom: 16, // Espace avant la barre de recherche
+    marginTop: 58, // Dégage le bouton menu et l'icône date (position absolue en haut)
   },
   pageNumberText: {
     marginRight: 20,
-    marginTop: 80,
     fontSize: 20,
     color: "#242424", // Assurez-vous que la couleur correspond à votre thème
   },
@@ -9318,7 +9610,6 @@ dotsRow: {
   },
   totalText: {
     color: "#242424",
-    marginTop: 9,
     marginRight: 40,
     padding: 8,
     backgroundColor: "#cacaca",
@@ -9327,7 +9618,37 @@ dotsRow: {
     elevation: 1, // Ajoute une ombre pour un effet de profondeur
   },
   images_numberText: {
-    marginLeft: 40,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 10,
+  },
+  homeActionBtn: {
+    minWidth: 150,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  homeActionBtnText: {
+    color: "#1e293b",
+    fontWeight: "700",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  homeActionBtnHighlight: {
+    borderWidth: 1.5,
+    borderColor: "#f59e0b",
   },
   dateContainer: {
     flexDirection: "row", // Alignement horizontal

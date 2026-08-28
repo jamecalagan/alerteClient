@@ -56,6 +56,8 @@ export default function RepairedInterventionsPage({ navigation }) {
   );
   const [selectedInterventionPhone, setSelectedInterventionPhone] = useState(null);
   const [selectedInterventionDeviceType, setSelectedInterventionDeviceType] = useState("appareil");
+  const [reviewOfferVisible, setReviewOfferVisible] = useState(false);
+  const [pendingRestitution, setPendingRestitution] = useState(null);
 
   const [billingByIntervention, setBillingByIntervention] = useState({}); // { [intervention_id]: billing.id } — évite de recréer une facture
 
@@ -282,11 +284,6 @@ export default function RepairedInterventionsPage({ navigation }) {
 
   const deleteImage = async (imageId, interventionId, imageUrl) => {
     try {
-      console.log("📦 Suppression INITIÉE pour :");
-      console.log("🆔 ID:", imageId);
-      console.log("🔧 Intervention ID:", interventionId);
-      console.log("🌐 URL:", imageUrl);
-
       // 1. Supprimer de la base
       const { error: dbError } = await supabase
         .from("intervention_images")
@@ -296,8 +293,6 @@ export default function RepairedInterventionsPage({ navigation }) {
       if (dbError) {
         console.error("❌ Erreur suppression BDD :", dbError);
         return;
-      } else {
-        console.log("✅ Supprimée de la table intervention_images");
       }
 
       // 2. Supprimer du bucket
@@ -320,20 +315,12 @@ export default function RepairedInterventionsPage({ navigation }) {
           })
         );
 
-        console.log("📂 Chemin à supprimer :", pathToDelete);
-
-        const { data, error: storageError } = await supabase.storage
+        const { error: storageError } = await supabase.storage
           .from("images")
           .remove([pathToDelete]);
 
         if (storageError) {
           console.error("❌ Erreur suppression BUCKET :", storageError);
-        } else {
-          console.log(
-            "✅ Tentative de suppression effectuée. Résultat :",
-            data
-          );
-          console.log("➡️ Chemin tenté :", pathToDelete);
         }
       } else {
         console.warn("⚠️ URL non reconnue pour suppression dans le bucket.");
@@ -522,21 +509,13 @@ export default function RepairedInterventionsPage({ navigation }) {
       setSelectedInterventionId(intervention.id);
       setPhotoAlertVisible(true); // Ouvre la modale car la photo est requise
     } else {
-      // Redirection immédiate vers SignaturePage
-      navigation.navigate("SignaturePage", {
-        interventionId: intervention.id,
-        clientId: intervention.client_id,
-      });
+      // Propose d'abord l'envoi d'une demande d'avis Google avant la restitution
+      setPendingRestitution(intervention);
+      setReviewOfferVisible(true);
     }
   };
 
   const openImageModal = (imageUri, imageId, interventionId) => {
-    console.log("🧩 Données reçues pour le modal :", {
-      uri: imageUri,
-      id: imageId,
-      interventionId: interventionId,
-    });
-
     setSelectedImage({
       uri: imageUri,
       id: imageId,
@@ -571,8 +550,6 @@ export default function RepairedInterventionsPage({ navigation }) {
 
     if (error) {
       console.error("Erreur lors de la mise à jour du paiement :", error);
-    } else {
-      console.log("Mise à jour réussie :", data);
     }
   };
   // Retourne l'image d'étiquette si on la trouve, sinon undefined
@@ -1009,12 +986,62 @@ export default function RepairedInterventionsPage({ navigation }) {
 
             if (intervention) {
               setTimeout(() => {
-                navigation.navigate("SignaturePage", {
-                  interventionId: intervention.id,
-                  clientId: intervention.client_id,
-                });
+                setPendingRestitution(intervention);
+                setReviewOfferVisible(true);
               }, 300);
             }
+          }
+        }}
+      />
+
+      <AlertBox
+        visible={reviewOfferVisible}
+        title="⭐ Avis Google"
+        message="Souhaitez-vous envoyer au client une demande d'avis Google avant de continuer la restitution ?"
+        cancelText="Non merci"
+        confirmText="Envoyer l'avis"
+        onClose={() => {
+          const intervention = pendingRestitution;
+          setReviewOfferVisible(false);
+          setPendingRestitution(null);
+          if (intervention) {
+            navigation.navigate("SignaturePage", {
+              interventionId: intervention.id,
+              clientId: intervention.client_id,
+            });
+          }
+        }}
+        onConfirm={async () => {
+          const intervention = pendingRestitution;
+          setReviewOfferVisible(false);
+          setPendingRestitution(null);
+
+          if (intervention?.clients?.phone) {
+            const avisMessage =
+              "Bonjour, merci pour votre passage en boutique ! 😊\n" +
+              "Votre avis nous est précieux. Si vous avez un moment, vous pouvez le partager ici :\n" +
+              "👉 https://g.page/r/CW8DQ11bfVKeEAE/review\nMerci beaucoup et à bientôt !";
+
+            await supabase
+              .from("interventions")
+              .update({
+                review_requested: true,
+                notifiedat: new Date().toISOString(),
+              })
+              .eq("id", intervention.id);
+
+            Linking.openURL(
+              `sms:${intervention.clients.phone}?body=${encodeURIComponent(
+                avisMessage
+              )}`
+            );
+          }
+
+          if (intervention) {
+            navigation.navigate("SignaturePage", {
+              interventionId: intervention.id,
+              clientId: intervention.client_id,
+            });
           }
         }}
       />

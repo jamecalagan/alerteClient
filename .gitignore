@@ -31,6 +31,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# sauvegardes de la base (donnees clients, ne jamais commiter)
+backups/
+
 # typescript
 *.tsbuildinfo
 /android

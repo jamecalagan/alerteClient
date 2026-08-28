@@ -216,11 +216,6 @@ const reprintIntervention = async (interventionId, navigation, onError) => {
     const dbSignature = data.signature || data.signatureIntervention || null;
     const sigForRoute = toSignatureUri(dbSignature);
 
-    console.log(
-      "🔎 reprintIntervention signature (début) :",
-      sigForRoute ? sigForRoute.slice(0, 60) : "null"
-    );
-
     navigation.navigate("PrintPage", {
       clientInfo,
       receiverName: data.receiver_name || clientInfo.name || "",
@@ -230,7 +225,7 @@ const reprintIntervention = async (interventionId, navigation, onError) => {
       description: data.description || "",
     });
   } catch (e) {
-    console.log("Réimpression — erreur:", e);
+    console.error("Réimpression — erreur:", e);
     if (onError) {
       onError(e?.message || "Impossible de préparer la réimpression.");
     }
@@ -369,15 +364,6 @@ export default function RecoveredClientsPage({ navigation, route }) {
           _extraUris: extras,
         };
       });
-
-      console.log(
-        "✅ Normalized sample:",
-        normalized.slice(0, 5).map((x) => ({
-          id: x.id,
-          label: !!x._labelUri,
-          extras: x._extraUris.length,
-        }))
-      );
 
       setRecoveredClients(normalized);
       setFilteredClients(normalized);

@@ -508,6 +508,83 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
     setFilteredClients((prev) => prev.map(patch));
   };
 
+  // Bascule "mise de côté" depuis la modale "Fiches en cours" (popupData) —
+  // cible une intervention ou une commande précise, quel que soit son statut
+  // (couvre les "Devis en cours", absents des listes basées sur solderestant).
+  const toggleFicheEnCoursOnHold = async (clientId, source, targetId) => {
+    const table = source === "order" ? "orders" : "interventions";
+    const client = popupData.find((c) => c.client.id === clientId);
+    const list = source === "order" ? client?.ordersEnCours : client?.interventionsEnCours;
+    const current = list?.find((x) => x.id === targetId);
+    if (!current) return;
+    const nextValue = !current.on_hold;
+
+    const { error } = await supabase
+      .from(table)
+      .update({ on_hold: nextValue })
+      .eq("id", targetId);
+
+    if (error) {
+      console.error("Erreur mise de côté :", error);
+      showAlert("Erreur", "Impossible de mettre à jour cette fiche.");
+      return;
+    }
+
+    setPopupData((prev) =>
+      prev.map((c) => {
+        if (c.client.id !== clientId) return c;
+
+        const interventionsEnCours =
+          source === "intervention"
+            ? c.interventionsEnCours.map((it) =>
+                it.id === targetId ? { ...it, on_hold: nextValue } : it
+              )
+            : c.interventionsEnCours;
+        const ordersEnCours =
+          source === "order"
+            ? c.ordersEnCours.map((o) =>
+                o.id === targetId ? { ...o, on_hold: nextValue } : o
+              )
+            : c.ordersEnCours;
+
+        const totalIntervDu = interventionsEnCours
+          .filter((i) => Number(i.solderestant || 0) > 0 && !i.on_hold)
+          .reduce((sum, i) => sum + Number(i.solderestant || 0), 0);
+
+        const totalOrdersDue = ordersEnCours.reduce((total, order) => {
+          if (order.on_hold) return total;
+          const quantity = Math.max(
+            1,
+            Number.parseInt(order.quantity ?? 1, 10) || 1
+          );
+          const price = Number(order.price || 0);
+          const orderTotal =
+            order.total != null && !Number.isNaN(Number(order.total))
+              ? Number(order.total)
+              : price * quantity;
+          const deposit = Number(order.deposit || 0);
+          return total + Math.max(orderTotal - deposit, 0);
+        }, 0);
+
+        const allOnHold =
+          interventionsEnCours.every((i) => i.on_hold) &&
+          ordersEnCours.every((o) => o.on_hold);
+
+        return {
+          ...c,
+          interventionsEnCours,
+          ordersEnCours,
+          allOnHold,
+          totals: {
+            due: totalIntervDu + totalOrdersDue,
+            intervDue: totalIntervDu,
+            orderDue: totalOrdersDue,
+          },
+        };
+      })
+    );
+  };
+
   const openBannedAlert = (item) => {
     setBannedAlert({
       visible: true,
@@ -691,7 +768,6 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
       loop.start();
       return () => loop.stop();
     }, []);
-    console.log("🔍 hasImagesToDelete rendu :", hasImagesToDelete);
     return (
       <Animated.Image
         source={source}
@@ -1119,13 +1195,14 @@ const loadOutstandingBalances = async () => {
   setOutstandingBalancesLoading(true);
 
   try {
-    // 1) Interventions avec solde restant dû (hors "Récupéré")
+    // 1) Interventions avec solde restant dû (hors "Récupéré" et "Non réparable")
     const { data: interventionRows, error: interventionError } = await supabase
       .from("interventions")
       .select(
         "id, client_id, deviceType, brand, model, solderestant, status, updatedAt, on_hold"
       )
       .neq("status", "Récupéré")
+      .neq("status", "Non réparable")
       .gt("solderestant", 0);
 
     if (interventionError) throw interventionError;
@@ -1352,7 +1429,10 @@ const loadPopupData = useCallback(async () => {
           cost,
           commande,
           info_note,
-          on_hold
+          on_hold,
+          deviceType,
+          brand,
+          model
         ),
         orders(
           id,
@@ -1578,6 +1658,25 @@ const loadPopupData = useCallback(async () => {
   const slideAnim = useRef(new Animated.Value(-250)).current;
   const [menuVisible, setMenuVisible] = useState(false);
   const [showClients, setShowClients] = useState(true);
+  const [showOnHoldClients, setShowOnHoldClients] = useState(false);
+
+  // Un client est "entièrement mis de côté" si toutes ses interventions
+  // en cours et toutes ses commandes actives ont on_hold = true.
+  const isClientFullyOnHold = (client) => {
+    const relevantInterventions = (client.interventions || []).filter(
+      (i) => i.status !== "Récupéré"
+    );
+    const relevantOrders = (client.orders || []).filter(__isActiveOrder);
+    const totalItems = relevantInterventions.length + relevantOrders.length;
+    if (totalItems === 0) return false;
+    return (
+      relevantInterventions.every((i) => i.on_hold) &&
+      relevantOrders.every((o) => o.on_hold)
+    );
+  };
+  const onHoldClientsCount = (filteredClients || []).filter(
+    isClientFullyOnHold
+  ).length;
   const [allInterventions, setAllInterventions] = useState([]);
   const [modalData, setModalData] = useState({
     title: "",
@@ -1691,14 +1790,6 @@ const checkImagesToDelete = async () => {
     // (sinon le bouton reste affiché en permanence sans rien à nettoyer sur cette page).
     const total = photosCount + extraCount;
 
-    console.log("🧹 Images anciennes détectées :", {
-      interventions: interventionsData?.length || 0,
-      photosCount,
-      extraCount,
-      storageCount,
-      total,
-    });
-
     setHasImagesToDelete(total > 0);
   } catch (error) {
     console.error(
@@ -1761,7 +1852,7 @@ const checkImagesToDelete = async () => {
     try {
       const { data: interventions, error: errInt } = await supabase
         .from("interventions")
-        .select("solderestant")
+        .select("solderestant, on_hold")
         .neq("status", "Récupéré")
         .neq("status", "Non réparable")
         .gt("solderestant", 0);
@@ -1770,18 +1861,19 @@ const checkImagesToDelete = async () => {
 
       const { data: orders, error: errOrd } = await supabase
         .from("orders")
-        .select("price, deposit")
+        .select("price, deposit, on_hold")
         .eq("deleted", false)
         .or("paid.eq.false,paid.is.null");
 
       if (errOrd) throw errOrd;
 
       const interventionsTotal = (interventions || []).reduce(
-        (sum, i) => sum + (i.solderestant || 0),
+        (sum, i) => (i.on_hold ? sum : sum + (i.solderestant || 0)),
         0
       );
 
       const ordersTotal = (orders || []).reduce((sum, o) => {
+        if (o.on_hold) return sum;
         const remaining = (o.price || 0) - (o.deposit || 0);
         return remaining > 0 ? sum + remaining : sum;
       }, 0);
@@ -1794,9 +1886,13 @@ const checkImagesToDelete = async () => {
 
   
   useEffect(() => {
+    const visibleClients = showOnHoldClients
+      ? filteredClients
+      : (filteredClients || []).filter((c) => !isClientFullyOnHold(c));
+
     const chunks = [];
-    for (let i = 0; i < (filteredClients || []).length; i += itemsPerPage) {
-      chunks.push(filteredClients.slice(i, i + itemsPerPage));
+    for (let i = 0; i < visibleClients.length; i += itemsPerPage) {
+      chunks.push(visibleClients.slice(i, i + itemsPerPage));
     }
     setPages(chunks);
 
@@ -1805,7 +1901,7 @@ const checkImagesToDelete = async () => {
     const maxPage = Math.max(1, chunks.length);
     if (currentPage > maxPage) setCurrentPage(maxPage);
     if (currentPage < 1) setCurrentPage(1);
-  }, [filteredClients]);
+  }, [filteredClients, showOnHoldClients]);
 
   // Restaure la position de défilement après un rechargement (ex: ajout/suppression
   // d'une photo) pour éviter de revenir sur la première fiche.
@@ -2032,6 +2128,10 @@ const orderNotified =
     isTruthy(order?.notified)
   );
 
+const isOnHold = !!(
+  latestIntervention?.on_hold || activeOrders[0]?.on_hold
+);
+
                         return (
 <Animatable.View
   animation="fadeInUp"
@@ -2047,18 +2147,33 @@ const orderNotified =
   ]}
 >
   <View style={styles.cardHeaderRow}>
-    <View style={styles.statusContent}>
-      <View style={styles.iconCircle}>
-        <Image
-          source={getIconSource(status)}
-          style={{
-            width: 20,
-            height: 20,
-            tintColor: getIconColor(status), // Ajoute la couleur définie
-          }}
-        />
+    <View>
+      <View style={styles.statusContent}>
+        <View style={styles.iconCircle}>
+          <Image
+            source={getIconSource(status)}
+            style={{
+              width: 20,
+              height: 20,
+              tintColor: getIconColor(status), // Ajoute la couleur définie
+            }}
+          />
+        </View>
+        <Text style={styles.statusText}>{status}</Text>
       </View>
-      <Text style={styles.statusText}>{status}</Text>
+      {isOnHold && (
+        <Text
+          style={{
+            marginTop: -6,
+            marginBottom: 8,
+            fontSize: 11,
+            fontWeight: "700",
+            color: "#9a5b13",
+          }}
+        >
+          Mise de côté
+        </Text>
+      )}
     </View>
 
 <View style={{ flex: 1, marginLeft: 8 }}>
@@ -4200,6 +4315,7 @@ const goToPreviousPage = () => {
 	  loadPartsReceivedInterventions();
 	  loadOutstandingBalances();
 	  loadOngoingTotal();
+	  loadPopupData();
     }, [])
   );
 
@@ -4288,50 +4404,33 @@ const goToPreviousPage = () => {
 
       // détection des types de recherche
       const isFicheNumber = /^\d+$/.test(query);
-      const isPhoneNumber = /^0\d{9}$/.test(digits); // tél FR "0XXXXXXXXX"
 
       // petits helpers pour couvrir les formats
       const toIntl = (d) => (d.startsWith("0") ? "+33" + d.slice(1) : d);
       const to0033 = (d) => (d.startsWith("0") ? "0033" + d.slice(1) : d);
-      const wildcard = (s) => s.split("").join("%"); // "0601..." => "0%6%0%1%3%3%0%8%9%1"
 
       // ————— 1) construire la requête clients —————
       let clientQuery;
-      if (isFicheNumber && !isPhoneNumber) {
-        // recherche par numéro de fiche
-        clientQuery = supabase
-          .from("clients")
-          .select(
-            `
-          *,
-interventions(
-  id, status, deviceType, cost, solderestant,
-  createdAt, "updatedAt", commande,
-  photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note,
-  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
-)
+      if (isFicheNumber) {
+        // Saisie entièrement numérique : peut être un numéro de fiche
+        // (correspondance exacte) OU un numéro de téléphone complet ou
+        // partiel (correspondance partielle) — on cherche les deux à la
+        // fois pour ne rien rater pendant la frappe.
+        const orParts = [`ficheNumber.eq.${parseInt(query, 10)}`];
 
-        `
-          )
-          .eq("ficheNumber", parseInt(query, 10));
-      } else if (isPhoneNumber) {
-        // ====== BRANCHE TÉLÉPHONE MODIFIÉE (seule vraie modif) ======
-        const dLocal = digits; // 0601330891
-        const dIntl = toIntl(digits); // +33601330891
-        const d0033 = to0033(digits); // 0033601330891
-
-        const wLocal = wildcard(dLocal); // 0%6%0%1%3%3%0%8%9%1
-        const wIntl = wildcard(dIntl).replace(/\+/g, "%+"); // tolère le +
-        const w0033 = wildcard(d0033);
-
-        const orParts = [
-          `phone.ilike.%${dLocal}%`,
-          `phone.ilike.%${dIntl}%`,
-          `phone.ilike.%${d0033}%`,
-          `phone.ilike.%${wLocal}%`,
-          `phone.ilike.%${wIntl}%`,
-          `phone.ilike.%${w0033}%`,
-        ].join(",");
+        // on n'active la correspondance téléphone partielle qu'à partir de
+        // 4 chiffres saisis, sinon "%6%" par exemple matche quasiment tous
+        // les numéros et renvoie trop de clients (URL de la requête
+        // commandes ensuite trop longue -> 400 Bad Request)
+        if (digits && digits.length >= 4) {
+          orParts.push(`phone.ilike.%${digits}%`);
+          if (digits.length >= 6) {
+            orParts.push(
+              `phone.ilike.%${toIntl(digits)}%`,
+              `phone.ilike.%${to0033(digits)}%`
+            );
+          }
+        }
 
         clientQuery = supabase
           .from("clients")
@@ -4347,8 +4446,7 @@ interventions(
 
         `
           )
-          .or(orParts);
-        // ============================================================
+          .or(orParts.join(","));
       } else {
         // recherche par NOM
         clientQuery = supabase
@@ -4619,8 +4717,6 @@ interventions(
 
   const handleLogout = async () => {
     try {
-      console.log("Déconnexion en cours...");
-
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -4631,8 +4727,6 @@ interventions(
         );
         return;
       }
-
-      console.log("Déconnexion réussie ! Redirection vers Login...");
     } catch (err) {
       console.error("Erreur inattendue lors de la déconnexion :", err);
       showAlert("Erreur", "Une erreur inattendue est survenue.");
@@ -4823,12 +4917,6 @@ const ordersWithPhotos = activeOrders.map((order) => {
       return data?.publicUrl || null;
     })
     .filter(Boolean);
-
-  console.log("📷 Photos commande Home :", {
-    orderId: order.id,
-    original: order.order_photos,
-    urls: photoUrls,
-  });
 
   return {
     ...order,
@@ -5429,16 +5517,84 @@ const onPick = () => {
                   style={styles.toggleButton}
                   onPress={openPopup}
                 >
-                  <Image
-                    source={
-                      showClients
-                        ? require("../assets/icons/eye.png") // Icône pour "masquer"
-                        : require("../assets/icons/eye.png") // Icône pour "afficher"
-                    }
-                    style={styles.iconStyle}
-                  />
-                  <Text style={styles.toggleText}>Fiches en cours</Text>
+                  <Text style={styles.toggleText}>En cours</Text>
+                  {popupData.filter((c) => !c.allOnHold).length > 0 && (
+                    <View
+                      style={{
+                        minWidth: 22,
+                        height: 22,
+                        marginLeft: 8,
+                        paddingHorizontal: 5,
+                        borderRadius: 11,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "#ffffff",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "#242424",
+                          fontSize: 12,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {popupData.filter((c) => !c.allOnHold).length}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
+{onHoldClientsCount > 0 && (
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => setShowOnHoldClients((v) => !v)}
+    style={{
+      height: 46,
+      minWidth: 130,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#d97706",
+      borderRadius: 10,
+      backgroundColor: showOnHoldClients ? "#fde3c4" : "#fef3e2",
+      elevation: 3,
+    }}
+  >
+    <Text
+      style={{
+        color: "#9a5b13",
+        fontSize: 13,
+        fontWeight: "bold",
+      }}
+    >
+      {showOnHoldClients ? "Masquer mises de côté" : "Mises de côté"}
+    </Text>
+
+    <View
+      style={{
+        minWidth: 24,
+        height: 24,
+        marginLeft: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <Text
+        style={{
+          color: "#9a5b13",
+          fontSize: 12,
+          fontWeight: "bold",
+        }}
+      >
+        {onHoldClientsCount}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
 {pendingProposals.length > 0 && (
   <TouchableOpacity
     activeOpacity={0.8}
@@ -5785,7 +5941,7 @@ const onPick = () => {
                             <ScrollView
                               nestedScrollEnabled
                               showsVerticalScrollIndicator={false}
-                              contentContainerStyle={{ paddingBottom: 130 }}
+                              contentContainerStyle={{ paddingBottom: 220 }}
                             >
                               {(pageItems || []).map((cli, i) => (
                                 <View key={String(cli.id)} style={{ marginBottom: 3 }}>
@@ -8258,11 +8414,19 @@ const onPick = () => {
                             flexDirection: "row",
                             alignItems: "center",
                             marginTop: idx === 0 ? 9 : 4,
-                            opacity: it.on_hold ? 0.5 : 1,
+                            paddingVertical: it.on_hold ? 6 : 0,
+                            paddingHorizontal: it.on_hold ? 8 : 0,
+                            borderRadius: it.on_hold ? 8 : 0,
+                            backgroundColor: it.on_hold ? "#fef3e2" : "transparent",
                           }}
                         >
                           <Text
-                            style={{ flex: 1, fontSize: 13, fontWeight: "600", color: "#475569" }}
+                            style={{
+                              flex: 1,
+                              fontSize: 13,
+                              fontWeight: "600",
+                              color: it.on_hold ? "#9a5b13" : "#475569",
+                            }}
                           >
                             {label} ({suffix}) · {it.solderestant.toFixed(2)} €
                             {it.on_hold ? " — mise de côté" : ""}
@@ -8495,123 +8659,284 @@ const onPick = () => {
                   <View
                     style={{
                       borderWidth: 1,
-                      borderColor: "#ddd",
-                      borderRadius: 8,
-                      padding: 10,
+                      borderColor: item.allOnHold ? "#fed7aa" : "#e2e8f0",
+                      borderRadius: 12,
+                      padding: 14,
                       marginBottom: 10,
-                      backgroundColor: "#f9f9f9",
-                      opacity: item.allOnHold ? 0.5 : 1,
+                      backgroundColor: item.allOnHold ? "#fef3e2" : "#ffffff",
                     }}
                   >
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={{ fontWeight: "bold" }}>
-                        {item.client.name?.toUpperCase()} — Fiche{" "}
-                        {item.client.ficheNumber}
-                      </Text>
-                      {item.allOnHold && (
+                    <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
+                          {item.client.name?.toUpperCase()}
+                        </Text>
+                        <Text style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                          Fiche n° {item.client.ficheNumber ?? "—"}
+                        </Text>
+                        {item.allOnHold && (
+                          <View
+                            style={{
+                              marginTop: 6,
+                              alignSelf: "flex-start",
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
+                              borderRadius: 8,
+                              backgroundColor: "#fde3c4",
+                            }}
+                          >
+                            <Text
+                              style={{ color: "#9a5b13", fontWeight: "700", fontSize: 11 }}
+                            >
+                              Mise de côté
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={{ alignItems: "center" }}>
                         <View
                           style={{
-                            marginLeft: 8,
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 8,
-                            backgroundColor: "#e2e8f0",
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 99,
+                            backgroundColor: "#fee2e2",
                           }}
                         >
-                          <Text
-                            style={{ color: "#475569", fontWeight: "700", fontSize: 11 }}
+                          <Text style={{ color: "#b91c1c", fontSize: 14, fontWeight: "bold" }}>
+                            {item.totals.due.toLocaleString("fr-FR", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}
+                          </Text>
+                        </View>
+
+                        {item.ordersEnCours.some(
+                          (order) =>
+                            Array.isArray(order.order_photos) &&
+                            order.order_photos.length > 0
+                        ) && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                              justifyContent: "flex-end",
+                              gap: 6,
+                              marginTop: 8,
+                              maxWidth: 90,
+                            }}
                           >
-                            Mise de côté
+                            {item.ordersEnCours.flatMap((order) =>
+                              Array.isArray(order.order_photos)
+                                ? order.order_photos.map((uri, index) => (
+                                    <Image
+                                      key={`${order.id}-photo-${index}`}
+                                      source={{ uri }}
+                                      style={{
+                                        width: 70,
+                                        height: 70,
+                                        borderRadius: 8,
+                                        borderWidth: 1,
+                                        borderColor: "#270381",
+                                        resizeMode: "cover",
+                                      }}
+                                    />
+                                  ))
+                                : []
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {(item.totals.intervDue > 0 || item.totals.orderDue > 0) && (
+                      <Text style={{ marginTop: 6, fontSize: 11, color: "#94a3b8" }}>
+                        {item.totals.intervDue > 0
+                          ? `Interventions : ${item.totals.intervDue.toLocaleString("fr-FR", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}`
+                          : ""}
+                        {item.totals.intervDue > 0 && item.totals.orderDue > 0
+                          ? "  ·  "
+                          : ""}
+                        {item.totals.orderDue > 0
+                          ? `Commandes : ${item.totals.orderDue.toLocaleString("fr-FR", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}`
+                          : ""}
+                      </Text>
+                    )}
+
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                      {item.interventionsEnCours.length > 0 && (
+                        <View
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: "#eef2ff",
+                          }}
+                        >
+                          <Text style={{ color: "#4338ca", fontSize: 12, fontWeight: "700" }}>
+                            🔧 {item.interventionsEnCours.length} intervention
+                            {item.interventionsEnCours.length > 1 ? "s" : ""}
+                          </Text>
+                        </View>
+                      )}
+                      {item.ordersEnCours.length > 0 && (
+                        <View
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: "#f5f3ff",
+                          }}
+                        >
+                          <Text style={{ color: "#6d28d9", fontSize: 12, fontWeight: "700" }}>
+                            🛒 {item.ordersEnCours.length} commande
+                            {item.ordersEnCours.length > 1 ? "s" : ""}
                           </Text>
                         </View>
                       )}
                     </View>
-                    {item.interventionsEnCours.length > 0 && (
-                      <Text style={{ marginTop: 4 }}>
-                        🔧 Interventions en cours :{" "}
-                        {item.interventionsEnCours.length}
-                      </Text>
-                    )}
-                    {item.ordersEnCours.length > 0 && (
-                      <Text>
-                        🛒 Commandes en cours : {item.ordersEnCours.length}
-                      </Text>
-                    )}
 
-					{item.ordersEnCours.some(
-  (order) =>
-    Array.isArray(order.order_photos) &&
-    order.order_photos.length > 0
-) && (
-  <View
-    style={{
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginTop: 8,
-      marginBottom: 4,
-    }}
-  >
-    {item.ordersEnCours.flatMap((order) =>
-      Array.isArray(order.order_photos)
-        ? order.order_photos.map((uri, index) => (
-            <Image
-              key={`${order.id}-photo-${index}`}
-              source={{ uri }}
-              style={{
-                width: 70,
-                height: 70,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#270381",
-                resizeMode: "cover",
-              }}
-            />
-          ))
-        : []
-    )}
-  </View>
-)}
-                    <Text style={{ marginTop: 4 }}>
-                      💰 À régler :{" "}
-                      {item.totals.due.toLocaleString("fr-FR", {
-                        style: "currency",
-                        currency: "EUR",
-                      })}
-                      {item.totals.intervDue > 0
-                        ? `  (Interventions: ${item.totals.intervDue.toLocaleString(
-                            "fr-FR",
-                            {
-                              style: "currency",
-                              currency: "EUR",
-                            }
-                          )})`
-                        : ""}
-                      {item.totals.orderDue > 0
-                        ? `  (Commandes: ${item.totals.orderDue.toLocaleString(
-                            "fr-FR",
-                            {
-                              style: "currency",
-                              currency: "EUR",
-                            }
-                          )})`
-                        : ""}
-                    </Text>
+                    {[...item.interventionsEnCours, ...item.ordersEnCours].length > 0 && (
+                      <View style={{ marginTop: 10, gap: 6 }}>
+                        {item.interventionsEnCours.map((it) => {
+                          const label =
+                            [it.deviceType, it.brand, it.model].filter(Boolean).join(" ") ||
+                            "Intervention";
+                          return (
+                            <View
+                              key={`intervention-${it.id}`}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingVertical: 6,
+                                paddingHorizontal: 8,
+                                borderRadius: 8,
+                                backgroundColor: it.on_hold ? "#fef3e2" : "#f8fafc",
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  fontSize: 12,
+                                  fontWeight: "600",
+                                  color: it.on_hold ? "#9a5b13" : "#475569",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {label} ({it.status})
+                                {it.on_hold ? " — mise de côté" : ""}
+                              </Text>
+                              <TouchableOpacity
+                                activeOpacity={0.8}
+                                onPress={() =>
+                                  toggleFicheEnCoursOnHold(item.client.id, "intervention", it.id)
+                                }
+                                style={{
+                                  marginLeft: 8,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  borderRadius: 8,
+                                  borderWidth: 1,
+                                  borderColor: it.on_hold ? "#0d9488" : "#cbd5e1",
+                                  backgroundColor: it.on_hold ? "#ccfbf1" : "#ffffff",
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "bold",
+                                    color: it.on_hold ? "#0d9488" : "#64748b",
+                                  }}
+                                >
+                                  {it.on_hold ? "Réactiver" : "Mettre de côté"}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })}
+
+                        {item.ordersEnCours.map((o) => {
+                          const label =
+                            [o.product, o.brand, o.model].filter(Boolean).join(" ") ||
+                            "Commande";
+                          return (
+                            <View
+                              key={`order-${o.id}`}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingVertical: 6,
+                                paddingHorizontal: 8,
+                                borderRadius: 8,
+                                backgroundColor: o.on_hold ? "#fef3e2" : "#f8fafc",
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  fontSize: 12,
+                                  fontWeight: "600",
+                                  color: o.on_hold ? "#9a5b13" : "#475569",
+                                }}
+                                numberOfLines={1}
+                              >
+                                {label} (commande)
+                                {o.on_hold ? " — mise de côté" : ""}
+                              </Text>
+                              <TouchableOpacity
+                                activeOpacity={0.8}
+                                onPress={() =>
+                                  toggleFicheEnCoursOnHold(item.client.id, "order", o.id)
+                                }
+                                style={{
+                                  marginLeft: 8,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  borderRadius: 8,
+                                  borderWidth: 1,
+                                  borderColor: o.on_hold ? "#0d9488" : "#cbd5e1",
+                                  backgroundColor: o.on_hold ? "#ccfbf1" : "#ffffff",
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "bold",
+                                    color: o.on_hold ? "#0d9488" : "#64748b",
+                                  }}
+                                >
+                                  {o.on_hold ? "Réactiver" : "Mettre de côté"}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
 
                     <View
                       style={{
                         flexDirection: "row",
                         gap: 8,
-                        marginTop: 8,
+                        marginTop: 10,
                       }}
                     >
                       {item.interventionsEnCours.length > 0 && (
                         <TouchableOpacity
                           style={{
-                            backgroundColor: "#2c3e50",
-                            paddingVertical: 8,
-                            paddingHorizontal: 12,
-                            borderRadius: 6,
+                            flex: 1,
+                            backgroundColor: "#e0e7ff",
+                            borderWidth: 1,
+                            borderColor: "#a5b4fc",
+                            paddingVertical: 10,
+                            borderRadius: 9,
+                            alignItems: "center",
                           }}
                           onPress={() => {
                             setPopupVisible(false);
@@ -8622,8 +8947,9 @@ const onPick = () => {
                         >
                           <Text
                             style={{
-                              color: "#fff",
-                              fontWeight: "bold",
+                              color: "#3730a3",
+                              fontWeight: "700",
+                              fontSize: 13,
                             }}
                           >
                             Voir interventions
@@ -8633,10 +8959,13 @@ const onPick = () => {
                       {item.ordersEnCours.length > 0 && (
                         <TouchableOpacity
                           style={{
-                            backgroundColor: "#007bff",
-                            paddingVertical: 8,
-                            paddingHorizontal: 12,
-                            borderRadius: 6,
+                            flex: 1,
+                            backgroundColor: "#ede9fe",
+                            borderWidth: 1,
+                            borderColor: "#c4b5fd",
+                            paddingVertical: 10,
+                            borderRadius: 9,
+                            alignItems: "center",
                           }}
                           onPress={() => {
                             setPopupVisible(false);
@@ -8650,8 +8979,9 @@ const onPick = () => {
                         >
                           <Text
                             style={{
-                              color: "#fff",
-                              fontWeight: "bold",
+                              color: "#5b21b6",
+                              fontWeight: "700",
+                              fontSize: 13,
                             }}
                           >
                             Voir commandes

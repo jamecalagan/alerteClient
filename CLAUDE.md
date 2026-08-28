@@ -25,7 +25,6 @@ c:\AlerteClient
 ├── index.js                 # AppRegistry.registerComponent(appName, App)
 ├── LoginPage.js              # Écran de connexion (racine, hors dossier pages/)
 ├── SignUpPage.js              # Écran d'inscription (racine, hors dossier pages/)
-├── StoredImagesPage.js         # Copie non utilisée de la logique de App.js, à la racine — non importée nulle part (code mort)
 ├── supabaseClient.js            # Client Supabase unique (createClient), importé via "../supabaseClient" (pages/) ou "./supabaseClient" (racine)
 ├── app.json / eas.json           # Config Expo / EAS Build
 ├── babel.config.js, tsconfig.json
@@ -33,8 +32,6 @@ c:\AlerteClient
 │   ├── icon.png, splash.png, favicon.png, adaptive-icon.png, logo_phone.png...
 │   └── icons/                     # ~90 icônes PNG référencées via require("../assets/icons/xxx.png")
 ├── components/                     # Composants réutilisables (voir section dédiée)
-├── context/
-│   └── AppContext.js                # Fournit clients/isLoading/repairedNotReturnedCount — AppProvider n'est monté nulle part (code mort actuellement)
 ├── pages/                            # ~70 écrans de l'application (voir section dédiée)
 ├── themes/
 │   └── themes.js
@@ -45,7 +42,7 @@ c:\AlerteClient
 └── transfer-images.js                  # Script isolé de migration d'images vers le bucket "intervention-images" (distinct du bucket "images" utilisé partout ailleurs)
 ```
 
-**Fichiers de `pages/` non importés (vérifié par grep, non atteignables via la navigation, code mort probable)** : `StartPage.js`, `ReadyClientsPage.js`, `ImagesInterventions.js`, `ClientDetailPage.js` — en plus du `StoredImagesPage.js` racine déjà signalé ci-dessus. Ne pas les considérer comme faisant partie des flux actifs, mais ne pas les supprimer sans demande explicite (pourraient être un travail en cours).
+**Code mort (vérifié le 2026-08-28)** : plus aucun fichier orphelin dans `pages/` — les 62 fichiers du dossier sont tous importés dans `App.js` (vérifié un par un par grep). Les anciens fichiers morts signalés précédemment (`StartPage.js`, `ReadyClientsPage.js`, `ImagesInterventions.js`, `ClientDetailPage.js`, `StoredImagesPage.js` à la racine, `context/AppContext.js`) ont été supprimés.
 
 ## Pages principales (dossier pages/, vérifiées dans App.js)
 
@@ -56,7 +53,7 @@ c:\AlerteClient
 - **Facturation / Devis** : `BillingPage`, `BillingListPage`, `BillingEditPage`, `QuoteEditPage`, `QuoteListPage`, `QuotePrintPage`, `QuoteIntakePage`, `QuoteRequestsListPage`, `QuoteRequestEditPage`, `QuoteRequestDetailsPage`
 - **Express** : `ExpressClientPage`, `ExpressTypeSelectorPage`, `ExpressRepairPage`, `ExpressSoftwarePage`, `ExpressVideoPage`, `EditExpressPage`, `ExpressListPage`, `PrintExpressPage`
 - **Catalogue produits** : `ArticlesPage`, `BrandsPage`, `ModelsPage`, `AddProductPage`, `ListingProduits`, `ProductViewerScreen`, `ProductFormScreen`, `ProductFlyerScreen`, `FlyerListPage`, `RepairPricesPage`, `PcComponentsTablePage`
-- **Images** : `ImageGallery`, `ImageCleanupPage`, `ImageBackupPage`, `StoredImagesPage` (dans pages/, active — distincte du fichier racine mort), `MigrateOldImagesPage`, `CleanUpBucketPage`, `InterventionImagesPage`, `ImageSearchScreen`
+- **Images** : `ImageGallery`, `ImageCleanupPage`, `ImageBackupPage`, `StoredImagesPage`, `MigrateOldImagesPage`, `CleanUpBucketPage`, `InterventionImagesPage`, `ImageSearchScreen`
 - **Admin / Divers** : `AdminPage`, `CheckupPage`, `CheckupListPage`, `QuickLabelPrintPage`, `PrintPage`
 
 ## Routes de navigation (vérifiées dans App.js)
@@ -203,7 +200,6 @@ Lors d’une correction ciblée :
 - Le bucket Storage par défaut est `"images"` (repris tel quel ou via une constante locale selon le fichier : `BUCKET`, `ORDER_PHOTOS_BUCKET`) ; les buckets `quote-request-photos`, `quotes-pdf` et `intervention-images` sont utilisés pour des besoins spécifiques et ne doivent pas être confondus avec `"images"`.
 - Deux composants de barre de navigation basse coexistent (`components/BottomMenu.js` pour `HomePage`, `components/BottomNavigation.js` pour les autres écrans) : ne pas les fusionner ni en supprimer un sans demande explicite.
 - Deux composants de modale d'alerte coexistent (`components/AlertBox.js`, `components/CustomAlert.js`) avec des props différentes : vérifier lequel est importé dans le fichier concerné avant modification.
-- `context/AppContext.js` (`AppProvider`) n'est actuellement monté nulle part dans l'application — ne pas supposer qu'il fournit des données à un écran sans avoir vérifié l'import.
 
 ## Validation
 

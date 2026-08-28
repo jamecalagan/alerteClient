@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Switch,
   Pressable,
+  Linking,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -422,6 +423,28 @@ export default function AdminPage({ navigation, route }) {
                           ? item.phone.replace(/(\d{2})(?=\d)/g, "$1 ")
                           : "Non disponible"}
                       </Text>
+
+                      {!!item?.phone && (
+                        <View style={styles.contactRow}>
+                          <TouchableOpacity
+                            style={[styles.contactBtn, styles.contactBtnCall]}
+                            onPress={() => Linking.openURL(`tel:${item.phone}`)}
+                            activeOpacity={0.85}
+                          >
+                            <MaterialIcons name="call" size={15} color="#15803d" />
+                            <Text style={styles.contactBtnTextCall}>Appeler</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.contactBtn, styles.contactBtnSms]}
+                            onPress={() => Linking.openURL(`sms:${item.phone}`)}
+                            activeOpacity={0.85}
+                          >
+                            <MaterialIcons name="sms" size={15} color="#2563eb" />
+                            <Text style={styles.contactBtnTextSms}>SMS</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
 
                       {/* Actions client */}
                       <View style={styles.clientActionsRow}>
@@ -892,6 +915,19 @@ const styles = StyleSheet.create({
 
   clientName: { fontSize: 16, fontWeight: "700", color: "#0f172a" },
   clientPhone: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  contactRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  contactBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  contactBtnCall: { backgroundColor: "#dcfce7" },
+  contactBtnSms: { backgroundColor: "#dbeafe" },
+  contactBtnTextCall: { color: "#15803d", fontWeight: "700", fontSize: 12 },
+  contactBtnTextSms: { color: "#2563eb", fontWeight: "700", fontSize: 12 },
   clientActionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
 
   banBtn: {

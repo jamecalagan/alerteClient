@@ -5319,34 +5319,34 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
 
                 {isLoading && <ActivityIndicator size="large" color="blue" />}
 
-                {!isLoading && hasImagesToDelete === true && (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate("ImageCleanup")}
-                    style={{
-                      marginRight: 40,
-                      marginTop: 10,
-                      padding: 12,
-                      borderRadius: 2,
-                      borderWidth: 1,
-                      borderColor: "#888787",
-                      backgroundColor: "#191f2f",
-                    }}
-                  > 
-                    <Text style={{ color: "white" }}>Nettoyer les images</Text>
-                  </TouchableOpacity>
-                )}
-
-                {!isLoading && hasImagesToDelete === false && (
+                {!isLoading && (
                   <View style={styles.images_numberText}>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => navigation.navigate("StoredImages")}
-                      style={styles.homeActionBtn}
-                    >
-                      <Text style={styles.homeActionBtnText}>
-                        Accès à la Galerie Cloud
-                      </Text>
-                    </TouchableOpacity>
+                    {hasImagesToDelete === true ? (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate("ImageCleanup")}
+                        style={{
+                          marginRight: 40,
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 2,
+                          borderWidth: 1,
+                          borderColor: "#888787",
+                          backgroundColor: "#191f2f",
+                        }}
+                      >
+                        <Text style={{ color: "white" }}>Nettoyer les images</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => navigation.navigate("StoredImages")}
+                        style={styles.homeActionBtn}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          Accès à la Galerie Cloud
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
                     <TouchableOpacity
                       activeOpacity={0.85}

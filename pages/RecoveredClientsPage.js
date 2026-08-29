@@ -1028,6 +1028,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "flex-end",
     gap: 8,
     marginBottom: 10,
   },

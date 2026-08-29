@@ -53,8 +53,6 @@ export default function PrintPage({ navigation }) {
     description,
   } = routeParams;
 
-  console.log("🔎 PrintPage route.params =", routeParams);
-
   // On tente plusieurs sources possibles pour la signature
   const rawSignature =
     signature ??

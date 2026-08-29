@@ -196,8 +196,6 @@ export default function CheckupPage() {
   const editData = route.params?.checkup || null;
   const [isSigning, setIsSigning] = useState(false);
 
-  console.log("🔎 CheckupPage route.params =", route.params);
-
   const clientFromRoute = route.params?.client || null;
 
   const clientName =
@@ -280,7 +278,6 @@ export default function CheckupPage() {
           editData?.intervention_id ||
           null;
 
-        console.log("🔎 CheckupPage raw signature (from params) =", raw);
         console.log(
           "🔎 CheckupPage interventionIdFromParams =",
           interventionIdFromParams
@@ -302,7 +299,10 @@ export default function CheckupPage() {
           } else if (data) {
             const rawSig =
               data.signatureIntervention ?? data.signature ?? null;
-            console.log("🔎 Signature trouvée en BDD intervention =", rawSig);
+            console.log(
+              "🔎 Signature trouvée en BDD intervention, longueur =",
+              rawSig ? String(rawSig).length : 0
+            );
             raw = rawSig;
           }
         }

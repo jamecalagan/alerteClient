@@ -352,6 +352,10 @@ const [repairCause, setRepairCause] = useState("");
 const [repairAction, setRepairAction] = useState("");
 const [repairDuration, setRepairDuration] = useState("");
 const [repairComment, setRepairComment] = useState("");
+const [repairComponents, setRepairComponents] = useState([]); // liste des références de composants utilisés
+const [componentInput, setComponentInput] = useState("");
+const [componentSuggestions, setComponentSuggestions] = useState([]);
+const [componentSuggestionsVisible, setComponentSuggestionsVisible] = useState(false);
 // Proposition de réparation
 const [repairProposalMade, setRepairProposalMade] =
     useState(false);
@@ -615,6 +619,7 @@ useEffect(() => {
         await Promise.all([
             loadArticles(),
             loadRepairDictionary(),
+            loadComponentPool(),
         ]);
 
         await loadIntervention();
@@ -771,6 +776,86 @@ const loadRepairDictionary = async () => {
         setRepairDictionaryLoading(false);
     }
 };
+
+const componentPoolRef = useRef([]); // pool des références de composants déjà saisies sur d'autres fiches
+
+const loadComponentPool = async () => {
+    try {
+        const { data, error } = await supabase
+            .from("interventions")
+            .select("repair_components")
+            .not("repair_components", "is", null)
+            .order("updatedAt", { ascending: false })
+            .limit(500);
+
+        if (error) throw error;
+
+        const seen = new Set();
+        const pool = [];
+
+        (data || []).forEach((row) => {
+            (Array.isArray(row.repair_components) ? row.repair_components : []).forEach(
+                (ref) => {
+                    const value = String(ref || "").trim();
+                    const key = value.toLowerCase();
+                    if (value && !seen.has(key)) {
+                        seen.add(key);
+                        pool.push(value);
+                    }
+                }
+            );
+        });
+
+        componentPoolRef.current = pool;
+    } catch (error) {
+        console.error("❌ Chargement suggestions composants :", error);
+    }
+};
+
+const addComponent = (value) => {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) return;
+
+    const alreadyAdded = repairComponents.some(
+        (ref) => ref.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (!alreadyAdded) {
+        setRepairComponents((prev) => [...prev, trimmed]);
+    }
+
+    setComponentInput("");
+    setComponentSuggestions([]);
+    setComponentSuggestionsVisible(false);
+};
+
+const removeComponent = (index) => {
+    setRepairComponents((prev) => prev.filter((_, i) => i !== index));
+};
+
+const onComponentInputChange = (text) => {
+    setComponentInput(text);
+
+    const query = text.trim().toLowerCase();
+    if (!query) {
+        setComponentSuggestions([]);
+        setComponentSuggestionsVisible(false);
+        return;
+    }
+
+    const matches = componentPoolRef.current
+        .filter(
+            (ref) =>
+                ref.toLowerCase().includes(query) &&
+                !repairComponents.some(
+                    (added) => added.toLowerCase() === ref.toLowerCase()
+                )
+        )
+        .slice(0, 8);
+
+    setComponentSuggestions(matches);
+    setComponentSuggestionsVisible(matches.length > 0);
+};
+
     // ———————————————————————————————————————————
     // Chargements listes (ids convertis en string)
     // ———————————————————————————————————————————
@@ -816,7 +901,7 @@ const loadRepairDictionary = async () => {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -923,6 +1008,9 @@ const loadRepairDictionary = async () => {
 			setRepairAction(inter.repair_action || "");
 			setRepairDuration(inter.repair_duration || "");
 			setRepairComment(inter.repair_comment || "");
+			setRepairComponents(
+				Array.isArray(inter.repair_components) ? inter.repair_components : []
+			);
 			setRepairProposalMade(
     !!inter.repair_proposal_made
 );
@@ -1969,6 +2057,7 @@ repair_proposal_date: repairProposalMade
 			repair_action: repairAction || null,
 			repair_duration: repairDuration || null,
 			repair_comment: repairComment.trim() || null,
+			repair_components: repairComponents,
 			// Horodatage du passage réel au statut "Réparé" (ne s'écrase pas sur les sauvegardes suivantes)
 			repaired_at:
 			    initialStatusRef.current !== "Réparé" && status === "Réparé"
@@ -4052,6 +4141,69 @@ onPress={() => {
                     textAlignVertical="top"
                 />
 
+                <Text style={styles.repairFieldLabel}>
+                    Composants utilisés
+                </Text>
+
+                <View style={styles.componentInputRow}>
+                    <TextInput
+                        style={styles.componentInput}
+                        value={componentInput}
+                        onChangeText={onComponentInputChange}
+                        onSubmitEditing={() => addComponent(componentInput)}
+                        placeholder="Ex : SSD Kingston A400 240Go - SA400S37/240G"
+                        placeholderTextColor="#888"
+                        returnKeyType="done"
+                    />
+                    <TouchableOpacity
+                        style={styles.componentAddButton}
+                        onPress={() => addComponent(componentInput)}
+                    >
+                        <Text style={styles.componentAddButtonText}>+</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {componentSuggestionsVisible && (
+                    <View style={styles.componentSuggestionsBox}>
+                        {componentSuggestions.map((suggestion) => (
+                            <TouchableOpacity
+                                key={suggestion}
+                                style={styles.componentSuggestionItem}
+                                onPress={() => addComponent(suggestion)}
+                            >
+                                <Text style={styles.componentSuggestionText}>
+                                    {suggestion}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+
+                {repairComponents.length > 0 && (
+                    <View style={styles.componentChipsRow}>
+                        {repairComponents.map((ref, index) => (
+                            <View
+                                key={`${ref}-${index}`}
+                                style={styles.componentChip}
+                            >
+                                <Text
+                                    style={styles.componentChipText}
+                                    numberOfLines={1}
+                                >
+                                    {ref}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => removeComponent(index)}
+                                >
+                                    <Text style={styles.componentChipRemove}>
+                                        ×
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
                 <View style={styles.repairModalActions}>
                     <TouchableOpacity
                         style={styles.repairCancelButton}
@@ -4946,6 +5098,93 @@ repairCommentInput: {
     padding: 12,
     fontSize: 15,
     color: "#111827",
+},
+
+componentInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+},
+
+componentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: "#111827",
+},
+
+componentAddButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+},
+
+componentAddButtonText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 22,
+},
+
+componentSuggestionsBox: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    marginTop: 4,
+    overflow: "hidden",
+},
+
+componentSuggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+},
+
+componentSuggestionText: {
+    fontSize: 14,
+    color: "#334155",
+},
+
+componentChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+},
+
+componentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    maxWidth: "100%",
+},
+
+componentChipText: {
+    fontSize: 13,
+    color: "#1e293b",
+    fontWeight: "600",
+    maxWidth: 220,
+},
+
+componentChipRemove: {
+    fontSize: 16,
+    color: "#64748b",
+    fontWeight: "700",
+    paddingHorizontal: 2,
 },
 
 repairModalActions: {

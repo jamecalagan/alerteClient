@@ -249,6 +249,14 @@ export default function CheckupPage() {
     setAlertVisible(true);
   };
 
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("Home");
+    }
+  };
+
   /* ───────── Signature existante ───────── */
 
   useEffect(() => {
@@ -880,7 +888,7 @@ export default function CheckupPage() {
             )}
           </View>
 
-          <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
+          <BackButton onPress={handleGoBack} style={{ marginTop: 16 }} />
         </View>
       </ScrollView>
 
@@ -922,7 +930,7 @@ export default function CheckupPage() {
         message={alertMessage}
         onClose={() => {
           setAlertVisible(false);
-          if (alertGoBackAfter) navigation.goBack();
+          if (alertGoBackAfter) handleGoBack();
         }}
       />
     </KeyboardAvoidingView>

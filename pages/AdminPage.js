@@ -278,6 +278,19 @@ export default function AdminPage({ navigation, route }) {
 
               <TouchableOpacity
                 style={styles.actionButton}
+                onPress={() => navigation.navigate("ListingProduits")}
+                activeOpacity={0.85}
+              >
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="fact-check" size={20} color="#4338ca" />
+                </View>
+                <Text style={styles.buttonText}>
+                  Audit Produits/Marques/Modèles
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
                 onPress={() => navigation.navigate("AddProductPage")}
                 activeOpacity={0.85}
               >

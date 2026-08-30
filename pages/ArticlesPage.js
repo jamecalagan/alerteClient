@@ -46,32 +46,41 @@ export default function ArticlesPage({ navigation }) {
 
     return (
         <View style={styles.container}>
-		<Text style={styles.title}>Liste des produits</Text>
+            <View style={styles.header}>
+                <Text style={styles.title}>Liste des produits</Text>
+            </View>
+
             <FlatList
                 data={sortedArticles}
                 keyExtractor={(item) => item.id.toString()}
                 numColumns={numColumns}
                 key={numColumns} // Forcer le rafraîchissement lors du changement de colonnes
+                ListEmptyComponent={
+                    <Text style={styles.emptyText}>Aucun produit enregistré.</Text>
+                }
                 renderItem={({ item }) => (
                     <View style={styles.itemContainer}>
-                        <TouchableOpacity 
-                            style={styles.articleButton} 
+                        <TouchableOpacity
+                            style={styles.articleButton}
                             onPress={() => handleSelectArticle(item.id)}
+                            activeOpacity={0.85}
                         >
-                            <Text style={styles.itemText}>{item.nom}</Text>
+                            <Text style={styles.itemText} numberOfLines={1}>
+                                {item.nom}
+                            </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={styles.deleteButton} 
+                        <TouchableOpacity
+                            style={styles.deleteButton}
                             onPress={() => handleDeleteArticle(item.id)}
                         >
-                            <Icon name="trash" size={16} color="red" />
+                            <Icon name="trash" size={14} color="#dc2626" />
                         </TouchableOpacity>
                     </View>
                 )}
                 contentContainerStyle={styles.listContainer}
             />
 
-            <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12 }} />
+            <BackButton onPress={() => navigation.goBack()} style={{ alignSelf: 'center', marginTop: 8 }} />
 
             <AlertBox
                 visible={!!articleToDelete}
@@ -87,55 +96,66 @@ export default function ArticlesPage({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        padding: 10, 
-        backgroundColor: '#e0e0e0' 
+    container: {
+        flex: 1,
+        padding: 16,
+        backgroundColor: '#f8fafc',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 16,
+    },
+    title: {
+        flex: 1,
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#0f172a',
     },
     listContainer: {
         justifyContent: 'space-between',
+        paddingBottom: 30,
     },
-	title: {
-        fontSize: 24,
-        color: "#242424",
-        fontWeight: "bold",
-        marginBottom: 10,
-        textAlign: "center",
+    emptyText: {
+        fontSize: 14,
+        color: '#94a3b8',
+        textAlign: 'center',
+        marginTop: 30,
     },
     itemContainer: {
         flex: 1,
-        backgroundColor: '#a0a0a0',
+        flexDirection: 'row',
+        backgroundColor: '#ffffff',
         margin: 5,
-        padding: 15,
-        borderRadius: 4,
+        borderRadius: 12,
         alignItems: 'center',
-        justifyContent: 'space-between',
-
-
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 2,
+        overflow: 'hidden',
     },
     articleButton: {
         flex: 1,
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#cacaca', // Couleur de fond du bouton
-        borderRadius: 8,
-        width: '100%', // Prendre toute la largeur du conteneur
+        paddingVertical: 12,
+        paddingLeft: 12,
+        paddingRight: 4,
     },
     itemText: {
-        fontSize: 16,
-        fontWeight: 'medium',
-        color: '#242424', // Texte en blanc pour plus de contraste
-        textAlign: 'center',
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1e293b',
     },
     deleteButton: {
-        marginTop: 10,
-        backgroundColor: '#b9b8b8',
-        padding: 3,
-        borderRadius: 5,
-		borderWidth: 1,
-		borderColor: '#c20505',
-        width: '60%',
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        backgroundColor: '#fef2f2',
         alignItems: 'center',
-    }
+        justifyContent: 'center',
+        marginRight: 8,
+    },
 });

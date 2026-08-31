@@ -158,7 +158,7 @@ const listLocalBackupImages = async (ficheNumber, interventionId) => {
 /* ─────────── Page ─────────── */
 
 export default function ClientInterventionsPage({ route, navigation }) {
-  const { clientId } = route.params;
+  const { clientId, interventionId } = route.params;
   const [interventions, setInterventions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [clients, setClients] = useState([]);
@@ -200,11 +200,18 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
     const fetchClientInterventions = async () => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("interventions")
           .select("*, photos, label_photo, signatureIntervention")
-          .eq("client_id", selectedClient.id)
-          .order("createdAt", { ascending: false });
+          .eq("client_id", selectedClient.id);
+
+        if (interventionId) {
+          query = query.eq("id", interventionId);
+        }
+
+        const { data, error } = await query.order("createdAt", {
+          ascending: false,
+        });
 
         if (error) throw error;
 
@@ -299,7 +306,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
     };
 
     fetchClientInterventions();
-  }, [selectedClient]);
+  }, [selectedClient, interventionId]);
 
   // Liste clients pour recherche
   useEffect(() => {

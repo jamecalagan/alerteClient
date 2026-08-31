@@ -558,6 +558,19 @@ const handleAddProductToOrder = async () => {
                 .eq("id", editingOrderItem.id);
 
             if (error) throw error;
+
+            // L'acompte est un champ de la commande (orders.deposit), pas
+            // de l'article : on le sauvegarde séparément sur la commande.
+            const deposit =
+                parseFloat(
+                    String(newOrder.deposit || "0").replace(",", ".")
+                ) || 0;
+            const { error: depositError } = await supabase
+                .from("orders")
+                .update({ deposit })
+                .eq("id", editingOrderItem.order_id);
+            if (depositError) throw depositError;
+
 await recalculateOrderSummary(
     editingOrderItem.order_id
 );
@@ -1549,7 +1562,7 @@ const toggleOrderItemInstalled = async (orderItem) => {
         );
     }
 };
-const editOrderItem = (orderItem) => {
+const editOrderItem = (orderItem, parentOrder) => {
     setEditingOrderItem(orderItem);
 
     setNewOrder((previous) => ({
@@ -1571,6 +1584,12 @@ const editOrderItem = (orderItem) => {
         price: String(orderItem.unit_price || ""),
         include_in_intervention:
             !!orderItem.include_in_intervention,
+        // L'acompte est un champ de la commande (orders.deposit), pas de
+        // l'article (order_items) : on le reprend du parent si fourni.
+        deposit:
+            parentOrder?.deposit != null
+                ? String(parentOrder.deposit)
+                : previous.deposit,
     }));
 
     setShowForm(true);
@@ -2375,7 +2394,7 @@ const deleteOrderItem = async (orderItem) => {
 >
     <TouchableOpacity
         onPress={() =>
-            editOrderItem(orderItem)
+            editOrderItem(orderItem, item)
         }
     >
         <Text
@@ -2612,7 +2631,8 @@ const deleteOrderItem = async (orderItem) => {
                                                             item.order_items?.[0];
                                                         if (firstItem) {
                                                             editOrderItem(
-                                                                firstItem
+                                                                firstItem,
+                                                                item
                                                             );
                                                         } else {
                                                             startEdit(item);
@@ -3414,8 +3434,9 @@ const deleteOrderItem = async (orderItem) => {
                             onPress={() => {
                                 const target =
                                     fournisseurReminder?.missingItems?.[0];
+                                const parentOrder = fournisseurReminder?.ord;
                                 setFournisseurReminder(null);
-                                if (target) editOrderItem(target);
+                                if (target) editOrderItem(target, parentOrder);
                             }}
                         >
                             <Text style={styles.photoChoiceOptionText}>

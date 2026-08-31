@@ -18,7 +18,7 @@ import BackButton from "../components/BackButton";
 import * as Print from "expo-print";
 
 export default function EditClientPage({ route, navigation }) {
-  const { client } = route.params;
+  const { client, interventionId } = route.params;
 
   const [checkupExists, setCheckupExists] = useState(false);
   useEffect(() => {
@@ -38,9 +38,15 @@ export default function EditClientPage({ route, navigation }) {
   const [email, setEmail] = useState(client.email || "");
   const [etiquetteImprimee, setEtiquetteImprimee] = useState(false);
 
-  const [interventions, setInterventions] = useState(
-    client.interventions || []
-  );
+  const [interventions, setInterventions] = useState(() => {
+    const withIndex = (client.interventions || []).map((i, idx) => ({
+      ...i,
+      originalIndex: idx + 1,
+    }));
+    return interventionId
+      ? withIndex.filter((i) => i.id === interventionId)
+      : withIndex;
+  });
 const [estimateVisible, setEstimateVisible] = useState(false);
 const [estimateLoading, setEstimateLoading] = useState(false);
 const [estimateResult, setEstimateResult] = useState(null);
@@ -128,9 +134,18 @@ if (error) {
 
     if (data && data.length > 0) {
       const updatedClient = data[0];
-      const filteredInterventions = (updatedClient.interventions || []).filter(
-        (intervention) => intervention.status !== "Récupéré"
-      );
+      let filteredInterventions = (updatedClient.interventions || [])
+        .filter((intervention) => intervention.status !== "Récupéré")
+        .map((intervention, idx) => ({
+          ...intervention,
+          originalIndex: idx + 1,
+        }));
+
+      if (interventionId) {
+        filteredInterventions = filteredInterventions.filter(
+          (intervention) => intervention.id === interventionId
+        );
+      }
 
       setName(updatedClient.name || "");
       setPhone(updatedClient.phone || "");
@@ -768,7 +783,7 @@ const openRepairEstimate = async (intervention) => {
                 <View style={styles.cardHeader}>
                   <View>
                     <Text style={styles.cardTitle}>
-                      Fiche intervention n° {index + 1}
+                      Fiche intervention n° {item.originalIndex ?? index + 1}
                     </Text>
                     <Text style={styles.cardSubtitle}>
                       Créée le {formatDateFR(item.createdAt)}

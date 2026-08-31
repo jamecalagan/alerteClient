@@ -1651,6 +1651,7 @@ const loadPopupData = useCallback(async () => {
 }, []);
 
   const [expandedClientId, setExpandedClientId] = useState(null);
+  const [selectedInterventionIndexByClient, setSelectedInterventionIndexByClient] = useState({});
   const [activeModal, setActiveModal] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -1964,8 +1965,17 @@ const closeAllModals = () => {
                           );
 
 // Intervention active utilisée pour les calculs et les commandes
-// Intervention active utilisée pour les calculs et les commandes
-const latestIntervention = item.latestIntervention;
+// Toutes les interventions affichables du client (déjà filtrées "en cours"
+// en amont), pour permettre de basculer entre elles via des onglets.
+const interventionsForTabs = Array.isArray(item.interventions)
+  ? item.interventions
+  : [];
+const selectedInterventionIndex = Math.min(
+  selectedInterventionIndexByClient[item.id] ?? 0,
+  Math.max(interventionsForTabs.length - 1, 0)
+);
+const latestIntervention =
+  interventionsForTabs[selectedInterventionIndex] || item.latestIntervention;
 
 const normalizeOrderText = (value) =>
   (value ?? "")
@@ -2146,6 +2156,44 @@ const isOnHold = !!(
     isBanned && styles.bannedRow, // ← fond rosé si banni
   ]}
 >
+  {interventionsForTabs.length > 1 && (
+    <View style={styles.interventionTabsRow}>
+      {interventionsForTabs.map((intervention, tabIndex) => {
+        const isActiveTab = tabIndex === selectedInterventionIndex;
+        const tabLabel =
+          intervention.deviceType?.trim() || `Intervention ${tabIndex + 1}`;
+        return (
+          <TouchableOpacity
+            key={intervention.id}
+            onPress={() =>
+              setSelectedInterventionIndexByClient((prev) => ({
+                ...prev,
+                [item.id]: tabIndex,
+              }))
+            }
+            style={[
+              styles.folderTab,
+              isActiveTab
+                ? styles.folderTabActive
+                : styles.folderTabInactive,
+              { zIndex: interventionsForTabs.length - tabIndex },
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.folderTabText,
+                isActiveTab && styles.folderTabTextActive,
+              ]}
+            >
+              {tabLabel}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  )}
   <View style={styles.cardHeaderRow}>
     <View>
       <View style={styles.statusContent}>
@@ -2506,7 +2554,8 @@ const baseRows = [
   if (!hasIntervention && !primaryOrder) return null;
 
   // Bloc vert "Photo du produit" (l'appareil, ex: le PC) : cible
-  // l'intervention si elle existe, sinon la première commande active.
+  // l'intervention sélectionnée via les onglets si elle existe, sinon
+  // la première commande active.
   const devicePhotos = hasIntervention
     ? (Array.isArray(latestIntervention?.product_photos)
         ? latestIntervention.product_photos.filter(Boolean)
@@ -2809,6 +2858,8 @@ const baseRows = [
                                           onPress={() =>
                                             navigation.navigate("EditClient", {
                                               client: item,
+                                              interventionId:
+                                                latestIntervention?.id,
                                             })
                                           }
                                           activeOpacity={0.8}
@@ -2824,6 +2875,8 @@ const baseRows = [
                                           onPress={() =>
                                             navigation.navigate("EditClient", {
                                               client: item,
+                                              interventionId:
+                                                latestIntervention?.id,
                                             })
                                           }
                                         />
@@ -2900,6 +2953,8 @@ const baseRows = [
                                               "ClientInterventionsPage",
                                               {
                                                 clientId: item.id,
+                                                interventionId:
+                                                  latestIntervention?.id,
                                               }
                                             )
                                           }
@@ -9895,6 +9950,44 @@ const styles = StyleSheet.create({
   justifyContent: "space-between",
   alignItems: "flex-start",
   marginBottom: 8,
+},
+
+interventionTabsRow: {
+  flexDirection: "row",
+  alignItems: "flex-end",
+  marginLeft: 6,
+  marginBottom: 8,
+},
+folderTab: {
+  paddingTop: 6,
+  paddingBottom: 7,
+  paddingHorizontal: 12,
+  borderTopLeftRadius: 8,
+  borderTopRightRadius: 8,
+  borderWidth: 1,
+  borderBottomWidth: 0,
+  marginRight: -1, // les onglets se chevauchent legerement
+  maxWidth: 140,
+},
+folderTabActive: {
+  backgroundColor: "#cacaca", // meme couleur que la carte -> se fond dedans
+  borderColor: "#9a9a9a",
+  elevation: 3,
+},
+folderTabInactive: {
+  backgroundColor: "#a8a8a8",
+  borderColor: "#8f8f8f",
+  marginTop: 6, // decale vers le bas -> a l'air "derriere" l'onglet actif
+  elevation: 1,
+},
+folderTabText: {
+  fontSize: 11,
+  fontWeight: "700",
+  color: "#4b5563",
+  textAlign: "center",
+},
+folderTabTextActive: {
+  color: "#1f2937",
 },
 
 descriptionText: {

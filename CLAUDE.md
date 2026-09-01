@@ -75,7 +75,7 @@ c:\AlerteClient
 - **article** : `id`, `nom`.
 - **marque** : `id`, `nom`, `article_id`.
 - **modele** : `id`, `nom`, `marque_id`, `article_id`.
-- **intervention_images** : `id`, `intervention_id`, `image_data`, `image_url`, `url`, `path`, `uri`, `key`, `created_at`, `file_path`.
+- **intervention_images** : `id` (uuid), `intervention_id` (uuid), `image_data` (text), `created_at`, `file_path` (text), `user_id` (uuid). Schéma vérifié le 2026-09-01 par lecture directe (`information_schema.columns`) — les colonnes `image_url`/`url`/`path`/`uri`/`key` documentées précédemment n'existent pas (erreur Postgres 42703 constatée) ; seules `image_data` et `file_path` peuvent contenir une référence d'image.
 - **fault_dictionary** : `id`, `device_type`, `category`, `description`, `active`.
 - **repair_dictionary** : `id`, `type`, `name`, `active`.
 - **flyers** : colonnes observées `created_at` (sélection `*` ailleurs).

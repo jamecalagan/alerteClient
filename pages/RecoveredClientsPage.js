@@ -300,6 +300,47 @@ export default function RecoveredClientsPage({ navigation, route }) {
     return !!A && !!B && A === B;
   };
 
+  // Fichiers stockés directement dans le bucket (dossier <folder>/<interventionId>)
+  // sans forcément avoir de ligne correspondante en base.
+  const listFolderUris = async (folder, interventionId) => {
+    try {
+      const prefix = `${folder}/${interventionId}`;
+      const { data: files, error } = await supabase.storage
+        .from("images")
+        .list(prefix, { limit: 100, offset: 0 });
+      if (error || !Array.isArray(files)) return [];
+      return files
+        .filter((f) => f?.name)
+        .map((f) => resolveImageUri(`${prefix}/${f.name}`))
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+
+  // Ancienne convention : fichiers stockés à plat dans old_images/, nommés
+  // "<ficheNumber>_<nom>_<interventionId>_<timestamp>.jpg" (pas de sous-dossier
+  // par intervention). On liste une seule fois pour tout le monde.
+  const listOldImagesFiles = async () => {
+    try {
+      const out = [];
+      const LIMIT = 1000;
+      let offset = 0;
+      while (true) {
+        const { data: files, error } = await supabase.storage
+          .from("images")
+          .list("old_images", { limit: LIMIT, offset });
+        if (error || !files || files.length === 0) break;
+        out.push(...files.filter((f) => f?.name));
+        if (files.length < LIMIT) break;
+        offset += LIMIT;
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  };
+
   const loadRecoveredClients = async () => {
     try {
       const { data: interventions, error: interventionsError } = await supabase
@@ -317,7 +358,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
 
       const { data: images, error: imagesError } = await supabase
         .from("intervention_images")
-        .select("intervention_id, image_data");
+        .select("intervention_id, image_data, file_path");
 
       if (imagesError) throw imagesError;
 
@@ -326,44 +367,68 @@ export default function RecoveredClientsPage({ navigation, route }) {
         ...it,
         intervention_images: (images || [])
           .filter((img) => img.intervention_id === it.id)
-          .map((img) => img.image_data),
+          .map((img) => img.image_data || img.file_path),
       }));
 
-      // 2) Normaliser : label + fusion anciennes/nouvelles + dédoublonnage
-      const normalized = combined.map((it) => {
-        const labelCandidates = explodeRefs(it.label_photo);
-        const labelUri = resolveImageUri(labelCandidates[0] || null);
+      // Ancienne convention old_images/ : une seule liste pour tout le monde
+      const oldImagesFiles = await listOldImagesFiles();
 
-        // anciennes (champ `photos`) → enlever \\ fin
-        const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
-        // nouvelles (table)
-        const newList = explodeRefs(it.intervention_images);
+      // 2) Normaliser : label + fusion anciennes/nouvelles/storage + dédoublonnage
+      const normalized = await Promise.all(
+        combined.map(async (it) => {
+          const labelCandidates = explodeRefs(it.label_photo);
+          const labelUri = resolveImageUri(labelCandidates[0] || null);
 
-        // convertir en URI affichables
-        const oldUris = oldList.map(resolveImageUri).filter(Boolean);
-        const newUris = newList.map(resolveImageUri).filter(Boolean);
+          // anciennes (champ `photos`) → enlever \\ fin
+          const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
+          // nouvelles (table)
+          const newList = explodeRefs(it.intervention_images);
 
-        // fusion + dédoublonnage via clé bucket
-        const merged = [...oldUris, ...newUris];
-        const seen = new Set();
-        const dedup = [];
-        for (const u of merged) {
-          const k = bucketKeyLocal(u);
-          if (k && !seen.has(k)) {
-            seen.add(k);
-            dedup.push(u);
+          // convertir en URI affichables
+          const oldUris = oldList.map(resolveImageUri).filter(Boolean);
+          const newUris = newList.map(resolveImageUri).filter(Boolean);
+
+          // fichiers presents dans le Storage sans ligne en base
+          const [fromSupp, fromAlt] = await Promise.all([
+            listFolderUris("supplementaires", it.id),
+            listFolderUris("intervention_images", it.id),
+          ]);
+
+          // ancienne convention : fichiers old_images/ dont le nom contient
+          // l'id de cette intervention
+          const fromOldImages = oldImagesFiles
+            .filter((f) => f.name.includes(it.id))
+            .map((f) => resolveImageUri(`old_images/${f.name}`))
+            .filter(Boolean);
+
+          // fusion + dédoublonnage via clé bucket
+          const merged = [
+            ...oldUris,
+            ...newUris,
+            ...fromSupp,
+            ...fromAlt,
+            ...fromOldImages,
+          ];
+          const seen = new Set();
+          const dedup = [];
+          for (const u of merged) {
+            const k = bucketKeyLocal(u);
+            if (k && !seen.has(k)) {
+              seen.add(k);
+              dedup.push(u);
+            }
           }
-        }
 
-        // enlever l'étiquette des extras
-        const extras = dedup.filter((u) => !sameImageLocal(u, labelUri));
+          // enlever l'étiquette des extras
+          const extras = dedup.filter((u) => !sameImageLocal(u, labelUri));
 
-        return {
-          ...it,
-          _labelUri: labelUri || null,
-          _extraUris: extras,
-        };
-      });
+          return {
+            ...it,
+            _labelUri: labelUri || null,
+            _extraUris: extras,
+          };
+        })
+      );
 
       setRecoveredClients(normalized);
       setFilteredClients(normalized);

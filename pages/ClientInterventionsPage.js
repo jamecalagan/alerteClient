@@ -48,6 +48,11 @@ const cleanRefNoToken = (raw) => {
   s = stripQuotes(s).trim().replace(/\\+$/g, "");
   const q = s.indexOf("?");
   if (q > -1) s = s.slice(0, q);
+  // Ramène à la clé stable dans le bucket : une URL publique et une URL
+  // signée du même fichier doivent être reconnues comme identiques.
+  const m = s.match(/\/storage\/v1\/object\/(?:public|sign)\/images\/(.+)$/i);
+  if (m && m[1]) return m[1];
+  if (s.startsWith("images/")) return s.slice(7);
   return s;
 };
 
@@ -101,6 +106,29 @@ const listFolderUrls = async (folder, interventionId) => {
     }
 
     out.sort((a, b) => b.localeCompare(a));
+    return out;
+  } catch {
+    return [];
+  }
+};
+
+// Ancienne convention : fichiers old_images/ stockés à plat, nommés
+// "<ficheNumber>_<nom>_<interventionId>_<timestamp>.jpg" (pas de sous-dossier
+// par intervention). Liste tout le dossier (à appeler une seule fois).
+const listOldImagesFiles = async () => {
+  try {
+    const out = [];
+    const LIMIT = 1000;
+    let offset = 0;
+    while (true) {
+      const { data: files, error } = await supabase.storage
+        .from("images")
+        .list("old_images", { limit: LIMIT, offset });
+      if (error || !files || files.length === 0) break;
+      out.push(...files.filter((f) => f?.name));
+      if (files.length < LIMIT) break;
+      offset += LIMIT;
+    }
     return out;
   } catch {
     return [];
@@ -215,6 +243,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
         if (error) throw error;
 
+        const oldImagesFiles = await listOldImagesFiles();
+
         const enriched = await Promise.all(
           (data || []).map(async (it) => {
             // Label : BDD/Storage puis fallback local
@@ -237,12 +267,12 @@ export default function ClientInterventionsPage({ route, navigation }) {
             try {
               const { data: rows, error: imgErr } = await supabase
                 .from("intervention_images")
-                .select("image_data, image_url, url, path")
+                .select("image_data, file_path")
                 .eq("intervention_id", it.id);
 
               if (!imgErr && Array.isArray(rows)) {
                 const raws = rows.map(
-                  (r) => r?.image_data || r?.image_url || r?.url || r?.path || ""
+                  (r) => r?.image_data || r?.file_path || ""
                 );
                 photosTable = await Promise.all(raws.map((p) => toUrl(p)));
               }
@@ -252,20 +282,34 @@ export default function ClientInterventionsPage({ route, navigation }) {
             const fromSupp = await listFolderUrls("supplementaires", it.id);
             const fromAlt = await listFolderUrls("intervention_images", it.id);
 
+            // Ancienne convention old_images/ (nom de fichier contenant l'id)
+            const fromOldImagesRaw = oldImagesFiles.filter((f) =>
+              f.name.includes(it.id)
+            );
+            const fromOldImages = await Promise.all(
+              fromOldImagesRaw.map((f) => toUrl(`old_images/${f.name}`))
+            );
+
             // Local
             const { labelLocal, photosLocal, sigLocal } =
               await listLocalBackupImages(selectedClient?.ficheNumber, it.id);
 
             const finalLabel = label || labelLocal || "";
 
-            // Fusion & dédup
-            const pool = [
+            // Fusion & dédup — le cache local (photosLocal) contient les
+            // mêmes photos que le cloud sous des noms différents (impossible
+            // à dédupliquer par nom) : on ne l'utilise qu'en repli, si rien
+            // n'a été trouvé côté cloud, pas en plus.
+            const cloudPhotos = [
               ...photosDB,
               ...photosTable,
               ...fromSupp,
               ...fromAlt,
-              ...photosLocal,
-            ].filter(Boolean);
+              ...fromOldImages,
+            ];
+            const pool = (
+              cloudPhotos.length > 0 ? cloudPhotos : photosLocal
+            ).filter(Boolean);
 
             const seen = new Set();
             const uniq = [];
@@ -291,9 +335,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
               ? cleanRefKeepToken(it.signatureIntervention)
               : "";
             const photosWithSig = sig ? [...photos, sig] : photos;
-            const photosWithSigLocal = sigLocal
-              ? [...photosWithSig, sigLocal]
-              : photosWithSig;
+            const photosWithSigLocal =
+              !sig && sigLocal ? [...photosWithSig, sigLocal] : photosWithSig;
 
             return { ...it, label_photo: finalLabel, photos: photosWithSigLocal };
           })

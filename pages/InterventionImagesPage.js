@@ -22,7 +22,6 @@ const SUBFOLDERS = [
   "etiquettes",
   "images",
   "intervention_images",
-  "old_images",
   "signatures",
   "supplementaires",
 ];
@@ -92,12 +91,12 @@ export default function InterventionImagesPage({ navigation }) {
         try {
           const { data: rows, error: rowsErr } = await supabase
             .from("intervention_images")
-            .select("id, uri, key, created_at")
+            .select("id, image_data, file_path, created_at")
             .eq("intervention_id", interventionId)
             .order("created_at", { ascending: false });
           if (!rowsErr && Array.isArray(rows)) {
             fromTable = rows
-              .map((r) => r?.uri || r?.key)
+              .map((r) => r?.image_data || r?.file_path)
               .filter((u) => typeof u === "string" && u.length > 2)
               .map((u) => ({
                 id: `tb_${u}`,
@@ -126,9 +125,25 @@ export default function InterventionImagesPage({ navigation }) {
           }
         }
 
+        // 3b) — Ancienne convention : fichiers old_images/ nommés à plat
+        // "<ficheNumber>_<nom>_<interventionId>_<timestamp>.jpg" (pas de
+        // sous-dossier par intervention, contrairement aux autres dossiers).
+        const fromOldImages = [];
+        const oldImagesFiles = await listFolderAll("old_images");
+        for (const f of oldImagesFiles) {
+          if (!f.name.includes(interventionId)) continue;
+          const key = `old_images/${f.name}`;
+          fromOldImages.push({
+            id: `st_old_images_${f.name}`,
+            name: f.name,
+            uri: toPublicUrl(key),
+            source: "storage:old_images",
+          });
+        }
+
         // 4) — Dédupe par URI finale
         const uniq = new Map();
-        [...fromLabel, ...fromPhotos, ...fromTable, ...fromStorage].forEach((it) => {
+        [...fromLabel, ...fromPhotos, ...fromTable, ...fromStorage, ...fromOldImages].forEach((it) => {
           if (!it?.uri) return;
           if (!uniq.has(it.uri)) uniq.set(it.uri, it);
         });
@@ -282,7 +297,10 @@ function toPublicUrl(raw) {
   if (!raw || typeof raw !== "string") return null;
   if (/^https?:\/\//i.test(raw) || raw.startsWith("data:")) return raw;
   try {
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(raw);
+    // Le bucket est déjà "images" : un chemin stocké avec ce préfixe
+    // doublerait sinon le segment dans l'URL générée.
+    const key = raw.startsWith("images/") ? raw.slice(7) : raw;
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(key);
     return data?.publicUrl || null;
   } catch {
     return null;
@@ -298,8 +316,33 @@ async function listFolder(prefix) {
       offset: 0,
     });
     if (error || !Array.isArray(data)) return [];
-    // On ne retient que les fichiers image
-    return data.filter((it) => it && it.name && IMG_RE.test(it.name));
+    // On retient tout fichier (pas seulement les extensions connues) : la
+    // page "Interventions du client" n'a pas ce filtre et trouve plus de
+    // photos que celle-ci, donc certains fichiers passaient au travers.
+    return data.filter((it) => it && it.name);
+  } catch {
+    return [];
+  }
+}
+
+// Liste complète (paginée) d'un dossier à plat, potentiellement volumineux
+// (ex: old_images/, qui contient l'historique de toutes les interventions).
+async function listFolderAll(prefix) {
+  try {
+    const out = [];
+    const LIMIT = 1000;
+    let offset = 0;
+    while (true) {
+      const { data, error } = await supabase.storage.from(BUCKET).list(prefix, {
+        limit: LIMIT,
+        offset,
+      });
+      if (error || !Array.isArray(data) || data.length === 0) break;
+      out.push(...data.filter((it) => it && it.name));
+      if (data.length < LIMIT) break;
+      offset += LIMIT;
+    }
+    return out;
   } catch {
     return [];
   }

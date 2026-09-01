@@ -4,10 +4,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  SafeAreaView,
   ScrollView,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureScreen from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
 import { useNavigation, useRoute } from "@react-navigation/native";

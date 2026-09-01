@@ -4772,7 +4772,10 @@ interventions(
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      // scope "local" : ne termine que la session de cet appareil, pas celle
+      // des autres tablettes connectées avec le même compte (scope par
+      // défaut "global", qui révoque la session partout).
+      const { error } = await supabase.auth.signOut({ scope: "local" });
 
       if (error) {
         console.error("Erreur lors de la déconnexion :", error);

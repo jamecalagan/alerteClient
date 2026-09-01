@@ -6,8 +6,8 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as Print from "expo-print";

@@ -305,6 +305,7 @@ const { data, error } = await supabase
     received_at,
     installed,
     installed_at,
+    include_in_intervention,
     position
     )
 `)
@@ -398,6 +399,7 @@ installed: allInstalled,
     received_at,
     installed,
     installed_at,
+    include_in_intervention,
     position
     )
 `)
@@ -500,24 +502,19 @@ const handleAddProductToOrder = async () => {
         return;
     }
 
-    const unitPrice = included
-        ? 0
-        : parseFloat(
-              String(newOrder.price || "0").replace(
-                  ",",
-                  "."
-              )
-          ) || 0;
+    // On garde le prix et la quantité saisis même quand « coût inclus »
+    // est coché (juste grisés à l'écran) : seul le total facturé de la
+    // commande doit exclure ce montant, pas la valeur mémorisée sur
+    // l'article (sinon elle disparaît à la réouverture de l'édition).
+    const unitPrice =
+        parseFloat(
+            String(newOrder.price || "0").replace(",", ".")
+        ) || 0;
 
-    const quantity = included
-        ? 1
-        : Math.max(
-              1,
-              parseInt(
-                  String(newOrder.quantity || "1"),
-                  10
-              ) || 1
-          );
+    const quantity = Math.max(
+        1,
+        parseInt(String(newOrder.quantity || "1"), 10) || 1
+    );
 
     if (!included && unitPrice <= 0) {
         showAlert(
@@ -554,6 +551,7 @@ const handleAddProductToOrder = async () => {
                     ),
                     quantity,
                     unit_price: unitPrice,
+                    include_in_intervention: included,
                 })
                 .eq("id", editingOrderItem.id);
 
@@ -1600,7 +1598,7 @@ const recalculateOrderSummary = async (orderId) => {
         const { data: items, error: itemsError } =
             await supabase
                 .from("order_items")
-                .select("quantity, unit_price")
+                .select("quantity, unit_price, include_in_intervention")
                 .eq("order_id", orderId);
 
         if (itemsError) throw itemsError;
@@ -1620,15 +1618,20 @@ const recalculateOrderSummary = async (orderId) => {
                 0
             );
 
+        // Le coût des articles "coût inclus dans l'intervention" n'est
+        // pas facturé sur la commande : on l'exclut du total, même si le
+        // prix unitaire est conservé en base pour l'affichage/édition.
         const total =
             safeItems.reduce(
                 (sum, item) =>
-                    sum +
-                    Number(item.unit_price || 0) *
-                        Math.max(
-                            1,
-                            Number(item.quantity || 1)
-                        ),
+                    item.include_in_intervention
+                        ? sum
+                        : sum +
+                          Number(item.unit_price || 0) *
+                              Math.max(
+                                  1,
+                                  Number(item.quantity || 1)
+                              ),
                 0
             );
 
@@ -1921,11 +1924,7 @@ const deleteOrderItem = async (orderItem) => {
                         placeholder="Prix unitaire (€)"
                         placeholderTextColor="#000"
                         keyboardType="numeric"
-                        value={
-                            newOrder.include_in_intervention
-                                ? ""
-                                : newOrder.price
-                        }
+                        value={newOrder.price}
                         onChangeText={(t) => {
                             // Si un prix d'achat est déjà saisi, en déduire la marge
                             // correspondante (et donc le prix estimé, aligné dessus).
@@ -1979,11 +1978,7 @@ const deleteOrderItem = async (orderItem) => {
                             placeholderTextColor="#000"
                             keyboardType="numeric"
                             inputMode="numeric"
-                            value={
-                                newOrder.include_in_intervention
-                                    ? ""
-                                    : newOrder.quantity
-                            }
+                            value={newOrder.quantity}
                             onChangeText={(t) => {
                                 const clean = (t ?? "").replace(/[^0-9]/g, "");
                                 setNewOrder({ ...newOrder, quantity: clean });

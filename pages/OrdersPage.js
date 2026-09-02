@@ -3278,7 +3278,17 @@ const deleteOrderItem = async (orderItem) => {
                                             </Text>
                                         </TouchableOpacity>
 
-                                        <BackButton onPress={() => navigation.goBack()} />
+                                        <BackButton
+                                            onPress={() => navigation.goBack()}
+                                            style={{
+                                                width: "30%",
+                                                alignSelf: "auto",
+                                                paddingVertical: 10,
+                                                paddingHorizontal: 0,
+                                                borderRadius: 8,
+                                                marginVertical: 6,
+                                            }}
+                                        />
                                     </View>
                                 </View>
                             )}

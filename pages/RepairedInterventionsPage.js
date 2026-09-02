@@ -815,6 +815,32 @@ export default function RepairedInterventionsPage({ navigation }) {
 
                 <TouchableOpacity
                   style={styles.actionBtn}
+                  onPress={() => {
+                    setSelectedInterventionId(item.id);
+                    setSelectedInterventionPhone(item.clients?.phone || null);
+                    setSelectedInterventionDeviceType(
+                      item.deviceType || "appareil"
+                    );
+                    setNotifyModalVisible(true);
+                  }}
+                >
+                  <Ionicons
+                    name="notifications-outline"
+                    size={18}
+                    color={item?.notifiedBy ? "#00c853" : "#475569"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      item?.notifiedBy && { color: "#00c853" },
+                    ]}
+                  >
+                    Notifier
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionBtn}
                   onPress={() =>
                     navigation.navigate("EditIntervention", {
                       interventionId: item.id,

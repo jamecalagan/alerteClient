@@ -8,7 +8,9 @@ import {
     TouchableOpacity,
     Linking,
     Image,
+    ActivityIndicator,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../supabaseClient";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
@@ -33,6 +35,7 @@ export default function ClientNotificationsPage() {
     const [alertMessage, setAlertMessage] = useState("");
     const [urgentCount, setUrgentCount] = useState(0);
     const [reviewConfirmItem, setReviewConfirmItem] = useState(null);
+    const [uploadingScreenshotId, setUploadingScreenshotId] = useState(null);
 
     const showAlert = (title, message) => {
         setAlertTitle(title);
@@ -148,6 +151,7 @@ export default function ClientNotificationsPage() {
                     notifiedBy: order.notified ? "SMS" : null,
                     notifiedat: null,
                     intervention_id: null,
+                    order_id: order.id,
                     deviceType: "Commande",
                     status: "Commande",
                 });
@@ -208,6 +212,205 @@ export default function ClientNotificationsPage() {
         const startIndex = (currentPage - 1) * itemsPerPage;
         const paginated = results.slice(startIndex, startIndex + itemsPerPage);
         setFiltered(paginated);
+    };
+
+    // Capture d'écran d'un échange SMS (ex: mot de passe renvoyé par le
+    // client) : sélectionnée dans la galerie, uploadée comme une photo
+    // supplémentaire de l'intervention (même mécanisme que sur la Home).
+    const pickAndUploadScreenshot = async (client) => {
+        if (!client.intervention_id) return;
+
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== "granted") {
+            showAlert(
+                "Permission requise",
+                "Autorisez l'accès à la galerie pour ajouter une capture d'écran."
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            base64: false,
+            allowsEditing: false,
+        });
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+
+        const asset = result.assets[0];
+        const interventionId = client.intervention_id;
+        setUploadingScreenshotId(client.id);
+
+        try {
+            const uriWithoutQuery = asset.uri.split("?")[0];
+            const rawExtension =
+                uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+            const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+            const extension = allowedExtensions.includes(rawExtension)
+                ? rawExtension
+                : "jpg";
+            const mimeType =
+                asset.mimeType ||
+                (extension === "png"
+                    ? "image/png"
+                    : extension === "webp"
+                    ? "image/webp"
+                    : "image/jpeg");
+
+            const filePath = `supplementaires/${interventionId}/${Date.now()}.${extension}`;
+            const file = {
+                uri: asset.uri,
+                name: filePath.split("/").pop(),
+                type: mimeType,
+            };
+
+            const { error: uploadError } = await supabase.storage
+                .from("images")
+                .upload(filePath, file, {
+                    cacheControl: "3600",
+                    upsert: true,
+                    contentType: mimeType,
+                });
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+                .from("images")
+                .getPublicUrl(filePath);
+            const publicUrl = publicUrlData?.publicUrl || filePath;
+
+            const { data: currentRow, error: readError } = await supabase
+                .from("interventions")
+                .select("product_photos")
+                .eq("id", interventionId)
+                .single();
+            if (readError) throw readError;
+
+            const nextPhotos = [
+                ...(Array.isArray(currentRow?.product_photos)
+                    ? currentRow.product_photos
+                    : []),
+                publicUrl,
+            ];
+
+            const { error: updateError } = await supabase
+                .from("interventions")
+                .update({ product_photos: nextPhotos })
+                .eq("id", interventionId);
+            if (updateError) throw updateError;
+
+            showAlert(
+                "Capture ajoutée",
+                "La capture d'écran a été ajoutée à l'intervention."
+            );
+        } catch (error) {
+            console.error("📷❌ Ajout capture SMS :", error);
+            showAlert(
+                "Erreur",
+                error?.message || "Impossible d'ajouter la capture."
+            );
+        } finally {
+            setUploadingScreenshotId(null);
+        }
+    };
+
+    // Même chose pour un client qui n'a qu'une commande (pas d'intervention) :
+    // la capture est rattachée à la commande (orders.order_photos).
+    const pickAndUploadOrderScreenshot = async (client) => {
+        if (!client.order_id) return;
+
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== "granted") {
+            showAlert(
+                "Permission requise",
+                "Autorisez l'accès à la galerie pour ajouter une capture d'écran."
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.7,
+            base64: false,
+            allowsEditing: false,
+        });
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+
+        const asset = result.assets[0];
+        const orderId = client.order_id;
+        setUploadingScreenshotId(client.id);
+
+        try {
+            const uriWithoutQuery = asset.uri.split("?")[0];
+            const rawExtension =
+                uriWithoutQuery.split(".").pop()?.toLowerCase() || "jpg";
+            const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+            const extension = allowedExtensions.includes(rawExtension)
+                ? rawExtension
+                : "jpg";
+            const mimeType =
+                asset.mimeType ||
+                (extension === "png"
+                    ? "image/png"
+                    : extension === "webp"
+                    ? "image/webp"
+                    : "image/jpeg");
+
+            const filePath = `commandes/${orderId}/${Date.now()}.${extension}`;
+            const file = {
+                uri: asset.uri,
+                name: filePath.split("/").pop(),
+                type: mimeType,
+            };
+
+            const { error: uploadError } = await supabase.storage
+                .from("images")
+                .upload(filePath, file, {
+                    cacheControl: "3600",
+                    upsert: true,
+                    contentType: mimeType,
+                });
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+                .from("images")
+                .getPublicUrl(filePath);
+            const publicUrl = publicUrlData?.publicUrl || filePath;
+
+            const { data: currentRow, error: readError } = await supabase
+                .from("orders")
+                .select("order_photos")
+                .eq("id", orderId)
+                .single();
+            if (readError) throw readError;
+
+            const nextPhotos = [
+                ...(Array.isArray(currentRow?.order_photos)
+                    ? currentRow.order_photos
+                    : []),
+                publicUrl,
+            ];
+
+            const { error: updateError } = await supabase
+                .from("orders")
+                .update({ order_photos: nextPhotos })
+                .eq("id", orderId);
+            if (updateError) throw updateError;
+
+            showAlert(
+                "Capture ajoutée",
+                "La capture d'écran a été ajoutée à la commande."
+            );
+        } catch (error) {
+            console.error("📷❌ Ajout capture SMS (commande) :", error);
+            showAlert(
+                "Erreur",
+                error?.message || "Impossible d'ajouter la capture."
+            );
+        } finally {
+            setUploadingScreenshotId(null);
+        }
     };
 
     const notifyClient = async (client, method) => {
@@ -543,6 +746,46 @@ export default function ClientNotificationsPage() {
                                 ⭐ Avis Google
                             </Text>
                         </TouchableOpacity>
+
+                        {!!item.intervention_id && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionButton,
+                                    { backgroundColor: "#6b7280" },
+                                ]}
+                                onPress={() => pickAndUploadScreenshot(item)}
+                                disabled={uploadingScreenshotId === item.id}
+                            >
+                                {uploadingScreenshotId === item.id ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.actionText}>
+                                        📷 Capture SMS
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
+
+                        {!item.intervention_id && !!item.order_id && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionButton,
+                                    { backgroundColor: "#6b7280" },
+                                ]}
+                                onPress={() =>
+                                    pickAndUploadOrderScreenshot(item)
+                                }
+                                disabled={uploadingScreenshotId === item.id}
+                            >
+                                {uploadingScreenshotId === item.id ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.actionText}>
+                                        📷 Capture SMS
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </View>

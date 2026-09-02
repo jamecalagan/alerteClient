@@ -1056,28 +1056,6 @@ const handleCancelOrder = (ord) => {
         });
     };
 
-    const notifyOrderBySMS = async (ord) => {
-        if (!clientPhone) {
-            showAlert("Erreur", "Numéro de téléphone manquant.");
-            return;
-        }
-        const message = `Bonjour, votre commande ${ord.product} est prête. Merci et à bientôt.\n\nAVENIR INFORMATIQUE`;
-        const encoded = encodeURIComponent(message);
-        try {
-            const { error } = await supabase
-                .from("orders")
-                .update({ notified: true })
-                .eq("id", ord.id);
-            if (error) throw error;
-            Linking.openURL(`sms:${clientPhone}?body=${encoded}`);
-            showAlert("Notification envoyée");
-            loadOrders();
-        } catch (e) {
-            console.error("Erreur notification :", e);
-            showAlert("Erreur", "Impossible d’enregistrer la notification.");
-        }
-    };
-
   // ====== PHOTOS (multi) ======
 
 const ensureCameraPermission = async () => {
@@ -3221,15 +3199,9 @@ const deleteOrderItem = async (orderItem) => {
                                             ]}
                                             disabled={!item.received}
                                             onPress={() =>
-                                                openConfirm(
-                                                    item.notified
-                                                        ? "Renvoyer la notification"
-                                                        : "Notifier le client",
-                                                    item.notified
-                                                        ? "Le client a déjà été notifié pour cette commande. Envoyer un nouveau SMS ?"
-                                                        : "Envoyer un SMS pour prévenir le client que sa commande est prête ?",
-                                                    () => notifyOrderBySMS(item),
-                                                    "Envoyer"
+                                                navigation.navigate(
+                                                    "ClientNotificationsPage",
+                                                    { clientId }
                                                 )
                                             }
                                         >

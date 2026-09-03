@@ -5066,9 +5066,10 @@ const ordersWithPhotos = activeOrders.map((order) => {
   setSearchSelectedClient(client);
   setSearchActionVisible(true);
 
-  // Ferme immédiatement la liste de recherche
+  // Ferme immédiatement la liste de recherche (texte ET résultats affichés)
   setSearchText("");
-  
+  setFilteredClients(clients);
+
 };
 
 

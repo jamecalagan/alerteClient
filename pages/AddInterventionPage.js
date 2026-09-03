@@ -363,6 +363,12 @@ const [
 	// ✅ Dictionnaire des descriptions de panne
 const [faultList, setFaultList] = useState([]);
 const [faultModalVisible, setFaultModalVisible] = useState(false);
+
+// Barème de réparations (repair_prices) : suggestion de tarif pour le
+// type d'appareil courant, pour éviter d'aller chercher le prix ailleurs.
+const [priceList, setPriceList] = useState([]);
+const [priceListVisible, setPriceListVisible] = useState(false);
+const [priceListLoading, setPriceListLoading] = useState(false);
 const [faultSearch, setFaultSearch] = useState("");
 const [faultLoading, setFaultLoading] = useState(false);
 
@@ -566,6 +572,60 @@ const loadFaultDictionary = async () => {
     setFaultList([]);
   } finally {
     setFaultLoading(false);
+  }
+};
+
+// Ouvre le barème de réparations filtré sur le type d'appareil courant,
+// pour suggérer un tarif sans avoir à quitter la fiche.
+const openPriceList = async () => {
+  const currentType = getCurrentDeviceTypeName();
+  const currentModel = getCurrentModelName();
+
+  setPriceListVisible(true);
+  setPriceListLoading(true);
+
+  try {
+    const queries = [];
+    if (currentType) {
+      queries.push(
+        supabase
+          .from("repair_prices")
+          .select("id, product_type, issue, symptoms, price_min, price_max")
+          .ilike("product_type", currentType)
+      );
+    }
+    if (currentModel && norm(currentModel) !== norm(currentType)) {
+      queries.push(
+        supabase
+          .from("repair_prices")
+          .select("id, product_type, issue, symptoms, price_min, price_max")
+          .ilike("product_type", currentModel)
+      );
+    }
+
+    if (queries.length === 0) {
+      setPriceList([]);
+      return;
+    }
+
+    const results = await Promise.all(queries);
+    for (const r of results) {
+      if (r.error) throw r.error;
+    }
+
+    const byId = new Map();
+    results.forEach((r) => (r.data || []).forEach((p) => byId.set(p.id, p)));
+    const merged = Array.from(byId.values()).sort((a, b) =>
+      (a.issue || "").localeCompare(b.issue || "")
+    );
+
+    setPriceList(merged);
+  } catch (error) {
+    console.error("❌ Chargement barème de réparations :", error);
+    showAlert("Erreur", "Impossible de charger le barème de réparations.");
+    setPriceList([]);
+  } finally {
+    setPriceListLoading(false);
   }
 };
 
@@ -2262,6 +2322,20 @@ onPress={() => {
           />
         </FloatingField>
 
+        {status !== "Devis en cours" &&
+          !!(deviceType && deviceType !== "default") && (
+            <TouchableOpacity
+              style={styles.priceListButton}
+              onPress={openPriceList}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="price-check" size={18} color="#0d9488" />
+              <Text style={styles.priceListButtonText}>
+                Voir le barème de réparations
+              </Text>
+            </TouchableOpacity>
+          )}
+
         <View>
           <View>
             <View style={[styles.checkboxContainer, { marginBottom: 20 }]}>
@@ -2919,6 +2993,65 @@ onPress={() => {
               ➕ Ajouter une nouvelle panne
             </Text>
           </TouchableOpacity>
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+{/* Modale du barème de réparations (suggestion de tarif) */}
+<Modal
+  visible={priceListVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setPriceListVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setPriceListVisible(false)}>
+    <View style={styles.faultModalOverlay}>
+      <TouchableWithoutFeedback onPress={() => {}}>
+        <View style={styles.faultModalBox}>
+          <Text style={styles.faultModalTitle}>Barème de réparations</Text>
+          <Text style={styles.faultRowDevice}>
+            {getCurrentDeviceTypeName() || "Tous types"}
+          </Text>
+
+          <ScrollView
+            style={styles.faultListScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {priceListLoading ? (
+              <Text style={styles.faultEmptyText}>Chargement…</Text>
+            ) : priceList.length === 0 ? (
+              <Text style={styles.faultEmptyText}>
+                Aucun tarif enregistré pour ce type d'appareil.
+              </Text>
+            ) : (
+              priceList.map((item) => (
+                <TouchableOpacity
+                  key={String(item.id)}
+                  style={styles.faultRow}
+                  onPress={() => {
+                    setCost(normalizeNumber(String(item.price_min)));
+                    setPriceListVisible(false);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.faultRowDescription}>
+                      {item.issue}
+                    </Text>
+                    {!!item.symptoms && (
+                      <Text style={styles.faultRowDevice}>
+                        {item.symptoms}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={styles.faultRowDescription}>
+                    {item.price_min} € – {item.price_max} €
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
     </View>
@@ -3823,6 +3956,25 @@ addFaultButton: {
   borderRadius: 10,
   backgroundColor: "#047857",
   alignItems: "center",
+},
+
+priceListButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  marginTop: -12,
+  marginBottom: 16,
+  paddingVertical: 8,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#99f6e4",
+  backgroundColor: "#f0fdfa",
+},
+priceListButtonText: {
+  color: "#0d9488",
+  fontWeight: "700",
+  fontSize: 13,
 },
 
 addFaultButtonText: {

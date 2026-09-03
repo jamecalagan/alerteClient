@@ -78,6 +78,9 @@ export default function OrdersPage({ route, navigation, order }) {
     // —— Rappel fournisseur manquant au moment de "Marquer passée" ——
     const [fournisseurReminder, setFournisseurReminder] = useState(null);
 
+    // —— Suggestions de fournisseurs déjà utilisés (autocomplétion) ——
+    const [knownFournisseurs, setKnownFournisseurs] = useState([]);
+
     // —— Proposition de facturation au moment de "Marquer récupérée" ——
     const [invoicePromptOrder, setInvoicePromptOrder] = useState(null);
 
@@ -271,6 +274,30 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
             loadOrders();
         }
     }, [route.params?.refreshAt]);
+
+    // Charge une seule fois la liste des fournisseurs déjà saisis, pour
+    // proposer des suggestions au lieu de retaper le nom à chaque article.
+    useEffect(() => {
+        const loadKnownFournisseurs = async () => {
+            const { data, error } = await supabase
+                .from("order_items")
+                .select("fournisseur")
+                .not("fournisseur", "is", null);
+            if (error) {
+                console.error("Erreur chargement fournisseurs :", error);
+                return;
+            }
+            const uniques = [
+                ...new Set(
+                    (data || [])
+                        .map((row) => (row.fournisseur || "").trim())
+                        .filter(Boolean)
+                ),
+            ].sort((a, b) => a.localeCompare(b));
+            setKnownFournisseurs(uniques);
+        };
+        loadKnownFournisseurs();
+    }, []);
 
     const toBool = (v) => v === true || v === "true" || v === 1;
 
@@ -487,6 +514,18 @@ const resetNewOrderProduct = () => {
     }));
 };
 
+// Ajoute un fournisseur aux suggestions s'il est nouveau, sans attendre
+// un rechargement complet de la page.
+const learnFournisseur = (name) => {
+    const cleaned = (name || "").trim();
+    if (!cleaned) return;
+    setKnownFournisseurs((prev) =>
+        prev.some((f) => f.toLowerCase() === cleaned.toLowerCase())
+            ? prev
+            : [...prev, cleaned].sort((a, b) => a.localeCompare(b))
+    );
+};
+
 const handleAddProductToOrder = async () => {
     const included =
         !!newOrder.include_in_intervention;
@@ -572,6 +611,7 @@ const handleAddProductToOrder = async () => {
 await recalculateOrderSummary(
     editingOrderItem.order_id
 );
+            learnFournisseur(newOrder.fournisseur);
             setEditingOrderItem(null);
             resetNewOrderProduct();
 
@@ -623,6 +663,8 @@ await recalculateOrderSummary(
         include_in_intervention: included,
         received: false,
     };
+
+    learnFournisseur(item.fournisseur);
 
     setNewOrderItems((previous) => [
         ...previous,
@@ -1786,6 +1828,35 @@ const deleteOrderItem = async (orderItem) => {
                             setNewOrder({ ...newOrder, fournisseur: t })
                         }
                     />
+
+                    {knownFournisseurs.length > 0 && (() => {
+                        const typed = (newOrder.fournisseur || "").trim().toLowerCase();
+                        const suggestions = (
+                            typed
+                                ? knownFournisseurs.filter(
+                                      (f) =>
+                                          f.toLowerCase().includes(typed) &&
+                                          f.toLowerCase() !== typed
+                                  )
+                                : knownFournisseurs
+                        ).slice(0, 6);
+                        if (suggestions.length === 0) return null;
+                        return (
+                            <View style={styles.fournisseurSuggestionsRow}>
+                                {suggestions.map((f) => (
+                                    <TouchableOpacity
+                                        key={f}
+                                        style={styles.fournisseurChip}
+                                        onPress={() =>
+                                            setNewOrder({ ...newOrder, fournisseur: f })
+                                        }
+                                    >
+                                        <Text style={styles.fournisseurChipText}>{f}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        );
+                    })()}
 
                     <View style={styles.qtyRow}>
                         <TextInput
@@ -3565,6 +3636,28 @@ const styles = StyleSheet.create({
         width: "92%",
         alignSelf: "center",
         color: "#111",
+    },
+    fournisseurSuggestionsRow: {
+        width: "92%",
+        alignSelf: "center",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 6,
+        marginTop: -4,
+        marginBottom: 10,
+    },
+    fournisseurChip: {
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 14,
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
+    },
+    fournisseurChipText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#4338ca",
     },
     inputDisabled: { opacity: 0.5 },
 

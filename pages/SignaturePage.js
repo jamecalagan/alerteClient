@@ -208,6 +208,55 @@ export default function SignaturePage({ route, navigation }) {
   };
 
   /**
+   * 2b️⃣ Imprimer sans signature numérique : le client signera la feuille
+   * papier à la main. On enregistre quand même la restitution (statut,
+   * garantie, réceptionnaire) mais sans toucher au champ signature.
+   */
+  const handlePrintWithoutSignature = async () => {
+    try {
+      const { error } = await supabase
+        .from("interventions")
+        .update({
+          status: "Récupéré",
+          guarantee: guaranteeText,
+          receiver_name: receiverName,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq("id", interventionId);
+
+      if (error) throw error;
+
+      navigation.navigate("PrintPage", {
+        clientInfo: {
+          name: clientInfo?.clients?.name || "",
+          ficheNumber: clientInfo?.clients?.ficheNumber || "",
+          phone: clientInfo?.clients?.phone || "",
+        },
+        receiverName,
+        guaranteeText,
+        signature: null, // ligne vide à signer à la main sur le papier
+        description,
+        productInfo: {
+          deviceType: clientInfo?.deviceType || "",
+          brand: clientInfo?.brand || "",
+          model: clientInfo?.model || "",
+          reference: clientInfo?.reference || "",
+          cost: clientInfo?.cost || "",
+          remarks: clientInfo?.remarks || "",
+          date: clientInfo?.updatedAt || "",
+          description: clientInfo?.description || "",
+        },
+      });
+    } catch (e) {
+      console.error("Erreur impression sans signature :", e);
+      showAlert(
+        "Erreur",
+        "Une erreur est survenue lors de la sauvegarde et l'impression."
+      );
+    }
+  };
+
+  /**
    * 3️⃣ Imprimer en utilisant la signature dépôt déjà existante
    */
   const handlePrintWithExistingSignature = () => {
@@ -382,6 +431,15 @@ export default function SignaturePage({ route, navigation }) {
               <Text style={styles.buttonText}>Effacer la signature</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.buttonGrey}
+            onPress={handlePrintWithoutSignature}
+          >
+            <Text style={styles.buttonText}>
+              Imprimer sans signature (signature papier à la main)
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 

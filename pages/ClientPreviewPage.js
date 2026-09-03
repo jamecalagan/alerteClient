@@ -938,22 +938,6 @@ ${checkupSignatureHtml}
                     />
                   </View>
                 </View>
-
-                <View style={styles.bottomActionsRow}>
-                  <BackButton onPress={() => navigation.goBack()} />
-
-                  <View style={styles.bottomDivider} />
-
-                  <TouchableOpacity style={styles.bottomAction} onPress={handlePrint}>
-                    <Text style={styles.bottomActionText}>Imprimer</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.bottomDivider} />
-
-                  <TouchableOpacity style={styles.bottomAction} onPress={handlePrintBoth}>
-                    <Text style={styles.bottomActionText}>Imprimer recto-verso</Text>
-                  </TouchableOpacity>
-                </View>
               </>
             ) : (
               <>
@@ -965,6 +949,22 @@ ${checkupSignatureHtml}
                 </TouchableOpacity>
               </>
             )}
+
+            <View style={styles.bottomActionsRow}>
+              <BackButton onPress={() => navigation.goBack()} />
+
+              <View style={styles.bottomDivider} />
+
+              <TouchableOpacity style={styles.bottomAction} onPress={handlePrint}>
+                <Text style={styles.bottomActionText}>Imprimer</Text>
+              </TouchableOpacity>
+
+              <View style={styles.bottomDivider} />
+
+              <TouchableOpacity style={styles.bottomAction} onPress={handlePrintBoth}>
+                <Text style={styles.bottomActionText}>Imprimer recto-verso</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>

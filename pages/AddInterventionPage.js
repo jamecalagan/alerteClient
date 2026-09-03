@@ -369,6 +369,12 @@ const [faultModalVisible, setFaultModalVisible] = useState(false);
 const [priceList, setPriceList] = useState([]);
 const [priceListVisible, setPriceListVisible] = useState(false);
 const [priceListLoading, setPriceListLoading] = useState(false);
+const [newPriceModalVisible, setNewPriceModalVisible] = useState(false);
+const [newPriceIssue, setNewPriceIssue] = useState("");
+const [newPriceSymptoms, setNewPriceSymptoms] = useState("");
+const [newPriceMin, setNewPriceMin] = useState("");
+const [newPriceMax, setNewPriceMax] = useState("");
+const [priceListTarget, setPriceListTarget] = useState("cost"); // "cost" ou "devis"
 const [faultSearch, setFaultSearch] = useState("");
 const [faultLoading, setFaultLoading] = useState(false);
 
@@ -626,6 +632,68 @@ const openPriceList = async () => {
     setPriceList([]);
   } finally {
     setPriceListLoading(false);
+  }
+};
+
+// Ajoute un nouveau tarif au barème (repair_prices) pour le type
+// d'appareil courant, quand la réparation recherchée n'y figure pas.
+const saveNewPrice = async () => {
+  const cleanedIssue = newPriceIssue.trim().replace(/\s+/g, " ");
+  const cleanedSymptoms = newPriceSymptoms.trim().replace(/\s+/g, " ");
+  const min = parseFloat(newPriceMin.replace(",", "."));
+  const max = parseFloat(newPriceMax.replace(",", "."));
+
+  if (!cleanedIssue) {
+    showAlert("Intitulé manquant", "Saisis le type de réparation.");
+    return;
+  }
+  if (isNaN(min) || isNaN(max)) {
+    showAlert("Tarif manquant", "Saisis un prix min et un prix max.");
+    return;
+  }
+
+  const currentType = getCurrentDeviceTypeName();
+  if (!currentType) {
+    showAlert(
+      "Type d'appareil manquant",
+      "Sélectionne d'abord un type d'appareil."
+    );
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("repair_prices")
+      .insert([
+        {
+          product_type: currentType,
+          issue: cleanedIssue,
+          symptoms: cleanedSymptoms || null,
+          price_min: min,
+          price_max: max,
+        },
+      ])
+      .select("id, product_type, issue, symptoms, price_min, price_max")
+      .single();
+
+    if (error) throw error;
+
+    if (priceListTarget === "devis") {
+      setEstimateMin(normalizeNumber(String(data.price_min)));
+      setEstimateMax(normalizeNumber(String(data.price_max)));
+    } else {
+      setCost(normalizeNumber(String(data.price_min)));
+    }
+
+    setNewPriceModalVisible(false);
+    setPriceListVisible(false);
+    setNewPriceIssue("");
+    setNewPriceSymptoms("");
+    setNewPriceMin("");
+    setNewPriceMax("");
+  } catch (error) {
+    console.error("❌ Ajout tarif barème :", error);
+    showAlert("Erreur", error?.message || "Impossible d'ajouter ce tarif.");
   }
 };
 
@@ -2326,7 +2394,10 @@ onPress={() => {
           !!(deviceType && deviceType !== "default") && (
             <TouchableOpacity
               style={styles.priceListButton}
-              onPress={openPriceList}
+              onPress={() => {
+                setPriceListTarget("cost");
+                openPriceList();
+              }}
               activeOpacity={0.8}
             >
               <MaterialIcons name="price-check" size={18} color="#0d9488" />
@@ -2551,6 +2622,26 @@ onPress={() => {
                   Si “plafond” est choisi, le client accepte un maximum garanti (vous facturez ≤{" "}
                   {estimateMax || "…"} €).
                 </Text>
+
+                {!!(deviceType && deviceType !== "default") && (
+                  <TouchableOpacity
+                    style={styles.priceListButton}
+                    onPress={() => {
+                      setPriceListTarget("devis");
+                      openPriceList();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons
+                      name="price-check"
+                      size={18}
+                      color="#0d9488"
+                    />
+                    <Text style={styles.priceListButtonText}>
+                      Voir le barème de réparations
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
@@ -3031,7 +3122,12 @@ onPress={() => {
                   key={String(item.id)}
                   style={styles.faultRow}
                   onPress={() => {
-                    setCost(normalizeNumber(String(item.price_min)));
+                    if (priceListTarget === "devis") {
+                      setEstimateMin(normalizeNumber(String(item.price_min)));
+                      setEstimateMax(normalizeNumber(String(item.price_max)));
+                    } else {
+                      setCost(normalizeNumber(String(item.price_min)));
+                    }
                     setPriceListVisible(false);
                   }}
                 >
@@ -3052,6 +3148,109 @@ onPress={() => {
               ))
             )}
           </ScrollView>
+
+          <TouchableOpacity
+            style={styles.addFaultButton}
+            onPress={() => {
+              setNewPriceIssue("");
+              setNewPriceSymptoms("");
+              setNewPriceMin("");
+              setNewPriceMax("");
+              setNewPriceModalVisible(true);
+            }}
+          >
+            <Text style={styles.addFaultButtonText}>
+              ➕ Ajouter un tarif
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+{/* Modale d'ajout d'un tarif au barème */}
+<Modal
+  visible={newPriceModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setNewPriceModalVisible(false)}
+>
+  <TouchableWithoutFeedback onPress={() => setNewPriceModalVisible(false)}>
+    <View style={styles.faultModalOverlay}>
+      <TouchableWithoutFeedback>
+        <View style={styles.newFaultModalBox}>
+          <Text style={styles.newFaultTitle}>Ajouter un tarif</Text>
+
+          <Text style={styles.newFaultDevice}>
+            Type : {getCurrentDeviceTypeName() || "Tous les appareils"}
+          </Text>
+
+          <Text style={styles.newFaultLabel}>Type de réparation</Text>
+          <TextInput
+            style={styles.newFaultInput}
+            value={newPriceIssue}
+            onChangeText={setNewPriceIssue}
+            placeholder="Exemple : Remplacement écran"
+            placeholderTextColor="#7b8794"
+            multiline
+            autoFocus
+          />
+
+          <Text style={styles.newFaultLabel}>Symptômes (optionnel)</Text>
+          <TextInput
+            style={styles.newFaultInput}
+            value={newPriceSymptoms}
+            onChangeText={setNewPriceSymptoms}
+            placeholder="Exemple : écran fissuré, tactile HS"
+            placeholderTextColor="#7b8794"
+          />
+
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.newFaultLabel}>Prix min (€)</Text>
+              <TextInput
+                style={styles.newFaultInput}
+                value={newPriceMin}
+                onChangeText={setNewPriceMin}
+                placeholder="Ex : 40"
+                placeholderTextColor="#7b8794"
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.newFaultLabel}>Prix max (€)</Text>
+              <TextInput
+                style={styles.newFaultInput}
+                value={newPriceMax}
+                onChangeText={setNewPriceMax}
+                placeholder="Ex : 60"
+                placeholderTextColor="#7b8794"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.newFaultActions}>
+            <TouchableOpacity
+              style={styles.newFaultCancelButton}
+              onPress={() => {
+                setNewPriceModalVisible(false);
+                setNewPriceIssue("");
+                setNewPriceSymptoms("");
+                setNewPriceMin("");
+                setNewPriceMax("");
+              }}
+            >
+              <Text style={styles.newFaultCancelButtonText}>Annuler</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.newFaultSaveButton}
+              onPress={saveNewPrice}
+            >
+              <Text style={styles.newFaultSaveButtonText}>Ajouter</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableWithoutFeedback>
     </View>

@@ -186,8 +186,9 @@ const listLocalBackupImages = async (ficheNumber, interventionId) => {
 /* ─────────── Page ─────────── */
 
 export default function ClientInterventionsPage({ route, navigation }) {
-  const { clientId, interventionId } = route.params;
+  const { clientId } = route.params;
   const [interventions, setInterventions] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -228,14 +229,10 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
     const fetchClientInterventions = async () => {
       try {
-        let query = supabase
+        const query = supabase
           .from("interventions")
           .select("*, photos, label_photo, signatureIntervention")
           .eq("client_id", selectedClient.id);
-
-        if (interventionId) {
-          query = query.eq("id", interventionId);
-        }
 
         const { data, error } = await query.order("createdAt", {
           ascending: false,
@@ -349,7 +346,47 @@ export default function ClientInterventionsPage({ route, navigation }) {
     };
 
     fetchClientInterventions();
-  }, [selectedClient, interventionId]);
+  }, [selectedClient]);
+
+  // Charger les commandes du client
+  useEffect(() => {
+    if (!selectedClient) return;
+
+    const fetchClientOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*, order_items(product, brand, quantity, unit_price, fournisseur)")
+          .eq("client_id", selectedClient.id)
+          .or("deleted.eq.false,deleted.is.null")
+          .order("createdat", { ascending: false });
+
+        if (error) throw error;
+
+        const normalized = await Promise.all(
+          (data || []).map(async (order) => {
+            const orderPhotosRaw = normalizePhotosField(order.order_photos);
+            const productPhotosRaw = normalizePhotosField(order.product_photos);
+            const [orderPhotos, productPhotos] = await Promise.all([
+              Promise.all(orderPhotosRaw.map((p) => toUrl(p))),
+              Promise.all(productPhotosRaw.map((p) => toUrl(p))),
+            ]);
+            return {
+              ...order,
+              order_photos: orderPhotos.filter(Boolean),
+              product_photos: productPhotos.filter(Boolean),
+            };
+          })
+        );
+
+        setOrders(normalized);
+      } catch (err) {
+        console.error("Erreur lors du chargement des commandes :", err);
+      }
+    };
+
+    fetchClientOrders();
+  }, [selectedClient]);
 
   // Liste clients pour recherche
   useEffect(() => {
@@ -412,7 +449,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
       keyboardVerticalOffset={0}
     >
       <View style={{ flex: 1, padding: 20 }}>
-        <Text style={styles.title}>Interventions du client</Text>
+        <Text style={styles.title}>Interventions et commande du client</Text>
 
         <TextInput
           style={styles.searchBar}
@@ -570,6 +607,117 @@ export default function ClientInterventionsPage({ route, navigation }) {
                   </View>
                 </View>
               )}
+              ListFooterComponent={
+                orders.length > 0 ? (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={styles.sectionTitle}>
+                      Commandes du client
+                    </Text>
+                    {orders.map((order) => (
+                      <View key={order.id} style={styles.orderCard}>
+                        <View style={styles.interventionDetails}>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Produit :</Text>{" "}
+                            {order.product || "N/A"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Marque :</Text>{" "}
+                            {order.brand || "N/A"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Modèle :</Text>{" "}
+                            {order.model || "N/A"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Quantité :</Text>{" "}
+                            {order.quantity || 1}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Prix :</Text>{" "}
+                            {order.price} €
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Acompte :</Text>{" "}
+                            {order.deposit || 0} €
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Total :</Text>{" "}
+                            {order.total} €
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Payé :</Text>{" "}
+                            {order.paid ? "Oui" : "Non"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Commandée :</Text>{" "}
+                            {order.ordered ? "Oui" : "Non"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Reçue :</Text>{" "}
+                            {order.received ? "Oui" : "Non"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Récupérée :</Text>{" "}
+                            {order.recovered ? "Oui" : "Non"}
+                          </Text>
+                          <Text style={styles.infoLine}>
+                            <Text style={styles.bold}>Créée le :</Text>{" "}
+                            {fmtDate(order.createdat)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.mediaColumn}>
+                          {Array.isArray(order.product_photos) &&
+                            order.product_photos.length > 0 && (
+                              <>
+                                <Text style={styles.photoGroupLabel}>
+                                  Photo de l'appareil
+                                </Text>
+                                <View style={styles.photosContainer}>
+                                  {order.product_photos.map((uri, index) => (
+                                    <TouchableOpacity
+                                      key={`${order.id}-product-${index}`}
+                                      onPress={() => handleImagePress(uri)}
+                                    >
+                                      <Image
+                                        source={{ uri }}
+                                        style={styles.orderPhotoThumb}
+                                      />
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </>
+                            )}
+
+                          <Text style={styles.photoGroupLabel}>
+                            Photos de la commande
+                          </Text>
+                          <View style={styles.photosContainer}>
+                            {Array.isArray(order.order_photos) &&
+                            order.order_photos.length > 0 ? (
+                              order.order_photos.map((uri, index) => (
+                                <TouchableOpacity
+                                  key={`${order.id}-${index}`}
+                                  onPress={() => handleImagePress(uri)}
+                                >
+                                  <Image
+                                    source={{ uri }}
+                                    style={styles.orderPhotoThumb}
+                                  />
+                                </TouchableOpacity>
+                              ))
+                            ) : (
+                              <Text style={styles.noPhotosText}>
+                                Pas d'images disponibles
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : null
+              }
             />
           </View>
         )}
@@ -682,6 +830,40 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#888787",
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#242424",
+    marginTop: 8,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  orderCard: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: "#e8e3ff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#b396f8",
+  },
+  orderPhotoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#270381",
+    resizeMode: "cover",
+  },
+  photoGroupLabel: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#270381",
+    marginBottom: 4,
+    textAlign: "center",
   },
 
   /* Infos bloc */

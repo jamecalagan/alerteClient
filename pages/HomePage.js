@@ -246,6 +246,47 @@ const pathFromSupabaseUrl = (url) => {
   }
 };
 
+// Déduit la provenance d'une photo (prise à l'appareil photo ou choisie
+// dans la galerie/web) à partir du suffixe ajouté au nom de fichier lors
+// de l'upload (ex: "...._cam.jpg" / "...._web.jpg"). Les photos plus
+// anciennes n'ont pas ce suffixe : provenance inconnue, aucun badge affiché.
+const getPhotoProvenance = (url) => {
+  if (!url || typeof url !== "string") return null;
+  const withoutQuery = url.split("?")[0];
+  if (/_cam\.[a-zA-Z0-9]+$/.test(withoutQuery)) return "cam";
+  if (/_web\.[a-zA-Z0-9]+$/.test(withoutQuery)) return "web";
+  return null;
+};
+
+const PhotoProvenanceBadge = ({ source }) => {
+  if (!source) return null;
+  return (
+    <View
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        paddingVertical: 2,
+        borderBottomLeftRadius: 8,
+        borderBottomRightRadius: 8,
+      }}
+    >
+      <Text
+        style={{
+          color: "#ffffff",
+          fontSize: 8,
+          fontWeight: "bold",
+          textAlign: "center",
+        }}
+      >
+        {source === "cam" ? "RÉELLE" : "WEB"}
+      </Text>
+    </View>
+  );
+};
+
 export default function HomePage({ navigation, route, setUser }) {
   const flatListRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -2643,6 +2684,15 @@ const baseRows = [
         }}
       >
         Photo du produit
+        {devicePhotos.length > 0 &&
+          getPhotoProvenance(devicePhotos[0]?.uri) && (
+            <Text style={{ fontStyle: "italic", fontWeight: "bold" }}>
+              {" "}
+              {getPhotoProvenance(devicePhotos[0]?.uri) === "cam"
+                ? "Réel"
+                : "WEB"}
+            </Text>
+          )}
       </Text>
       {devicePhotos.length > 0 && (
         <Text
@@ -2670,6 +2720,7 @@ const baseRows = [
             key={`device-photo-${photoIndex}`}
             onPress={() => openImageModal(entry.uri)}
             onLongPress={entry.onDelete}
+            style={{ width: 80, height: 80 }}
           >
             <Image
               source={{ uri: entry.uri }}
@@ -2682,6 +2733,7 @@ const baseRows = [
                 resizeMode: "cover",
               }}
             />
+            <PhotoProvenanceBadge source={getPhotoProvenance(entry.uri)} />
           </Pressable>
         ))}
         <TouchableOpacity
@@ -2723,6 +2775,17 @@ const baseRows = [
       Array.isArray(order.order_photos) && order.order_photos.length > 0
   );
 
+  const orderPhotosFournisseur = Array.from(
+    new Set(
+      activeOrders
+        .flatMap((order) =>
+          Array.isArray(order.order_items) ? order.order_items : []
+        )
+        .map((oi) => oi.fournisseur)
+        .filter(Boolean)
+    )
+  ).join(", ");
+
   const orderPhotoBox = (
     <View
       style={{
@@ -2745,6 +2808,14 @@ const baseRows = [
         }}
       >
         Photos des produits commandés
+        {orderPhotosFournisseur ? (
+          <>
+            {" chez : "}
+            <Text style={{ fontStyle: "italic", fontWeight: "bold" }}>
+              {orderPhotosFournisseur}
+            </Text>
+          </>
+        ) : null}
       </Text>
       {hasOrderPhotos && (
         <Text
@@ -2775,6 +2846,7 @@ const baseRows = [
                   key={`${order.id}-order-photo-${photoIndex}`}
                   onPress={() => openImageModal(uri)}
                   onLongPress={() => deleteOrderPhoto(order.id, uri)}
+                  style={{ width: 80, height: 80 }}
                 >
                   <Image
                     source={{ uri }}
@@ -2787,6 +2859,7 @@ const baseRows = [
                       resizeMode: "cover",
                     }}
                   />
+                  <PhotoProvenanceBadge source={getPhotoProvenance(uri)} />
                 </Pressable>
               ))
             : []),
@@ -3282,7 +3355,7 @@ const baseRows = [
 
   // Ajout d'une photo à l'intervention directement depuis la Home
   // (même bucket/dossier "supplementaires" que la création d'intervention).
-  const uploadInterventionPhotoAsset = async (interventionId, asset) => {
+  const uploadInterventionPhotoAsset = async (interventionId, asset, source) => {
     if (!interventionId || !asset?.uri) return;
 
     setUploadingInterventionId(interventionId);
@@ -3303,7 +3376,8 @@ const baseRows = [
           ? "image/webp"
           : "image/jpeg");
 
-      const filePath = `supplementaires/${interventionId}/${Date.now()}.${extension}`;
+      const sourceSuffix = source === "cam" ? "_cam" : source === "web" ? "_web" : "";
+      const filePath = `supplementaires/${interventionId}/${Date.now()}${sourceSuffix}.${extension}`;
 
       const file = {
         uri: asset.uri,
@@ -3362,7 +3436,7 @@ const baseRows = [
     }
   };
 
-  const uploadOrderPhotoAsset = async (orderId, asset) => {
+  const uploadOrderPhotoAsset = async (orderId, asset, source) => {
     if (!orderId || !asset?.uri) return;
 
     setUploadingOrderPhotoId(orderId);
@@ -3383,7 +3457,8 @@ const baseRows = [
           ? "image/webp"
           : "image/jpeg");
 
-      const filePath = `commandes/${orderId}/${Date.now()}.${extension}`;
+      const sourceSuffix = source === "cam" ? "_cam" : source === "web" ? "_web" : "";
+      const filePath = `commandes/${orderId}/${Date.now()}${sourceSuffix}.${extension}`;
 
       const file = {
         uri: asset.uri,
@@ -3457,7 +3532,7 @@ const baseRows = [
 
   // Photo de l'appareil (ex: le PC) lié à une commande sans intervention,
   // distincte de la photo de la pièce commandée (order_photos ci-dessus).
-  const uploadOrderProductPhotoAsset = async (orderId, asset) => {
+  const uploadOrderProductPhotoAsset = async (orderId, asset, source) => {
     if (!orderId || !asset?.uri) return;
 
     setUploadingOrderProductPhotoId(orderId);
@@ -3478,7 +3553,8 @@ const baseRows = [
           ? "image/webp"
           : "image/jpeg");
 
-      const filePath = `commandes-appareil/${orderId}/${Date.now()}.${extension}`;
+      const sourceSuffix = source === "cam" ? "_cam" : source === "web" ? "_web" : "";
+      const filePath = `commandes-appareil/${orderId}/${Date.now()}${sourceSuffix}.${extension}`;
 
       const file = {
         uri: asset.uri,
@@ -3738,7 +3814,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadInterventionPhotoAsset(interventionId, asset);
+    await uploadInterventionPhotoAsset(interventionId, asset, "cam");
   };
 
   const pickAndUploadInterventionPhoto = async (interventionId) => {
@@ -3764,7 +3840,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadInterventionPhotoAsset(interventionId, asset);
+    await uploadInterventionPhotoAsset(interventionId, asset, "web");
   };
 
   const openWebImageSearchForIntervention = async (intervention) => {
@@ -3830,7 +3906,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadOrderPhotoAsset(orderId, asset);
+    await uploadOrderPhotoAsset(orderId, asset, "cam");
   };
 
   const pickAndUploadOrderPhoto = async (orderId) => {
@@ -3856,7 +3932,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadOrderPhotoAsset(orderId, asset);
+    await uploadOrderPhotoAsset(orderId, asset, "web");
   };
 
   const openWebImageSearchForOrder = async (order) => {
@@ -3918,7 +3994,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadOrderProductPhotoAsset(orderId, asset);
+    await uploadOrderProductPhotoAsset(orderId, asset, "cam");
   };
 
   const pickAndUploadOrderProductPhoto = async (orderId) => {
@@ -3944,7 +4020,7 @@ const baseRows = [
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
 
-    await uploadOrderProductPhotoAsset(orderId, asset);
+    await uploadOrderProductPhotoAsset(orderId, asset, "web");
   };
 
   const handleAddOrderProductPhoto = (order) => {

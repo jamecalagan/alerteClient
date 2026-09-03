@@ -30,6 +30,12 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
+
+// TouchableOpacity classique n'anime pas une Animated.Value externe passée
+// via style (seule son animation interne de press le fait) : il faut une
+// version "animée" du composant pour que le clignotement soit visible.
+const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+
 // === Helpers montants ===
 const n = (v) => {
   const x = parseFloat(String(v ?? "").replace(",", "."));
@@ -835,6 +841,37 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
       />
     );
   };
+
+  // Opacité clignotante à appliquer directement sur le style d'un bouton
+  // (pas de View englobante supplémentaire, pour éviter un artefact visuel
+  // avec l'ombre "elevation" des boutons Android).
+  const useBlinkOpacity = () => {
+    const opacity = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0.35,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }, []);
+
+    return opacity;
+  };
+  const notifyBlinkOpacity = useBlinkOpacity();
   // === Bouton carré homogène pour les icônes ===
   const IconSquare = React.memo(function IconSquare({
     source,
@@ -5452,7 +5489,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                 </Text>
               </View>
 
-              <View style={{ marginBottom: 20 }}>
+              <View style={{ marginBottom: 8 }}>
                 {/* —— BARRE DE RECHERCHE —— */}
                 <View
                   style={[
@@ -5571,44 +5608,55 @@ const onPick = () => {
 
               </View>
 
-              <View style={styles.buttonContainerMasquer}>
-                <TouchableOpacity
-                  style={styles.toggleButton}
-                  onPress={openPopup}
-                >
-                  <Text style={styles.toggleText}>En cours</Text>
-                  {popupData.filter((c) => !c.allOnHold).length > 0 && (
-                    <View
-                      style={{
-                        minWidth: 22,
-                        height: 22,
-                        marginLeft: 8,
-                        paddingHorizontal: 5,
-                        borderRadius: 11,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        backgroundColor: "#ffffff",
-                      }}
-                    >
-                      <Text
+              {(() => {
+                const badgeButtons = [];
+
+                badgeButtons.push(
+                  <TouchableOpacity
+                    key="encours"
+                    style={[
+                      styles.toggleButton,
+                      { flex: 1, width: undefined, height: undefined, minHeight: 46 },
+                    ]}
+                    onPress={openPopup}
+                  >
+                    <Text style={styles.toggleText}>En cours</Text>
+                    {popupData.filter((c) => !c.allOnHold).length > 0 && (
+                      <View
                         style={{
-                          color: "#242424",
-                          fontSize: 12,
-                          fontWeight: "bold",
+                          minWidth: 22,
+                          height: 22,
+                          marginLeft: 8,
+                          paddingHorizontal: 5,
+                          borderRadius: 11,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          backgroundColor: "#ffffff",
                         }}
                       >
-                        {popupData.filter((c) => !c.allOnHold).length}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-{onHoldClientsCount > 0 && (
+                        <Text
+                          style={{
+                            color: "#242424",
+                            fontSize: 12,
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {popupData.filter((c) => !c.allOnHold).length}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+
+                if (onHoldClientsCount > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="onhold"
     activeOpacity={0.8}
     onPress={() => setShowOnHoldClients((v) => !v)}
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5625,6 +5673,8 @@ const onPick = () => {
         color: "#9a5b13",
         fontSize: 13,
         fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
       }}
     >
       {showOnHoldClients ? "Masquer mises de côté" : "Mises de côté"}
@@ -5653,16 +5703,19 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-{pendingProposals.length > 0 && (
+                  );
+                }
+                if (pendingProposals.length > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="proposals"
     activeOpacity={0.8}
     onPress={() =>
       setPendingProposalsModalVisible(true)
     }
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5679,6 +5732,8 @@ const onPick = () => {
         color: "#ffffff",
         fontSize: 13,
         fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
       }}
     >
       Propositions
@@ -5707,9 +5762,12 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-{repairedNotReturnedCountSafe > 0 && (
+                  );
+                }
+                if (repairedNotReturnedCountSafe > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="repairedwaiting"
     activeOpacity={0.8}
     onPress={() =>
       navigation.navigate("RepairedInterventionsListPage", {
@@ -5717,8 +5775,8 @@ const onPick = () => {
       })
     }
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5735,6 +5793,8 @@ const onPick = () => {
         color: "#ffffff",
         fontSize: 13,
         fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
       }}
     >
       Réparés en attente
@@ -5763,16 +5823,19 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-{overdueRepairedClients.length > 0 && (
+                  );
+                }
+                if (overdueRepairedClients.length > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="overdue"
     activeOpacity={0.8}
     onPress={() =>
       setOverdueRepairedModalVisible(true)
     }
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5789,6 +5852,8 @@ const onPick = () => {
         color: "#ffffff",
         fontSize: 13,
         fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
       }}
     >
       Non récupérés 30j+
@@ -5817,14 +5882,17 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-{notNotifiedRepaired.length > 0 && (
-  <TouchableOpacity
+                  );
+                }
+                if (notNotifiedRepaired.length > 0) {
+                  badgeButtons.push(
+  <AnimatedTouchableOpacity
+    key="notify"
     activeOpacity={0.8}
     onPress={() => setNotNotifiedRepairedModalVisible(true)}
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5834,9 +5902,18 @@ const onPick = () => {
       borderRadius: 10,
       backgroundColor: "#2563eb",
       elevation: 3,
+      opacity: notifyBlinkOpacity,
     }}
   >
-    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
+      }}
+    >
       À prévenir
     </Text>
     <View
@@ -5855,15 +5932,18 @@ const onPick = () => {
         {notNotifiedRepaired.length}
       </Text>
     </View>
-  </TouchableOpacity>
-)}
-{partsReceivedInterventions.length > 0 && (
+  </AnimatedTouchableOpacity>
+                  );
+                }
+                if (partsReceivedInterventions.length > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="parts"
     activeOpacity={0.8}
     onPress={() => setPartsReceivedModalVisible(true)}
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5875,7 +5955,15 @@ const onPick = () => {
       elevation: 3,
     }}
   >
-    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
+      }}
+    >
       Pièce reçue
     </Text>
     <View
@@ -5895,17 +5983,20 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-{activeOutstandingBalances.length > 0 && (
+                  );
+                }
+                if (activeOutstandingBalances.length > 0) {
+                  badgeButtons.push(
   <TouchableOpacity
+    key="balances"
     activeOpacity={0.8}
     onPress={() => {
       setOutstandingBalancesPage(1);
       setOutstandingBalancesModalVisible(true);
     }}
     style={{
-      height: 46,
-      minWidth: 130,
+      flex: 1,
+      minHeight: 46,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -5917,7 +6008,15 @@ const onPick = () => {
       elevation: 3,
     }}
   >
-    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
+    <Text
+      style={{
+        color: "#ffffff",
+        fontSize: 13,
+        fontWeight: "bold",
+        flexShrink: 1,
+        textAlign: "center",
+      }}
+    >
       Soldes dus
     </Text>
     <View
@@ -5937,8 +6036,27 @@ const onPick = () => {
       </Text>
     </View>
   </TouchableOpacity>
-)}
-              </View>
+                  );
+                }
+
+                const topCount = Math.ceil(badgeButtons.length / 2);
+                const topRow = badgeButtons.slice(0, topCount);
+                const bottomRow = badgeButtons.slice(topCount);
+
+                return (
+                  <View style={{ width: "100%" }}>
+                    <View style={styles.buttonRowMasquer}>{topRow}</View>
+                    <View
+                      style={[
+                        styles.buttonRowMasquer,
+                        { marginTop: bottomRow.length > 0 ? 8 : 0 },
+                      ]}
+                    >
+                      {bottomRow}
+                    </View>
+                  </View>
+                );
+              })()}
               {isLoading ? (
                 <View style={styles.loaderContainer}>
                   <ActivityIndicator size={90} color="#e5e8eb" />
@@ -9877,11 +9995,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
-  buttonContainerMasquer: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 5,
-},
+  buttonRowMasquer: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+    paddingHorizontal: 4,
+  },
   alertBox: {
     width: "85%",
     maxWidth: 400,

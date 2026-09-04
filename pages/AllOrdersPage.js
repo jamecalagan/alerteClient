@@ -63,19 +63,17 @@ const normalizeOrderPhotos = (order) => {
 };
 
 const resolveImageUrl = async (path) => {
+  if (/^https?:\/\//i.test(path)) return path;
+
   const { data: pub } = supabase.storage.from("images").getPublicUrl(path);
   if (pub?.publicUrl) return pub.publicUrl;
 
-  const { data: signed, error } = await supabase
+  const { data: signed, error } = await supabase.storage
     .from("images")
-    .storage.createSignedUrl(path, 60 * 60);
+    .createSignedUrl(path, 60 * 60);
   if (error) {
     console.warn("⚠️ createSignedUrl error:", error);
-    const { data: signed2, error: e2 } = await supabase.storage
-      .from("images")
-      .createSignedUrl(path, 60 * 60);
-    if (e2) console.warn("⚠️ createSignedUrl (fallback) error:", e2);
-    return signed2?.signedUrl || null;
+    return null;
   }
   return signed?.signedUrl || null;
 };
@@ -523,14 +521,9 @@ export default function AllOrdersPage({ navigation }) {
 </View>
 
 
-        {/* Corps : Infos à gauche, Photos à droite */}
+        {/* Corps : Infos */}
         <View style={styles.row}>
-          <View
-            style={[
-              styles.infoBlock,
-              { flex: 1, paddingRight: hasPhotos ? 12 : 0 },
-            ]}
-          >
+          <View style={[styles.infoBlock, { flex: 1 }]}>
 {editingOrderId === item.id ? (
   <View style={styles.editSection}>
     {editedOrderItems.length > 0 ? (
@@ -951,59 +944,47 @@ export default function AllOrdersPage({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Colonne photos à droite */}
-          {hasPhotos && (
-            <View style={styles.photosColumn}>
-              {/* 👉 ta logique de photos reste identique */}
-              <ScrollView contentContainerStyle={{ gap: 8 }}>
-                {photoPaths.slice(0, 3).map((path, idx) => {
-                  const url = photoUrlCache[path];
-                  return (
-                    <TouchableOpacity
-                      key={`${path}-${idx}`}
-                      activeOpacity={0.8}
-                      onPress={() => openViewer(photoPaths, idx)}
-                    >
-                      <Image
-                        source={
-                          url
-                            ? { uri: url }
-                            : {
-                                uri: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
-                              }
-                        }
-                        style={styles.photoThumb}
-                        resizeMode="cover"
-                        onLoadEnd={async () => {
-                          if (!url) {
-                            const u = await resolveImageUrl(path);
-                            if (u)
-                              setPhotoUrlCache((prev) => ({
-                                ...prev,
-                                [path]: u,
-                              }));
-                          }
-                        }}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {photoPaths.length > 3 && (
-                  <TouchableOpacity
-                    style={styles.moreBadge}
-                    onPress={() => openViewer(photoPaths, 3)}
-                  >
-                    <Text style={styles.moreBadgeText}>
-                      +{photoPaths.length - 3}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-            </View>
-          )}
         </View>
+
+        {/* Photos en dessous des informations */}
+        {hasPhotos && (
+          <View style={styles.photosRow}>
+            <ScrollView horizontal contentContainerStyle={{ gap: 8 }}>
+              {photoPaths.map((path, idx) => {
+                const url = photoUrlCache[path];
+                return (
+                  <TouchableOpacity
+                    key={`${path}-${idx}`}
+                    activeOpacity={0.8}
+                    onPress={() => openViewer(photoPaths, idx)}
+                  >
+                    <Image
+                      source={
+                        url
+                          ? { uri: url }
+                          : {
+                              uri: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                            }
+                      }
+                      style={styles.photoThumb}
+                      resizeMode="cover"
+                      onLoadEnd={async () => {
+                        if (!url) {
+                          const u = await resolveImageUrl(path);
+                          if (u)
+                            setPhotoUrlCache((prev) => ({
+                              ...prev,
+                              [path]: u,
+                            }));
+                        }
+                      }}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
       </View>
     );
   };
@@ -1212,6 +1193,43 @@ export default function AllOrdersPage({ navigation }) {
         onClose={() => setAlertVisible(false)}
       />
 
+      <Modal
+        visible={viewerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerOpen(false)}
+      >
+        <View style={styles.viewerBackdrop}>
+          <TouchableOpacity
+            style={styles.viewerBackButton}
+            onPress={() => setViewerOpen(false)}
+          >
+            <Text style={styles.viewerBackText}>✕</Text>
+          </TouchableOpacity>
+
+          <FlatList
+            data={viewerImages}
+            keyExtractor={(uri, idx) => `${uri}-${idx}`}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={viewerIndex}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_W,
+              offset: SCREEN_W * index,
+              index,
+            })}
+            renderItem={({ item }) => (
+              <Image
+                source={{ uri: item }}
+                style={styles.viewerImage}
+                resizeMode="contain"
+              />
+            )}
+          />
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -1259,8 +1277,8 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "stretch" },
   infoBlock: {},
-  // Colonne photos
-  photosColumn: { width: THUMB_W, alignSelf: "stretch" },
+  // Photos sous les informations
+  photosRow: { marginTop: 10 },
   photoThumb: {
     width: THUMB_W,
     height: THUMB_H,
@@ -1269,18 +1287,6 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     backgroundColor: "#fafafa",
   },
-  moreBadge: {
-    width: THUMB_W,
-    height: THUMB_H,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f1f3f5",
-  },
-  moreBadgeText: { fontWeight: "700", color: "#333" },
-
   text: { fontSize: 15, color: "#444", marginBottom: 5 },
   label: { color: "#4a4a4a", fontWeight: "500", fontSize: 15, marginBottom: 3 },
   value: { color: "#1a1a1a", fontWeight: "500", fontSize: 15 },

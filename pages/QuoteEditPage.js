@@ -1417,54 +1417,6 @@ export default function QuoteEditPage() {
   </View>
 )}
 
-<View style={styles.totalsCard}>
-  <View style={styles.totalsRow}>
-    <Text style={styles.totalsLabel}>Total HT</Text>
-    <Text style={styles.totalsValue}>
-      {getTotalHT().toFixed(2)} €
-    </Text>
-  </View>
-
-  <View style={styles.totalsRow}>
-    <Text style={styles.totalsLabel}>Remise</Text>
-    <Text style={styles.totalsValueNegative}>
-      -{getDiscountValue().toFixed(2)} €
-    </Text>
-  </View>
-
-  <View style={styles.totalsRow}>
-    <Text style={styles.totalsLabel}>TVA (20%)</Text>
-    <Text style={styles.totalsValue}>
-      {getTVA().toFixed(2)} €
-    </Text>
-  </View>
-
-  <View style={styles.totalsRow}>
-    <Text style={styles.totalsLabel}>Total TTC</Text>
-    <Text style={styles.totalsValueStrong}>
-      {getTotalTTCApresRemise().toFixed(2)} €
-    </Text>
-  </View>
-
-  <View style={styles.totalsRow}>
-    <Text style={styles.totalsLabel}>Acompte</Text>
-    <Text style={styles.totalsValueNegative}>
-      -{parseFloat(deposit || 0).toFixed(2)} €
-    </Text>
-  </View>
-
-  <View style={[styles.totalsRow, styles.totalsRowHighlight]}>
-    <Text style={[styles.totalsLabel, styles.totalsLabelStrong]}>
-      Total à payer
-    </Text>
-    <Text style={styles.totalsValueBig}>
-      {getTotalDue().toFixed(2)} €
-    </Text>
-  </View>
-</View>
-
-
-
       <Text style={styles.label}>Remarques ou conditions particulières</Text>
       <TextInput
         style={[styles.input, { height: 80 }]}
@@ -1578,25 +1530,26 @@ export default function QuoteEditPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: "#fff" },
+  container: { padding: 14, backgroundColor: "#fff" },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 10,
     textAlign: "center",
   },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 10,
-    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
     borderRadius: 6,
     backgroundColor: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     color: "#111827",
   },
   inputFocused: { borderColor: "#007bff", backgroundColor: "#eef6ff" },
-  label: { fontWeight: "bold", marginBottom: 5, marginTop: 10 },
+  label: { fontWeight: "bold", marginBottom: 3, marginTop: 4 },
   subtitle: { fontSize: 18, fontWeight: "bold", marginVertical: 10 },
   itemRow: { marginBottom: 12 },
   itemLabel: {
@@ -1640,7 +1593,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 10,
+    marginTop: 4,
   },
   labelInline: {
     fontWeight: "bold",
@@ -1650,13 +1603,13 @@ const styles = StyleSheet.create({
   },
   // 👉 Styles pour le bouton d’accès à PcComponentsTablePage
   pcHelperRow: {
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: 2,
   },
   pcHelperButton: {
     backgroundColor: "#f3f4ff",
     borderRadius: 10,
-    paddingVertical: 10,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: "#a5b4fc",
@@ -1672,20 +1625,20 @@ const styles = StyleSheet.create({
     color: "#4b5563",
   },
     totalsCard: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 4,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     backgroundColor: "#f9fafb",
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
   totalsRowHighlight: {
     borderTopWidth: 1,
@@ -1722,19 +1675,19 @@ const styles = StyleSheet.create({
     color: "#065f46",
   },
     cardSection: {
-    marginTop: 10,
-    marginBottom: 8,
-    padding: 10,
+    marginTop: 6,
+    marginBottom: 6,
+    padding: 8,
     borderRadius: 10,
     backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
   cardSectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#111827",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   cardRow: {
     flexDirection: "row",
@@ -1745,19 +1698,19 @@ const styles = StyleSheet.create({
   },
   cardFieldFull: {
     width: "100%",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: "#4b5563",
-    marginBottom: 2,
+    marginBottom: 1,
   },
   cardSectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   addMiniButton: {
     paddingHorizontal: 10,
@@ -1813,16 +1766,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: 2,
   },
   gridBtn: {
     width: GRID_BTN_WIDTH,        // tu l'as déjà défini en haut
-    minHeight: 36,
+    minHeight: 32,
     borderRadius: 999,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 6,
-    marginBottom: 6,
+    marginBottom: 5,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#e5e7eb",

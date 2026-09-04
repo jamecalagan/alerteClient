@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   TextInput,
@@ -340,6 +340,49 @@ const [
   const [alertType, setAlertType] = useState("info"); // "success" | "danger" | "info"
 
   const [partialPayment, setPartialPayment] = useState("");
+
+  // === Confirmation avant de quitter avec des modifications non enregistrées ===
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
+  const skipDirtyRef = useRef(true); // true au montage, pour ignorer l'initialisation des champs
+
+  useEffect(() => {
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
+    }
+    setHasUnsavedChanges(true);
+  }, [
+    reference,
+    brand,
+    model,
+    serial_number,
+    description,
+    cost,
+    devisCost,
+    estimateMin,
+    estimateMax,
+    status,
+    deviceType,
+    password,
+    commande,
+    chargeur,
+    customBrand,
+    customModel,
+    customDeviceType,
+    remarks,
+    clientName,
+    partialPayment,
+  ]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (!hasUnsavedChanges) return;
+      e.preventDefault();
+      setPendingLeaveAction(() => () => navigation.dispatch(e.data.action));
+    });
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges]);
 
   // 👉 gestion “même matériel”
   const [useSameDevice, setUseSameDevice] = useState(false);
@@ -1401,6 +1444,7 @@ repair_proposal_date: repairProposalMade
         return;
       }
 
+      setHasUnsavedChanges(false);
       openAlert("success", "Succès", "Intervention enregistrée avec succès.");
     } catch (e) {
       console.error("❌ Exception insertion :", e);
@@ -3284,6 +3328,21 @@ onPress={() => {
           if (uri === labelPhoto) setLabelPhoto(null);
           if (selectedImage === uri) setSelectedImage(null);
           setPhotoUriToDelete(null);
+        }}
+      />
+
+      <AlertBox
+        visible={!!pendingLeaveAction}
+        title="Modifications non enregistrées"
+        message="Vous allez perdre les informations saisies pour cette intervention. Voulez-vous vraiment quitter ?"
+        cancelText="Annuler"
+        confirmText="Quitter"
+        onClose={() => setPendingLeaveAction(null)}
+        onConfirm={() => {
+          const action = pendingLeaveAction;
+          setHasUnsavedChanges(false);
+          setPendingLeaveAction(null);
+          action?.();
         }}
       />
 

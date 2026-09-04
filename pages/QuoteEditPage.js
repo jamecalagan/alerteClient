@@ -48,8 +48,101 @@ export default function QuoteEditPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [items, setItems] = useState([
-    { description: "", quantity: "1", unitPrice: "", total: "" },
+    { description: "", brand: "", model: "", quantity: "1", unitPrice: "", total: "" },
   ]);
+  // Catalogue marques/modèles (table marque/modele) pour l'autocomplete
+  // Marque/Modèle des lignes de devis.
+  const [allBrands, setAllBrands] = useState([]);
+  const [allModels, setAllModels] = useState([]);
+  const [activeSuggestion, setActiveSuggestion] = useState(null); // { index, field: "brand" | "model" }
+
+  useEffect(() => {
+    const loadBrandModelCatalogue = async () => {
+      const [{ data: brandsData }, { data: modelsData }] = await Promise.all([
+        supabase.from("marque").select("id, nom, article_id"),
+        supabase.from("modele").select("id, nom, marque_id, article_id"),
+      ]);
+      setAllBrands(brandsData || []);
+      setAllModels(modelsData || []);
+    };
+    loadBrandModelCatalogue();
+  }, []);
+
+  // === Confirmation avant de quitter avec des modifications non enregistrées ===
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
+  const skipDirtyRef = useRef(true); // true au montage et pendant le chargement d'un devis existant
+
+  useEffect(() => {
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
+    }
+    setHasUnsavedChanges(true);
+  }, [
+    name,
+    phone,
+    email,
+    items,
+    remarks,
+    quoteNumber,
+    validUntil,
+    discount,
+    deposit,
+    status,
+    useGlobalTotal,
+    globalTotal,
+  ]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (!hasUnsavedChanges) return;
+      e.preventDefault();
+      setPendingLeaveAction(() => () => navigation.dispatch(e.data.action));
+    });
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges]);
+
+  const getBrandSuggestions = (text) => {
+    const q = (text || "").trim().toLowerCase();
+    const seen = new Set();
+    const out = [];
+    for (const b of allBrands) {
+      const nom = (b.nom || "").trim();
+      if (!nom) continue;
+      const key = nom.toLowerCase();
+      if (seen.has(key)) continue;
+      if (q && !key.includes(q)) continue;
+      seen.add(key);
+      out.push(nom);
+      if (out.length >= 6) break;
+    }
+    return out;
+  };
+
+  const getModelSuggestions = (brandText, text) => {
+    const bq = (brandText || "").trim().toLowerCase();
+    const q = (text || "").trim().toLowerCase();
+    const matchingBrandIds = bq
+      ? allBrands
+          .filter((b) => (b.nom || "").trim().toLowerCase() === bq)
+          .map((b) => b.id)
+      : null;
+    const seen = new Set();
+    const out = [];
+    for (const m of allModels) {
+      if (matchingBrandIds && !matchingBrandIds.includes(m.marque_id)) continue;
+      const nom = (m.nom || "").trim();
+      if (!nom) continue;
+      const key = nom.toLowerCase();
+      if (seen.has(key)) continue;
+      if (q && !key.includes(q)) continue;
+      seen.add(key);
+      out.push(nom);
+      if (out.length >= 6) break;
+    }
+    return out;
+  };
   const [remarks, setRemarks] = useState("");
   const [quoteNumber, setQuoteNumber] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -124,6 +217,7 @@ export default function QuoteEditPage() {
 
   // === Chargement ===
   async function loadQuoteForEdit(id) {
+    skipDirtyRef.current = true; // le chargement ne doit pas marquer le devis comme modifié
     const { data, error } = await supabase
       .from("quotes")
       .select("*")
@@ -136,8 +230,21 @@ export default function QuoteEditPage() {
       setEmail(data.email || "");
       setItems(
         Array.isArray(data.items) && data.items.length
-          ? data.items
-          : [{ description: "", quantity: "1", unitPrice: "", total: "" }]
+          ? data.items.map((it) => ({
+              brand: "",
+              model: "",
+              ...it,
+            }))
+          : [
+              {
+                description: "",
+                brand: "",
+                model: "",
+                quantity: "1",
+                unitPrice: "",
+                total: "",
+              },
+            ]
       );
       setRemarks(data.remarks || "");
       setQuoteNumber(data.quote_number || "");
@@ -234,6 +341,8 @@ export default function QuoteEditPage() {
         {
           label: "Boîtier PC",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -241,6 +350,8 @@ export default function QuoteEditPage() {
         {
           label: "Carte mère",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -248,6 +359,8 @@ export default function QuoteEditPage() {
         {
           label: "Processeur (CPU)",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -255,6 +368,8 @@ export default function QuoteEditPage() {
         {
           label: "Mémoire RAM",
           description: "",
+          brand: "",
+          model: "",
           quantity: "2",
           unitPrice: "",
           total: "",
@@ -262,6 +377,8 @@ export default function QuoteEditPage() {
         {
           label: "Disque SSD / NVMe",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -269,6 +386,8 @@ export default function QuoteEditPage() {
         {
           label: "Carte graphique (GPU)",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -276,6 +395,8 @@ export default function QuoteEditPage() {
         {
           label: "Alimentation (PSU)",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -283,6 +404,8 @@ export default function QuoteEditPage() {
         {
           label: "Refroidissement",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -290,6 +413,8 @@ export default function QuoteEditPage() {
         {
           label: "Montage & tests",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -297,6 +422,8 @@ export default function QuoteEditPage() {
         {
           label: "Installation système",
           description: "",
+          brand: "",
+          model: "",
           quantity: "1",
           unitPrice: "",
           total: "",
@@ -372,7 +499,7 @@ export default function QuoteEditPage() {
   const addItem = () =>
     setItems([
       ...items,
-      { description: "", quantity: "1", unitPrice: "", total: "" },
+      { description: "", brand: "", model: "", quantity: "1", unitPrice: "", total: "" },
     ]);
 
   const removeItem = (i) => setItems(items.filter((_, idx) => idx !== i));
@@ -425,6 +552,7 @@ export default function QuoteEditPage() {
           .update({ status: "convertie", quote_id: id })
           .eq("id", quoteRequestId);
       }
+      setHasUnsavedChanges(false);
       showAlert(editingId ? "✅ Devis modifié" : "✅ Devis enregistré");
     } catch (e) {
       showAlert("Erreur", String(e.message || e));
@@ -461,7 +589,14 @@ export default function QuoteEditPage() {
       .map((it, idx) => {
         const q = parseFloat(it.quantity) || 0;
         const labelPart = it.label ? `<strong>${it.label}</strong> - ` : "";
-        const designation = labelPart + (it.description || "");
+        const brandModelPart = [it.brand, it.model]
+          .filter((v) => v && String(v).trim())
+          .join(" ");
+        const designation =
+          labelPart +
+          [it.description, brandModelPart]
+            .filter((v) => v && String(v).trim())
+            .join(" — ");
 
         if (useGlobal) {
           return `
@@ -651,6 +786,7 @@ export default function QuoteEditPage() {
     try {
       // 1) S’assurer que le devis est bien enregistré
       const qid = await ensureSavedAndGetId();
+      setHasUnsavedChanges(false);
 
       // 2) Relecture BDD (cas état local perdu)
       const { data: q, error: qErr } = await supabase
@@ -681,22 +817,30 @@ export default function QuoteEditPage() {
       const totalTTCnum = Number(getEffectiveTotalTTC().toFixed(2));
       const acompteNum = Number(parseFloat(deposit || 0).toFixed(2));
 
-      // 5) Désignation / brand/model sûrs
-      const first = items?.[0] || {};
+      // 5) Lignes du devis à reporter sur la commande
+      const validItems = (items || []).filter(
+        (it) =>
+          (it.description && String(it.description).trim()) ||
+          Number(it.unitPrice) > 0
+      );
+      const itemsForOrder = validItems.length > 0 ? validItems : items || [];
+      const first = itemsForOrder[0] || {};
       const productLabel =
         (first.description && String(first.description).trim()) ||
-        (first.label && String(first.label).trim()) ||
         (quoteNumber ? `Commande liée au devis ${quoteNumber}` : "Commande issue de devis");
-
-      const safeStr = (v) => (v == null ? "" : String(v));
-      const brandSafe = safeStr(first.brand) || "";
-      const modelSafe = safeStr(first.model) || "";
 
       // 6) Payload conforme à ta table orders
       const orderPayload = {
         product: productLabel || "Commande",
-        brand: brandSafe,
-        model: modelSafe,
+        order_name:
+          itemsForOrder.length === 1
+            ? productLabel
+            : `${productLabel} + ${itemsForOrder.length - 1} autre${
+                itemsForOrder.length > 2 ? "s" : ""
+              }`,
+        items_count: itemsForOrder.length,
+        brand: "",
+        model: "",
 
         price: totalTTCnum,
         deposit: acompteNum,
@@ -711,7 +855,7 @@ export default function QuoteEditPage() {
         client_number: null,
 
         paid: false,
-        saved: true,
+        saved: false,
         ordered: true,
         received: false,
         deleted: false,
@@ -763,6 +907,30 @@ export default function QuoteEditPage() {
       if (insErr) throw insErr;
 
       const newOrderId = inserted?.id ? String(inserted.id) : null;
+
+      // 7-ter) Détail des articles du devis → order_items
+      if (newOrderId) {
+        const lignes = itemsForOrder.map((it, index) => ({
+          order_id: newOrderId,
+          product:
+            (it.description && String(it.description).trim()) ||
+            `Article ${index + 1}`,
+          brand: (it.brand && String(it.brand).trim()) || "",
+          model: (it.model && String(it.model).trim()) || "",
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unitPrice) || 0,
+          received: false,
+          position: index + 1,
+        }));
+
+        const { error: itemsErr } = await supabase
+          .from("order_items")
+          .insert(lignes);
+
+        if (itemsErr) {
+          console.error("Erreur insertion order_items depuis devis :", itemsErr);
+        }
+      }
 
       // 8) Marquer le devis converti + lier
       setConvertedOrderId(newOrderId);
@@ -1007,7 +1175,7 @@ export default function QuoteEditPage() {
             <View style={styles.rowLine}>
               <TextInput
                 style={[styles.input, styles.itemInputDescription]}
-                placeholder="Marque / modèle / détails"
+                placeholder="Désignation / détails"
                 value={item.description}
                 onChangeText={(t) => updateItem(index, "description", t)}
               />
@@ -1034,6 +1202,92 @@ export default function QuoteEditPage() {
               >
                 <Text style={styles.removeButton}>✕</Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.rowLine}>
+              <View style={styles.brandModelField}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Marque"
+                  value={item.brand}
+                  onChangeText={(t) => {
+                    updateItem(index, "brand", t);
+                    setActiveSuggestion({ index, field: "brand" });
+                  }}
+                  onFocus={() => setActiveSuggestion({ index, field: "brand" })}
+                  onBlur={() =>
+                    setTimeout(
+                      () =>
+                        setActiveSuggestion((cur) =>
+                          cur && cur.index === index && cur.field === "brand"
+                            ? null
+                            : cur
+                        ),
+                      150
+                    )
+                  }
+                />
+                {activeSuggestion?.index === index &&
+                  activeSuggestion?.field === "brand" &&
+                  getBrandSuggestions(item.brand).length > 0 && (
+                    <View style={styles.suggestionBox}>
+                      {getBrandSuggestions(item.brand).map((s) => (
+                        <TouchableOpacity
+                          key={s}
+                          style={styles.suggestionItem}
+                          onPress={() => {
+                            updateItem(index, "brand", s);
+                            setActiveSuggestion(null);
+                          }}
+                        >
+                          <Text style={styles.suggestionText}>{s}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+              </View>
+
+              <View style={styles.brandModelField}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Modèle"
+                  value={item.model}
+                  onChangeText={(t) => {
+                    updateItem(index, "model", t);
+                    setActiveSuggestion({ index, field: "model" });
+                  }}
+                  onFocus={() => setActiveSuggestion({ index, field: "model" })}
+                  onBlur={() =>
+                    setTimeout(
+                      () =>
+                        setActiveSuggestion((cur) =>
+                          cur && cur.index === index && cur.field === "model"
+                            ? null
+                            : cur
+                        ),
+                      150
+                    )
+                  }
+                />
+                {activeSuggestion?.index === index &&
+                  activeSuggestion?.field === "model" &&
+                  getModelSuggestions(item.brand, item.model).length > 0 && (
+                    <View style={styles.suggestionBox}>
+                      {getModelSuggestions(item.brand, item.model).map((s) => (
+                        <TouchableOpacity
+                          key={s}
+                          style={styles.suggestionItem}
+                          onPress={() => {
+                            updateItem(index, "model", s);
+                            setActiveSuggestion(null);
+                          }}
+                        >
+                          <Text style={styles.suggestionText}>{s}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+              </View>
             </View>
           </View>
         ))}
@@ -1304,6 +1558,19 @@ export default function QuoteEditPage() {
         message={alertMessage}
         onClose={() => setAlertVisible(false)}
       />
+
+      <CustomAlert
+        visible={!!pendingLeaveAction}
+        title="Modifications non enregistrées"
+        message="Vous allez perdre les informations saisies dans ce devis. Voulez-vous vraiment quitter ?"
+        onClose={() => setPendingLeaveAction(null)}
+        onConfirm={() => {
+          const action = pendingLeaveAction;
+          setHasUnsavedChanges(false);
+          setPendingLeaveAction(null);
+          action?.();
+        }}
+      />
     </KeyboardAwareScrollView>
       )}
     </View>
@@ -1360,6 +1627,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: "#242424",
+  },
+  brandModelField: {
+    flex: 1,
   },
   // 👉 Styles pour le mode “coût global”
   switchRow: {

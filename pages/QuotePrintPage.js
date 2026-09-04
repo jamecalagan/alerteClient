@@ -72,9 +72,15 @@ const QuotePrintPage = () => {
       rowsHtml = quote.items
         .map((item) => {
           const qty = parseFloat(item.quantity) || 0;
-          const designation = item.label
+          const brandModel = [item.brand, item.model]
+            .filter((v) => v && String(v).trim())
+            .join(" ");
+          const baseDesignation = item.label
             ? `${item.label} — ${item.description || ""}`
             : item.description || "";
+          const designation = brandModel
+            ? `${baseDesignation} — ${brandModel}`
+            : baseDesignation;
 
           return `
             <tr>
@@ -94,9 +100,15 @@ const QuotePrintPage = () => {
           const totalTTC = qty * puTTC;
           const tva = totalTTC - puHT * qty;
 
-          const designation = item.label
+          const brandModel = [item.brand, item.model]
+            .filter((v) => v && String(v).trim())
+            .join(" ");
+          const baseDesignation = item.label
             ? `${item.label} — ${item.description}`
             : item.description;
+          const designation = brandModel
+            ? `${baseDesignation} — ${brandModel}`
+            : baseDesignation;
 
           return `
             <tr>
@@ -338,9 +350,15 @@ const QuotePrintPage = () => {
         rowsHtml = quote.items
           .map((item) => {
             const qty = parseFloat(item.quantity) || 0;
-            const designation = item.label
+            const brandModel = [item.brand, item.model]
+              .filter((v) => v && String(v).trim())
+              .join(" ");
+            const baseDesignation = item.label
               ? `${item.label} — ${item.description || ""}`
               : item.description || "";
+            const designation = brandModel
+              ? `${baseDesignation} — ${brandModel}`
+              : baseDesignation;
 
             return `
               <tr>
@@ -359,9 +377,15 @@ const QuotePrintPage = () => {
             const totalTTC = qty * puTTC;
             const tva = totalTTC - puHT * qty;
 
-            const designation = item.label
+            const brandModel = [item.brand, item.model]
+              .filter((v) => v && String(v).trim())
+              .join(" ");
+            const baseDesignation = item.label
               ? `${item.label} — ${item.description}`
               : item.description || "";
+            const designation = brandModel
+              ? `${baseDesignation} — ${brandModel}`
+              : baseDesignation;
 
             return `
               <tr>

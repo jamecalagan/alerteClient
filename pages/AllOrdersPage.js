@@ -86,6 +86,12 @@ export default function AllOrdersPage({ navigation }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editedOrder, setEditedOrder] = useState({});
+  // Articles éditables d'une commande multi-articles (issue d'un devis ou du panier).
+  // Vide = commande "legacy" à un seul article, gérée via editedOrder.
+  const [editedOrderItems, setEditedOrderItems] = useState([]);
+  // Ids des order_items présents à l'ouverture de l'édition, pour détecter
+  // les suppressions (un item retiré de editedOrderItems n'y figure plus).
+  const [originalOrderItemIds, setOriginalOrderItemIds] = useState([]);
   const [filterStatus, setFilterStatus] = useState("all");
   const [suggestions, setSuggestions] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
@@ -145,7 +151,9 @@ export default function AllOrdersPage({ navigation }) {
   const fetchOrders = async () => {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, clients(name, ficheNumber), billing(id)")
+      .select(
+        "*, clients(name, ficheNumber), billing(id), order_items(id, product, brand, model, quantity, unit_price, position)"
+      )
       .order("createdat", { ascending: false });
 
     if (error) {
@@ -204,33 +212,160 @@ export default function AllOrdersPage({ navigation }) {
       quantity: item.quantity?.toString() || "1",
       deposit: item.deposit?.toString() || "",
     });
+    const initialItems = Array.isArray(item.order_items)
+      ? item.order_items
+          .slice()
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .map((oi) => ({
+            id: oi.id,
+            product: oi.product || "",
+            brand: oi.brand || "",
+            model: oi.model || "",
+            quantity: oi.quantity?.toString() || "1",
+            unit_price: oi.unit_price?.toString() || "",
+          }))
+      : [];
+    setEditedOrderItems(initialItems);
+    setOriginalOrderItemIds(initialItems.map((it) => it.id).filter(Boolean));
+  };
+
+  const addEditedOrderItem = () => {
+    setEditedOrderItems((prev) => [
+      ...prev,
+      { id: null, product: "", brand: "", model: "", quantity: "1", unit_price: "" },
+    ]);
+  };
+
+  const updateEditedOrderItem = (index, field, value) => {
+    setEditedOrderItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, [field]: value } : it))
+    );
+  };
+
+  const removeEditedOrderItem = (index) => {
+    setEditedOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveEditedOrder = async (orderId) => {
     try {
-      const price = toNumber(editedOrder.price);
-      const qParsed = parseInt(editedOrder.quantity, 10);
-      const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
       const deposit = toNumber(editedOrder.deposit);
-      const total = round2(price * quantity);
+      const isItemized = editedOrderItems.length > 0;
+      const validItems = isItemized
+        ? editedOrderItems.filter(
+            (it) => (it.product || "").trim() || toNumber(it.unit_price) > 0
+          )
+        : [];
 
-      const { error: orderError } = await supabase
-        .from("orders")
-        .update({
+      let total;
+      let orderUpdatePayload;
+
+      if (isItemized) {
+        total = round2(
+          validItems.reduce((sum, it) => {
+            const qParsed = parseInt(it.quantity, 10);
+            const q = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
+            return sum + toNumber(it.unit_price) * q;
+          }, 0)
+        );
+        const firstLabel = (validItems[0]?.product || "").trim() || "Commande";
+        orderUpdatePayload = {
+          product: firstLabel,
+          order_name:
+            validItems.length === 1
+              ? firstLabel
+              : `${firstLabel} + ${validItems.length - 1} autre${
+                  validItems.length > 2 ? "s" : ""
+                }`,
+          items_count: validItems.length,
+          price: total,
+          quantity: 1,
+          total,
+          deposit,
+        };
+      } else {
+        const price = toNumber(editedOrder.price);
+        const qParsed = parseInt(editedOrder.quantity, 10);
+        const quantity = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
+        total = round2(price * quantity);
+        orderUpdatePayload = {
           product: editedOrder.product,
           brand: editedOrder.brand,
           model: editedOrder.model,
           price, // prix unitaire
           quantity, // quantité
           total, // total article (p*u)
-          deposit: deposit, // acompte
-        })
+          deposit, // acompte
+        };
+      }
+
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update(orderUpdatePayload)
         .eq("id", orderId);
 
       if (orderError) {
         console.error("❌ Erreur mise à jour commande:", orderError);
         alert("Erreur lors de la mise à jour de la commande.");
         return;
+      }
+
+      if (isItemized) {
+        const keptIds = validItems.filter((it) => it.id).map((it) => it.id);
+        const idsToDelete = originalOrderItemIds.filter(
+          (id) => !keptIds.includes(id)
+        );
+
+        if (idsToDelete.length > 0) {
+          const { error: deleteErr } = await supabase
+            .from("order_items")
+            .delete()
+            .in("id", idsToDelete);
+          if (deleteErr) {
+            console.error("⚠️ Suppression order_items :", deleteErr);
+          }
+        }
+
+        const toUpdate = validItems.filter((it) => it.id);
+        const toInsert = validItems.filter((it) => !it.id);
+
+        for (const it of toUpdate) {
+          const qParsed = parseInt(it.quantity, 10);
+          const { error: updErr } = await supabase
+            .from("order_items")
+            .update({
+              product: (it.product || "").trim(),
+              brand: (it.brand || "").trim(),
+              model: (it.model || "").trim(),
+              quantity: Math.max(1, isNaN(qParsed) ? 1 : qParsed),
+              unit_price: toNumber(it.unit_price),
+            })
+            .eq("id", it.id);
+          if (updErr) {
+            console.error("⚠️ Mise à jour order_item :", updErr);
+          }
+        }
+
+        if (toInsert.length > 0) {
+          const rows = toInsert.map((it, index) => {
+            const qParsed = parseInt(it.quantity, 10);
+            return {
+              order_id: orderId,
+              product: (it.product || "").trim(),
+              brand: (it.brand || "").trim(),
+              model: (it.model || "").trim(),
+              quantity: Math.max(1, isNaN(qParsed) ? 1 : qParsed),
+              unit_price: toNumber(it.unit_price),
+              received: false,
+              position: toUpdate.length + index + 1,
+            };
+          });
+          const { error: insErr } = await supabase
+            .from("order_items")
+            .insert(rows);
+          if (insErr) {
+            console.error("⚠️ Insertion order_items :", insErr);
+          }
+        }
       }
 
       // Si facture liée : on aligne le total et l'acompte
@@ -257,6 +392,8 @@ export default function AllOrdersPage({ navigation }) {
       alert("✅ Commande mise à jour avec succès");
       setEditingOrderId(null);
       setEditedOrder({});
+      setEditedOrderItems([]);
+      setOriginalOrderItemIds([]);
       fetchOrders();
     } catch (err) {
       console.error("❌ Erreur générale :", err);
@@ -267,6 +404,8 @@ export default function AllOrdersPage({ navigation }) {
   const handleCancelEdit = () => {
     setEditingOrderId(null);
     setEditedOrder({});
+    setEditedOrderItems([]);
+    setOriginalOrderItemIds([]);
   };
 
   const filteredOrders = orders
@@ -394,110 +533,226 @@ export default function AllOrdersPage({ navigation }) {
           >
 {editingOrderId === item.id ? (
   <View style={styles.editSection}>
-    {/* Ligne 1 : produit plein large */}
-    <View style={styles.editRow}>
-      <View style={styles.editFieldFull}>
-        <Text style={styles.label}>Produit</Text>
-        <TextInput
-          style={styles.input}
-          value={editedOrder.product}
-          onChangeText={(text) =>
-            setEditedOrder({ ...editedOrder, product: text })
-          }
-          placeholder="Produit"
-          placeholderTextColor="#999"
+    {editedOrderItems.length > 0 ? (
+      <>
+        {editedOrderItems.map((oi, index) => (
+          <View
+            key={oi.id ?? `new-${index}`}
+            style={[styles.editItemBlock, index > 0 && styles.editItemBlockDivider]}
+          >
+            <View style={styles.editRow}>
+              <View style={styles.editFieldFull}>
+                <Text style={styles.label}>Article {index + 1}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={oi.product}
+                  onChangeText={(text) => updateEditedOrderItem(index, "product", text)}
+                  placeholder="Désignation"
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+
+            <View style={styles.editRow}>
+              <View style={styles.editFieldHalf}>
+                <Text style={styles.label}>Marque</Text>
+                <TextInput
+                  style={styles.input}
+                  value={oi.brand}
+                  onChangeText={(text) => updateEditedOrderItem(index, "brand", text)}
+                  placeholder="Marque"
+                  placeholderTextColor="#999"
+                />
+              </View>
+              <View style={styles.editFieldHalf}>
+                <Text style={styles.label}>Modèle</Text>
+                <TextInput
+                  style={styles.input}
+                  value={oi.model}
+                  onChangeText={(text) => updateEditedOrderItem(index, "model", text)}
+                  placeholder="Modèle"
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+
+            <View style={styles.editRow}>
+              <View style={styles.editFieldHalf}>
+                <Text style={styles.label}>Quantité</Text>
+                <TextInput
+                  style={[styles.input, styles.qtyInputSimple]}
+                  value={oi.quantity}
+                  onChangeText={(text) =>
+                    updateEditedOrderItem(index, "quantity", text.replace(/[^\d]/g, ""))
+                  }
+                  keyboardType="number-pad"
+                  placeholder="1"
+                  placeholderTextColor="#999"
+                />
+              </View>
+              <View style={styles.editFieldHalf}>
+                <Text style={styles.label}>Prix unitaire (€)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={oi.unit_price}
+                  onChangeText={(text) => updateEditedOrderItem(index, "unit_price", text)}
+                  keyboardType="decimal-pad"
+                  placeholder="Prix unitaire"
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+
+            {editedOrderItems.length > 1 && (
+              <TouchableOpacity onPress={() => removeEditedOrderItem(index)}>
+                <Text style={[styles.editActionText, styles.editActionDanger]}>
+                  Supprimer cet article
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+
+        <TouchableOpacity onPress={addEditedOrderItem} style={{ marginTop: 4 }}>
+          <Text style={[styles.editActionText, styles.editActionPrimary]}>
+            + Ajouter un article
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.editRow}>
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Acompte (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.deposit}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, deposit: text })
+              }
+              keyboardType="decimal-pad"
+              placeholder="Acompte"
+              placeholderTextColor="#999"
+            />
+          </View>
+          <View style={styles.editFieldHalf} />
+        </View>
+
+        <TotalsPreview
+          price={editedOrderItems.reduce((sum, oi) => {
+            const qParsed = parseInt(oi.quantity, 10);
+            const q = Math.max(1, isNaN(qParsed) ? 1 : qParsed);
+            return sum + toNumber(oi.unit_price) * q;
+          }, 0)}
+          quantity="1"
+          deposit={editedOrder.deposit}
         />
-      </View>
-    </View>
+      </>
+    ) : (
+      <>
+        {/* Ligne 1 : produit plein large */}
+        <View style={styles.editRow}>
+          <View style={styles.editFieldFull}>
+            <Text style={styles.label}>Produit</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.product}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, product: text })
+              }
+              placeholder="Produit"
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
 
-    {/* Ligne 2 : marque / modèle côte à côte */}
-    <View style={styles.editRow}>
-      <View style={styles.editFieldHalf}>
-        <Text style={styles.label}>Marque</Text>
-        <TextInput
-          style={styles.input}
-          value={editedOrder.brand}
-          onChangeText={(text) =>
-            setEditedOrder({ ...editedOrder, brand: text })
-          }
-          placeholder="Marque"
-          placeholderTextColor="#999"
+        {/* Ligne 2 : marque / modèle côte à côte */}
+        <View style={styles.editRow}>
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Marque</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.brand}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, brand: text })
+              }
+              placeholder="Marque"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Modèle</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.model}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, model: text })
+              }
+              placeholder="Modèle"
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
+
+        {/* Ligne 3 : prix / acompte */}
+        <View style={styles.editRow}>
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Prix unitaire (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.price}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, price: text })
+              }
+              keyboardType="decimal-pad"
+              placeholder="Prix unitaire"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Acompte (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.deposit}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, deposit: text })
+              }
+              keyboardType="decimal-pad"
+              placeholder="Acompte"
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
+
+        {/* Ligne 4 : quantité simple */}
+        <View style={styles.editRow}>
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Quantité</Text>
+            <TextInput
+              style={[styles.input, styles.qtyInputSimple]}
+              value={editedOrder.quantity}
+              onChangeText={(text) => {
+                const digits = text.replace(/[^\d]/g, "");
+                setEditedOrder({ ...editedOrder, quantity: digits });
+              }}
+              keyboardType="number-pad"
+              placeholder="1"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          {/* colonne vide pour garder l’alignement avec les autres lignes à deux colonnes */}
+          <View style={styles.editFieldHalf} />
+        </View>
+
+        {/* Aperçu dyn. des totaux en édition */}
+        <TotalsPreview
+          price={editedOrder.price}
+          quantity={editedOrder.quantity}
+          deposit={editedOrder.deposit}
         />
-      </View>
-
-      <View style={styles.editFieldHalf}>
-        <Text style={styles.label}>Modèle</Text>
-        <TextInput
-          style={styles.input}
-          value={editedOrder.model}
-          onChangeText={(text) =>
-            setEditedOrder({ ...editedOrder, model: text })
-          }
-          placeholder="Modèle"
-          placeholderTextColor="#999"
-        />
-      </View>
-    </View>
-
-    {/* Ligne 3 : prix / acompte */}
-    <View style={styles.editRow}>
-      <View style={styles.editFieldHalf}>
-        <Text style={styles.label}>Prix unitaire (€)</Text>
-        <TextInput
-          style={styles.input}
-          value={editedOrder.price}
-          onChangeText={(text) =>
-            setEditedOrder({ ...editedOrder, price: text })
-          }
-          keyboardType="decimal-pad"
-          placeholder="Prix unitaire"
-          placeholderTextColor="#999"
-        />
-      </View>
-
-      <View style={styles.editFieldHalf}>
-        <Text style={styles.label}>Acompte (€)</Text>
-        <TextInput
-          style={styles.input}
-          value={editedOrder.deposit}
-          onChangeText={(text) =>
-            setEditedOrder({ ...editedOrder, deposit: text })
-          }
-          keyboardType="decimal-pad"
-          placeholder="Acompte"
-          placeholderTextColor="#999"
-        />
-      </View>
-    </View>
-
-    {/* Ligne 4 : quantité simple */}
-    <View style={styles.editRow}>
-      <View style={styles.editFieldHalf}>
-        <Text style={styles.label}>Quantité</Text>
-        <TextInput
-          style={[styles.input, styles.qtyInputSimple]}
-          value={editedOrder.quantity}
-          onChangeText={(text) => {
-            const digits = text.replace(/[^\d]/g, "");
-            setEditedOrder({ ...editedOrder, quantity: digits });
-          }}
-          keyboardType="number-pad"
-          placeholder="1"
-          placeholderTextColor="#999"
-        />
-      </View>
-
-      {/* colonne vide pour garder l’alignement avec les autres lignes à deux colonnes */}
-      <View style={styles.editFieldHalf} />
-    </View>
-
-
-    {/* Aperçu dyn. des totaux en édition */}
-    <TotalsPreview
-      price={editedOrder.price}
-      quantity={editedOrder.quantity}
-      deposit={editedOrder.deposit}
-    />
+      </>
+    )}
 
     {/* Actions en édition : liens texte */}
     <View style={styles.editButtonsRow}>
@@ -566,37 +821,71 @@ export default function AllOrdersPage({ navigation }) {
               <>
                 {/* Infos commandes en tableau labels / valeurs */}
                 <View style={styles.infoGrid}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Produit</Text>
-                    <Text style={styles.infoValue}>{item.product || "-"}</Text>
-                  </View>
+                  {Array.isArray(item.order_items) && item.order_items.length > 0 ? (
+                    item.order_items
+                      .slice()
+                      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                      .map((oi, idx) => {
+                        const oiQty = Number(oi.quantity) || 1;
+                        const oiUnit = Number(oi.unit_price) || 0;
+                        const designation =
+                          [oi.product, oi.brand, oi.model].filter(Boolean).join(" ") || "-";
+                        return (
+                          <View
+                            key={`${item.id}-oi-${idx}`}
+                            style={[
+                              styles.infoRow,
+                              styles.orderItemRow,
+                              idx % 2 === 1 && styles.infoRowAlt,
+                            ]}
+                          >
+                            <Text
+                              style={styles.orderItemDesignation}
+                              numberOfLines={1}
+                            >
+                              {designation}
+                            </Text>
+                            <Text style={styles.orderItemPrice}>
+                              {oiQty} × {euro(oiUnit)} = {euro(oiQty * oiUnit)}
+                            </Text>
+                          </View>
+                        );
+                      })
+                  ) : (
+                    <>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Produit</Text>
+                        <Text style={styles.infoValue}>{item.product || "-"}</Text>
+                      </View>
 
-                  <View style={[styles.infoRow, styles.infoRowAlt]}>
-                    <Text style={styles.infoLabel}>Marque</Text>
-                    <Text style={styles.infoValue}>{item.brand || "-"}</Text>
-                  </View>
+                      <View style={[styles.infoRow, styles.infoRowAlt]}>
+                        <Text style={styles.infoLabel}>Marque</Text>
+                        <Text style={styles.infoValue}>{item.brand || "-"}</Text>
+                      </View>
 
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Modèle</Text>
-                    <Text style={styles.infoValue}>{item.model || "-"}</Text>
-                  </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Modèle</Text>
+                        <Text style={styles.infoValue}>{item.model || "-"}</Text>
+                      </View>
 
-                  <View style={[styles.infoRow, styles.infoRowAlt]}>
-                    <Text style={styles.infoLabel}>Prix unitaire</Text>
-                    <Text style={styles.infoValue}>{euro(item.price)}</Text>
-                  </View>
+                      <View style={[styles.infoRow, styles.infoRowAlt]}>
+                        <Text style={styles.infoLabel}>Prix unitaire</Text>
+                        <Text style={styles.infoValue}>{euro(item.price)}</Text>
+                      </View>
 
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Quantité</Text>
-                    <Text style={styles.infoValue}>{item.quantity ?? 1}</Text>
-                  </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Quantité</Text>
+                        <Text style={styles.infoValue}>{item.quantity ?? 1}</Text>
+                      </View>
 
-                  <View style={[styles.infoRow, styles.infoRowAlt]}>
-                    <Text style={styles.infoLabel}>Total article</Text>
-                    <Text style={styles.infoValue}>
-                      {euro(item.total ?? total)}
-                    </Text>
-                  </View>
+                      <View style={[styles.infoRow, styles.infoRowAlt]}>
+                        <Text style={styles.infoLabel}>Total article</Text>
+                        <Text style={styles.infoValue}>
+                          {euro(item.total ?? total)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
 
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Acompte</Text>
@@ -1273,6 +1562,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#6b7280",
   },
+  orderItemRow: {
+    justifyContent: "space-between",
+  },
+  orderItemDesignation: {
+    flex: 1,
+    marginRight: 8,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  orderItemPrice: {
+    flexShrink: 0,
+    fontSize: 12,
+    color: "#111827",
+    textAlign: "right",
+  },
   infoValue: {
     flex: 1,
     fontSize: 12,
@@ -1341,6 +1646,15 @@ const styles = StyleSheet.create({
     color: "#1d4ed8",
   },
   editSection: {
+    marginTop: 4,
+  },
+  editItemBlock: {
+    marginBottom: 8,
+  },
+  editItemBlockDivider: {
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    paddingTop: 8,
     marginTop: 4,
   },
   editRow: {

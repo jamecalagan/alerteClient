@@ -327,6 +327,48 @@ export default function EditInterventionPage({ route, navigation }) {
     const closeConfirm = () => {
         setConfirmDialog((prev) => ({ ...prev, visible: false }));
     };
+
+    // === Confirmation avant de quitter avec des modifications non enregistrées ===
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
+    const skipDirtyRef = useRef(true); // true au montage/chargement, pour ignorer l'initialisation des champs
+
+    useEffect(() => {
+        if (skipDirtyRef.current) {
+            skipDirtyRef.current = false;
+            return;
+        }
+        setHasUnsavedChanges(true);
+    }, [
+        reference,
+        description,
+        password,
+        serial_number,
+        commande,
+        remarks,
+        chargeur,
+        acceptScreenRisk,
+        cost,
+        paymentStatus,
+        partialPayment,
+        status,
+        devisCost,
+        estimateMin,
+        estimateMax,
+        deviceType,
+        brand,
+        model,
+    ]);
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+            if (!hasUnsavedChanges) return;
+            e.preventDefault();
+            setPendingLeaveAction(() => () => navigation.dispatch(e.data.action));
+        });
+        return unsubscribe;
+    }, [navigation, hasUnsavedChanges]);
+
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
     const [openType, setOpenType] = useState(false);
@@ -894,6 +936,7 @@ const onComponentInputChange = (text) => {
     // Charger l'intervention + hydrater en respectant l'ordre
     // ———————————————————————————————————————————
     const loadIntervention = async () => {
+        skipDirtyRef.current = true; // le chargement initial ne doit pas marquer la fiche comme modifiée
         try {
             const [
                 { data: inter, error: errInter },
@@ -2098,6 +2141,7 @@ repair_proposal_date: repairProposalMade
             setLabelPhotoDB(labelCloud);
             setTakeLabelPhoto(!!labelCloud);
 
+            setHasUnsavedChanges(false);
             setAlertType("success");
             setAlertTitle("Succès");
             setAlertMessage("Intervention mise à jour avec succès.");
@@ -3688,6 +3732,21 @@ onPress={() => {
                 onConfirm={() => {
                     closeConfirm();
                     if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+            />
+
+            <AlertBox
+                visible={!!pendingLeaveAction}
+                title="Modifications non enregistrées"
+                message="Vous allez perdre les informations modifiées sur cette intervention. Voulez-vous vraiment quitter ?"
+                cancelText="Annuler"
+                confirmText="Quitter"
+                onClose={() => setPendingLeaveAction(null)}
+                onConfirm={() => {
+                    const action = pendingLeaveAction;
+                    setHasUnsavedChanges(false);
+                    setPendingLeaveAction(null);
+                    action?.();
                 }}
             />
 

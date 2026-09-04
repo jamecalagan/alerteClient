@@ -250,17 +250,15 @@ export default function PrintPage({ navigation }) {
         {"\n\n"}Signature du client :
       </Text>
 
-      <View style={styles.signatureContainer}>
-        {signatureUri ? (
+      {signatureUri && (
+        <View style={styles.signatureContainer}>
           <Image
             source={{ uri: signatureUri }}
             style={styles.signatureImage}
             resizeMode="contain"
           />
-        ) : (
-          <Text>Aucune signature fournie.</Text>
-        )}
-      </View>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
         <Text style={styles.printButtonText}>Imprimer</Text>

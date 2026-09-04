@@ -797,24 +797,6 @@ export default function CheckupPage() {
           {/* Signature */}
           <Text style={styles.sectionTitle}>Signature du client</Text>
 
-          {signature && (
-            <View style={styles.signaturePreviewCard}>
-              <View style={styles.signatureHeaderRow}>
-                <Text style={styles.signatureInfoText}>Signature existante</Text>
-                <TouchableOpacity onPress={handleClearSig}>
-                  <Text style={styles.signatureClearText}>Effacer</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.signaturePreviewBox}>
-                <Image
-                  source={{ uri: signature }}
-                  style={styles.signatureImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
-          )}
-
           <View style={styles.signatureCard}>
             <View style={styles.signatureContainer}>
               <Signature
@@ -1090,9 +1072,8 @@ const styles = StyleSheet.create({
   componentStatesRow: {
     flexDirection: "row",
     gap: 4,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     justifyContent: "flex-end",
-    maxWidth: 260,
   },
   stateChip: {
     borderWidth: 1,
@@ -1195,42 +1176,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#b91c1c",
     fontWeight: "700",
-  },
-
-  signaturePreviewCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
-    padding: 10,
-    marginBottom: 4,
-  },
-  signatureHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  signatureInfoText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  signatureClearText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#b91c1c",
-  },
-  signaturePreviewBox: {
-    height: 160,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#ffffff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  signatureImage: {
-    width: "100%",
-    height: "100%",
   },
 
   footerActionsRow: {

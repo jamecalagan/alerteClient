@@ -290,6 +290,7 @@ export default function AddInterventionPage({ route, navigation }) {
   const [photos, setPhotos] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isPhotoTaken, setIsPhotoTaken] = useState(false);
+  const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [labelPhoto, setLabelPhoto] = useState(null);
   const [model, setModel] = useState("");
   const [customBrand, setCustomBrand] = useState("");
@@ -866,6 +867,8 @@ const groupedFaults = filteredFaults.reduce(
   };
 
   const pickAdditionalImage = async () => {
+    if (isAddingPhoto) return; // évite un double upload si le bouton est pressé deux fois rapidement
+    setIsAddingPhoto(true);
     try {
       let result = await ImagePicker.launchCameraAsync({
         mediaTypes: ["images"],
@@ -902,6 +905,8 @@ const groupedFaults = filteredFaults.reduce(
       }
     } catch (error) {
       console.error("Erreur lors de la capture d'image :", error);
+    } finally {
+      setIsAddingPhoto(false);
     }
   };
 
@@ -2816,6 +2821,7 @@ onPress={() => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.iconButton, styles.button]}
+            disabled={isAddingPhoto}
             onPress={() => {
               Keyboard.dismiss();
               pickAdditionalImage();

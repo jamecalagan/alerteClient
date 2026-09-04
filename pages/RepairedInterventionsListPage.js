@@ -42,7 +42,7 @@ const [isUpdating, setIsUpdating] = useState(false);
   const initialFilter = route.params?.initialFilter ?? "Réparé";
   const [filter, setFilter] = useState(initialFilter);
 
-  const PAGE_SIZE = 4;
+  const PAGE_SIZE = 3;
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -285,7 +285,17 @@ const handleBulkRestitution = async () => {
       <View style={styles.content}>
       {/* ───── en-tête ───── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Produits réparés</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerIconBubble}>
+            <Ionicons name="checkmark-done" size={20} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>Produits réparés</Text>
+            <Text style={styles.headerSubtitle}>
+              {filtered.length} fiche{filtered.length > 1 ? "s" : ""}
+            </Text>
+          </View>
+        </View>
         <TouchableOpacity
           style={styles.archivesLink}
           onPress={() => navigation.navigate("ArchivesInterventionsPage")}
@@ -421,6 +431,7 @@ const handleBulkRestitution = async () => {
               delay={Math.min(index, 8) * 60}
               style={[
                 styles.card,
+                !isNonReparable && styles.cardHealthy,
                 isNonReparable && styles.cardDanger,
                 selected && styles.cardSelected,
                 item.on_hold && styles.cardOnHold,
@@ -549,7 +560,7 @@ const handleBulkRestitution = async () => {
               source={require("../assets/icons/chevrong.png")}
               style={[
                 styles.pagerIcon,
-                { tintColor: currentPage <= 1 ? "#cbd5e1" : "#4338ca" },
+                { tintColor: currentPage <= 1 ? "#a5b4fc" : "#ffffff" },
               ]}
             />
           </TouchableOpacity>
@@ -572,7 +583,7 @@ const handleBulkRestitution = async () => {
               source={require("../assets/icons/chevrond.png")}
               style={[
                 styles.pagerIcon,
-                { tintColor: currentPage >= totalPages ? "#cbd5e1" : "#4338ca" },
+                { tintColor: currentPage >= totalPages ? "#a5b4fc" : "#ffffff" },
               ]}
             />
           </TouchableOpacity>
@@ -617,7 +628,7 @@ const handleBulkRestitution = async () => {
 
 /* ───────────────── styles ───────────────── */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1, backgroundColor: "#eef2ff" },
   content: { flex: 1, padding: 16 },
 
   header: {
@@ -625,47 +636,76 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 8,
-    marginBottom: 14,
+    marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerIconBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#4f46e5",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#1e1b4b",
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6366f1",
+    marginTop: 2,
   },
   archivesLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: "#334155",
-    borderRadius: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    backgroundColor: "#312e81",
+    borderRadius: 22,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
   archivesLinkText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
   segment: {
     flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    borderRadius: 12,
+    backgroundColor: "#e0e7ff",
+    borderRadius: 14,
     padding: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   segBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 9,
+    paddingVertical: 11,
+    borderRadius: 11,
     alignItems: "center",
   },
   segBtnActive: {
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: "#4f46e5",
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  segBtnText: { fontSize: 14, fontWeight: "600", color: "#64748b" },
-  segBtnTextActive: { color: "#0f172a" },
+  segBtnText: { fontSize: 14, fontWeight: "700", color: "#6366f1" },
+  segBtnTextActive: { color: "#ffffff" },
 
   searchWrap: {
     position: "relative",
@@ -680,18 +720,23 @@ const styles = StyleSheet.create({
   search: {
     backgroundColor: "#fff",
     paddingHorizontal: 40,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     fontSize: 15,
     color: "#0f172a",
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
   suggestBox: {
     backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
     marginTop: 6,
     overflow: "hidden",
   },
@@ -708,12 +753,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#e0e7ff",
+    borderRadius: 14,
     padding: 10,
     marginTop: 10,
     marginBottom: 4,
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
   selectAllBtn: {
     flexDirection: "row",
@@ -736,10 +786,15 @@ const styles = StyleSheet.create({
     minHeight: 38,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#15803d",
+    backgroundColor: "#16a34a",
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 20,
+    shadowColor: "#16a34a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 2,
   },
   restituteBtnText: {
     color: "#ffffff",
@@ -792,23 +847,27 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: "#ffffff",
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 12,
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 14,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  cardHealthy: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#c4b5fd",
   },
   cardDanger: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#dc2626",
+    borderLeftWidth: 5,
+    borderLeftColor: "#fca5a5",
   },
   cardSelected: {
-    backgroundColor: "#eff6ff",
-    borderWidth: 1.5,
-    borderColor: "#2563eb",
+    backgroundColor: "#eef2ff",
+    borderWidth: 2,
+    borderColor: "#4f46e5",
   },
   cardOnHold: {
     opacity: 0.55,
@@ -840,13 +899,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   ficheBadge: {
-    backgroundColor: "#eef2ff",
+    backgroundColor: "#4f46e5",
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
   ficheBadgeText: {
-    color: "#4338ca",
+    color: "#ffffff",
     fontWeight: "700",
     fontSize: 12,
   },
@@ -912,7 +971,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#991B1B",
+    backgroundColor: "#ef4444",
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 12,
@@ -922,11 +981,11 @@ const styles = StyleSheet.create({
   onHoldBtn: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    backgroundColor: "#f1f5f9",
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#eef2ff",
     marginTop: 10,
   },
   onHoldBtnActive: {
@@ -952,18 +1011,23 @@ const styles = StyleSheet.create({
     marginBottom: 90,
   },
   pagerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#eef2ff",
-    borderWidth: 1,
-    borderColor: "#c7d2fe",
+    backgroundColor: "#4f46e5",
+    borderWidth: 0,
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 2,
   },
   pagerBtnDisabled: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#e5e7eb",
+    backgroundColor: "#e0e7ff",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   pagerIcon: {
     width: 18,

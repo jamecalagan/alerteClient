@@ -61,20 +61,41 @@ useEffect(() => {
         action(); // Appeler l'action correspondante (filtrer ou naviguer)
     };
 
-    const getButtonColor = (status) => {
-        if (status === "Home") {
-            return "#191f2f"; // "Accueil" est toujours actif
-        }
-        return activeButton === status ? "#191f2f" : "#191f2f"; // Les autres boutons changent seulement sur leur page
+    const ACCENTS = {
+        Commande: "#8b5cf6",
+        "Devis en cours": "#fb923c",
+        ExpressTypeSelectorPage: "#eab308",
+        "Intervention en cours": "#3b82f6",
+        "Réinitialiser": "#22c55e",
+        Home: "#0d9488",
     };
-    const getButtonBorder = (status) => {
-        return {
-            borderLeftWidth: 2, // Épaisseur de la bordure gauche
-            borderBottomColor: activeButton === status ? "#2e9af1" : "#7c7b7b", // Bordure blanche en bas si actif
-            borderBottomWidth: activeButton === status ? 3 : 1, // Épaisseur de la bordure inférieure
-            borderRadius: 2, // Arrondi pour un meilleur design
-        };
-    };
+    const NEUTRAL_ACCENT = "#64748b";
+    const getAccent = (status) => ACCENTS[status] || NEUTRAL_ACCENT;
+    const isActiveStatus = (status) =>
+        status === "Home" ? true : activeButton === status;
+
+    // Fond navy quand inactif, pastille pleine de la couleur du bouton quand actif.
+    const getButtonColor = (status) =>
+        isActiveStatus(status) ? getAccent(status) : "#20263b";
+
+    // Coins arrondis, plat (sans ombre) au lieu des bordures épaisses.
+    const getButtonBorder = (status) => ({
+        borderRadius: 18,
+        elevation: 0,
+        shadowOpacity: 0,
+    });
+    const getIconTint = (status) =>
+        isActiveStatus(status)
+            ? status === "Home"
+                ? "#ffffff"
+                : "#000000"
+            : getAccent(status);
+    const getTextColor = (status) =>
+        isActiveStatus(status)
+            ? status === "Home"
+                ? "#ffffff"
+                : "#000000"
+            : "#cbd5e1";
     const checkBackupReminder = async () => {
         try {
             const last = await AsyncStorage.getItem("lastImageBackupReminder");
@@ -104,7 +125,7 @@ useEffect(() => {
     <View style={styles.iconWrap}>
       <Image
         source={require("../assets/icons/shipping.png")}
-        style={styles.icon}
+        style={[styles.icon, { tintColor: getIconTint("Commande") }]}
       />
       {ongoingCount > 0 && (
         <View style={styles.greenBadge}>
@@ -114,7 +135,7 @@ useEffect(() => {
         </View>
       )}
     </View>
-    <Text style={styles.filterText}>Commande</Text>
+    <Text style={[styles.filterText, { color: getTextColor("Commande") }]}>Commande</Text>
   </View>
 </TouchableOpacity>
 
@@ -131,9 +152,9 @@ useEffect(() => {
     <View style={styles.buttonContent}>
         <Image
             source={require("../assets/icons/devisEnCours.png")}
-            style={styles.icon}
+            style={[styles.icon, { tintColor: getIconTint("Devis en cours") }]}
         />
-        <Text style={styles.filterText}>Devis</Text>
+        <Text style={[styles.filterText, { color: getTextColor("Devis en cours") }]}>Devis</Text>
     </View>
 </TouchableOpacity>
 
@@ -152,9 +173,9 @@ useEffect(() => {
     <View style={styles.buttonContent}>
         <Image
             source={require("../assets/icons/flash.png")} // à adapter selon ton icône
-            style={styles.icon}
+            style={[styles.icon, { tintColor: getIconTint("ExpressTypeSelectorPage") }]}
         />
-        <Text style={styles.filterText}>Express</Text>
+        <Text style={[styles.filterText, { color: getTextColor("ExpressTypeSelectorPage") }]}>Express</Text>
     </View>
 </TouchableOpacity>
 
@@ -178,9 +199,9 @@ useEffect(() => {
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/tools1.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("Intervention en cours") }]}
                         />
-                        <Text style={styles.filterText}>En Réparation</Text>
+                        <Text style={[styles.filterText, { color: getTextColor("Intervention en cours") }]}>En Réparation</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -195,9 +216,9 @@ useEffect(() => {
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/reload.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("Réinitialiser") }]}
                         />
-                        <Text style={styles.filterText}>Réinitialiser</Text>
+                        <Text style={[styles.filterText, { color: getTextColor("Réinitialiser") }]}>Réinitialiser</Text>
                     </View>
                 </TouchableOpacity>
             </View>
@@ -209,6 +230,7 @@ useEffect(() => {
                     style={[
                         styles.filterButtonHome,
                         { backgroundColor: getButtonColor("Home") },
+                        getButtonBorder("Home"),
                     ]}
 onPress={() =>
   handlePress("Home", () => {
@@ -227,9 +249,9 @@ onPress={() =>
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/home.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("Home") }]}
                         />
-                        <Text style={styles.menuText}>Accueil</Text>
+                        <Text style={[styles.menuText, { color: getTextColor("Home") }]}>Accueil</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -237,6 +259,7 @@ onPress={() =>
                     style={[
                         styles.filterButton,
                         { backgroundColor: getButtonColor("AddClient") },
+                        getButtonBorder("AddClient"),
                     ]}
                     onPress={() =>
                         handlePress("AddClient", () =>
@@ -247,9 +270,9 @@ onPress={() =>
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/add.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("AddClient") }]}
                         />
-                        <Text style={styles.menuText}>Ajouter</Text>
+                        <Text style={[styles.menuText, { color: getTextColor("AddClient") }]}>Ajouter</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -261,6 +284,7 @@ onPress={() =>
                                 "RepairedInterventionsListPage"
                             ),
                         },
+                        getButtonBorder("RepairedInterventionsListPage"),
                     ]}
                     onPress={() =>
                         handlePress("RepairedInterventionsListPage", () =>
@@ -271,9 +295,9 @@ onPress={() =>
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/finished.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("RepairedInterventionsListPage") }]}
                         />
-                        <Text style={styles.menuText}>Réparés</Text>
+                        <Text style={[styles.menuText, { color: getTextColor("RepairedInterventionsListPage") }]}>Réparés</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -281,6 +305,7 @@ onPress={() =>
                     style={[
                         styles.filterButton,
                         { backgroundColor: getButtonColor("RecoveredClients") },
+                        getButtonBorder("RecoveredClients"),
                     ]}
                     onPress={() =>
                         handlePress("RecoveredClients", () =>
@@ -291,9 +316,9 @@ onPress={() =>
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/restitue.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("RecoveredClients") }]}
                         />
-                        <Text style={styles.menuText}>Restitués</Text>
+                        <Text style={[styles.menuText, { color: getTextColor("RecoveredClients") }]}>Restitués</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -301,6 +326,7 @@ onPress={() =>
                     style={[
                         styles.filterButton,
                         { backgroundColor: getButtonColor("Admin") },
+                        getButtonBorder("Admin"),
                     ]}
                     onPress={() =>
                         handlePress("Admin", () => navigation.navigate("Admin"))
@@ -309,9 +335,9 @@ onPress={() =>
                     <View style={styles.buttonContent}>
                         <Image
                             source={require("../assets/icons/Config.png")}
-                            style={styles.icon}
+                            style={[styles.icon, { tintColor: getIconTint("Admin") }]}
                         />
-                        <Text style={styles.menuText}>Admin</Text>
+                        <Text style={[styles.menuText, { color: getTextColor("Admin") }]}>Admin</Text>
                         {showBackupAlert && <View style={styles.redDot} />}
                     </View>
                 </TouchableOpacity>
@@ -323,10 +349,9 @@ onPress={() =>
 const styles = StyleSheet.create({
     bottomMenuContainer: {
         position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        width: "100%",
+        bottom: 14,
+        left: 15,
+        right: 15,
         paddingVertical: 10,
         paddingBottom: 2,
         borderRadius: 5,
@@ -334,7 +359,7 @@ const styles = StyleSheet.create({
     navigationRow: {
         flexDirection: "row",
         justifyContent: "space-around",
-        marginBottom: 10,
+        marginBottom: 2,
     },
     filterRow: {
         flexDirection: "row",
@@ -343,94 +368,51 @@ const styles = StyleSheet.create({
     },
     filterButton: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 3,
-        borderColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonHome: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 3,
-        borderColor: "#1da4f1",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonShipping: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderLeftColor: "#b396f8",
-        borderBottomColor: "#5b6788",
-        borderRightColor: "#5b6788",
-        borderTopColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonDevis: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderLeftColor: "#f37209",
-        borderBottomColor: "#5b6788",
-        borderRightColor: "#5b6788",
-        borderTopColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonDevisOk: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderLeftColor: "#FFD700",
-        borderBottomColor: "#5b6788",
-        borderRightColor: "#5b6788",
-        borderTopColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonRepair: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderLeftColor: "#0471ff",
-        borderBottomColor: "#5b6788",
-        borderRightColor: "#5b6788",
-        borderTopColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     filterButtonInit: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-        borderWidth: 1,
-        borderLeftColor: "#00ff22",
-        borderBottomColor: "#5b6788",
-        borderRightColor: "#5b6788",
-        borderTopColor: "#5b6788",
+        paddingHorizontal: 16,
         flex: 1,
         marginHorizontal: 5,
-        elevation: 2,
         backgroundColor: "#191f2f",
     },
     buttonContent: {
@@ -442,7 +424,6 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         marginRight: 8,
-        tintColor: "#919090",
     },
     menuText: {
         fontSize: 14,
@@ -456,8 +437,9 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 1,
-        backgroundColor: "#ccc",
-        marginVertical: 10,
+        backgroundColor: "#334155",
+        opacity: 0.4,
+        marginVertical: 4,
     },
     redDot: {
         width: 10,

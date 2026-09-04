@@ -296,6 +296,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
     // Média
     const [photos, setPhotos] = useState([]);
+    const [isAddingPhoto, setIsAddingPhoto] = useState(false);
     const [labelPhoto, setLabelPhoto] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [labelPhotoDB, setLabelPhotoDB] = useState(null); // ref cloud DB (stable)
@@ -1541,6 +1542,8 @@ showAlert(
     };
 
     const pickAdditionalImage = async () => {
+        if (isAddingPhoto) return; // évite un double upload si le bouton est pressé deux fois rapidement
+        setIsAddingPhoto(true);
         const toArr = (v) => {
             if (Array.isArray(v)) return v.filter(Boolean);
             if (v == null) return [];
@@ -1632,6 +1635,8 @@ showAlert(
         } catch (e) {
             console.error("Erreur capture image :", e);
             showAlert("Erreur", "Impossible d'ajouter la photo.");
+        } finally {
+            setIsAddingPhoto(false);
         }
     };
 	const saveCustomRepairValue = async () => {
@@ -3468,6 +3473,7 @@ onPress={() => {
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
                         style={[styles.iconButton, styles.button]}
+                        disabled={isAddingPhoto}
                         onPress={pickAdditionalImage}
                     >
                         <Image

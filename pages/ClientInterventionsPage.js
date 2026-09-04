@@ -194,6 +194,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
+  const [photoToDelete, setPhotoToDelete] = useState(null); // { interventionId, uri }
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -442,6 +443,59 @@ export default function ClientInterventionsPage({ route, navigation }) {
     setInterventionIdToDelete(interventionId);
   };
 
+  const confirmDeletePhoto = (interventionId, uri) => {
+    setPhotoToDelete({ interventionId, uri });
+  };
+
+  const handleDeletePhoto = async () => {
+    const target = photoToDelete;
+    setPhotoToDelete(null);
+    if (!target) return;
+    const { interventionId, uri } = target;
+
+    try {
+      const path = cleanRefNoToken(uri);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("images")
+          .remove([path]);
+        if (storageError) {
+          console.error("Suppression Storage photo :", storageError);
+        }
+      }
+
+      const { data: row, error: readErr } = await supabase
+        .from("interventions")
+        .select("photos")
+        .eq("id", interventionId)
+        .single();
+
+      if (readErr) throw readErr;
+
+      const nextPhotos = normalizePhotosField(row?.photos).filter(
+        (p) => cleanRefNoToken(p) !== path
+      );
+
+      const { error: updateErr } = await supabase
+        .from("interventions")
+        .update({ photos: nextPhotos })
+        .eq("id", interventionId);
+
+      if (updateErr) throw updateErr;
+
+      setInterventions((prev) =>
+        prev.map((it) =>
+          it.id === interventionId
+            ? { ...it, photos: (it.photos || []).filter((p) => p !== uri) }
+            : it
+        )
+      );
+    } catch (err) {
+      console.error("Erreur suppression photo :", err);
+      showAlert("Erreur", "Impossible de supprimer cette photo.");
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -568,12 +622,19 @@ export default function ClientInterventionsPage({ route, navigation }) {
                     </View>
 
                     {/* Photos supplémentaires (fusionnées/dédupliquées) */}
+                    {Array.isArray(item.photos) && item.photos.length > 0 && (
+                      <Text style={styles.deletePhotoHint}>
+                        Appui long sur une photo pour la supprimer
+                      </Text>
+                    )}
                     <View style={styles.photosContainer}>
                       {Array.isArray(item.photos) && item.photos.length > 0 ? (
                         item.photos.map((uri, index) => (
                           <TouchableOpacity
                             key={`${item.id}-${index}`}
                             onPress={() => handleImagePress(uri)}
+                            onLongPress={() => confirmDeletePhoto(item.id, uri)}
+                            delayLongPress={350}
                           >
                             <SmartImage
                               uri={uri}
@@ -782,6 +843,16 @@ export default function ClientInterventionsPage({ route, navigation }) {
         }}
       />
 
+      <AlertBox
+        visible={!!photoToDelete}
+        title="Supprimer la photo"
+        message="Supprimer définitivement cette photo ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setPhotoToDelete(null)}
+        onConfirm={handleDeletePhoto}
+      />
+
       <CustomAlert
         visible={alertVisible}
         title={alertTitle}
@@ -897,6 +968,12 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: "#555",
     marginTop: 4,
+    textAlign: "center",
+  },
+  deletePhotoHint: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginBottom: 4,
     textAlign: "center",
   },
 

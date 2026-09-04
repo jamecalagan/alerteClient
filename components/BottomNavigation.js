@@ -57,19 +57,24 @@ export default function BottomMenu() {
     );
 }
 
+const ACCENT = "#0d9488";
+
 const MenuButton = ({ label, icon, isActive, onPress }) => (
     <TouchableOpacity
         style={[
             styles.menuButton,
-            { backgroundColor: isActive ? "#191f2f" : "#191f2f",
-				borderWidth: 3, // Épaisseur de la bordure
-				borderColor: isActive ? "#1da4f1" : "#444c5c",}
+            { backgroundColor: isActive ? ACCENT : "#20263b" },
         ]}
         onPress={onPress}
     >
         <View style={styles.buttonContent}>
-            <Image source={icon} style={styles.icon} />
-            <Text style={styles.menuText}>{label}</Text>
+            <Image
+                source={icon}
+                style={[styles.icon, { tintColor: isActive ? "#ffffff" : ACCENT }]}
+            />
+            <Text style={[styles.menuText, { color: isActive ? "#ffffff" : "#cbd5e1" }]}>
+                {label}
+            </Text>
         </View>
     </TouchableOpacity>
 );
@@ -89,10 +94,8 @@ const styles = StyleSheet.create({
     },
     menuButton: {
         paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 2,
-		borderWidth: 1,
-		borderColor: "#5b6788",
+        paddingHorizontal: 16,
+        borderRadius: 18,
         alignItems: "center",
         flex: 1,
         marginHorizontal: 5,
@@ -106,10 +109,8 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         marginRight: 8,
-        tintColor: "#919090",
     },
     menuText: {
-        color: "#fff",
         fontWeight: "medium",
     },
 });

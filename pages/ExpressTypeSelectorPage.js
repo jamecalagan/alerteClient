@@ -49,7 +49,7 @@ const ExpressTypeSelectorPage = () => {
   ];
 
   const buttonPropsByType = {
-    logiciel: { icon: "🖥", label: "Dépannage", color: "#1b2a41" },
+    logiciel: { icon: "🖥", label: "Logiciel", color: "#1b2a41" },
     reparation: { icon: "🛠", label: "Réparation", color: "#14532d" },
     video: { icon: "🎬", label: "Transfert vidéo", color: "#7a5c00" },
     demande_devis: { icon: "📝", label: "Demande devis", color: "#6b4e16" },

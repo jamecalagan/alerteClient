@@ -13,12 +13,25 @@ import {
   Modal,
 } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
+import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "../supabaseClient";
 import BottomNavigation from "../components/BottomNavigation";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
+
+const STATUS_COLORS = {
+  "Réparé": { bg: "#dcfce7", text: "#15803d" },
+  "Non réparable": { bg: "#fee2e2", text: "#dc2626" },
+  "Intervention en cours": { bg: "#dbeafe", text: "#1d4ed8" },
+  "En attente de pièces": { bg: "#fef3c7", text: "#b45309" },
+  "Devis en cours": { bg: "#ede9fe", text: "#6d28d9" },
+  "Devis accepté": { bg: "#e0f2fe", text: "#0369a1" },
+  "Récupéré": { bg: "#e2e8f0", text: "#334155" },
+};
+const getStatusColors = (status) =>
+  STATUS_COLORS[status] || { bg: "#e2e8f0", text: "#334155" };
 
 /* ─────────── Helpers format ─────────── */
 const formatPhone = (p) => (p ? String(p).replace(/(\d{2})(?=\d)/g, "$1 ") : "");
@@ -502,16 +515,19 @@ export default function ClientInterventionsPage({ route, navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={0}
     >
-      <View style={{ flex: 1, padding: 20 }}>
-        <Text style={styles.title}>Interventions et commande du client</Text>
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={styles.title}>📋 Interventions et commandes du client</Text>
 
-        <TextInput
-          style={styles.searchBar}
-          placeholder="Rechercher par nom ou téléphone"
-          placeholderTextColor="#888787"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={18} color="#94a3b8" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchBar}
+            placeholder="Rechercher par nom ou téléphone"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
 
         {/* Liste des interventions (si pas de recherche en cours) */}
         {selectedClient && searchQuery === "" && (
@@ -519,68 +535,61 @@ export default function ClientInterventionsPage({ route, navigation }) {
             <FlatList
               data={interventions}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
+              renderItem={({ item }) => {
+                const statusColors = getStatusColors(item.status);
+                return (
                 <View style={styles.interventionCard}>
+                <View style={{ flexDirection: "row", gap: 12 }}>
                   {/* ───── Bloc INFOS (client + intervention) ───── */}
                   <View style={styles.interventionDetails}>
-                    {/* Client */}
-                    <Text style={styles.clientLine}>
-                      <Text style={styles.bold}>Client :</Text> {selectedClient.name}
-                    </Text>
-                    <Text style={styles.clientLine}>
-                      <Text style={styles.bold}>Téléphone :</Text> {formatPhone(selectedClient.phone)}
-                    </Text>
-                    <Text style={styles.clientLine}>
-                      <Text style={styles.bold}>N° de fiche :</Text> {selectedClient.ficheNumber}
-                    </Text>
-                    <Text style={styles.clientLine}>
-                      <Text style={styles.bold}>Création client :</Text> {fmtDate(selectedClient.createdAt)}
+                    <View style={styles.ficheBadge}>
+                      <Text style={styles.ficheBadgeText}>
+                        N° {selectedClient.ficheNumber}
+                      </Text>
+                    </View>
+                    <Text style={styles.clientName}>{selectedClient.name}</Text>
+                    <Text style={styles.clientPhone}>{formatPhone(selectedClient.phone)}</Text>
+                    <Text style={styles.mutedLine}>
+                      Client depuis le {fmtDate(selectedClient.createdAt)}
                     </Text>
 
-                    {/* Intervention */}
                     <View style={styles.sep} />
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Référence :</Text> {item.reference || "N/A"}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Type :</Text> {item.deviceType || "N/A"}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Marque :</Text> {item.brand || "N/A"}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Modèle :</Text> {item.model || "N/A"}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Description :</Text> {item.description}
-                    </Text>
-                    {!!item.detailIntervention && (
-                      <Text style={styles.infoLine}>
-                        <Text style={styles.bold}>Détail intervention :</Text> {item.detailIntervention}
+
+                    <View style={[styles.statusPill, { backgroundColor: statusColors.bg, alignSelf: "flex-start" }]}>
+                      <Text style={[styles.statusPillText, { color: statusColors.text }]}>
+                        {item.status || "Statut inconnu"}
                       </Text>
-                    )}
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Mot de passe :</Text> {item.password || "—"}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Statut :</Text> {item.status}
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Coût :</Text> {item.cost} €
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Reste dû :</Text> {item.solderestant} €
-                    </Text>
-                    <Text style={styles.infoLine}>
-                      <Text style={styles.bold}>Création intervention :</Text>{" "}
-                      {fmtDate(item.createdAt)}
-                    </Text>
-                    {item.status === "Récupéré" && (
-                      <Text style={styles.infoLine}>
-                        <Text style={styles.bold}>Récupéré le :</Text>{" "}
-                        {item.updatedAt ? fmtDate(item.updatedAt) : "Non disponible"}
-                      </Text>
-                    )}
+                    </View>
+
+                    {[
+                      { label: "Référence", value: item.reference || "N/A" },
+                      { label: "Type", value: item.deviceType || "N/A" },
+                      { label: "Marque", value: item.brand || "N/A" },
+                      { label: "Modèle", value: item.model || "N/A" },
+                      { label: "Description", value: item.description },
+                      ...(item.detailIntervention
+                        ? [{ label: "Détail intervention", value: item.detailIntervention }]
+                        : []),
+                      { label: "Mot de passe", value: item.password || "—" },
+                      { label: "Coût", value: `${item.cost} €` },
+                      { label: "Reste dû", value: `${item.solderestant} €` },
+                      { label: "Création intervention", value: fmtDate(item.createdAt) },
+                      ...(item.status === "Récupéré"
+                        ? [{
+                            label: "Récupéré le",
+                            value: item.updatedAt ? fmtDate(item.updatedAt) : "Non disponible",
+                          }]
+                        : []),
+                    ].map((row, idx) => (
+                      <View
+                        key={row.label}
+                        style={[styles.infoRow, idx % 2 === 1 && styles.infoRowAlt]}
+                      >
+                        <Text style={styles.infoLine}>
+                          <Text style={styles.bold}>{row.label} :</Text> {row.value}
+                        </Text>
+                      </View>
+                    ))}
                     {item.accept_screen_risk ? (
                       <Text style={styles.acceptRiskText}>
                         Le client a accepté le risque de casse.
@@ -588,9 +597,8 @@ export default function ClientInterventionsPage({ route, navigation }) {
                     ) : null}
                   </View>
 
-                  {/* ───── Bloc IMAGES (label + photos + signature) ───── */}
+                  {/* ───── Bloc ÉTIQUETTE uniquement ───── */}
                   <View style={styles.mediaColumn}>
-                    {/* Étiquette (ou fallback texte) */}
                     <View style={styles.labelContainer}>
                       {(() => {
                         const label =
@@ -620,54 +628,57 @@ export default function ClientInterventionsPage({ route, navigation }) {
                         );
                       })()}
                     </View>
-
-                    {/* Photos supplémentaires (fusionnées/dédupliquées) */}
-                    {Array.isArray(item.photos) && item.photos.length > 0 && (
-                      <Text style={styles.deletePhotoHint}>
-                        Appui long sur une photo pour la supprimer
-                      </Text>
-                    )}
-                    <View style={styles.photosContainer}>
-                      {Array.isArray(item.photos) && item.photos.length > 0 ? (
-                        item.photos.map((uri, index) => (
-                          <TouchableOpacity
-                            key={`${item.id}-${index}`}
-                            onPress={() => handleImagePress(uri)}
-                            onLongPress={() => confirmDeletePhoto(item.id, uri)}
-                            delayLongPress={350}
-                          >
-                            <SmartImage
-                              uri={uri}
-                              ficheNumber={selectedClient?.ficheNumber}
-                              interventionId={item.id}
-                              index={index}
-                              type="photo"
-                              size={64}
-                              borderRadius={8}
-                              borderWidth={1}
-                              badge
-                            />
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.noPhotosText}>
-                          Pas d'images disponibles
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Bouton supprimer */}
-                    <View style={styles.deleteButtonContainer}>
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => confirmDeleteIntervention(item.id)}
-                      >
-                        <Text style={styles.deleteButtonText}>Supprimer</Text>
-                      </TouchableOpacity>
-                    </View>
                   </View>
                 </View>
-              )}
+
+                {/* ───── Photos supplémentaires, sous le tableau ───── */}
+                {Array.isArray(item.photos) && item.photos.length > 0 && (
+                  <Text style={styles.deletePhotoHint}>
+                    Appui long sur une photo pour la supprimer
+                  </Text>
+                )}
+                <View style={styles.photosContainerBelow}>
+                  {Array.isArray(item.photos) && item.photos.length > 0 ? (
+                    item.photos.map((uri, index) => (
+                      <TouchableOpacity
+                        key={`${item.id}-${index}`}
+                        onPress={() => handleImagePress(uri)}
+                        onLongPress={() => confirmDeletePhoto(item.id, uri)}
+                        delayLongPress={350}
+                      >
+                        <SmartImage
+                          uri={uri}
+                          ficheNumber={selectedClient?.ficheNumber}
+                          interventionId={item.id}
+                          index={index}
+                          type="photo"
+                          size={64}
+                          borderRadius={8}
+                          borderWidth={1}
+                          badge
+                        />
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.noPhotosText}>
+                      Pas d'images disponibles
+                    </Text>
+                  )}
+                </View>
+
+                {/* Bouton supprimer */}
+                <View style={styles.deleteButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => confirmDeleteIntervention(item.id)}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                    <Text style={styles.deleteButtonText}>Supprimer</Text>
+                  </TouchableOpacity>
+                </View>
+                </View>
+                );
+              }}
               ListFooterComponent={
                 orders.length > 0 ? (
                   <View style={{ marginTop: 8 }}>
@@ -677,54 +688,32 @@ export default function ClientInterventionsPage({ route, navigation }) {
                     {orders.map((order) => (
                       <View key={order.id} style={styles.orderCard}>
                         <View style={styles.interventionDetails}>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Produit :</Text>{" "}
-                            {order.product || "N/A"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Marque :</Text>{" "}
-                            {order.brand || "N/A"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Modèle :</Text>{" "}
-                            {order.model || "N/A"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Quantité :</Text>{" "}
-                            {order.quantity || 1}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Prix :</Text>{" "}
-                            {order.price} €
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Acompte :</Text>{" "}
-                            {order.deposit || 0} €
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Total :</Text>{" "}
-                            {order.total} €
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Payé :</Text>{" "}
-                            {order.paid ? "Oui" : "Non"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Commandée :</Text>{" "}
-                            {order.ordered ? "Oui" : "Non"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Reçue :</Text>{" "}
-                            {order.received ? "Oui" : "Non"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Récupérée :</Text>{" "}
-                            {order.recovered ? "Oui" : "Non"}
-                          </Text>
-                          <Text style={styles.infoLine}>
-                            <Text style={styles.bold}>Créée le :</Text>{" "}
-                            {fmtDate(order.createdat)}
-                          </Text>
+                          <View style={styles.orderBadge}>
+                            <Text style={styles.orderBadgeText}>COMMANDE</Text>
+                          </View>
+                          {[
+                            { label: "Produit", value: order.product || "N/A" },
+                            { label: "Marque", value: order.brand || "N/A" },
+                            { label: "Modèle", value: order.model || "N/A" },
+                            { label: "Quantité", value: order.quantity || 1 },
+                            { label: "Prix", value: `${order.price} €` },
+                            { label: "Acompte", value: `${order.deposit || 0} €` },
+                            { label: "Total", value: `${order.total} €` },
+                            { label: "Payé", value: order.paid ? "Oui" : "Non" },
+                            { label: "Commandée", value: order.ordered ? "Oui" : "Non" },
+                            { label: "Reçue", value: order.received ? "Oui" : "Non" },
+                            { label: "Récupérée", value: order.recovered ? "Oui" : "Non" },
+                            { label: "Créée le", value: fmtDate(order.createdat) },
+                          ].map((row, idx) => (
+                            <View
+                              key={row.label}
+                              style={[styles.infoRow, idx % 2 === 1 && styles.infoRowAlt]}
+                            >
+                              <Text style={styles.infoLine}>
+                                <Text style={styles.bold}>{row.label} :</Text> {row.value}
+                              </Text>
+                            </View>
+                          ))}
                         </View>
 
                         <View style={styles.mediaColumn}>
@@ -796,8 +785,9 @@ export default function ClientInterventionsPage({ route, navigation }) {
                 }}
                 style={styles.clientCard}
               >
-                <Text style={styles.infoLine}>
-                  {item.name} - {formatPhone(item.phone)}
+                <Ionicons name="person-circle-outline" size={22} color="#4338ca" />
+                <Text style={styles.clientCardText}>
+                  {item.name} — {formatPhone(item.phone)}
                 </Text>
               </TouchableOpacity>
             )}
@@ -864,85 +854,169 @@ export default function ClientInterventionsPage({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#e0e0e0" },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
   title: {
-    fontSize: 24,
-    color: "#242424",
-    fontWeight: "bold",
+    fontSize: 20,
+    color: "#0f172a",
+    fontWeight: "800",
     marginBottom: 12,
     textAlign: "center",
   },
+  searchWrap: {
+    position: "relative",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 14,
+    zIndex: 1,
+  },
   searchBar: {
-    backgroundColor: "#c7c5c5",
-    height: 40,
-    borderColor: "#777676",
+    backgroundColor: "#ffffff",
+    height: 44,
+    borderColor: "#e2e8f0",
     borderWidth: 1,
-    paddingLeft: 8,
-    marginBottom: 16,
-    borderRadius: 20,
-    fontSize: 16,
-    color: "#242424",
+    paddingLeft: 40,
+    borderRadius: 12,
+    fontSize: 15,
+    color: "#0f172a",
   },
   clientCard: {
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: "#cacaca",
-    borderRadius: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#888787",
+    borderColor: "#e2e8f0",
+  },
+  clientCardText: {
+    fontSize: 14,
+    color: "#1e293b",
+    fontWeight: "600",
   },
 
   interventionCard: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 12,
-    backgroundColor: "#cacaca",
-    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#888787",
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#242424",
-    marginTop: 8,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginTop: 10,
     marginBottom: 10,
     textAlign: "center",
   },
   orderCard: {
     flexDirection: "row",
     gap: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 12,
-    backgroundColor: "#e8e3ff",
-    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#b396f8",
+    borderColor: "#e9d5ff",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  orderBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f5f3ff",
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginBottom: 6,
+  },
+  orderBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7c3aed",
+    letterSpacing: 0.4,
   },
   orderPhotoThumb: {
     width: 64,
     height: 64,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#270381",
+    borderColor: "#e9d5ff",
     resizeMode: "cover",
   },
   photoGroupLabel: {
     fontSize: 11,
-    fontWeight: "bold",
-    color: "#270381",
+    fontWeight: "700",
+    color: "#7c3aed",
     marginBottom: 4,
     textAlign: "center",
   },
 
   /* Infos bloc */
   interventionDetails: { flex: 2 },
-  bold: { fontWeight: "bold" },
-  clientLine: { color: "#242424", marginBottom: 2 },
-  infoLine: { color: "#242424", marginBottom: 2 },
-  sep: { height: 8 },
+  bold: { fontWeight: "700", color: "#475569" },
+  ficheBadge: {
+    backgroundColor: "#eef2ff",
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    alignSelf: "flex-start",
+    marginBottom: 6,
+  },
+  ficheBadgeText: {
+    color: "#4338ca",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  clientName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  clientPhone: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 1,
+  },
+  mutedLine: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 1,
+  },
+  statusPill: {
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginBottom: 6,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  infoRow: {
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+  },
+  infoRowAlt: {
+    backgroundColor: "#eef2f7",
+    borderRadius: 4,
+  },
+  infoLine: { color: "#334155", fontSize: 13 },
+  sep: { height: 1, backgroundColor: "#f1f5f9", marginVertical: 8 },
 
   /* Images bloc */
   mediaColumn: { flex: 1, alignItems: "center" },
@@ -963,25 +1037,30 @@ const styles = StyleSheet.create({
     gap: 6,
     justifyContent: "center",
   },
+  photosContainerBelow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
   noPhotosText: {
     fontSize: 12,
     fontStyle: "italic",
-    color: "#555",
+    color: "#94a3b8",
     marginTop: 4,
     textAlign: "center",
   },
   deletePhotoHint: {
     fontSize: 11,
     color: "#94a3b8",
-    marginBottom: 4,
-    textAlign: "center",
+    marginTop: 10,
   },
 
   /* Divers */
   acceptRiskText: {
     marginTop: 6,
-    fontSize: 13,
-    color: "green",
+    fontSize: 12,
+    color: "#15803d",
     fontWeight: "700",
   },
   deleteButtonContainer: {
@@ -989,14 +1068,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deleteButton: {
-    backgroundColor: "#fd0000",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fef2f2",
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 20,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#888787",
+    borderColor: "#fecaca",
   },
-  deleteButtonText: { color: "#ffffff", fontWeight: "bold", fontSize: 14 },
+  deleteButtonText: { color: "#dc2626", fontWeight: "700", fontSize: 13 },
 
   modalBackground: {
     flex: 1,

@@ -9755,12 +9755,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
     alignItems: "center",
-    marginBottom: 16, // Espace avant la barre de recherche
-    marginTop: 58, // Dégage le bouton menu et l'icône date (position absolue en haut)
+    marginBottom: 10, // Espace avant la barre de recherche
+    marginTop: 48, // Dégage le bouton menu et l'icône date (position absolue en haut)
   },
   pageNumberText: {
     marginRight: 20,
-    fontSize: 20,
+    fontSize: 14,
     color: "#242424", // Assurez-vous que la couleur correspond à votre thème
   },
   title: {

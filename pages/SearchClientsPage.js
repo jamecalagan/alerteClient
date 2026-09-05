@@ -16,6 +16,7 @@ import { supabase } from "../supabaseClient";
 import { Picker } from "@react-native-picker/picker";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
+import { commonStyles } from "../themes/modernTheme";
 
 let debounceTimeout = null;
 const ITEMS_PER_PAGE = 2; // Nombre de fiches par page
@@ -972,6 +973,7 @@ const SearchClientsPage = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+    ...commonStyles,
     container: { flex: 1, backgroundColor: "#f8fafc" },
     content: { flex: 1 },
     contentInner: { padding: 16, paddingBottom: 40 },
@@ -989,23 +991,8 @@ const styles = StyleSheet.create({
         color: "#0f172a",
     },
 
-    card: {
-        backgroundColor: "#ffffff",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 14,
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: "800",
-        color: "#0f172a",
-        marginBottom: 4,
-    },
+    card: commonStyles.elevatedCard,
+    cardTitle: { ...commonStyles.elevatedCardTitle, fontSize: 16 },
     cardHint: {
         fontSize: 12,
         color: "#94a3b8",
@@ -1168,17 +1155,7 @@ const styles = StyleSheet.create({
         color: "#94a3b8",
     },
 
-    clientCard: {
-        backgroundColor: "#ffffff",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 14,
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-    },
+    clientCard: commonStyles.elevatedCard,
     clientDetails: {
         flex: 1,
     },
@@ -1301,38 +1278,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: "#0f172a",
         fontWeight: "600",
-    },
-
-    pager: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 16,
-        marginTop: 6,
-        marginBottom: 10,
-    },
-    pagerBtn: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#eef2ff",
-        borderWidth: 1,
-        borderColor: "#c7d2fe",
-    },
-    pagerBtnDisabled: {
-        backgroundColor: "#f3f4f6",
-        borderColor: "#e5e7eb",
-    },
-    pagerIcon: {
-        width: 18,
-        height: 18,
-    },
-    pagerInfo: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#374151",
     },
 
     modalContainer: {

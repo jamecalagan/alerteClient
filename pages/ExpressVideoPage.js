@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -57,8 +57,31 @@ export default function ExpressVideoPage() {
         editData.support_fournis === true
     );
 
+    // === Confirmation avant de quitter avec des modifications non enregistrées ===
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
+    const skipDirtyRef = useRef(true); // true au montage et pendant le chargement d'une fiche existante
+
+    useEffect(() => {
+        if (skipDirtyRef.current) {
+            skipDirtyRef.current = false;
+            return;
+        }
+        setHasUnsavedChanges(true);
+    }, [name, phone, description, cassetteCounts, unitPrice, outputtype, supportFournis, isPaid]);
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+            if (!hasUnsavedChanges) return;
+            e.preventDefault();
+            setPendingLeaveAction(() => () => navigation.dispatch(e.data.action));
+        });
+        return unsubscribe;
+    }, [navigation, hasUnsavedChanges]);
+
     useEffect(() => {
         if (isEdit && editData.price && editData.cassettecount) {
+            skipDirtyRef.current = true; // le calcul initial ne doit pas marquer la fiche comme modifiée
             const cassetteTotal = editData.cassettecount
                 .split(", ")
                 .reduce((acc, val) => acc + parseInt(val, 10), 0);
@@ -215,6 +238,7 @@ export default function ExpressVideoPage() {
                     return;
                 }
 
+                setHasUnsavedChanges(false);
                 showAlert("✅", "Fiche modifiée avec succès.");
                 navigation.navigate("ExpressListPage", { refresh: Date.now() });
             } else {
@@ -228,6 +252,8 @@ export default function ExpressVideoPage() {
                     showAlert("Erreur", error.message);
                     return;
                 }
+
+                setHasUnsavedChanges(false);
 
                 const insertedId = data?.[0]?.id;
                 navigation.navigate("PrintExpressPage", {
@@ -434,6 +460,7 @@ export default function ExpressVideoPage() {
         showAlert("Erreur", error.message);
       } else {
         setIsPaid(!isPaid);
+        setHasUnsavedChanges(false);
         showAlert(
           "OK",
           `Fiche ${!isPaid ? "marquée réglée" : "remise en dû"}.`
@@ -464,6 +491,19 @@ export default function ExpressVideoPage() {
                 title={alertTitle}
                 message={alertMessage}
                 onClose={() => setAlertVisible(false)}
+            />
+
+            <CustomAlert
+                visible={!!pendingLeaveAction}
+                title="Modifications non enregistrées"
+                message="Vous allez perdre les informations saisies dans cette fiche. Voulez-vous vraiment quitter ?"
+                onClose={() => setPendingLeaveAction(null)}
+                onConfirm={() => {
+                    const action = pendingLeaveAction;
+                    setHasUnsavedChanges(false);
+                    setPendingLeaveAction(null);
+                    action?.();
+                }}
             />
         </KeyboardAvoidingView>
     );

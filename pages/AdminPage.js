@@ -489,14 +489,14 @@ export default function AdminPage({ navigation, route }) {
                               clientId: item.id,
                             })
                           }
-                          android_ripple={{ color: "rgba(255,255,255,0.25)" }}
+                          android_ripple={{ color: "rgba(67,56,202,0.15)" }}
                           style={({ pressed }) => [
-                            styles.primaryBtn,
+                            styles.viewBtn,
                             { flex: 1 },
-                            pressed && styles.primaryBtnPressed,
+                            pressed && styles.viewBtnPressed,
                           ]}
                         >
-                          <Text style={styles.primaryBtnText}>Voir</Text>
+                          <Text style={styles.viewBtnText}>Voir</Text>
                         </Pressable>
                       </View>
                     </TouchableOpacity>
@@ -524,7 +524,7 @@ export default function AdminPage({ navigation, route }) {
               onPress={() => navigation.navigate("ProductViewer")}
               activeOpacity={0.85}
             >
-              <MaterialIcons name="travel-explore" size={18} color="#fff" />
+              <MaterialIcons name="travel-explore" size={18} color="#4338ca" />
               <Text style={styles.webSearchButtonText}>
                 Recherche de produit sur le web
               </Text>
@@ -885,11 +885,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     marginVertical: 6,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 1,
+    elevation: 3,
   },
 
   badgeRow: {
@@ -970,12 +972,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
     paddingVertical: 12,
     borderRadius: 12,
     marginTop: 2,
   },
-  webSearchButtonText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  webSearchButtonText: { color: "#4338ca", fontWeight: "700", fontSize: 13 },
 
   pager: {
     flexDirection: "row",
@@ -1106,6 +1110,16 @@ const styles = StyleSheet.create({
   },
   primaryBtnPressed: { opacity: 0.85 },
   primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  viewBtn: {
+    backgroundColor: "#eef2ff",
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    alignItems: "center",
+  },
+  viewBtnPressed: { backgroundColor: "#e0e7ff" },
+  viewBtnText: { color: "#4338ca", fontWeight: "700", fontSize: 15 },
   secondaryBtn: {
     flex: 1,
     backgroundColor: "#F3F4F6",

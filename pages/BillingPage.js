@@ -15,6 +15,7 @@ import { WebView } from "react-native-webview";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
+import { commonStyles } from "../themes/modernTheme";
 
 const USB_COST = 20; // conforme à ExpressVideoPage
 const HDD_COST = 45;
@@ -1004,40 +1005,6 @@ const BillingPage = () => {
         <View style={styles.cardSection}>
           <Text style={styles.cardSectionTitle}>Prestations / Produits</Text>
 
-        {/* En-tête colonnes */}
-        <View style={styles.linesHeaderRow}>
-          <Text style={[styles.cellHeader, { flex: 2 }]}>Prestation</Text>
-          <Text
-            style={[
-              styles.cellHeader,
-              { flex: 1, textAlign: "center" },
-            ]}
-          >
-            Qté
-          </Text>
-
-          {!useGlobalTotal && (
-            <>
-              <Text
-                style={[
-                  styles.cellHeader,
-                  { flex: 1, textAlign: "center" },
-                ]}
-              >
-                P.U. TTC
-              </Text>
-              <Text
-                style={[
-                  styles.cellHeader,
-                  { flex: 1, textAlign: "right" },
-                ]}
-              >
-                Total TTC
-              </Text>
-            </>
-          )}
-        </View>
-
         {/* Lignes */}
         {lines.map((line, index) => {
           const lineTotal = n(line.quantity) * n(line.price);
@@ -1321,115 +1288,17 @@ const BillingPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 14, backgroundColor: "#fff" },
-
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginBottom: 6,
-    borderRadius: 6,
-    backgroundColor: "#fff",
-    fontSize: 15,
-    color: "#111827",
-  },
-
-  inputFocused: { borderColor: "#007bff", backgroundColor: "#eef6ff" },
-
-  suggestionContainer: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 6,
-    paddingVertical: 5,
-    elevation: 3,
-  },
-
-  suggestionItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-
-  suggestionText: { fontSize: 14 },
+  ...commonStyles,
+  // Alias : ce fichier utilise cardSection/cardSectionTitle dans le JSX,
+  // le thème partage centralise le style sous card/cardTitle.
+  cardSection: commonStyles.card,
+  cardSectionTitle: commonStyles.cardTitle,
 
   quoteRefText: {
     fontStyle: "italic",
     color: "#555",
     fontSize: 12,
     marginTop: 2,
-  },
-
-  // 👉 Cartes (comme QuoteEditPage)
-  cardSection: {
-    marginTop: 6,
-    marginBottom: 6,
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: "#f9fafb",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  cardSectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  cardRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  cardField: {
-    flex: 1,
-  },
-  cardFieldFull: {
-    width: "100%",
-    marginBottom: 2,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4b5563",
-    marginBottom: 1,
-  },
-  addMiniButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#e0f2fe",
-    borderWidth: 1,
-    borderColor: "#38bdf8",
-  },
-  addMiniButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#0369a1",
-  },
-
-  linesHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    backgroundColor: "#e5e7eb",
-    borderRadius: 6,
-    marginBottom: 4,
-  },
-  cellHeader: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#374151",
   },
 
   readonlyCell: {
@@ -1521,47 +1390,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   saveStateWarn: {
-    color: "#6b7280",
-  },
-
-  // Actions (comme QuoteEditPage)
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  gridBtn: {
-    width: "48%",
-    minHeight: 32,
-    borderRadius: 999,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    marginBottom: 5,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#e5e7eb",
-  },
-  gridBtnPrimary: {
-    backgroundColor: "#2563eb",
-  },
-  gridBtnSuccess: {
-    backgroundColor: "#22c55e",
-  },
-  gridBtnDark: {
-    backgroundColor: "#4b5563",
-  },
-  gridBtnDisabled: {
-    backgroundColor: "#d1d5db",
-  },
-  gridBtnText: {
-    color: "#f9fafb",
-    fontSize: 12,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  gridBtnTextDisabled: {
     color: "#6b7280",
   },
 

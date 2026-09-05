@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { Text, View, TouchableOpacity } from "react-native";
+import { WebView } from "react-native-webview";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { supabase } from "../supabaseClient";
@@ -42,9 +43,7 @@ const QuotePrintPage = () => {
     }
   };
 
-  const handlePrint = async () => {
-    if (!quote) return;
-
+  const buildQuoteHtml = () => {
     const useGlobal = quote.use_global_total === true;
     const globalTotal =
       useGlobal && quote.global_total != null
@@ -74,7 +73,7 @@ const QuotePrintPage = () => {
           const qty = parseFloat(item.quantity) || 0;
           const brandModel = [item.brand, item.model]
             .filter((v) => v && String(v).trim())
-            .join(" ");
+            .join(" - ");
           const baseDesignation = item.label
             ? `${item.label} — ${item.description || ""}`
             : item.description || "";
@@ -102,7 +101,7 @@ const QuotePrintPage = () => {
 
           const brandModel = [item.brand, item.model]
             .filter((v) => v && String(v).trim())
-            .join(" ");
+            .join(" - ");
           const baseDesignation = item.label
             ? `${item.label} — ${item.description}`
             : item.description;
@@ -195,6 +194,7 @@ const QuotePrintPage = () => {
       <head>
         <meta charset="UTF-8" />
         <style>
+          @page { size: A5; margin: 10mm; }
           body {
             font-family: Arial, sans-serif;
             font-size: 10px;
@@ -244,29 +244,33 @@ const QuotePrintPage = () => {
             text-align: justify;
             line-height: 1.3;
           }
-          .footer {
-            margin-top: 25px;
+          .footer-cartouche {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #f0f0f0;
+            padding: 8px;
             font-size: 8px;
             text-align: center;
+            color: #555;
           }
           .signature {
             margin-top: 30px;
           }
-          .signature-line {
-            margin-top: 25px;
-            border-top: 1px solid #000;
-            width: 200px;
+          body {
+            padding-bottom: 60px;
           }
         </style>
       </head>
       <body>
-      
+
         <div class="header-logo">
           <img src="https://www.avenir-informatique.fr/logo.webp" alt="Logo" />
         </div>
-      
+
         <h2>Devis</h2>
-      
+
         <div class="section">
           <strong>Client :</strong> ${quote.name}<br/>
           <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
@@ -274,7 +278,7 @@ const QuotePrintPage = () => {
           <strong>Valide jusqu’au :</strong> ${dateValid}<br/>
           <strong>N° Devis :</strong> ${quote.quote_number}
         </div>
-      
+
         <table>
           <thead>
             ${tableHeader}
@@ -283,32 +287,39 @@ const QuotePrintPage = () => {
             ${rowsHtml}
           </tbody>
         </table>
-      
+
         <table class="totaux">
           ${totauxHtml}
         </table>
-      
+
         <div class="mentions">
           <p><strong>Conditions :</strong> Ce devis est valable 30 jours à compter de sa date d’émission. Toute commande de matériel est considérée comme ferme et non remboursable une fois validée. Les composants listés sont soumis à disponibilité chez les fournisseurs. L’assemblage est effectué selon les standards professionnels. Le client reconnaît avoir été informé que les pièces bénéficient des garanties constructeur, et qu’un acompte peut être requis avant toute commande.</p>
           <p><strong>Acceptation :</strong> La signature du présent devis vaut bon pour accord sur les prestations listées ainsi que leurs conditions de réalisation.</p>
         </div>
-      
+
         <div class="signature">
           <p><strong>Signature du client :</strong></p>
-          <div class="signature-line"></div>
         </div>
-      
-        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+
+        <div class="footer-cartouche">
           <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
           <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
           <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
         </div>
-      
+
       </body>
       </html>
     `;
 
-    await Print.printAsync({ html });
+    return html;
+  };
+
+  const handlePrint = async () => {
+    if (!quote) return;
+
+    // Taille A5 en points (148 x 210 mm) passée directement à l'API d'impression :
+    // le @page CSS seul est souvent ignoré par la boîte de dialogue native Android.
+    await Print.printAsync({ html: buildQuoteHtml(), width: 420, height: 595 });
     await supabase
       .from("quotes")
       .update({ deja_imprime: true })
@@ -352,7 +363,7 @@ const QuotePrintPage = () => {
             const qty = parseFloat(item.quantity) || 0;
             const brandModel = [item.brand, item.model]
               .filter((v) => v && String(v).trim())
-              .join(" ");
+              .join(" - ");
             const baseDesignation = item.label
               ? `${item.label} — ${item.description || ""}`
               : item.description || "";
@@ -379,7 +390,7 @@ const QuotePrintPage = () => {
 
             const brandModel = [item.brand, item.model]
               .filter((v) => v && String(v).trim())
-              .join(" ");
+              .join(" - ");
             const baseDesignation = item.label
               ? `${item.label} — ${item.description}`
               : item.description || "";
@@ -470,6 +481,7 @@ const QuotePrintPage = () => {
         <head>
           <meta charset="UTF-8" />
           <style>
+            @page { size: A5; margin: 10mm; }
             body {
               font-family: Arial, sans-serif;
               font-size: 10px;
@@ -519,29 +531,33 @@ const QuotePrintPage = () => {
               text-align: justify;
               line-height: 1.3;
             }
-            .footer {
-              margin-top: 25px;
+            .footer-cartouche {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              background: #f0f0f0;
+              padding: 8px;
               font-size: 8px;
               text-align: center;
+              color: #555;
             }
             .signature {
               margin-top: 30px;
             }
-            .signature-line {
-              margin-top: 25px;
-              border-top: 1px solid #000;
-              width: 200px;
+            body {
+              padding-bottom: 60px;
             }
           </style>
         </head>
         <body>
-        
+
           <div class="header-logo">
             <img src="https://www.avenir-informatique.fr/logo.webp" alt="Logo" />
           </div>
-        
+
           <h2>Devis</h2>
-        
+
           <div class="section">
             <strong>Client :</strong> ${quote.name}<br/>
             <strong>Téléphone :</strong> ${quote.phone || "N/A"}<br/>
@@ -549,7 +565,7 @@ const QuotePrintPage = () => {
             <strong>Valide jusqu’au :</strong> ${dateValid}<br/>
             <strong>N° Devis :</strong> ${quote.quote_number}
           </div>
-        
+
           <table>
             <thead>
               ${tableHeader}
@@ -558,32 +574,35 @@ const QuotePrintPage = () => {
               ${rowsHtml}
             </tbody>
           </table>
-        
+
           <table class="totaux">
             ${totauxHtml}
           </table>
-        
+
           <div class="mentions">
             <p><strong>Conditions :</strong> Ce devis est valable 30 jours à compter de sa date d’émission. Toute commande de matériel est considérée comme ferme et non remboursable une fois validée. Les composants listés sont soumis à disponibilité chez les fournisseurs. L’assemblage est effectué selon les standards professionnels. Le client reconnaît avoir été informé que les pièces bénéficient des garanties constructeur, et qu’un acompte peut être requis avant toute commande.</p>
             <p><strong>Acceptation :</strong> La signature du présent devis vaut bon pour accord sur les prestations listées ainsi que leurs conditions de réalisation.</p>
           </div>
-        
+
           <div class="signature">
             <p><strong>Signature du client :</strong></p>
-            <div class="signature-line"></div>
           </div>
-        
-          <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
+
+          <div class="footer-cartouche">
             <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
             <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
             <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
           </div>
-        
+
         </body>
         </html>
       `;
 
-      const { uri } = await Print.printToFileAsync({ html });
+      const { uri } = await Print.printToFileAsync({
+        html,
+        width: 420,
+        height: 595,
+      });
       console.log("✅ PDF généré :", uri);
 
       if (quote.email) {
@@ -623,42 +642,18 @@ const QuotePrintPage = () => {
   };
 
   return (
-    <ScrollView style={{ padding: 20 }}>
-      <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>
-        Aperçu du devis
-      </Text>
-      <Text>Client : {quote.name}</Text>
-      <Text>Téléphone : {quote.phone}</Text>
-      {quote.email && <Text>Email : {quote.email}</Text>}
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+        <Text style={{ fontSize: 18, fontWeight: "bold" }}>Aperçu du devis</Text>
+      </View>
 
-      <Text>
-        Date :{" "}
-        {new Date(quote.created_at).toLocaleDateString("fr-FR", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}
-      </Text>
+      <WebView
+        originWhitelist={["*"]}
+        source={{ html: buildQuoteHtml() }}
+        style={{ flex: 1 }}
+      />
 
-      <Text>
-        Valide jusqu'au :{" "}
-        {quote.valid_until
-          ? new Date(Date.parse(quote.valid_until)).toLocaleDateString(
-              "fr-FR",
-              {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }
-            )
-          : ""}
-      </Text>
-
-      <Text style={{ marginTop: 10 }}>
-        Nombre de lignes : {quote.items.length}
-      </Text>
-
-      <View style={{ flexDirection: "row", marginTop: 30, gap: 10 }}>
+      <View style={{ flexDirection: "row", padding: 12, gap: 10 }}>
         <TouchableOpacity
           style={{
             flex: 1,
@@ -756,7 +751,7 @@ onPress={() =>
         </TouchableOpacity>
       </View>
 
-      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 20 }} />
+      <BackButton onPress={() => navigation.goBack()} style={{ marginHorizontal: 16, marginBottom: 12 }} />
 
       <CustomAlert
         visible={alertVisible}
@@ -764,7 +759,7 @@ onPress={() =>
         message={alertMessage}
         onClose={() => setAlertVisible(false)}
       />
-    </ScrollView>
+    </View>
   );
 };
 

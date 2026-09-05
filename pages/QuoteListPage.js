@@ -203,7 +203,7 @@ const QuoteListPage = () => {
               navigation.navigate("QuotePrintPage", { id: item.id })
             }
           >
-            <Text style={styles.actionTextLink}>Imprimer</Text>
+            <Text style={styles.actionTextLink}>Visualiser</Text>
           </TouchableOpacity>
 
           <View style={styles.actionTextVertical} />

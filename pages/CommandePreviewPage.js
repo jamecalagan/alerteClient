@@ -125,26 +125,30 @@ export default function CommandePreviewPage({ route }) {
         <head>
           <meta charset="UTF-8" />
           <style>
-            @page { size: A5; margin: 12mm; }
-            body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
+            @page { size: A5; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #1e293b; }
             .container { padding: 4px; }
-            h1 { text-align: center; color: #222; font-size: 18px; margin: 6px 0 10px; }
-            .header { text-align: center; margin-bottom: 8px; }
-            .company-name { font-size: 14px; font-weight: bold; color: #252525; }
-            .company-details { font-size: 10px; color: #555; line-height: 1.3; }
+            .header { text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #4338ca; }
+            .company-name { font-size: 15px; font-weight: 800; color: #1e1b4b; letter-spacing: 0.4px; }
+            .company-details { font-size: 10px; color: #64748b; line-height: 1.4; margin-top: 2px; }
+            h1 { text-align: center; color: #4338ca; font-size: 17px; font-weight: 800; margin: 10px 0 12px; text-transform: uppercase; letter-spacing: 1px; }
             .row { display: flex; gap: 10px; }
             .col { flex: 1; }
-            .section { margin-bottom: 8px; border: 1px solid #ccc; padding: 8px; border-radius: 6px; }
-            .section-title { font-size: 13px; font-weight: bold; margin-bottom: 6px; }
+            .section { margin-bottom: 10px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; }
+            .section-title { font-size: 12px; font-weight: 700; color: #4338ca; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
             .field { margin-bottom: 4px; display: flex; }
-            .label { font-weight: bold; width: 100px; }
+            .label { font-weight: 600; width: 100px; color: #475569; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
-            th { background: #f2f2f2; }
+            th, td { border-bottom: 1px solid #e2e8f0; padding: 7px 6px; text-align: left; }
+            th { background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
             .right { text-align: right; }
-            .signature { margin-top: 8px; }
+            .total-due { color: #059669; font-size: 13px; }
+            .signature { margin-top: 8px; min-height: 90px; }
             .signature img { margin-top: 6px; max-width: 180px; height: auto; border: 1px solid #ddd; border-radius: 4px; }
-            .footer-note { text-align: center; font-size: 10px; margin-top: 8px; color: #777; }
+            .footer-note { text-align: center; font-size: 10px; margin-top: 10px; color: #94a3b8; font-style: italic; }
+            .legal-mentions { text-align: justify; font-size: 8px; line-height: 1.4; color: #64748b; margin-top: 10px; }
+            .sms-note { text-align: center; font-size: 11px; font-weight: 700; color: #4338ca; background: #eef2ff; border-radius: 6px; padding: 6px; margin-top: 10px; }
           </style>
         </head>
         <body>
@@ -193,13 +197,23 @@ export default function CommandePreviewPage({ route }) {
                       : ""
                   }
                   <div class="field"><div class="label">Acompte :</div><div>${formatMontant(acompte)}</div></div>
-                  <div class="field"><div class="label">Reste à payer :</div><div><strong>${formatMontant(reste)}</strong></div></div>
+                  <div class="field"><div class="label">Reste à payer :</div><div><strong class="total-due">${formatMontant(reste)}</strong></div></div>
                 </div>
                 <div class="col signature">
                   <div><strong>Signature du client :</strong></div>
-                  <p style="margin-top:20px;">___________________________</p>
                 </div>
               </div>
+            </div>
+
+            <div class="sms-note">
+              📩 Vous serez averti(e) par SMS dès que votre commande sera disponible.
+            </div>
+
+            <div class="legal-mentions">
+              <strong>Conditions de commande :</strong> Toute commande signée en magasin est ferme et définitive.
+              Aucun droit de rétractation ne s'applique aux achats conclus en boutique, sauf disposition légale contraire.
+              Toute commande spéciale passée à la demande du client ne pourra être annulée après validation auprès du fournisseur.
+              Le solde est payable au retrait. Les garanties légales de conformité et des vices cachés restent applicables.
             </div>
 
             <div class="footer-note">Merci de votre confiance.</div>

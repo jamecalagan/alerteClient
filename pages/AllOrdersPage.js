@@ -547,7 +547,7 @@ export default function AllOrdersPage({ navigation }) {
             </View>
 
             <View style={styles.editRow}>
-              <View style={styles.editFieldHalf}>
+              <View style={[styles.editFieldHalf, { flex: 1.3 }]}>
                 <Text style={styles.label}>Marque</Text>
                 <TextInput
                   style={styles.input}
@@ -557,7 +557,7 @@ export default function AllOrdersPage({ navigation }) {
                   placeholderTextColor="#999"
                 />
               </View>
-              <View style={styles.editFieldHalf}>
+              <View style={[styles.editFieldHalf, { flex: 1.3 }]}>
                 <Text style={styles.label}>Modèle</Text>
                 <TextInput
                   style={styles.input}
@@ -567,11 +567,8 @@ export default function AllOrdersPage({ navigation }) {
                   placeholderTextColor="#999"
                 />
               </View>
-            </View>
-
-            <View style={styles.editRow}>
-              <View style={styles.editFieldHalf}>
-                <Text style={styles.label}>Quantité</Text>
+              <View style={[styles.editFieldHalf, { flex: 0.6 }]}>
+                <Text style={styles.label}>Qté</Text>
                 <TextInput
                   style={[styles.input, styles.qtyInputSimple]}
                   value={oi.quantity}
@@ -583,8 +580,8 @@ export default function AllOrdersPage({ navigation }) {
                   placeholderTextColor="#999"
                 />
               </View>
-              <View style={styles.editFieldHalf}>
-                <Text style={styles.label}>Prix unitaire (€)</Text>
+              <View style={[styles.editFieldHalf, { flex: 1 }]}>
+                <Text style={styles.label}>PU (€)</Text>
                 <TextInput
                   style={styles.input}
                   value={oi.unit_price}
@@ -606,11 +603,11 @@ export default function AllOrdersPage({ navigation }) {
           </View>
         ))}
 
-        <TouchableOpacity onPress={addEditedOrderItem} style={{ marginTop: 4 }}>
-          <Text style={[styles.editActionText, styles.editActionPrimary]}>
-            + Ajouter un article
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.addItemRow}>
+          <TouchableOpacity style={styles.addItemButton} onPress={addEditedOrderItem}>
+            <Text style={styles.addItemButtonText}>+ Ajouter un article</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.editRow}>
           <View style={styles.editFieldHalf}>
@@ -657,9 +654,9 @@ export default function AllOrdersPage({ navigation }) {
           </View>
         </View>
 
-        {/* Ligne 2 : marque / modèle côte à côte */}
+        {/* Ligne 2 : marque / modèle / quantité / prix unitaire sur une seule ligne */}
         <View style={styles.editRow}>
-          <View style={styles.editFieldHalf}>
+          <View style={[styles.editFieldHalf, { flex: 1.3 }]}>
             <Text style={styles.label}>Marque</Text>
             <TextInput
               style={styles.input}
@@ -672,7 +669,7 @@ export default function AllOrdersPage({ navigation }) {
             />
           </View>
 
-          <View style={styles.editFieldHalf}>
+          <View style={[styles.editFieldHalf, { flex: 1.3 }]}>
             <Text style={styles.label}>Modèle</Text>
             <TextInput
               style={styles.input}
@@ -684,43 +681,9 @@ export default function AllOrdersPage({ navigation }) {
               placeholderTextColor="#999"
             />
           </View>
-        </View>
 
-        {/* Ligne 3 : prix / acompte */}
-        <View style={styles.editRow}>
-          <View style={styles.editFieldHalf}>
-            <Text style={styles.label}>Prix unitaire (€)</Text>
-            <TextInput
-              style={styles.input}
-              value={editedOrder.price}
-              onChangeText={(text) =>
-                setEditedOrder({ ...editedOrder, price: text })
-              }
-              keyboardType="decimal-pad"
-              placeholder="Prix unitaire"
-              placeholderTextColor="#999"
-            />
-          </View>
-
-          <View style={styles.editFieldHalf}>
-            <Text style={styles.label}>Acompte (€)</Text>
-            <TextInput
-              style={styles.input}
-              value={editedOrder.deposit}
-              onChangeText={(text) =>
-                setEditedOrder({ ...editedOrder, deposit: text })
-              }
-              keyboardType="decimal-pad"
-              placeholder="Acompte"
-              placeholderTextColor="#999"
-            />
-          </View>
-        </View>
-
-        {/* Ligne 4 : quantité simple */}
-        <View style={styles.editRow}>
-          <View style={styles.editFieldHalf}>
-            <Text style={styles.label}>Quantité</Text>
+          <View style={[styles.editFieldHalf, { flex: 0.6 }]}>
+            <Text style={styles.label}>Qté</Text>
             <TextInput
               style={[styles.input, styles.qtyInputSimple]}
               value={editedOrder.quantity}
@@ -734,8 +697,36 @@ export default function AllOrdersPage({ navigation }) {
             />
           </View>
 
-          {/* colonne vide pour garder l’alignement avec les autres lignes à deux colonnes */}
-          <View style={styles.editFieldHalf} />
+          <View style={[styles.editFieldHalf, { flex: 1 }]}>
+            <Text style={styles.label}>PU (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.price}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, price: text })
+              }
+              keyboardType="decimal-pad"
+              placeholder="Prix unitaire"
+              placeholderTextColor="#999"
+            />
+          </View>
+        </View>
+
+        {/* Ligne 3 : acompte */}
+        <View style={styles.editRow}>
+          <View style={styles.editFieldHalf}>
+            <Text style={styles.label}>Acompte (€)</Text>
+            <TextInput
+              style={styles.input}
+              value={editedOrder.deposit}
+              onChangeText={(text) =>
+                setEditedOrder({ ...editedOrder, deposit: text })
+              }
+              keyboardType="decimal-pad"
+              placeholder="Acompte"
+              placeholderTextColor="#999"
+            />
+          </View>
         </View>
 
         {/* Aperçu dyn. des totaux en édition */}
@@ -852,23 +843,12 @@ export default function AllOrdersPage({ navigation }) {
                       </View>
 
                       <View style={[styles.infoRow, styles.infoRowAlt]}>
-                        <Text style={styles.infoLabel}>Marque</Text>
-                        <Text style={styles.infoValue}>{item.brand || "-"}</Text>
-                      </View>
-
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Modèle</Text>
-                        <Text style={styles.infoValue}>{item.model || "-"}</Text>
-                      </View>
-
-                      <View style={[styles.infoRow, styles.infoRowAlt]}>
-                        <Text style={styles.infoLabel}>Prix unitaire</Text>
-                        <Text style={styles.infoValue}>{euro(item.price)}</Text>
-                      </View>
-
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Quantité</Text>
-                        <Text style={styles.infoValue}>{item.quantity ?? 1}</Text>
+                        <Text style={styles.infoLabel}>Marque / Modèle</Text>
+                        <Text style={styles.infoValue}>
+                          {[item.brand, item.model].filter(Boolean).join(" - ") || "-"}
+                          {"  •  "}
+                          {item.quantity ?? 1} × {euro(item.price)}
+                        </Text>
                       </View>
 
                       <View style={[styles.infoRow, styles.infoRowAlt]}>
@@ -1288,17 +1268,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
   text: { fontSize: 15, color: "#444", marginBottom: 5 },
-  label: { color: "#4a4a4a", fontWeight: "500", fontSize: 15, marginBottom: 3 },
-  value: { color: "#1a1a1a", fontWeight: "500", fontSize: 15 },
+  label: { color: "#4a4a4a", fontWeight: "500", fontSize: 12, marginBottom: 2 },
+  value: { color: "#1a1a1a", fontWeight: "500", fontSize: 13 },
   input: {
     backgroundColor: "#fafafa",
-    padding: 10,
-    marginBottom: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 6,
     borderRadius: 6,
     borderColor: "#ccc",
     borderWidth: 1,
     color: "#000",
-    fontSize: 15,
+    fontSize: 13,
   },
   buttonText: { fontSize: 15, color: "#fff", fontWeight: "500" },
   editButton: {
@@ -1665,8 +1646,8 @@ const styles = StyleSheet.create({
   },
   editRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 4,
   },
   editFieldFull: {
     flex: 1,
@@ -1701,6 +1682,25 @@ const styles = StyleSheet.create({
   },
   editActionDanger: {
     color: "#b91c1c",
+  },
+  addItemRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  addItemButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#e0f2fe",
+    borderWidth: 1,
+    borderColor: "#38bdf8",
+  },
+  addItemButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369a1",
   },
   editActionDivider: {
     fontSize: 12,

@@ -591,7 +591,7 @@ export default function QuoteEditPage() {
         const labelPart = it.label ? `<strong>${it.label}</strong> - ` : "";
         const brandModelPart = [it.brand, it.model]
           .filter((v) => v && String(v).trim())
-          .join(" ");
+          .join(" - ");
         const designation =
           labelPart +
           [it.description, brandModelPart]

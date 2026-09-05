@@ -3,11 +3,12 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Platform,
   Alert,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Print from "expo-print";
 import { WebView } from "react-native-webview";
@@ -178,9 +179,15 @@ const BillingPage = () => {
           parseCassetteCount(item.cassettecount) ||
           1;
 
-        const designation = item.label
+        const brandModel = [item.brand, item.model]
+          .filter((v) => v && String(v).trim())
+          .join(" - ");
+        const baseDesignation = item.label
           ? `${item.label} — ${item.description || ""}`
           : item.description || "";
+        const designation = brandModel
+          ? `${baseDesignation} — ${brandModel}`
+          : baseDesignation;
 
         // Si mode global → on ne se sert plus des P.U.
         let priceStr = "";
@@ -305,7 +312,6 @@ const BillingPage = () => {
 
       setLines(newLines);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const removeLine = (indexToRemove) => {
@@ -846,198 +852,157 @@ const BillingPage = () => {
           style={{ flex: 1 }}
         />
       ) : (
-      <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: 120 },
-        ]}
+      <KeyboardAwareScrollView
+        enableOnAndroid
+        extraScrollHeight={24}
+        extraHeight={Platform.select({ ios: 0, android: 120 })}
+        keyboardOpeningTime={0}
+        contentContainerStyle={[styles.container, { paddingBottom: 32 }]}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Facture client</Text>
+        <Text style={styles.title}>🧾 Facture client</Text>
 
-        {/* Client */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "name" || clientname) &&
-                styles.floatingLabelFocused,
-            ]}
-          >
-            Nom du client
-          </Text>
-          <TextInput
-            value={clientname}
-            onChangeText={searchClients}
-            style={[
-              styles.input,
-              (focusedField === "name" || clientname) && {
-                paddingTop: 18,
-              },
-              focusedField === "name" && styles.inputFocused,
-            ]}
-            onFocus={() => setFocusedField("name")}
-            onBlur={() => setFocusedField(null)}
-          />
-          {clientSuggestions.length > 0 && (
-            <View style={styles.suggestionContainer}>
-              {clientSuggestions.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => selectClient(item)}
-                  style={styles.suggestionItem}
-                >
-                  <Text style={styles.suggestionText}>
-                    {item.name} - {item.phone}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        {/* Carte : Client */}
+        <View style={styles.cardSection}>
+          <Text style={styles.cardSectionTitle}>Client</Text>
+
+          <View style={styles.cardFieldFull}>
+            <Text style={styles.fieldLabel}>Nom du client</Text>
+            <TextInput
+              value={clientname}
+              onChangeText={searchClients}
+              style={[
+                styles.input,
+                focusedField === "name" && styles.inputFocused,
+              ]}
+              onFocus={() => setFocusedField("name")}
+              onBlur={() => setFocusedField(null)}
+            />
+            {clientSuggestions.length > 0 && (
+              <View style={styles.suggestionContainer}>
+                {clientSuggestions.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => selectClient(item)}
+                    style={styles.suggestionItem}
+                  >
+                    <Text style={styles.suggestionText}>
+                      {item.name} - {item.phone}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.cardRow}>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>Téléphone</Text>
+              <TextInput
+                value={clientphone}
+                onChangeText={setClientPhone}
+                keyboardType="phone-pad"
+                style={[
+                  styles.input,
+                  focusedField === "phone" && styles.inputFocused,
+                ]}
+                onFocus={() => setFocusedField("phone")}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>Adresse</Text>
+              <TextInput
+                value={client_address}
+                onChangeText={setClientAddress}
+                style={[
+                  styles.input,
+                  focusedField === "address" && styles.inputFocused,
+                ]}
+                onFocus={() => setFocusedField("address")}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Carte : Facture */}
+        <View style={styles.cardSection}>
+          <Text style={styles.cardSectionTitle}>Facture</Text>
+
+          <View style={styles.cardRow}>
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>Numéro de facture</Text>
+              <TextInput
+                value={invoicenumber}
+                editable={false}
+                style={[
+                  styles.input,
+                  { backgroundColor: "#F3F4F6", color: "#6B7280" },
+                ]}
+              />
+            </View>
+
+            <View style={styles.cardField}>
+              <Text style={styles.fieldLabel}>Date</Text>
+              <TextInput
+                value={invoicedate}
+                onChangeText={setInvoiceDate}
+                style={[
+                  styles.input,
+                  focusedField === "date" && styles.inputFocused,
+                ]}
+                onFocus={() => setFocusedField("date")}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+          </View>
+
+          {quoteNumber ? (
+            <Text style={styles.quoteRefText}>
+              📎 Issu du devis : {quoteNumber}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Carte : Montant */}
+        <View style={styles.cardSection}>
+          <Text style={styles.cardSectionTitle}>Montant</Text>
+
+          <View style={styles.cardFieldFull}>
+            <Text style={styles.fieldLabel}>Acompte versé (€)</Text>
+            <TextInput
+              value={acompte}
+              onChangeText={setAcompte}
+              keyboardType="numeric"
+              placeholder="0"
+              style={[
+                styles.input,
+                focusedField === "acompte" && styles.inputFocused,
+              ]}
+              onFocus={() => setFocusedField("acompte")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {useGlobalTotal && (
+            <View style={styles.cardFieldFull}>
+              <Text style={styles.fieldLabel}>Montant total TTC du devis (€)</Text>
+              <TextInput
+                value={globalTotal}
+                onChangeText={setGlobalTotal}
+                keyboardType="decimal-pad"
+                style={styles.input}
+                placeholder="Ex : 650"
+              />
             </View>
           )}
         </View>
 
-        {/* Téléphone */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "phone" || clientphone) &&
-                styles.floatingLabelFocused,
-            ]}
-          >
-            Téléphone
-          </Text>
-          <TextInput
-            value={clientphone}
-            onChangeText={setClientPhone}
-            keyboardType="phone-pad"
-            style={[
-              styles.input,
-              (focusedField === "phone" || clientphone) && {
-                paddingTop: 18,
-              },
-              focusedField === "phone" && styles.inputFocused,
-            ]}
-            onFocus={() => setFocusedField("phone")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Adresse */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "address" ||
-                client_address) && styles.floatingLabelFocused,
-            ]}
-          >
-            Adresse
-          </Text>
-          <TextInput
-            value={client_address}
-            onChangeText={setClientAddress}
-            style={[
-              styles.input,
-              (focusedField === "address" || client_address) && {
-                paddingTop: 18,
-              },
-              focusedField === "address" && styles.inputFocused,
-            ]}
-            onFocus={() => setFocusedField("address")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Numéro de facture */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "invoice" ||
-                invoicenumber) && styles.floatingLabelFocused,
-            ]}
-          >
-            Numéro de facture
-          </Text>
-          <TextInput
-            value={invoicenumber}
-            editable={false}
-            style={[
-              styles.input,
-              { backgroundColor: "#F3F4F6", color: "#6B7280" },
-              invoicenumber && { paddingTop: 18 },
-            ]}
-          />
-        </View>
-
-        {quoteNumber ? (
-          <Text
-            style={{
-              fontStyle: "italic",
-              color: "#555",
-              marginBottom: 10,
-            }}
-          >
-            📎 Issu du devis : {quoteNumber}
-          </Text>
-        ) : null}
-
-        {/* Date */}
-        <View style={{ marginBottom: 20 }}>
-          <Text
-            style={[
-              styles.floatingLabel,
-              (focusedField === "date" || invoicedate) &&
-                styles.floatingLabelFocused,
-            ]}
-          >
-            Date
-          </Text>
-          <TextInput
-            value={invoicedate}
-            onChangeText={setInvoiceDate}
-            style={[
-              styles.input,
-              (focusedField === "date" || invoicedate) && {
-                paddingTop: 18,
-              },
-              focusedField === "date" && styles.inputFocused,
-            ]}
-            onFocus={() => setFocusedField("date")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Acompte versé */}
-        <View style={styles.fieldBlock}>
-          <Text style={styles.fieldLabel}>Acompte versé (€)</Text>
-          <TextInput
-            value={acompte}
-            onChangeText={setAcompte}
-            keyboardType="numeric"
-            placeholder="0"
-            style={[
-              styles.input,
-              focusedField === "acompte" && styles.inputFocused,
-            ]}
-            onFocus={() => setFocusedField("acompte")}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Montant global TTC si mode "coût total" */}
-        {useGlobalTotal && (
-          <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Montant total TTC du devis (€)</Text>
-            <TextInput
-              value={globalTotal}
-              onChangeText={setGlobalTotal}
-              keyboardType="decimal-pad"
-              style={styles.input}
-              placeholder="Ex : 650"
-            />
-          </View>
-        )}
+        {/* Carte : Prestations / Produits */}
+        <View style={styles.cardSection}>
+          <Text style={styles.cardSectionTitle}>Prestations / Produits</Text>
 
         {/* En-tête colonnes */}
         <View style={styles.linesHeaderRow}>
@@ -1090,26 +1055,44 @@ const BillingPage = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Description prestation */}
-              <TextInput
-                placeholder="Prestation / produit (désignation)"
-                value={line.designation}
-                onChangeText={(text) =>
-                  updateLine(index, "designation", text)
-                }
-                multiline
-                numberOfLines={2}
-                style={[
-                  styles.input,
-                  styles.lineDesignationInput,
-                  focusedField === `designation-${index}` &&
-                    styles.inputFocused,
-                ]}
-                onFocus={() =>
-                  setFocusedField(`designation-${index}`)
-                }
-                onBlur={() => setFocusedField(null)}
-              />
+              {/* Désignation + N° de série sur une seule ligne */}
+              <View style={styles.lineTopInputsRow}>
+                <TextInput
+                  placeholder="Prestation / produit (désignation)"
+                  value={line.designation}
+                  onChangeText={(text) =>
+                    updateLine(index, "designation", text)
+                  }
+                  style={[
+                    styles.input,
+                    styles.lineDesignationInputInline,
+                    focusedField === `designation-${index}` &&
+                      styles.inputFocused,
+                  ]}
+                  onFocus={() =>
+                    setFocusedField(`designation-${index}`)
+                  }
+                  onBlur={() => setFocusedField(null)}
+                />
+
+                <TextInput
+                  placeholder="N° série"
+                  value={line.serial || ""}
+                  onChangeText={(text) =>
+                    updateLine(index, "serial", text)
+                  }
+                  style={[
+                    styles.input,
+                    styles.lineSerialInputInline,
+                    focusedField === `serial-${index}` &&
+                      styles.inputFocused,
+                  ]}
+                  onFocus={() =>
+                    setFocusedField(`serial-${index}`)
+                  }
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
 
               {/* Qté / PU / Total */}
               <View style={styles.lineInputsRow}>
@@ -1174,50 +1157,26 @@ const BillingPage = () => {
                 )}
               </View>
 
-              {/* N° de série (optionnel) */}
-              <TextInput
-                placeholder="Numéro de série (optionnel)"
-                value={line.serial || ""}
-                onChangeText={(text) =>
-                  updateLine(index, "serial", text)
-                }
-                style={[
-                  styles.input,
-                  styles.lineSerialInput,
-                  focusedField === `serial-${index}` &&
-                    styles.inputFocused,
-                ]}
-                onFocus={() =>
-                  setFocusedField(`serial-${index}`)
-                }
-                onBlur={() => setFocusedField(null)}
-              />
             </View>
           );
         })}
 
-        {/* Ajouter une ligne */}
-        <View style={styles.addLineRow}>
-          <TouchableOpacity
-            onPress={() =>
-              setLines([
-                ...lines,
-                {
-                  designation: "",
-                  quantity: "1",
-                  price: "",
-                  serial: "",
-                },
-              ])
-            }
-          >
-            <Text style={styles.addLineText}>➕ Ajouter une ligne</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.addMiniButton}
+          onPress={() =>
+            setLines([
+              ...lines,
+              { designation: "", quantity: "1", price: "", serial: "" },
+            ])
+          }
+        >
+          <Text style={styles.addMiniButtonText}>➕ Ligne</Text>
+        </TouchableOpacity>
         </View>
 
-
-        {/* Paiement */}
-        <Text style={styles.subtitle}>Mode de paiement</Text>
+        {/* Carte : Paiement */}
+        <View style={styles.cardSection}>
+          <Text style={styles.cardSectionTitle}>Mode de paiement</Text>
         <View style={styles.paymentRow}>
           <TouchableOpacity
             style={[
@@ -1275,8 +1234,8 @@ const BillingPage = () => {
             </Text>
           </TouchableOpacity>
         </View>
+        </View>
 
-        {/* État sauvegarde */}
         <Text
           style={[
             styles.saveStateText,
@@ -1288,68 +1247,68 @@ const BillingPage = () => {
             : "Veuillez sauvegarder la facture avant impression."}
         </Text>
 
-        {/* Actions */}
-        <View style={styles.actionsBlock}>
-          <View style={styles.actionsSeparator} />
-
-          <View style={styles.actionsTextRow}>
-            <TouchableOpacity
-              onPress={() => {
-                if (!paid) {
-                  return alert(
-                    "Impossible d'imprimer : la facture n'est pas encore payée."
-                  );
-                }
-                if (!isSaved) {
-                  return alert(
-                    "Merci de sauvegarder la facture avant d'imprimer."
-                  );
-                }
-                handlePrint();
-              }}
-              disabled={!isSaved || !paid}
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={[
+              styles.gridBtn,
+              isSaved ? styles.gridBtnDisabled : styles.gridBtnPrimary,
+            ]}
+            onPress={handleSave}
+            disabled={isSaved}
+          >
+            <Text
+              style={[
+                styles.gridBtnText,
+                isSaved && styles.gridBtnTextDisabled,
+              ]}
             >
-              <Text
-                style={[
-                  styles.actionsTextPrimary,
-                  (!isSaved || !paid) && styles.actionsTextDisabled,
-                ]}
-              >
-                Imprimer
-              </Text>
-            </TouchableOpacity>
+              {isSaved ? "✅ Sauvegardée" : "💾 Sauvegarder"}
+            </Text>
+          </TouchableOpacity>
 
-            <Text style={styles.actionsDivider}>|</Text>
-
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={isSaved}
+          <TouchableOpacity
+            style={[
+              styles.gridBtn,
+              !isSaved || !paid
+                ? styles.gridBtnDisabled
+                : styles.gridBtnSuccess,
+            ]}
+            onPress={() => {
+              if (!paid) {
+                return alert(
+                  "Impossible d'imprimer : la facture n'est pas encore payée."
+                );
+              }
+              if (!isSaved) {
+                return alert(
+                  "Merci de sauvegarder la facture avant d'imprimer."
+                );
+              }
+              handlePrint();
+            }}
+            disabled={!isSaved || !paid}
+          >
+            <Text
+              style={[
+                styles.gridBtnText,
+                (!isSaved || !paid) && styles.gridBtnTextDisabled,
+              ]}
             >
-              <Text
-                style={[
-                  styles.actionsText,
-                  isSaved && styles.actionsTextDisabled,
-                ]}
-              >
-                {isSaved ? "Déjà sauvegardée" : "Sauvegarder"}
-              </Text>
-            </TouchableOpacity>
+              🖨️ Imprimer
+            </Text>
+          </TouchableOpacity>
 
-            <Text style={styles.actionsDivider}>|</Text>
+          <TouchableOpacity
+            style={[styles.gridBtn, styles.gridBtnDark]}
+            onPress={() => navigation.navigate("BillingListPage")}
+          >
+            <Text style={styles.gridBtnText}>📋 Liste des factures</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate("BillingListPage")}
-            >
-              <Text style={styles.actionsText}>Liste des factures</Text>
-            </TouchableOpacity>
-          </View>
+          <BackButton onPress={() => navigation.goBack()} />
         </View>
-
-      </ScrollView>
+      </KeyboardAwareScrollView>
       )}
-
-      {/* Retour fixe */}
-      <BackButton onPress={() => navigation.goBack()} />
 
       <CustomAlert
         visible={alertVisible}
@@ -1362,65 +1321,35 @@ const BillingPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
+  container: { padding: 14, backgroundColor: "#fff" },
 
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-
-  subtitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 20,
     marginBottom: 10,
+    textAlign: "center",
   },
 
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 8,
-    borderRadius: 5,
-    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    borderRadius: 6,
     backgroundColor: "#fff",
-    height: 42,
-    fontSize: 14,
+    fontSize: 15,
+    color: "#111827",
   },
 
-  inputFocused: {
-    borderColor: "#007bff",
-    backgroundColor: "#eef6ff",
-    fontSize: 18,
-    height: 55,
-  },
-
-  floatingLabel: {
-    position: "absolute",
-    left: 10,
-    top: 12,
-    fontSize: 14,
-    color: "#888",
-    zIndex: 1,
-  },
-
-  floatingLabelFocused: {
-    top: -10,
-    left: 8,
-    fontSize: 12,
-    color: "#007bff",
-    backgroundColor: "#eef6ff",
-    paddingHorizontal: 5,
-    borderRadius: 4,
-  },
+  inputFocused: { borderColor: "#007bff", backgroundColor: "#eef6ff" },
 
   suggestionContainer: {
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 6,
     paddingVertical: 5,
     elevation: 3,
   },
@@ -1434,75 +1363,58 @@ const styles = StyleSheet.create({
 
   suggestionText: { fontSize: 14 },
 
-  lineRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  quoteRefText: {
+    fontStyle: "italic",
+    color: "#555",
+    fontSize: 12,
+    marginTop: 2,
+  },
 
-  buttonRow: {
+  // 👉 Cartes (comme QuoteEditPage)
+  cardSection: {
+    marginTop: 6,
+    marginBottom: 6,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  cardSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  cardRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
+    gap: 8,
   },
-
-  actionButton: {
+  cardField: {
     flex: 1,
-    marginHorizontal: 5,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
   },
-
-  paymentButton: {
-    flex: 1,
-    backgroundColor: "#ddd",
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 3,
-  },
-
-  paymentButtonSelected: { backgroundColor: "#28a745" },
-
-  paymentButtonText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 14,
-    textTransform: "uppercase",
-  },
-
-  addButtonContainer: { marginVertical: 10, alignItems: "center" },
-
-  addButton: {
-    backgroundColor: "#4da6ff",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: "center",
-    elevation: 3,
-  },
-
-  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-
-  deleteButton: {
-    backgroundColor: "#dc3545",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    height: 36,
-    width: 36,
-    alignSelf: "center",
-    marginLeft: 8,
-  },
-
-  deleteButtonText: { color: "white", fontSize: 22, fontWeight: "bold" },
-
-    fieldBlock: {
-    marginBottom: 16,
+  cardFieldFull: {
+    width: "100%",
+    marginBottom: 2,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#374151",
-    marginBottom: 4,
+    color: "#4b5563",
+    marginBottom: 1,
+  },
+  addMiniButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e0f2fe",
+    borderWidth: 1,
+    borderColor: "#38bdf8",
+  },
+  addMiniButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0369a1",
   },
 
   linesHeaderRow: {
@@ -1510,45 +1422,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 6,
     paddingVertical: 4,
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#e5e7eb",
     borderRadius: 6,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   cellHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#4b5563",
+    color: "#374151",
   },
 
   readonlyCell: {
-    height: 42,
+    height: 40,
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 6,
     backgroundColor: "#f9fafb",
     textAlign: "right",
     paddingHorizontal: 8,
-    paddingTop: 10,
+    paddingTop: 9,
     fontSize: 13,
     color: "#111827",
-  },
-
-  addLineRow: {
-    alignItems: "flex-end",
-    marginBottom: 16,
-  },
-  addLineText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#2563eb",
   },
 
   // Paiement
   paymentRow: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 6,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
   paymentChip: {
     flex: 1,
@@ -1577,8 +1479,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 6,
-    marginBottom: 10,
   },
   paidLabel: {
     fontSize: 13,
@@ -1614,6 +1514,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
     marginBottom: 6,
+    marginTop: 4,
   },
   saveStateOk: {
     color: "#15803d",
@@ -1623,45 +1524,54 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
 
-  // Actions texte
-  actionsBlock: {
-    marginTop: 8,
-  },
-  actionsSeparator: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 4,
-  },
-  actionsTextRow: {
+  // Actions (comme QuoteEditPage)
+  actionsGrid: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  gridBtn: {
+    width: "48%",
+    minHeight: 32,
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    marginBottom: 5,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
+    backgroundColor: "#e5e7eb",
   },
-  actionsText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#2563eb",
+  gridBtnPrimary: {
+    backgroundColor: "#2563eb",
   },
-  actionsTextPrimary: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1d4ed8",
+  gridBtnSuccess: {
+    backgroundColor: "#22c55e",
   },
-  actionsTextDisabled: {
-    color: "#9ca3af",
+  gridBtnDark: {
+    backgroundColor: "#4b5563",
   },
-  actionsDivider: {
+  gridBtnDisabled: {
+    backgroundColor: "#d1d5db",
+  },
+  gridBtnText: {
+    color: "#f9fafb",
     fontSize: 12,
-    color: "#9ca3af",
+    fontWeight: "700",
+    textAlign: "center",
   },
+  gridBtnTextDisabled: {
+    color: "#6b7280",
+  },
+
   lineCard: {
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#ffffff",
     padding: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   lineTopRow: {
     flexDirection: "row",
@@ -1680,18 +1590,25 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
   },
 
-  lineDesignationInput: {
-    minHeight: 48,
-    textAlignVertical: "top",
+  lineTopInputsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 4,
+  },
+  lineDesignationInputInline: {
+    flex: 2,
     fontSize: 13,
-    marginBottom: 6,
+  },
+  lineSerialInputInline: {
+    flex: 1,
+    fontSize: 13,
   },
 
   lineInputsRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   lineInputBlock: {
     flex: 1,
@@ -1702,15 +1619,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   lineSmallInput: {
-    height: 40,
+    height: 38,
     fontSize: 13,
     paddingVertical: 6,
   },
-
-  lineSerialInput: {
-    fontSize: 13,
-  },
-
 });
 
 export default BillingPage;

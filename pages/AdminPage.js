@@ -41,6 +41,8 @@ export default function AdminPage({ navigation, route }) {
   const itemsPerPage = 4;
   const totalPages = Math.ceil((filteredClients?.length || 0) / itemsPerPage);
   const [showOrdersOnly, setShowOrdersOnly] = useState(false);
+  const [sortMode, setSortMode] = useState("name"); // "name" | "fiche" | "recupdate"
+  const [sortDir, setSortDir] = useState("asc"); // "asc" | "desc"
   const listRef = useRef(null);
 
   // Modale Commandes
@@ -67,6 +69,46 @@ export default function AdminPage({ navigation, route }) {
   const hasWantedOrder = (orders = []) =>
     Array.isArray(orders) && orders.length > 0;
 
+  // Date de récupération d'un client = updatedAt de sa dernière intervention
+  // "Récupéré" (même convention que RecoveredClientsPage). null si aucune.
+  const getLastRecoveryDate = (client) => {
+    const dates = (client?.interventions || [])
+      .filter((i) => i?.status === "Récupéré" && i?.updatedAt)
+      .map((i) => new Date(i.updatedAt).getTime());
+    return dates.length > 0 ? Math.max(...dates) : null;
+  };
+
+  const sortClients = (list, mode, dir) => {
+    const sorted = [...list];
+    const factor = dir === "desc" ? -1 : 1;
+    if (mode === "fiche") {
+      sorted.sort(
+        (a, b) =>
+          factor * ((Number(a?.ficheNumber) || 0) - (Number(b?.ficheNumber) || 0))
+      );
+    } else if (mode === "recupdate") {
+      sorted.sort((a, b) => {
+        const da = getLastRecoveryDate(a);
+        const db = getLastRecoveryDate(b);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1; // sans date récupérée en dernier, dans les deux sens
+        if (db == null) return -1;
+        return factor * (da - db);
+      });
+    }
+    return sorted;
+  };
+
+  // Premier tap sur un tri : croissant. Retap sur le même : inverse le sens.
+  const toggleSort = (mode) => {
+    if (sortMode === mode) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortMode(mode);
+      setSortDir("asc");
+    }
+  };
+
   // Chargement clients
   const loadClients = useCallback(async () => {
     try {
@@ -75,7 +117,7 @@ export default function AdminPage({ navigation, route }) {
         .select(`
           id, name, phone, ficheNumber,
           banned, ban_reason, banned_at, banned_by,
-          interventions ( id, status ),
+          interventions ( id, status, updatedAt ),
           orders ( id, paid )
         `)
         .order("name", { ascending: true });
@@ -110,11 +152,15 @@ export default function AdminPage({ navigation, route }) {
     const qNorm = norm(q);
     const qDigits = digits(q);
 
-    const base = showOrdersOnly
-      ? (clients.all || []).filter(
-          (c) => Array.isArray(c?.orders) && hasWantedOrder(c.orders)
-        )
-      : clients.all || [];
+    const base = sortClients(
+      showOrdersOnly
+        ? (clients.all || []).filter(
+            (c) => Array.isArray(c?.orders) && hasWantedOrder(c.orders)
+          )
+        : clients.all || [],
+      sortMode,
+      sortDir
+    );
 
     if (q.trim() === "") {
       setFilteredClients(base);
@@ -135,7 +181,7 @@ export default function AdminPage({ navigation, route }) {
     const safe = filtered.length === 0 && q.trim() !== "" ? base : filtered;
     setFilteredClients(safe);
     setCurrentPage(1);
-  }, [searchText, clients, showOrdersOnly]);
+  }, [searchText, clients, showOrdersOnly, sortMode, sortDir]);
 
   // Pagination
   const currentData = (filteredClients || []).slice(
@@ -371,6 +417,54 @@ export default function AdminPage({ navigation, route }) {
                   {showOrdersOnly
                     ? "Voir tous les clients"
                     : "Voir fiches avec commandes"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.smallActionButton,
+                  sortMode === "fiche" && styles.smallActionButtonActive,
+                ]}
+                onPress={() => toggleSort("fiche")}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="format-list-numbered"
+                  size={16}
+                  color={sortMode === "fiche" ? "#fff" : "#334155"}
+                />
+                <Text
+                  style={[
+                    styles.smallActionText,
+                    sortMode === "fiche" && styles.smallActionTextActive,
+                  ]}
+                >
+                  Numéro de fiche{" "}
+                  {sortMode === "fiche" && (sortDir === "asc" ? "▲" : "▼")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.smallActionButton,
+                  sortMode === "recupdate" && styles.smallActionButtonActive,
+                ]}
+                onPress={() => toggleSort("recupdate")}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="event"
+                  size={16}
+                  color={sortMode === "recupdate" ? "#fff" : "#334155"}
+                />
+                <Text
+                  style={[
+                    styles.smallActionText,
+                    sortMode === "recupdate" && styles.smallActionTextActive,
+                  ]}
+                >
+                  Date de récupération{" "}
+                  {sortMode === "recupdate" && (sortDir === "asc" ? "▲" : "▼")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -861,23 +955,32 @@ const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    flexWrap: "nowrap",
+    gap: 4,
     marginBottom: 10,
   },
   smallActionButton: {
-    flexDirection: "row",
+    flex: 1,
+    flexDirection: "column",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 12,
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#dbe2ea",
+    paddingHorizontal: 4,
     paddingVertical: 8,
     borderRadius: 10,
+    minHeight: 56,
   },
   smallActionButtonActive: {
     backgroundColor: "#4338ca",
   },
-  smallActionText: { color: "#334155", fontSize: 12, fontWeight: "700" },
+  smallActionText: {
+    color: "#334155",
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
+    flexShrink: 1,
+  },
   smallActionTextActive: { color: "#fff" },
 
   clientItem: {

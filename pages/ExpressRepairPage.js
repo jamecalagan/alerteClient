@@ -14,6 +14,7 @@ import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
 import { commonStyles } from "../themes/modernTheme";
+import { isValidEmail } from "../utils/validateEmail";
 
 export default function ExpressRepairPage() {
   const navigation = useNavigation();
@@ -35,6 +36,7 @@ export default function ExpressRepairPage() {
 
   const [name, setName] = useState(editData.name || "");
   const [phone, setPhone] = useState(editData.phone || "");
+  const [email, setEmail] = useState(editData.email || "");
   const [device, setDevice] = useState(editData.device || "");
   const [problem, setProblem] = useState(editData.description ?? "");
 
@@ -62,7 +64,7 @@ const [isPaid, setIsPaid] = useState(
       return;
     }
     setHasUnsavedChanges(true);
-  }, [name, phone, device, problem, price, isPaid]);
+  }, [name, phone, email, device, problem, price, isPaid]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
@@ -107,8 +109,13 @@ const [isPaid, setIsPaid] = useState(
   const handleSubmit = async (goToSignature = false) => {
     if (saving) return;
 
-    if (!name || !phone || !device || !problem || !price) {
+    if (!name || !phone || !email || !device || !problem || !price) {
       showAlert("Erreur", "Veuillez remplir tous les champs obligatoires.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
       return;
     }
 
@@ -121,6 +128,7 @@ const [isPaid, setIsPaid] = useState(
     const baseData = {
       name: String(name).trim(),
       phone: String(phone).trim(),
+      email: String(email).trim(),
       type: "reparation", // normalisé (sans accent)
       device: String(device).trim(),
       description: String(problem).trim(),
@@ -226,7 +234,7 @@ const [isPaid, setIsPaid] = useState(
         </TouchableOpacity>
       ),
     });
-  }, [navigation, isEdit, saving, name, phone, device, problem, price]);
+  }, [navigation, isEdit, saving, name, phone, email, device, problem, price]);
 
   // ———————————————————————————————————
   // Pré-remplissage si édition
@@ -236,6 +244,7 @@ const [isPaid, setIsPaid] = useState(
       skipDirtyRef.current = true; // le chargement ne doit pas marquer la fiche comme modifiée
       setName(editData.name || "");
       setPhone(editData.phone || "");
+      setEmail(editData.email || "");
       setDevice(editData.device || "");
       setProblem(editData.description ?? "");
       setPrice(editData.price ? String(editData.price) : "");
@@ -252,7 +261,7 @@ const [isPaid, setIsPaid] = useState(
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>
-              🛠 Fiche Express — Réparation {isEdit ? "(modification)" : ""}
+              🛠 Dépannage - Réparation {isEdit ? "(modification)" : ""}
             </Text>
 
             <View style={styles.card}>
@@ -294,6 +303,17 @@ const [isPaid, setIsPaid] = useState(
                 value={phone}
                 onChangeText={setPhone}
               />
+
+              <Text style={styles.label}>Adresse e-mail *</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="exemple@client.com"
+                placeholderTextColor="#94a3b8"
+              />
             </View>
 
             <View style={styles.card}>
@@ -320,7 +340,7 @@ const [isPaid, setIsPaid] = useState(
             </View>
 
             <View style={styles.actionsGrid}>
-              {/* 1) Bouton Faire signer (toujours) */}
+              {/* 1) Bouton Enregistrer et imprimer (pas de signature pour ce type) */}
               <TouchableOpacity
                 style={[
                   styles.gridBtn,
@@ -330,7 +350,7 @@ const [isPaid, setIsPaid] = useState(
                 disabled={saving}
               >
                 <Text style={styles.gridBtnText}>
-                  {saving ? "Préparation…" : "🖋️ Faire signer"}
+                  {saving ? "Préparation…" : "🖨️ Enregistrer et imprimer"}
                 </Text>
               </TouchableOpacity>
 

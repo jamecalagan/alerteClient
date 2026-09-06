@@ -16,7 +16,7 @@ import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 
@@ -884,7 +884,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+      <BottomMenu navigation={navigation} />
 
       <Modal
         visible={!!selectedImage}

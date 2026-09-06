@@ -1438,147 +1438,217 @@ const deleteOnePhoto = async (ord, imgPath) => {
     );
   }
 };
-const toggleOrderItemOrdered = async (orderItem) => {
-    try {
-        const nextValue = !orderItem.ordered;
+const toggleOrderItemOrdered = (orderItem) => {
+    const nextValue = !orderItem.ordered;
 
-        const { error } = await supabase
-            .from("order_items")
-            .update({
-                ordered: nextValue,
-                ordered_at: nextValue
-                    ? new Date().toISOString()
-                    : null,
-            })
-            .eq("id", orderItem.id);
+    openConfirm(
+        "Commande passée",
+        nextValue
+            ? "Confirmez-vous que cet article a été commandé ?"
+            : "Retirer le statut « commandée » de cet article ?",
+        async () => {
+            try {
+                const { error } = await supabase
+                    .from("order_items")
+                    .update({
+                        ordered: nextValue,
+                        ordered_at: nextValue
+                            ? new Date().toISOString()
+                            : null,
+                    })
+                    .eq("id", orderItem.id);
 
-        if (error) {
-            throw error;
-        }
+                if (error) {
+                    throw error;
+                }
 
-        // Répercute l'état sur le bouton "Produit commandé ?" de la fiche
-        // d'intervention correspondante (via client_id + nom du produit,
-        // faute de lien direct en base entre order_items et interventions).
-        if (clientId && orderItem.product) {
-            const { error: syncError } = await supabase
-                .from("interventions")
-                .update({ commande_effectuee: nextValue })
-                .eq("client_id", clientId)
-                .eq("status", "En attente de pièces")
-                .ilike("commande", orderItem.product);
+                // Resynchronise la colonne "orders.ordered" avec l'état agrégé
+                // des articles, pour éviter un désaccord entre écrans (même
+                // logique que pour "received").
+                if (orderItem.order_id) {
+                    const { data: siblingItems, error: siblingsError } =
+                        await supabase
+                            .from("order_items")
+                            .select("ordered")
+                            .eq("order_id", orderItem.order_id);
 
-            if (syncError) {
-                console.warn(
-                    "⚠️ Synchronisation commande_effectuee :",
-                    syncError
+                    if (!siblingsError) {
+                        const allOrderedNow =
+                            Array.isArray(siblingItems) && siblingItems.length > 0
+                                ? siblingItems.every((i) => i.ordered)
+                                : nextValue;
+
+                        await supabase
+                            .from("orders")
+                            .update({ ordered: allOrderedNow })
+                            .eq("id", orderItem.order_id);
+                    }
+                }
+
+                // Répercute l'état sur le bouton "Produit commandé ?" de la fiche
+                // d'intervention correspondante (via client_id + nom du produit,
+                // faute de lien direct en base entre order_items et interventions).
+                if (clientId && orderItem.product) {
+                    const { error: syncError } = await supabase
+                        .from("interventions")
+                        .update({ commande_effectuee: nextValue })
+                        .eq("client_id", clientId)
+                        .eq("status", "En attente de pièces")
+                        .ilike("commande", orderItem.product);
+
+                    if (syncError) {
+                        console.warn(
+                            "⚠️ Synchronisation commande_effectuee :",
+                            syncError
+                        );
+                    }
+                }
+
+                await loadOrders();
+            } catch (error) {
+                console.error(
+                    "❌ Mise à jour article commandé :",
+                    error
+                );
+
+                showAlert(
+                    "Erreur",
+                    "Impossible de modifier l’état de cet article."
                 );
             }
         }
-
-        await loadOrders();
-    } catch (error) {
-        console.error(
-            "❌ Mise à jour article commandé :",
-            error
-        );
-
-        showAlert(
-            "Erreur",
-            "Impossible de modifier l’état de cet article."
-        );
-    }
+    );
 };
-const toggleOrderItemReceived = async (orderItem) => {
-    try {
-        const nextValue = !orderItem.received;
+const toggleOrderItemReceived = (orderItem) => {
+    const nextValue = !orderItem.received;
 
-        const { error } = await supabase
-            .from("order_items")
-            .update({
-                received: nextValue,
-                received_at: nextValue
-                    ? new Date().toISOString()
-                    : null,
-            })
-            .eq("id", orderItem.id);
+    openConfirm(
+        "Commande reçue",
+        nextValue
+            ? "Confirmez-vous la réception de cet article ?"
+            : "Retirer le statut « reçue » de cet article ?",
+        async () => {
+            try {
+                const { error } = await supabase
+                    .from("order_items")
+                    .update({
+                        received: nextValue,
+                        received_at: nextValue
+                            ? new Date().toISOString()
+                            : null,
+                    })
+                    .eq("id", orderItem.id);
 
-        if (error) {
-            throw error;
-        }
+                if (error) {
+                    throw error;
+                }
 
-        // Répercute la réception sur la fiche d'intervention correspondante,
-        // comme le fait manuellement le bouton "Commande reçue ?" (passage à
-        // "Intervention en cours"), via client_id + nom du produit faute de
-        // lien direct en base entre order_items et interventions.
-        // Si on décoche par erreur, on repasse la fiche à "En attente de
-        // pièces" pour faire réapparaître le bouton — mais seulement si elle
-        // n'a pas déjà avancé plus loin dans le workflow.
-        if (clientId && orderItem.product) {
-            const { error: syncError } = await supabase
-                .from("interventions")
-                .update({
-                    status: nextValue
-                        ? "Intervention en cours"
-                        : "En attente de pièces",
-                })
-                .eq("client_id", clientId)
-                .eq(
-                    "status",
-                    nextValue ? "En attente de pièces" : "Intervention en cours"
-                )
-                .ilike("commande", orderItem.product);
+                // Resynchronise la colonne "orders.received" (encore lue telle
+                // quelle par la Home) avec l'état agrégé des articles, sinon
+                // les deux écrans peuvent se désaccorder durablement.
+                if (orderItem.order_id) {
+                    const { data: siblingItems, error: siblingsError } =
+                        await supabase
+                            .from("order_items")
+                            .select("received")
+                            .eq("order_id", orderItem.order_id);
 
-            if (syncError) {
-                console.warn(
-                    "⚠️ Synchronisation statut intervention :",
-                    syncError
+                    if (!siblingsError) {
+                        const allReceivedNow =
+                            Array.isArray(siblingItems) && siblingItems.length > 0
+                                ? siblingItems.every((i) => i.received)
+                                : nextValue;
+
+                        await supabase
+                            .from("orders")
+                            .update({ received: allReceivedNow })
+                            .eq("id", orderItem.order_id);
+                    }
+                }
+
+                // Répercute la réception sur la fiche d'intervention correspondante,
+                // comme le fait manuellement le bouton "Commande reçue ?" (passage à
+                // "Intervention en cours"), via client_id + nom du produit faute de
+                // lien direct en base entre order_items et interventions.
+                // Si on décoche par erreur, on repasse la fiche à "En attente de
+                // pièces" pour faire réapparaître le bouton — mais seulement si elle
+                // n'a pas déjà avancé plus loin dans le workflow.
+                if (clientId && orderItem.product) {
+                    const { error: syncError } = await supabase
+                        .from("interventions")
+                        .update({
+                            status: nextValue
+                                ? "Intervention en cours"
+                                : "En attente de pièces",
+                        })
+                        .eq("client_id", clientId)
+                        .eq(
+                            "status",
+                            nextValue ? "En attente de pièces" : "Intervention en cours"
+                        )
+                        .ilike("commande", orderItem.product);
+
+                    if (syncError) {
+                        console.warn(
+                            "⚠️ Synchronisation statut intervention :",
+                            syncError
+                        );
+                    }
+                }
+
+                await loadOrders();
+            } catch (error) {
+                console.error(
+                    "❌ Mise à jour article reçu :",
+                    error
+                );
+
+                showAlert(
+                    "Erreur",
+                    "Impossible de modifier l'état de cet article."
                 );
             }
         }
-
-        await loadOrders();
-    } catch (error) {
-        console.error(
-            "❌ Mise à jour article reçu :",
-            error
-        );
-
-        showAlert(
-            "Erreur",
-            "Impossible de modifier l'état de cet article."
-        );
-    }
+    );
 };
-const toggleOrderItemInstalled = async (orderItem) => {
-    try {
-        const nextValue = !orderItem.installed;
+const toggleOrderItemInstalled = (orderItem) => {
+    const nextValue = !orderItem.installed;
 
-        const { error } = await supabase
-            .from("order_items")
-            .update({
-                installed: nextValue,
-                installed_at: nextValue
-                    ? new Date().toISOString()
-                    : null,
-            })
-            .eq("id", orderItem.id);
+    openConfirm(
+        "Article monté",
+        nextValue
+            ? "Confirmez-vous que cet article a été monté ?"
+            : "Retirer le statut « montée » de cet article ?",
+        async () => {
+            try {
+                const { error } = await supabase
+                    .from("order_items")
+                    .update({
+                        installed: nextValue,
+                        installed_at: nextValue
+                            ? new Date().toISOString()
+                            : null,
+                    })
+                    .eq("id", orderItem.id);
 
-        if (error) {
-            throw error;
+                if (error) {
+                    throw error;
+                }
+
+                await loadOrders();
+            } catch (error) {
+                console.error(
+                    "❌ Mise à jour article monté :",
+                    error
+                );
+
+                showAlert(
+                    "Erreur",
+                    "Impossible de modifier l'état de cet article."
+                );
+            }
         }
-
-        await loadOrders();
-    } catch (error) {
-        console.error(
-            "❌ Mise à jour article monté :",
-            error
-        );
-
-        showAlert(
-            "Erreur",
-            "Impossible de modifier l'état de cet article."
-        );
-    }
+    );
 };
 const editOrderItem = (orderItem, parentOrder) => {
     setEditingOrderItem(orderItem);

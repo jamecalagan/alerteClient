@@ -2111,6 +2111,13 @@ repair_proposal_date: repairProposalMade
 			    initialStatusRef.current !== "Réparé" && status === "Réparé"
 			        ? new Date().toISOString()
 			        : undefined,
+            // Nouveau cycle de commande : on repart de zéro sur "Produit commandé ?"
+            // pour éviter qu'il reste coché à tort suite à un cycle précédent.
+            commande_effectuee:
+                initialStatusRef.current !== "En attente de pièces" &&
+                status === "En attente de pièces"
+                    ? false
+                    : undefined,
             updatedAt: new Date().toISOString(),
         };
 

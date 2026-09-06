@@ -16,6 +16,7 @@ import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import * as Print from "expo-print";
+import { isValidEmail } from "../utils/validateEmail";
 
 export default function EditClientPage({ route, navigation }) {
   const { client, interventionId } = route.params;
@@ -167,6 +168,10 @@ if (error) {
       );
       return;
     }
+    if (email && !isValidEmail(email)) {
+      showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
+      return;
+    }
 
     try {
       const payload = {
@@ -200,6 +205,10 @@ if (error) {
   };
 
   const updateEmailOnly = async () => {
+    if (email && !isValidEmail(email)) {
+      showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
+      return;
+    }
     try {
       const e = (email || "").trim();
       const { data: rows, error } = await supabase

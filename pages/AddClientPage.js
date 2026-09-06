@@ -15,8 +15,9 @@ import {
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import { MaterialIcons } from "@expo/vector-icons";
+import { isValidEmail } from "../utils/validateEmail";
 // ——— Helpers ———
 const onlyDigits10 = (s = "") => String(s).replace(/\D/g, "").slice(0, 10);
 
@@ -50,6 +51,12 @@ const validateFields = () => {
   if (phone.length !== 10) { // phone est déjà digits-only
     setAlertTitle("Erreur");
     setAlertMessage("Le numéro de téléphone doit contenir exactement 10 chiffres.");
+    setAlertVisible(true);
+    return false;
+  }
+  if (email && !isValidEmail(email)) {
+    setAlertTitle("Erreur");
+    setAlertMessage("Veuillez saisir une adresse e-mail valide.");
     setAlertVisible(true);
     return false;
   }
@@ -377,7 +384,7 @@ const handlePhoneChange = (t) => {
         </TouchableWithoutFeedback>
       </Modal>
 
-      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+      <BottomMenu navigation={navigation} />
     </View>
   );
 }

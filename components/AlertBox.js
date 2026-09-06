@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const getAlertVisual = (title = '') => {
@@ -11,8 +11,30 @@ const getAlertVisual = (title = '') => {
   return { icon: 'information-circle', color: '#3B82F6', bg: '#DBEAFE' };
 };
 
-const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConfirm, cancelText = "Annuler" }) => {
+const AUTO_CLOSE_DURATION = 3500;
+
+// confirmText/cancelText restent utilisables même sans onConfirm ? non : sans onConfirm,
+// un seul bouton "OK" est affiché (comportement historique de CustomAlert, fusionné ici).
+const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConfirm = null, cancelText = "Annuler" }) => {
   const visual = getAlertVisual(title);
+  const progress = useRef(new Animated.Value(1)).current;
+
+  // Auto-fermeture uniquement pour les alertes simples (sans onConfirm) : la
+  // barre se vide de droite à gauche, et à la fin elle ferme l'alerte.
+  useEffect(() => {
+    if (visible && !onConfirm) {
+      progress.setValue(1);
+      const animation = Animated.timing(progress, {
+        toValue: 0,
+        duration: AUTO_CLOSE_DURATION,
+        useNativeDriver: false,
+      });
+      animation.start(({ finished }) => {
+        if (finished) onClose();
+      });
+      return () => animation.stop();
+    }
+  }, [visible, onConfirm]);
 
   return (
     <Modal
@@ -31,16 +53,42 @@ const AlertBox = ({ visible, onClose, title, message, confirmText = "OK", onConf
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.buttonContainer}>
-            {/* Bouton Annuler */}
-            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose} activeOpacity={0.7}>
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
-            </TouchableOpacity>
+            {onConfirm ? (
+              <>
+                {/* Bouton Annuler */}
+                <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose} activeOpacity={0.7}>
+                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                </TouchableOpacity>
 
-            {/* Bouton Confirmer */}
-            <TouchableOpacity style={[styles.button, styles.confirmButton, { backgroundColor: visual.color }]} onPress={onConfirm} activeOpacity={0.85}>
-              <Text style={styles.buttonText}>{confirmText}</Text>
-            </TouchableOpacity>
+                {/* Bouton Confirmer */}
+                <TouchableOpacity style={[styles.button, styles.confirmButton, { backgroundColor: visual.color }]} onPress={onConfirm} activeOpacity={0.85}>
+                  <Text style={styles.buttonText}>{confirmText}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Pas de onConfirm : un seul bouton "OK"
+              <TouchableOpacity style={[styles.button, styles.confirmButton, { backgroundColor: visual.color }]} onPress={onClose} activeOpacity={0.85}>
+                <Text style={styles.buttonText}>OK</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          {!onConfirm && (
+            <View style={styles.progressTrack}>
+              <Animated.View
+                style={[
+                  styles.progressBar,
+                  {
+                    backgroundColor: visual.color,
+                    width: progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -118,6 +166,18 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 15,
     fontWeight: '700',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#F3F4F6',
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 2,
   },
 });
 

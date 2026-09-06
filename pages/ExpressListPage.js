@@ -145,7 +145,16 @@ const computePreview = (item) => {
   // Si 'price' manquait, reconstruit
   const total = explicitTotal > 0 ? explicitTotal : baseService + storageCost;
 
-  const description = String(item.description || "").replaceAll("<br/>", "\n");
+  const rawDescription = String(item.description || "").replaceAll("<br/>", "\n");
+  // Pour le type "logiciel", la prestation est décrite sur plusieurs champs
+  // distincts (Type de prestation + Nom du produit + Clé de licence) : on les
+  // combine pour que la facture/l'aperçu ne perde pas ces informations.
+  const description =
+    item.type === "logiciel" && item.softwaretype
+      ? `${item.softwaretype} - ${rawDescription}${
+          item.licence ? ` (Licence : ${item.licence})` : ""
+        }`
+      : rawDescription;
 
   const fix2 = (x) => Math.round((x + Number.EPSILON) * 100) / 100;
 

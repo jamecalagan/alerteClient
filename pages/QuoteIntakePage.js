@@ -17,6 +17,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import { isValidEmail } from "../utils/validateEmail";
 
 const DEBOUNCE_MS = 220;
 const STORAGE_BUCKET = "quote-request-photos";
@@ -234,6 +235,10 @@ const QuoteIntakePage = () => {
   const handleSaveRequest = async () => {
     if (!clientName.trim()) {
       showAlert("Information manquante", "Indique au moins le nom du client.");
+      return;
+    }
+    if (email && !isValidEmail(email)) {
+      showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
       return;
     }
 

@@ -792,7 +792,7 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   const [NotRepairedNotReturnedCount, setNotRepairedNotReturnedCount] =
     useState(0);
   const [selectedClient, setSelectedClient] = useState(null);
-  const BlinkingIcon = ({ source }) => {
+  const BlinkingIcon = ({ source, tintColor = "#fad503" }) => {
     const opacity = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
@@ -821,7 +821,7 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
         style={{
           width: 28,
           height: 28,
-          tintColor: "#fad503", // 🔴 rouge pour attirer l’attention
+          tintColor: tintColor, // 🔴 pour attirer l’attention
           opacity: opacity,
         }}
       />
@@ -831,7 +831,7 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
     const opacity = useRef(new Animated.Value(1)).current;
     const IconSquare = ({
       source,
-      tintColor = "#00fd00",
+      tintColor = "#16a34a",
       onPress,
       badge = false,
     }) => (
@@ -916,7 +916,7 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   // === Bouton carré homogène pour les icônes ===
   const IconSquare = React.memo(function IconSquare({
     source,
-    tintColor = "#00fd00",
+    tintColor = "#16a34a",
     onPress,
     badge = false,
     children,
@@ -2981,7 +2981,7 @@ const baseRows = [
                                       ) : (
                                         <IconSquare
                                           source={require("../assets/icons/edit.png")}
-                                          tintColor="#00fd00"
+                                          tintColor="#16a34a"
                                           onPress={() =>
                                             navigation.navigate("EditClient", {
                                               client: item,
@@ -3022,7 +3022,7 @@ const baseRows = [
                                       ) : (
                                         <IconSquare
                                           source={require("../assets/icons/print.png")}
-                                          tintColor="#00fd00"
+                                          tintColor="#16a34a"
                                           onPress={async () => {
                                             const interventionId =
                                               item.latestIntervention?.id;
@@ -3046,7 +3046,7 @@ const baseRows = [
                                       {totalImages > 0 && (
                                         <IconSquare
                                           source={require("../assets/icons/image.png")}
-                                          tintColor="#00fd00"
+                                          tintColor="#16a34a"
                                           onPress={() =>
                                             goToImageGallery(item.id)
                                           }
@@ -3057,7 +3057,7 @@ const baseRows = [
                                       {totalInterventions > 0 && (
                                         <IconSquare
                                           source={require("../assets/icons/tools.png")}
-                                          tintColor="#00fd00"
+                                          tintColor="#16a34a"
                                           onPress={() =>
                                             navigation.navigate(
                                               "ClientInterventionsPage",
@@ -3111,6 +3111,7 @@ const baseRows = [
                                           item.orders.some(__isActiveOrder) ? (
                                           <BlinkingIcon
                                             source={require("../assets/icons/order.png")}
+                                            tintColor="#d97706"
                                           />
                                         ) : (
                                           <Image
@@ -3133,8 +3134,9 @@ const baseRows = [
                                         if (!hasLegacyCommande && !hasOrders) return null;
 
                                         const isDone = hasLegacyCommande
-                                          ? Boolean(li?.commande_effectuee)
-                                          : activeOrders.every((o) => o.received);
+                                          ? li?.status !== "En attente de pièces"
+                                          : activeOrders.length > 0 &&
+                                            activeOrders.every((o) => o.received);
 
                                         const label =
                                           commande ||
@@ -3165,7 +3167,7 @@ const baseRows = [
                                                 ? require("../assets/icons/shipping_fast.png")
                                                 : require("../assets/icons/shipping.png")
                                             }
-                                            tintColor={isDone ? "#00fd00" : "#a073f3"}
+                                            tintColor={isDone ? "#16a34a" : "#a073f3"}
                                             onPress={() => {
                                               setSelectedCommande(label);
                                               setSelectedCommandeDone(isDone);
@@ -4802,38 +4804,46 @@ interventions(
   const getDeviceIcon = (deviceType) => {
     if (!deviceType)
       return (
-        <Image
-          source={deviceIcons.default}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
+        <View style={styles.deviceIconCircle}>
+          <Image
+            source={deviceIcons.default}
+            style={{ width: 22, height: 22, tintColor: "#4338ca" }}
+          />
+        </View>
       );
 
     const lowerCaseName = deviceType.toLowerCase();
 
     if (lowerCaseName.includes("macbook")) {
       return (
-        <Image
-          source={deviceIcons.MacBook}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
+        <View style={styles.deviceIconCircle}>
+          <Image
+            source={deviceIcons.MacBook}
+            style={{ width: 22, height: 22, tintColor: "#4338ca" }}
+          />
+        </View>
       );
     }
 
     if (lowerCaseName.includes("imac")) {
       return (
-        <Image
-          source={deviceIcons.iMac}
-          style={{ width: 40, height: 40, tintColor: "#888787" }}
-        />
+        <View style={styles.deviceIconCircle}>
+          <Image
+            source={deviceIcons.iMac}
+            style={{ width: 22, height: 22, tintColor: "#4338ca" }}
+          />
+        </View>
       );
     }
 
     const iconSource = deviceIcons[deviceType] || deviceIcons.default;
     return (
-      <Image
-        source={iconSource}
-        style={{ width: 40, height: 40, tintColor: "#888787" }}
-      />
+      <View style={styles.deviceIconCircle}>
+        <Image
+          source={iconSource}
+          style={{ width: 22, height: 22, tintColor: "#4338ca" }}
+        />
+      </View>
     );
   };
 
@@ -4972,12 +4982,12 @@ interventions(
       (order) => order.paid && !order.saved
     );
     if (hasUnsavedAndPaid) {
-      return "#00fd00"; // 🟢 Vert, commande payée prête à sauvegarder
+      return "#16a34a"; // 🟢 Vert, commande payée prête à sauvegarder
     }
 
     const hasUnpaidOrder = clientOrders.some((order) => !order.paid);
     if (hasUnpaidOrder) {
-      return "#f8b705"; // 🔴 Rouge, commande créée mais non payée
+      return "#d97706"; // 🟠 Orange, commande créée mais non payée
     }
 
     return "#888787"; // ⚪ Gris, tout est sauvegardé et payé
@@ -9186,7 +9196,7 @@ const onPick = () => {
                             flex: 1,
                             backgroundColor: "#e0e7ff",
                             borderWidth: 1,
-                            borderColor: "#a5b4fc",
+                            borderColor: "#c7d2fe",
                             paddingVertical: 10,
                             borderRadius: 9,
                             alignItems: "center",
@@ -9827,10 +9837,10 @@ const styles = StyleSheet.create({
   deviceSquare: {
     width: 53,
     height: 53,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#242424",
-    backgroundColor: "#fff",
+    borderRadius: 27,
+    borderWidth: 1.5,
+    borderColor: "#a5b4fc",
+    backgroundColor: "#e0e7ff",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
@@ -9851,6 +9861,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 10,
     right: 10,
+  },
+  deviceIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eef2ff",
+    alignItems: "center",
+    justifyContent: "center",
   },
   ficheNumber: {
     fontSize: 16,
@@ -10458,10 +10476,10 @@ dotsRow: {
   iconSquare: {
     width: 53,
     height: 53,
-    borderRadius: 8,
-    backgroundColor: "#575757",
-    borderWidth: 1,
-    borderColor: "#3f3f3f",
+    borderRadius: 27,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1.5,
+    borderColor: "#a5b4fc",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
@@ -10495,8 +10513,8 @@ dotsRow: {
   labelInSquare: {
     width: "100%",
     height: "100%",
-    borderRadius: 8, // même radius que iconSquare
-    resizeMode: "cover", // on remplit proprement le carré
+    borderRadius: 27, // même radius que iconSquare (cercle)
+    resizeMode: "cover", // on remplit proprement le cercle
   },
   optionRow: {
     flexDirection: "row",

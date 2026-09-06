@@ -15,6 +15,7 @@ import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
 import { commonStyles } from "../themes/modernTheme";
+import { isValidEmail } from "../utils/validateEmail";
 
 const SOFTWARE_TYPE_OPTIONS = [
   "Installation antivirus",
@@ -70,6 +71,7 @@ export default function ExpressSoftwarePage() {
   const [name, setName] = useState(editData.name || "");
   const [phone, setPhone] = useState(editData.phone || "");
   const [email, setEmail] = useState(editData.email || "");
+  const [device, setDevice] = useState(editData.device || "");
   const [softwaretype, setSoftwaretype] = useState(editData.softwaretype || "");
   const [description, setDescription] = useState(editData.description || "");
   const [licence, setLicence] = useState(editData.licence || "");
@@ -117,7 +119,7 @@ const [isPaid, setIsPaid] = useState(
       return;
     }
     setHasUnsavedChanges(true);
-  }, [name, phone, email, softwaretype, description, licence, price, isPaid]);
+  }, [name, phone, email, device, softwaretype, description, licence, price, isPaid]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
@@ -134,6 +136,7 @@ const [isPaid, setIsPaid] = useState(
       setName(editData.name || "");
       setPhone(editData.phone || "");
       setEmail(editData.email || "");
+      setDevice(editData.device || "");
       setSoftwaretype(editData.softwaretype || "");
       setDescription(editData.description || "");
       setLicence(editData.licence || "");
@@ -176,12 +179,12 @@ const [isPaid, setIsPaid] = useState(
   const handleSubmit = async (goToSignature = true) => {
     if (saving) return;
 
-    if (!name || !phone || !email || !softwaretype || !description || !price) {
+    if (!name || !phone || !email || !device || !softwaretype || !description || !price) {
       showAlert("Erreur", "Veuillez remplir tous les champs obligatoires.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!isValidEmail(email)) {
       showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
       return;
     }
@@ -196,6 +199,7 @@ const [isPaid, setIsPaid] = useState(
       name: String(name).trim(),
       phone: String(phone).trim(),
       email: String(email).trim(),
+      device: String(device).trim(),
       type: "logiciel",
       softwaretype: String(softwaretype).trim(),
       licence: String(licence || "").trim(),
@@ -230,6 +234,7 @@ const [isPaid, setIsPaid] = useState(
             id: data.id,
             name,
             phone,
+            device: baseData.device,
             softwaretype: baseData.softwaretype,
             licence: baseData.licence,
             description: baseData.description,
@@ -262,6 +267,7 @@ const [isPaid, setIsPaid] = useState(
           id: row.id,
           name,
           phone,
+          device: baseData.device,
           softwaretype: baseData.softwaretype,
           licence: baseData.licence,
           description: baseData.description,
@@ -302,7 +308,7 @@ const [isPaid, setIsPaid] = useState(
         </TouchableOpacity>
       ),
     });
-  }, [navigation, isEdit, saving, name, phone, email, softwaretype, licence, description, price]);
+  }, [navigation, isEdit, saving, name, phone, email, device, softwaretype, licence, description, price]);
 
   return (
     <KeyboardAvoidingView
@@ -313,7 +319,7 @@ const [isPaid, setIsPaid] = useState(
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>
-              🖥️ Fiche Express — Logiciel {isEdit ? "(modification)" : ""}
+              🖥️ Maintenance Express {isEdit ? "(modification)" : ""}
             </Text>
 
             <View style={styles.card}>
@@ -373,6 +379,15 @@ const [isPaid, setIsPaid] = useState(
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Prestation</Text>
+
+              <Text style={styles.label}>Matériel déposé *</Text>
+              <TextInput
+                style={styles.input}
+                value={device}
+                onChangeText={setDevice}
+                placeholder="Ex : PC portable Asus, PC de bureau HP..."
+                placeholderTextColor="#94a3b8"
+              />
 
               <Text style={styles.label}>Type de prestation</Text>
               <TextInput
@@ -449,7 +464,7 @@ const [isPaid, setIsPaid] = useState(
             </View>
 
             <View style={styles.actionsGrid}>
-              {/* 1) Bouton Faire signer (toujours) */}
+              {/* 1) Bouton Enregistrer et imprimer (pas de signature pour ce type) */}
               <TouchableOpacity
                 style={[
                   styles.gridBtn,
@@ -459,7 +474,7 @@ const [isPaid, setIsPaid] = useState(
                 disabled={saving}
               >
                 <Text style={styles.gridBtnText}>
-                  {saving ? "Préparation…" : "🖋️ Faire signer"}
+                  {saving ? "Préparation…" : "🖨️ Enregistrer et imprimer"}
                 </Text>
               </TouchableOpacity>
 

@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import * as Animatable from "react-native-animatable";
 import { supabase } from "../supabaseClient";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
@@ -591,7 +591,7 @@ const handleBulkRestitution = async () => {
       )}
       </View>
 
-      <BottomNavigation navigation={navigation} currentRoute="RepairedInterventionsListPage" />
+      <BottomMenu navigation={navigation} />
 
       <AlertBox
         visible={bulkRestitutionConfirmVisible}

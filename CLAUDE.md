@@ -93,10 +93,9 @@ c:\AlerteClient
 
 ## Composants partagés (dossier components/)
 
-- `BottomMenu.js` — barre de navigation basse enrichie (filtres, badge "commandes en cours" via requête `orders`) : utilisée uniquement par `HomePage`.
-- `BottomNavigation.js` — barre de navigation basse simplifiée : utilisée par `AddClientPage`, `AdminPage`, `ClientInterventionsPage`, `ImageGallery`, `RecoveredClientsPage`, `RepairedInterventionsPage`, `RepairedInterventionsListPage`. ⚠️ Duplication fonctionnelle avec `BottomMenu.js` — les deux composants ne sont pas interchangeables sans adapter les props.
+- `BottomMenu.js` — barre de navigation basse unique de l'appli (fusionnée le 2026-09-06, remplace l'ancien `BottomNavigation.js` supprimé). La ligne de filtres (Commande/Devis/Express/En réparation/Réinitialiser, badge "commandes en cours" via requête `orders`) ne s'affiche que si `filterByStatus`/`resetFilter`/`onFilterCommande` sont fournis (cas de `HomePage` uniquement) ; sans ces props, seule la ligne de navigation (Accueil/Ajouter/Réparés/Restitués/Admin) s'affiche — c'est le cas de `AddClientPage`, `AdminPage`, `ClientInterventionsPage`, `ImageGallery`, `RecoveredClientsPage`, `RepairedInterventionsPage`, `RepairedInterventionsListPage`, qui lui passent uniquement `navigation`.
 - `SlidingMenu.js` — menu latéral animé (drawer maison, pas de lib de navigation drawer).
-- `AlertBox.js` et `CustomAlert.js` — deux modales de confirmation quasi identiques mais distinctes (props différentes : `AlertBox` a `cancelText`/`confirmText`, `CustomAlert` affiche "OK" seul si `onConfirm` absent). Vérifier laquelle est utilisée avant de modifier une alerte.
+- `AlertBox.js` — modale de confirmation unique de l'appli (fusionnée le 2026-09-06). Affiche "Annuler"/`confirmText` (défaut "OK") quand `onConfirm` est fourni, ou un unique bouton "OK" avec fermeture automatique (barre de progression, ~3.5s) quand `onConfirm` est absent. `CustomAlert.js` est conservé comme simple alias qui délègue à `AlertBox` (texte de bouton "Confirmer" au lieu de "OK" pour préserver l'apparence historique des ~56 fichiers qui l'importent encore) — ne pas le modifier séparément, toute évolution du comportement doit se faire dans `AlertBox.js`.
 - `BanToggleButton.js` — bannir/débannir un client via le RPC `set_client_ban`.
 - `SmartImage.js` — affichage d'image avec repli local (dossier `backup/<ficheNumber>/...` ou `Save picture alerte client/<ficheNumber>/...`) avant URL cloud, badge "Local"/"Cloud", icône de repli si erreur de chargement.
 - `RoundedButton.js` — bouton stylé générique.
@@ -198,8 +197,8 @@ Lors d’une correction ciblée :
 - Le champ de signature d’intervention est `signatureIntervention`.
 - La casse du timestamp de création varie selon la table : `createdAt` (`clients`, `interventions`), `createdat` (`orders`), `created_at` (`billing`, `express`, `quotes`, `quote_requests`, `flyers`, `quick_labels`, `checkup_reports`, `intervention_images`) — ne jamais harmoniser automatiquement.
 - Le bucket Storage par défaut est `"images"` (repris tel quel ou via une constante locale selon le fichier : `BUCKET`, `ORDER_PHOTOS_BUCKET`) ; les buckets `quote-request-photos`, `quotes-pdf` et `intervention-images` sont utilisés pour des besoins spécifiques et ne doivent pas être confondus avec `"images"`.
-- Deux composants de barre de navigation basse coexistent (`components/BottomMenu.js` pour `HomePage`, `components/BottomNavigation.js` pour les autres écrans) : ne pas les fusionner ni en supprimer un sans demande explicite.
-- Deux composants de modale d'alerte coexistent (`components/AlertBox.js`, `components/CustomAlert.js`) avec des props différentes : vérifier lequel est importé dans le fichier concerné avant modification.
+- `components/BottomMenu.js` est la seule barre de navigation basse de l'appli (fusion du 2026-09-06) ; `components/BottomNavigation.js` a été supprimé. Toute page qui l'utilise sans passer `filterByStatus`/`resetFilter`/`onFilterCommande` n'affiche que la ligne de navigation (pas la ligne de filtres, réservée à `HomePage`).
+- `components/CustomAlert.js` n'est plus qu'un alias de `components/AlertBox.js` (fusion du 2026-09-06) : toute modification de comportement/style d'alerte doit se faire dans `AlertBox.js`, jamais dans `CustomAlert.js`.
 
 ## Validation
 

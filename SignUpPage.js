@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet, Text, TouchableOpacity, ImageBackground, I
 import Icon from 'react-native-vector-icons/Ionicons'; // Import des icônes
 import { supabase } from './supabaseClient';
 import CustomAlert from './components/CustomAlert';
+import { isValidEmail } from './utils/validateEmail';
 
 
 export default function SignUpPage({ navigation }) {
@@ -24,6 +25,10 @@ export default function SignUpPage({ navigation }) {
   const handleSignUp = async () => {
     if (!email || !password) {
       showAlert('Erreur', 'Veuillez entrer votre email et mot de passe.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      showAlert('Erreur', 'Veuillez saisir une adresse e-mail valide.');
       return;
     }
 

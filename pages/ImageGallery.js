@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
 
 export default function ImageGallery({ route, navigation }) {
@@ -348,7 +348,7 @@ const enrichedOrders = (ordersData || [])
       />
       </View>
 
-      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+      <BottomMenu navigation={navigation} />
     </View>
   );
 }

@@ -26,7 +26,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from "expo-print";
 
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
@@ -920,7 +920,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         }}
       />
 
-      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+      <BottomMenu navigation={navigation} />
       <Modal
         visible={isModalVisible}
         transparent={true}

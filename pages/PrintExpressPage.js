@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect} from "react";
 import { View, Text, StyleSheet, Button, ScrollView, Image, TouchableOpacity } from "react-native";
+import { WebView } from "react-native-webview";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
@@ -100,7 +101,7 @@ const support_fournisseur = support_fournis === true;
 
   
 
-  const handlePrint = async () => {
+  const buildHtml = () => {
 	const conditionsText = `
 	<div style="
 	  background-color: #eef6ff;
@@ -115,7 +116,7 @@ const support_fournisseur = support_fournis === true;
 	  text-align: justify;
 	">
 	  ${
-		type === "video" 
+		type === "video"
 		? `
 		  <p style="font-weight: bold; text-align: center;">Conditions spécifiques au transfert vidéo 📼</p>
 		  <p>7. La qualité dépend de l’état des cassettes originales. Aucun remboursement ne sera accordé pour des défauts présents sur le support source.</p>
@@ -129,7 +130,7 @@ const support_fournisseur = support_fournis === true;
 		  <p>4. Les pièces remplacées peuvent ne pas être restituées sauf demande expresse.</p>
 		  <p>5. Aucun matériel ne sera restitué sans le paiement complet de la prestation.</p>
 		  <p>6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.</p>
-		  <p>9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.</p>
+		  ${type === "logiciel" || type === "reparation" ? "" : '<p>9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.</p>'}
 		`
 	  }
 	</div>
@@ -147,20 +148,21 @@ const support_fournisseur = support_fournis === true;
 const htmlContent = `
 <html>
   <body style="font-family: Arial; padding: 5px; font-size: 11px; max-width: 595px;">
-    <h3 style="text-align: center;">
+    <h3 style="text-align: center; margin-bottom: 2px;">
       ${
         type === "logiciel"
-          ? "Fiche Express - Dépannage système"
+          ? "Maintenance Express"
           : type === "video"
           ? "Fiche Express - Transfert vidéo"
-          : "Fiche Express - Réparation matériel"
+          : "Dépannage - Réparation"
       }
     </h3>
+    ${type === "logiciel" || type === "reparation" ? '<p style="text-align: center; font-size: 10px; font-weight: bold; color: #2563eb; margin-top: 0;">Fiche de dépôt et de restitution du matériel</p>' : ""}
 
     <p><strong>Date :</strong> ${date}</p>
     <p><strong>Client :</strong> ${name}</p>
     <p><strong>Téléphone :</strong> ${phone || "N/A"}</p>
-    ${type === "reparation" ? `<p><strong>Matériel :</strong> ${device || "N/A"}</p>` : ""}
+    ${type === "reparation" || type === "logiciel" ? `<p><strong>Matériel :</strong> ${device || "N/A"}</p>` : ""}
 
 
     ${type === "logiciel" ? `<p><strong>Prestation :</strong> ${softwaretype}</p>` : ""}
@@ -185,26 +187,80 @@ ${type === "video" ? `<p><strong>Cassettes :</strong> ${cassettecount} → ${out
   6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.<br/>
   <span style="color: #007bff; font-weight: bold;">📼 7. Pour les prestations de transfert vidéo, la qualité dépend de l’état des cassettes. Aucun remboursement ne sera accordé pour les défauts dus aux supports originaux.</span><br/>
   <span style="color: #007bff; font-weight: bold;">📼 8. Les conversions sont livrées sur le support choisi par le client.</span><br/>
-  9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.
+  ${type === "logiciel" || type === "reparation" ? "" : "9. La signature du client vaut acceptation des conditions mentionnées ci-dessus."}
 </p>
-<p>En signant ce document, vous acceptez les conditions ci-dessus.</p>
+${type === "logiciel" || type === "reparation" ? "" : '<p>En signant ce document, vous acceptez les conditions ci-dessus.</p>'}
 </div>
 
-          <p><strong>Signature client :</strong></p>
-          ${signatureData ? `<img src="${signatureData}" style="width: 200px; height: auto;" />` : '<p>______________________________</p>'}
+          ${
+            type === "logiciel" || type === "reparation"
+              ? ""
+              : `<p><strong>Signature client :</strong></p>
+          ${signatureData ? `<img src="${signatureData}" style="width: 200px; height: auto;" />` : '<p>______________________________</p>'}`
+          }
+
+		  ${conditionsText}
+
+          ${
+            type === "logiciel" || type === "reparation"
+              ? `<p style="font-size: 9px; font-weight: bold; color: #dc2626; text-align: center; margin-top: 10px;">
+            Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.
+          </p>`
+              : ""
+          }
 
           <br/><br/>
           <div style="text-align: center; font-size: 10px;">
-            <p><strong>AVENIR INFORMATIQUE</strong> 16, place de l'Hôtel de Ville 93700 Drancy Tel : 01 41 60 18 18</p>
+            <p><strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
+            RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457</p>
           </div>
-		  ${conditionsText}
         </body>
       </html>
     `;
 
-    await wakeUpPrinter(); // 👈 réveille l’imprimante avant
-await Print.printAsync({ html: htmlContent });
+    return htmlContent;
   };
+
+  const handlePrint = async () => {
+    await wakeUpPrinter(); // 👈 réveille l’imprimante avant
+    await Print.printAsync({ html: buildHtml() });
+  };
+
+  if (type === "logiciel" || type === "reparation") {
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+          <Text style={{ fontSize: 18, fontWeight: "bold" }}>
+            Aperçu — {type === "logiciel" ? "Maintenance Express" : "Dépannage - Réparation"}
+          </Text>
+        </View>
+
+        <WebView
+          originWhitelist={["*"]}
+          source={{ html: buildHtml() }}
+          style={{ flex: 1 }}
+        />
+
+        <View style={{ flexDirection: "row", padding: 12 }}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: "#28a745", marginHorizontal: 0 }]}
+            onPress={handlePrint}
+          >
+            <Text style={styles.buttonText}>🖨️ Imprimer</Text>
+          </TouchableOpacity>
+        </View>
+
+        <BackButton onPress={() => navigation.goBack()} style={{ marginHorizontal: 16, marginBottom: 12 }} />
+
+        <CustomAlert
+          visible={alertVisible}
+          title={alertTitle}
+          message={alertMessage}
+          onClose={() => setAlertVisible(false)}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container} scrollEnabled={!isSigning}>
@@ -215,15 +271,20 @@ await Print.printAsync({ html: htmlContent });
 )}
 
       <Text style={styles.title}>
-  {type === "logiciel" && "Fiche Express - Dépannage système"}
-  {type === "reparation" && "Fiche Express - Réparation matériel"}
+  {type === "logiciel" && "Maintenance Express"}
+  {type === "reparation" && "Dépannage - Réparation"}
   {type === "video" && "Fiche Express - Transfert vidéo"}
 </Text>
+{type === "logiciel" && (
+  <Text style={{ textAlign: "center", fontSize: 13, fontWeight: "bold", color: "#2563eb", marginTop: -14, marginBottom: 14 }}>
+    Fiche de dépôt et de restitution du matériel
+  </Text>
+)}
 
       <Text style={styles.label}>Date : {date}</Text>
       <Text style={styles.label}>Client : {name}</Text>
       {phone ? <Text style={styles.label}>Téléphone : {phone}</Text> : null}
-      <Text style={styles.label}>Matériel : {device}</Text>
+      {(type === "reparation" || type === "logiciel") && <Text style={styles.label}>Matériel : {device}</Text>}
 	  {type === 'logiciel' && <Text style={styles.label}>Prestation : {softwaretype}</Text>}
       <Text style={styles.label}>Description : {description}</Text>
       
@@ -258,14 +319,23 @@ await Print.printAsync({ html: htmlContent });
           5. Aucun matériel ne sera restitué sans le paiement complet de la prestation.{"\n"}
           6. Le matériel non réclamé dans un délai de 3 mois sera considéré comme abandonné.{"\n"}
           7. Pour les prestations de transfert vidéo, la qualité dépend de l’état des cassettes. Aucun remboursement ne sera accordé pour les défauts dus aux supports originaux.{"\n"}
-          8. Les conversions sont livrées sur le support choisi par le client.{"\n"}
-          9. La signature du client vaut acceptation des conditions mentionnées ci-dessus.
+          8. Les conversions sont livrées sur le support choisi par le client.
+          {type !== "logiciel" && "\n9. La signature du client vaut acceptation des conditions mentionnées ci-dessus."}
         </Text>
-        <Text style={styles.termsText}>
-          En signant ce document, vous acceptez les conditions
-          ci-dessus.
-        </Text>
+        {type !== "logiciel" && (
+          <Text style={styles.termsText}>
+            En signant ce document, vous acceptez les conditions
+            ci-dessus.
+          </Text>
+        )}
+        {type === "logiciel" && (
+          <Text style={[styles.termsText, { fontWeight: "bold", color: "#dc2626", fontSize: 13 }]}>
+            Ce document (ou sa photo) est à présenter (par vous ou par un tiers désigné) le jour de la récupération de votre matériel.
+          </Text>
+        )}
       </View>
+	  {type !== "logiciel" && (
+	  <>
 	  <TouchableOpacity
   style={{
     backgroundColor: includeSignature ? "#28a745" : "#ccc",
@@ -337,6 +407,8 @@ await Print.printAsync({ html: htmlContent });
     </Text>
   </View>
 )}
+	  </>
+	  )}
 
 <View style={styles.buttonRow}>
   {!signatureExists && signatureData && (
@@ -351,10 +423,15 @@ await Print.printAsync({ html: htmlContent });
   <TouchableOpacity
     style={[
       styles.actionButton,
-      { backgroundColor: includeSignature && !isSaved ? "#ccc" : "#28a745" },
+      {
+        backgroundColor:
+          type !== "logiciel" && includeSignature && !isSaved
+            ? "#ccc"
+            : "#28a745",
+      },
     ]}
     onPress={handlePrint}
-    disabled={includeSignature && !isSaved}
+    disabled={type !== "logiciel" && includeSignature && !isSaved}
   >
     <Text style={styles.buttonText}>🖨️ Imprimer</Text>
   </TouchableOpacity>

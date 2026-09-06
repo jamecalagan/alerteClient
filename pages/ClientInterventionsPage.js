@@ -16,7 +16,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "../supabaseClient";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
@@ -795,7 +795,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
         )}
       </View>
 
-      <BottomNavigation navigation={navigation} currentRoute={route.name} />
+      <BottomMenu navigation={navigation} />
 
       <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 12, marginBottom: 90 }} />
 

@@ -15,6 +15,11 @@ export default function BottomMenu({
     const [showBackupAlert, setShowBackupAlert] = useState(false);
     const [ongoingCount, setOngoingCount] = useState(0);
 
+    // Barre de filtres (Commande/Devis/Express/En réparation/Réinitialiser) :
+    // spécifique à la Home, qui seule fournit ces callbacks. Les autres pages
+    // n'affichent que la ligne de navigation du bas.
+    const hasFilters = Boolean(filterByStatus || resetFilter || onFilterCommande);
+
     // Désactiver les autres boutons lorsque l'on revient sur Home
     useEffect(() => {
         if (isFocused && route.name === "Home") {
@@ -25,7 +30,7 @@ export default function BottomMenu({
         checkBackupReminder();
     }, [isFocused, route.name]);
 useEffect(() => {
-  if (!isFocused) return;
+  if (!isFocused || !hasFilters) return;
 
   (async () => {
     try {
@@ -48,7 +53,7 @@ useEffect(() => {
       setOngoingCount(0);
     }
   })();
-}, [isFocused]);
+}, [isFocused, hasFilters]);
 
 
 
@@ -112,6 +117,7 @@ useEffect(() => {
 
     return (
         <View style={styles.bottomMenuContainer}>
+            {hasFilters && (
             <View style={styles.filterRow}>
 <TouchableOpacity
   style={[
@@ -222,8 +228,9 @@ useEffect(() => {
                     </View>
                 </TouchableOpacity>
             </View>
+            )}
 
-            <View style={styles.separator} />
+            {hasFilters && <View style={styles.separator} />}
 
             <View style={styles.navigationRow}>
                 <TouchableOpacity

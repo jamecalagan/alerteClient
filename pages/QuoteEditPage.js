@@ -21,6 +21,7 @@ import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
 import { commonStyles } from "../themes/modernTheme";
+import { isValidEmail } from "../utils/validateEmail";
 
 const BTN_COLS = 2; // 2 colonnes (sobre)
 const GRID_BTN_WIDTH = BTN_COLS === 3 ? "32%" : "48%";
@@ -543,6 +544,10 @@ export default function QuoteEditPage() {
           "Montant manquant",
           "Renseigne le coût total TTC pour ce devis."
         );
+      }
+
+      if (email && !isValidEmail(email)) {
+        return showAlert("Erreur", "Veuillez saisir une adresse e-mail valide.");
       }
 
       const id = await ensureSavedAndGetId();

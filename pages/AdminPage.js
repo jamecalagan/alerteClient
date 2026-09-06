@@ -20,7 +20,7 @@ import {
 import { supabase } from "../supabaseClient";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import BottomNavigation from "../components/BottomNavigation";
+import BottomMenu from "../components/BottomMenu";
 import CustomAlert from "../components/CustomAlert";
 
 export default function AdminPage({ navigation, route }) {
@@ -580,7 +580,7 @@ export default function AdminPage({ navigation, route }) {
           </View>
         </TouchableWithoutFeedback>
 
-        <BottomNavigation navigation={navigation} currentRoute={route.name} />
+        <BottomMenu navigation={navigation} />
 
         {/* Modale Commandes */}
         <Modal

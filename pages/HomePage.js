@@ -327,6 +327,7 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [selectedCommandeDone, setSelectedCommandeDone] = useState(false);
   const [selectedCommandeFournisseur, setSelectedCommandeFournisseur] = useState("");
+  const [selectedCommandePendingItems, setSelectedCommandePendingItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true); // Loader state
   const [uploadingInterventionId, setUploadingInterventionId] = useState(null); // photo en cours d'envoi (ajout depuis la Home)
@@ -2587,6 +2588,22 @@ const baseRows = [
     </Text>
     <Text>{` · Fiche N° ${item.ficheNumber ?? "—"}`}</Text>
   </Text>
+) : r.label === "Téléphone" && item.phone ? (
+  <TouchableOpacity
+    onLongPress={() => Linking.openURL(`tel:${item.phone}`)}
+    delayLongPress={350}
+    style={{
+      alignSelf: "flex-start",
+      borderWidth: 1,
+      borderColor: "#16a34a",
+      backgroundColor: "#dcfce7",
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 2,
+    }}
+  >
+    <Text style={styles.tableValue}>{r.value}</Text>
+  </TouchableOpacity>
 ) : (
   <Text
     style={[
@@ -3160,6 +3177,28 @@ const baseRows = [
                                               )
                                             ).join(", ");
 
+                                        // Détail des articles pas encore reçus, pour une
+                                        // commande à plusieurs produits (masqué si un
+                                        // seul article, le libellé du haut suffit alors).
+                                        const allOrderItems = hasLegacyCommande
+                                          ? []
+                                          : activeOrders.flatMap((o) =>
+                                              Array.isArray(o.order_items)
+                                                ? o.order_items
+                                                : []
+                                            );
+                                        const pendingItems =
+                                          allOrderItems.length > 1
+                                            ? allOrderItems
+                                                .filter((oi) => !oi.received)
+                                                .map(
+                                                  (oi) =>
+                                                    [oi.product, oi.brand, oi.model]
+                                                      .filter(Boolean)
+                                                      .join(" ") || "Article"
+                                                )
+                                            : [];
+
                                         return (
                                           <IconSquare
                                             source={
@@ -3172,6 +3211,7 @@ const baseRows = [
                                               setSelectedCommande(label);
                                               setSelectedCommandeDone(isDone);
                                               setSelectedCommandeFournisseur(fournisseurLabel);
+                                              setSelectedCommandePendingItems(pendingItems);
                                               setTransportModalVisible(true);
                                             }}
                                           />
@@ -4109,7 +4149,7 @@ orders(
 
 const { data: ordersData, error: ordersError } = await supabase
   .from("orders")
-  .select("*, order_items(product, fournisseur)");
+  .select("*, order_items(product, brand, model, quantity, fournisseur, received)");
 
 if (ordersError) throw ordersError;
 
@@ -4652,7 +4692,7 @@ interventions(
 
       const { data: ordersData, error: orderError } = await supabase
         .from("orders")
-        .select("*, client_id, order_items(product, fournisseur)")
+        .select("*, client_id, order_items(product, brand, model, quantity, fournisseur, received)")
         .in(
           "client_id",
           combined.map((c) => c.id)
@@ -6999,6 +7039,38 @@ const onPick = () => {
                         Fournisseur : {selectedCommandeFournisseur}
                       </Text>
                     ) : null}
+                    {selectedCommandePendingItems.length > 0 ? (
+                      <View
+                        style={{
+                          width: "100%",
+                          marginBottom: 12,
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: "#fef3e2",
+                          borderWidth: 1,
+                          borderColor: "#d97706",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "bold",
+                            color: "#9a5b13",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Produits non reçus :
+                        </Text>
+                        {selectedCommandePendingItems.map((label, index) => (
+                          <Text
+                            key={`${label}-${index}`}
+                            style={{ fontSize: 13, color: "#9a5b13" }}
+                          >
+                            • {label}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
                     <TouchableOpacity
                       style={[styles.modalButton, styles.modalButtonSecondary]}
                       onPress={() => setTransportModalVisible(false)}
@@ -8099,6 +8171,14 @@ const onPick = () => {
                         onPress={() => {
                           setOverdueRepairedModalVisible(false);
 
+                          const daysOverdue = item.__referenceDate
+                            ? Math.floor(
+                                (Date.now() -
+                                  new Date(item.__referenceDate).getTime()) /
+                                  (1000 * 60 * 60 * 24)
+                              )
+                            : 30;
+
                           navigation.navigate(
                             "ClientNotificationsPage",
                             {
@@ -8111,6 +8191,7 @@ const onPick = () => {
                               deviceType:
                                 item.deviceType || "appareil",
                               mode: "pickup",
+                              daysOverdue,
                             }
                           );
                         }}

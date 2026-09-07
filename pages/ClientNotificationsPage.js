@@ -49,7 +49,7 @@ export default function ClientNotificationsPage() {
         "Bonjour, votre {type} est prêt(e). N'oubliez pas le bon de restitution, merci",
         "Merci de nous rappeler concernant votre {type}.",
         "Votre {type} est disponible en boutique.",
-        "⚠️ Bonjour, votre matériel est prêt depuis plus de 30 jours. Sans récupération rapide, des frais de stockage seront appliqués. Passé ce délai, il sera considéré comme abandonné et pourra faire l’objet d’une destruction.",
+        "⚠️ Bonjour, votre matériel est prêt depuis {days} jours. Sans récupération rapide, des frais de stockage seront appliqués. Passé ce délai, il sera considéré comme abandonné et pourra faire l’objet d’une destruction.",
     ];
 
     const templates = [...defaultTemplates, ...customTemplates];
@@ -85,6 +85,20 @@ export default function ClientNotificationsPage() {
     useEffect(() => {
         if (route.params?.clientId) {
             setSelectedClientId(route.params.clientId);
+
+            // Depuis "Non récupéré 30j+" (Home) : préremplit directement le
+            // message d'avertissement de retrait (avec le nombre de jours
+            // réel depuis la réparation), pour éviter de le retaper.
+            if (route.params?.mode === "pickup") {
+                const days = route.params?.daysOverdue ?? 30;
+                setMessageMap((prev) => ({
+                    ...prev,
+                    [route.params.clientId]: defaultTemplates[3].replace(
+                        "{days}",
+                        String(days)
+                    ),
+                }));
+            }
         }
     }, [route.params]);
 
@@ -504,7 +518,9 @@ export default function ClientNotificationsPage() {
     const renderItem = ({ item }) => {
         const raw = messageMap[item.id] || templates[0];
         const type = item.deviceType || "appareil";
-        const message = `${raw.replace("{type}", type)}\n\nAVENIR INFORMATIQUE`;
+        const message = `${raw
+            .replace("{type}", type)
+            .replace("{days}", "30")}\n\nAVENIR INFORMATIQUE`;
         const isNotified = !!item.notifiedBy;
 
         return (

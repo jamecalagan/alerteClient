@@ -8171,14 +8171,6 @@ const onPick = () => {
                         onPress={() => {
                           setOverdueRepairedModalVisible(false);
 
-                          const daysOverdue = item.__referenceDate
-                            ? Math.floor(
-                                (Date.now() -
-                                  new Date(item.__referenceDate).getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              )
-                            : 30;
-
                           navigation.navigate(
                             "ClientNotificationsPage",
                             {
@@ -8191,7 +8183,6 @@ const onPick = () => {
                               deviceType:
                                 item.deviceType || "appareil",
                               mode: "pickup",
-                              daysOverdue,
                             }
                           );
                         }}

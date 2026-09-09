@@ -2173,19 +2173,26 @@ const totalInterventions = item.interventions
   ? item.interventions.length
   : 0;
 
+// item.pendingLoanedItem / item.pendingRestitutionNote couvrent aussi les
+// interventions "Réparé" (exclues de item.interventions/latestIntervention
+// ci-dessus, sans onglet dédié), là où ces rappels sont le plus souvent saisis.
 const loanedItem =
-  latestIntervention?.loaned_item || "";
+  latestIntervention?.loaned_item || item.pendingLoanedItem || "";
 
 const hasLoanedItem =
   loanedItem.trim().length > 0 &&
-  latestIntervention?.loaned_item_returned !== true;
+  (latestIntervention?.loaned_item === loanedItem
+    ? latestIntervention?.loaned_item_returned !== true
+    : true);
 
 const restitutionNote =
-  latestIntervention?.restitution_note || "";
+  latestIntervention?.restitution_note || item.pendingRestitutionNote || "";
 
 const hasRestitutionNote =
   restitutionNote.trim() !== "" &&
-  latestIntervention?.restitution_note_done !== true;
+  (latestIntervention?.restitution_note === restitutionNote
+    ? latestIntervention?.restitution_note_done !== true
+    : true);
 
 const hasReminder =
   hasLoanedItem || hasRestitutionNote;
@@ -4353,6 +4360,21 @@ normalizedOrdersData.forEach((order) => {
               0
             );
 
+          // Rappels (info à donner au client / accessoire prêté) : comme le
+          // solde ci-dessus, l'intervention concernée est le plus souvent
+          // "Réparé" (donc exclue de client.interventions plus bas) — on la
+          // cherche ici dans la liste complète, non filtrée par onglet.
+          const pendingRestitutionNoteIntervention = interventions.find(
+            (intervention) =>
+              (intervention.restitution_note || "").trim() !== "" &&
+              intervention.restitution_note_done !== true
+          );
+          const pendingLoanedItemIntervention = interventions.find(
+            (intervention) =>
+              (intervention.loaned_item || "").trim() !== "" &&
+              intervention.loaned_item_returned !== true
+          );
+
           const totalDevisAmount = interventions.reduce(
             (total, intervention) =>
               intervention.status === "Devis en cours" &&
@@ -4379,6 +4401,10 @@ normalizedOrdersData.forEach((order) => {
             })),
             totalAmountOngoing,
             reparedDue,
+            pendingRestitutionNote:
+              pendingRestitutionNoteIntervention?.restitution_note || "",
+            pendingLoanedItem:
+              pendingLoanedItemIntervention?.loaned_item || "",
             totalOrderAmount,
             totalOrderDeposit,
             totalOrderRemaining,

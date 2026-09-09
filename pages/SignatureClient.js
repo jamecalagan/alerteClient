@@ -99,7 +99,9 @@ export default function SignatureClient() {
           estimate_min,
           estimate_max,
           estimate_type,
-          estimate_accepted_at
+          estimate_accepted_at,
+          repair_proposal_made,
+          repair_proposal
         `
         )
         .eq("id", interventionId)
@@ -274,6 +276,13 @@ export default function SignatureClient() {
             <Text style={styles.cardTitle}>Problème & Prix</Text>
 
             <Text style={styles.problemText}>{itv?.description ?? "—"}</Text>
+
+            {itv?.repair_proposal_made && itv?.repair_proposal ? (
+              <>
+                <Text style={styles.cardTitle}>Solution proposée</Text>
+                <Text style={styles.problemText}>{itv.repair_proposal}</Text>
+              </>
+            ) : null}
 
             <Text style={styles.priceText}>{buildPriceLine(itv)}</Text>
 

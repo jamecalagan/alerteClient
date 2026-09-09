@@ -17,7 +17,7 @@ import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
 
 export default function ImageGallery({ route, navigation }) {
-  const { clientId } = route.params;
+  const { clientId, interventionId, orderIds } = route.params;
   const [interventions, setInterventions] = useState([]); // [{id, photos:[uri]}]
   const [orderImages, setOrderImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -82,13 +82,21 @@ const parseOrderPhotos = (value) => {
 
       const localBase = `${FileSystem.documentDirectory}backup/${client.ficheNumber}/`;
 
-      // 2️⃣ interventions avec photos / étiquettes
-      const { data, error } = await supabase
+      // 2️⃣ interventions avec photos / étiquettes — limité à l'intervention
+      // choisie via les onglets de la Home si un id précis est fourni,
+      // sinon toutes les interventions du client (comportement historique).
+      let interventionsQuery = supabase
         .from("interventions")
         .select("id, photos, label_photo")
         .eq("client_id", clientId);
+      if (interventionId) {
+        interventionsQuery = interventionsQuery.eq("id", interventionId);
+      }
+      const { data, error } = await interventionsQuery;
       if (error) throw error;
-const { data: ordersData, error: ordersError } = await supabase
+// Commandes liées à l'intervention choisie (via les onglets de la Home)
+// si une liste précise est fournie, sinon toutes les commandes du client.
+let ordersQuery = supabase
   .from("orders")
   .select(
     "id, product, brand, model, order_photos, deleted"
@@ -96,6 +104,12 @@ const { data: ordersData, error: ordersError } = await supabase
   .eq("client_id", clientId)
   .or("deleted.eq.false,deleted.is.null")
   .order("createdat", { ascending: false });
+if (Array.isArray(orderIds)) {
+  // Même vide, un tableau fourni signifie "aucune commande pour cette
+  // intervention" : on filtre quand même (voir HomePage.js/activeOrders).
+  ordersQuery = ordersQuery.in("id", orderIds.length > 0 ? orderIds : [""]);
+}
+const { data: ordersData, error: ordersError } = await ordersQuery;
 
 if (ordersError) throw ordersError;
       // 3️⃣ pour chaque photo ➜ prend le fichier local s'il existe
@@ -164,7 +178,7 @@ const enrichedOrders = (ordersData || [])
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, interventionId, orderIds]);
 
   useEffect(() => {
     loadImages();

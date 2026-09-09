@@ -23,6 +23,22 @@ import { supabase } from "../supabaseClient";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Exécute `worker` sur chaque élément de `items` avec au plus `concurrency`
+// tâches en vol simultanément (au lieu d'un traitement séquentiel un par un,
+// bien plus lent pour des centaines/milliers de fichiers).
+const runWithConcurrency = async (items, worker, concurrency = 8) => {
+  let index = 0;
+  const runners = new Array(Math.min(concurrency, items.length))
+    .fill(null)
+    .map(async () => {
+      while (index < items.length) {
+        const current = index++;
+        await worker(items[current], current);
+      }
+    });
+  await Promise.all(runners);
+};
+
 const getFileNameFromSAFUri = (uri) => {
   if (!uri) return "";
   try {
@@ -114,79 +130,110 @@ export default function ImageBackupPage() {
         .select("id, client_id, label_photo, photos, signatureIntervention");
       if (interventionError) throw interventionError;
 
-      let totalImages = 0;
-      interventions.forEach((intervention) => {
-        if (
-          intervention.label_photo &&
-          intervention.label_photo.startsWith("https")
-        )
-          totalImages += 1;
-        if (intervention.photos && Array.isArray(intervention.photos)) {
-          totalImages += intervention.photos.filter(
-            (p) => typeof p === "string" && p.startsWith("https")
-          ).length;
-        }
-        if (intervention.signatureIntervention) totalImages += 1;
-      });
-      setTotal(totalImages);
+      const clientsById = new Map(clients.map((c) => [c.id, c]));
+
+      // 1) Construit à plat la liste de tous les fichiers à sauvegarder
+      // (au lieu de traiter chaque intervention/photo une par une en
+      // séquentiel, ce qui était très lent).
+      const foldersNeeded = new Set();
+      const tasks = [];
 
       for (const intervention of interventions) {
-        const client = clients.find((c) => c.id === intervention.client_id);
+        const client = clientsById.get(intervention.client_id);
         if (!client) continue;
 
         const folderPath = `${FileSystem.documentDirectory}backup/${client.ficheNumber}/`;
-        const folderInfo = await FileSystem.getInfoAsync(folderPath);
-        if (!folderInfo.exists)
-          await FileSystem.makeDirectoryAsync(folderPath, {
-            intermediates: true,
-          });
-
-        // Helper interne pour vérifier l'existence avant download
-        const downloadIfMissing = async (remoteUrl, localUri) => {
-          const info = await FileSystem.getInfoAsync(localUri);
-          if (info.exists) return; // déjà présent ✅
-          await FileSystem.downloadAsync(remoteUrl, localUri);
-          setCount((prev) => prev + 1);
-        };
+        foldersNeeded.add(folderPath);
 
         if (
           intervention.label_photo &&
           intervention.label_photo.startsWith("https")
         ) {
-          const labelUri = `${folderPath}etiquette_${intervention.id}.jpg`;
-          await downloadIfMissing(intervention.label_photo, labelUri);
+          tasks.push({
+            type: "download",
+            remoteUrl: intervention.label_photo,
+            localUri: `${folderPath}etiquette_${intervention.id}.jpg`,
+          });
         }
 
-        if (intervention.photos && Array.isArray(intervention.photos)) {
-          for (let i = 0; i < intervention.photos.length; i++) {
-            const photoUrl = intervention.photos[i];
-            if (photoUrl && photoUrl.startsWith("https")) {
-              const photoUri = `${folderPath}photo_${intervention.id}_${
-                i + 1
-              }.jpg`;
-              await downloadIfMissing(photoUrl, photoUri);
+        if (Array.isArray(intervention.photos)) {
+          intervention.photos.forEach((photoUrl, i) => {
+            if (typeof photoUrl === "string" && photoUrl.startsWith("https")) {
+              tasks.push({
+                type: "download",
+                remoteUrl: photoUrl,
+                localUri: `${folderPath}photo_${intervention.id}_${i + 1}.jpg`,
+              });
             }
-          }
+          });
         }
 
         if (intervention.signatureIntervention) {
           const signaturePath = `${folderPath}signature_${intervention.id}.jpg`;
-          const info = await FileSystem.getInfoAsync(signaturePath);
-          if (info.exists) continue; // déjà sauvegardé
-
           const signature = intervention.signatureIntervention;
           if (signature.startsWith("data:image")) {
-            const base64Data = signature.split(",")[1];
-            await FileSystem.writeAsStringAsync(signaturePath, base64Data, {
-              encoding: FileSystem.EncodingType.Base64,
+            tasks.push({
+              type: "base64",
+              data: signature.split(",")[1],
+              localUri: signaturePath,
             });
-            setCount((prev) => prev + 1);
           } else if (signature.startsWith("https")) {
-            await FileSystem.downloadAsync(signature, signaturePath);
-            setCount((prev) => prev + 1);
+            tasks.push({
+              type: "download",
+              remoteUrl: signature,
+              localUri: signaturePath,
+            });
           }
         }
       }
+
+      // 2) Crée tous les dossiers clients nécessaires, en parallèle.
+      await runWithConcurrency(
+        Array.from(foldersNeeded),
+        async (folderPath) => {
+          const info = await FileSystem.getInfoAsync(folderPath);
+          if (!info.exists) {
+            await FileSystem.makeDirectoryAsync(folderPath, {
+              intermediates: true,
+            });
+          }
+        },
+        8
+      );
+
+      // 3) Filtre les fichiers déjà présents localement (vérif en parallèle).
+      const missingTasks = [];
+      await runWithConcurrency(
+        tasks,
+        async (task) => {
+          const info = await FileSystem.getInfoAsync(task.localUri);
+          if (!info.exists) missingTasks.push(task);
+        },
+        12
+      );
+
+      setTotal(missingTasks.length);
+
+      // 4) Télécharge/écrit réellement les fichiers manquants, en parallèle.
+      let done = 0;
+      await runWithConcurrency(
+        missingTasks,
+        async (task) => {
+          try {
+            if (task.type === "download") {
+              await FileSystem.downloadAsync(task.remoteUrl, task.localUri);
+            } else {
+              await FileSystem.writeAsStringAsync(task.localUri, task.data, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+            }
+          } finally {
+            done += 1;
+            setCount(done);
+          }
+        },
+        8
+      );
 
       showAlert("✅ Sauvegarde terminée");
       await listSavedImages();
@@ -274,33 +321,41 @@ export default function ImageBackupPage() {
 
       setExportTotal(filesToCopy.length);
 
+      // Copie en parallèle (par petits lots, la SAF supportant moins bien une
+      // concurrence élevée que le système de fichiers direct) au lieu d'un
+      // fichier à la fois avec un délai artificiel de 20ms entre chacun.
       let copied = 0;
-      for (const { source, target } of filesToCopy) {
-        try {
-          // Création du fichier dans le dossier externe
-          const fileUri = await StorageAccessFramework.createFileAsync(
-            folderUri,
-            target,
-            "image/jpeg"
-          );
+      await runWithConcurrency(
+        filesToCopy,
+        async ({ source, target }) => {
+          try {
+            // Création du fichier dans le dossier externe
+            const fileUri = await StorageAccessFramework.createFileAsync(
+              folderUri,
+              target,
+              "image/jpeg"
+            );
 
-          // Lecture du fichier local en Base64
-          const base64Data = await FileSystem.readAsStringAsync(source, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
+            // Lecture du fichier local en Base64
+            const base64Data = await FileSystem.readAsStringAsync(source, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
 
-          // ⭐ Écriture via SAF (nouveau pattern SDK 54)
-          await StorageAccessFramework.writeAsStringAsync(fileUri, base64Data, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
+            // ⭐ Écriture via SAF (nouveau pattern SDK 54)
+            await StorageAccessFramework.writeAsStringAsync(
+              fileUri,
+              base64Data,
+              { encoding: FileSystem.EncodingType.Base64 }
+            );
 
-          copied++;
-          setExportCount(copied);
-          await new Promise((res) => setTimeout(res, 20));
-        } catch (err) {
-          console.error("❌ ERREUR export d'un fichier :", err);
-        }
-      }
+            copied++;
+            setExportCount(copied);
+          } catch (err) {
+            console.error("❌ ERREUR export d'un fichier :", err);
+          }
+        },
+        4
+      );
 
       showAlert(
         "Export terminé",
@@ -360,17 +415,22 @@ export default function ImageBackupPage() {
       }
       const folderNames = await FileSystem.readDirectoryAsync(baseDir);
       const folderData = [];
-      for (const itemName of folderNames) {
-        const fullPath = `${baseDir}${itemName}`;
-        const info = await FileSystem.getInfoAsync(fullPath);
-        if (!info.exists || !info.isDirectory) continue;
-        const fileNames = await FileSystem.readDirectoryAsync(fullPath);
-        const images = fileNames.map((file) => ({
-          uri: `${fullPath}/${file}`,
-          name: file,
-        }));
-        folderData.push({ folder: itemName, images });
-      }
+      // Scan des dossiers clients en parallèle (par lots) au lieu d'un par un.
+      await runWithConcurrency(
+        folderNames,
+        async (itemName) => {
+          const fullPath = `${baseDir}${itemName}`;
+          const info = await FileSystem.getInfoAsync(fullPath);
+          if (!info.exists || !info.isDirectory) return;
+          const fileNames = await FileSystem.readDirectoryAsync(fullPath);
+          const images = fileNames.map((file) => ({
+            uri: `${fullPath}/${file}`,
+            name: file,
+          }));
+          folderData.push({ folder: itemName, images });
+        },
+        10
+      );
       const sorted = folderData.sort((a, b) => {
         const numA = parseInt(a.folder.replace(/\D/g, ""), 10);
         const numB = parseInt(b.folder.replace(/\D/g, ""), 10);

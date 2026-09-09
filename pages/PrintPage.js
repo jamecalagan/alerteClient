@@ -112,6 +112,9 @@ export default function PrintPage({ navigation }) {
         <p><strong>Problème signalé :</strong> ${
           productInfo?.description || "Non renseigné."
         }</p>
+        <p><strong>Réparation effectuée :</strong> ${
+          productInfo?.repairAction || "Non renseignée."
+        }</p>
         <p><strong>Remarques :</strong> ${
           guaranteeText || "Aucune remarque."
         }</p>
@@ -199,6 +202,10 @@ export default function PrintPage({ navigation }) {
       </Text>
       <Text style={styles.text}>
         Problème : {productInfo?.description || "Aucune description."}
+      </Text>
+      <Text style={styles.text}>
+        Réparation effectuée :{" "}
+        {productInfo?.repairAction || "Non renseignée."}
       </Text>
       <Text style={styles.text}>
         Remarques : {guaranteeText || "Aucune remarque."}

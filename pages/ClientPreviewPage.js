@@ -82,7 +82,10 @@ export default function ClientPreviewPage() {
             estimate_min,
             estimate_max,
             estimate_type,
-            estimate_accepted_at
+            estimate_accepted_at,
+            repair_proposal_made,
+            repair_proposal,
+            repair_proposal_price
           )
         `
         )
@@ -407,6 +410,15 @@ export default function ClientPreviewPage() {
           <div class="terms-text-bottom">${itv.description}</div>
         </div>
 
+        ${
+          itv.repair_proposal_made && itv.repair_proposal
+            ? `<div class="section-title">Solution proposée</div>
+        <div class="box">
+          <div class="terms-text-bottom">${itv.repair_proposal}</div>
+        </div>`
+            : ""
+        }
+
         ${priceBlock}
         ${
           !itv.is_estimate && itv.partialPayment
@@ -643,6 +655,13 @@ export default function ClientPreviewPage() {
 <div class="section-title">Détail du problème</div>
 <div class="box"><div class="terms-text-bottom">${intervention.description}</div></div>
 
+${
+  intervention.repair_proposal_made && intervention.repair_proposal
+    ? `<div class="section-title">Solution proposée</div>
+<div class="box"><div class="terms-text-bottom">${intervention.repair_proposal}</div></div>`
+    : ""
+}
+
 <div class="cost"><strong>${priceLine}</strong></div>
 ${
   !intervention.is_estimate && intervention.partialPayment
@@ -808,6 +827,13 @@ ${checkupSignatureHtml}
           <View style={styles.repairSection}>
             <Text style={styles.sectionTitle}>Détail du problème</Text>
             <Text>{itv.description}</Text>
+
+            {itv.repair_proposal_made && itv.repair_proposal ? (
+              <>
+                <Text style={styles.sectionTitle}>Solution proposée</Text>
+                <Text>{itv.repair_proposal}</Text>
+              </>
+            ) : null}
 
             {itv.is_estimate ? (
               itv.estimate_type === "PLAFOND" ? (

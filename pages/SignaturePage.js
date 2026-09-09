@@ -196,6 +196,7 @@ export default function SignaturePage({ route, navigation }) {
           remarks: clientInfo?.remarks || "",
           date: clientInfo?.updatedAt || "",
           description: clientInfo?.description || "",
+          repairAction: clientInfo?.repair_action || "",
         },
       });
     } catch (e) {
@@ -245,6 +246,7 @@ export default function SignaturePage({ route, navigation }) {
           remarks: clientInfo?.remarks || "",
           date: clientInfo?.updatedAt || "",
           description: clientInfo?.description || "",
+          repairAction: clientInfo?.repair_action || "",
         },
       });
     } catch (e) {
@@ -287,6 +289,7 @@ export default function SignaturePage({ route, navigation }) {
         remarks: clientInfo?.remarks || "",
         date: clientInfo?.updatedAt || "",
         description: clientInfo?.description || "",
+        repairAction: clientInfo?.repair_action || "",
       },
       useExistingSignature: true,
     });

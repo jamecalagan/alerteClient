@@ -34,6 +34,8 @@ export default function OrdersPage({ route, navigation, order }) {
         prefillProduct,     // 👈 texte venant de "commande"
         fromIntervention,   // (déjà envoyé, on le garde pour plus tard si besoin)
         autoReturnOnCreate, // (idem, dispo si tu veux l'utiliser)
+        orderIds,           // 👈 quand fourni (onglet d'intervention sur la Home), restreint la liste aux commandes de cette intervention
+        interventionId,     // 👈 intervention sélectionnée sur la Home, pour lier les commandes créées ici
     } = route?.params || {};
 
 
@@ -146,6 +148,11 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
     // 🆕 Édition d'une commande existante
     const [editingIds, setEditingIds] = useState([]); // ids en édition
     const [editMap, setEditMap] = useState({}); // { [id]: { ...champs... } }
+
+    // Numéro de série saisi à la réception d'un article de commande (par
+    // order_item, pas par commande entière : une commande peut contenir
+    // plusieurs produits reçus séparément avec chacun leur propre série).
+    const [itemSerialDrafts, setItemSerialDrafts] = useState({}); // { [orderItemId]: texte en cours }
 
     // 🔎 pour scroller sur une commande créée (focusId)
     const listRef = useRef(null);
@@ -398,7 +405,13 @@ installed: allInstalled,
     saved: toBool(o.saved),
 };
                 });
-                setOrders(rows);
+                // orderIds absent (undefined) : pas de restriction (ex. recherche,
+                // admin). orderIds fourni (même vide []) : restriction stricte —
+                // un tableau vide signifie "aucune commande pour cette intervention".
+                const scopedRows = Array.isArray(orderIds)
+                    ? rows.filter((r) => orderIds.includes(r.id))
+                    : rows;
+                setOrders(scopedRows);
                 return;
             }
 
@@ -719,6 +732,7 @@ const handleCreateOrder = async () => {
 
         const payload = {
             client_id: clientId || null,
+            intervention_id: interventionId || null,
 
             order_name:
                 newOrderItems.length === 1
@@ -1649,6 +1663,38 @@ const toggleOrderItemInstalled = (orderItem) => {
             }
         }
     );
+};
+const saveOrderItemSerial = async (orderItem) => {
+    const value = String(
+        itemSerialDrafts[orderItem.id] ?? orderItem.serial ?? ""
+    ).trim();
+
+    if (value === String(orderItem.serial || "")) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from("order_items")
+            .update({ serial: value })
+            .eq("id", orderItem.id);
+
+        if (error) {
+            throw error;
+        }
+
+        await loadOrders();
+    } catch (error) {
+        console.error(
+            "❌ Enregistrement numéro de série article :",
+            error
+        );
+
+        showAlert(
+            "Erreur",
+            "Impossible d'enregistrer le numéro de série."
+        );
+    }
 };
 const editOrderItem = (orderItem, parentOrder) => {
     setEditingOrderItem(orderItem);
@@ -2640,6 +2686,42 @@ const deleteOrderItem = async (orderItem) => {
 					</Text>
 				</TouchableOpacity>
 			</View>
+			<View
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					marginTop: 6,
+					gap: 6,
+				}}
+			>
+				<TextInput
+					style={{
+						flex: 1,
+						borderWidth: 1,
+						borderColor: "#d1d5db",
+						borderRadius: 6,
+						paddingHorizontal: 8,
+						paddingVertical: 4,
+						fontSize: 12,
+						color: "#111827",
+					}}
+					placeholder="N° de série de l'article"
+					value={
+						itemSerialDrafts[orderItem.id] ??
+						orderItem.serial ??
+						""
+					}
+					onChangeText={(t) =>
+						setItemSerialDrafts((prev) => ({
+							...prev,
+							[orderItem.id]: t,
+						}))
+					}
+					onEndEditing={() =>
+						saveOrderItemSerial(orderItem)
+					}
+				/>
+			</View>
 						</View>
 					))}
 				</View>
@@ -2648,7 +2730,16 @@ const deleteOrderItem = async (orderItem) => {
 
                                                 {renderKV(
                                                     "N° de série",
-                                                    item.serial || "-"
+                                                    orderItems.length > 0
+                                                        ? orderItems
+                                                              .map(
+                                                                  (oi) =>
+                                                                      oi.serial
+                                                              )
+                                                              .filter(Boolean)
+                                                              .join(", ") ||
+                                                              "-"
+                                                        : item.serial || "-"
                                                 )}
                                                 {renderKV(
                                                     "Prix unitaire",

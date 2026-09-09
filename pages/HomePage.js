@@ -2035,13 +2035,16 @@ const closeAllModals = () => {
                         // === Nouveau calcul qui distingue "commande comprise" vs "commande simple" ===
 
                         // Reste dû intervention (si solderestant absent, on le gère plus bas au besoin)
-                        const interDue = (item.interventions || [])
-                          .filter((i) => i.status !== "Récupéré")
-                          .reduce(
-                            (sum, i) =>
-                              sum + Math.max(0, _toNum(i.solderestant)),
-                            0
-                          );
+                        // + solde des interventions "Réparé" (exclues de item.interventions,
+                        // sans onglet dédié, mais toujours dues tant que non "Récupéré").
+                        const interDue =
+                          (item.interventions || [])
+                            .filter((i) => i.status !== "Récupéré")
+                            .reduce(
+                              (sum, i) =>
+                                sum + Math.max(0, _toNum(i.solderestant)),
+                              0
+                            ) + Math.max(0, _toNum(item.reparedDue));
 
 // Intervention active utilisée pour les calculs et les commandes
 // Toutes les interventions affichables du client (déjà filtrées "en cours"
@@ -2076,35 +2079,52 @@ const currentCommande = normalizeOrderText(
 
 let activeOrders = openOrders;
 
-// Lorsqu’une intervention possède un produit en commande,
-// conserver uniquement la dernière commande correspondante.
-if (latestIntervention && currentCommande) {
-  const matchingOrders = openOrders
-    .filter(
-      (order) =>
-        normalizeOrderText(order?.product) ===
-        currentCommande
-    )
-    .sort((a, b) => {
-      const dateA = new Date(
-        a?.createdat ||
-          a?.createdAt ||
-          a?.created_at ||
-          0
-      ).getTime();
+if (latestIntervention) {
+  // 1) Lien direct et fiable (orders.intervention_id) : garde toutes les
+  // commandes réellement rattachées à cette intervention.
+  const linkedOrders = openOrders.filter(
+    (order) => order?.intervention_id === latestIntervention.id
+  );
 
-      const dateB = new Date(
-        b?.createdat ||
-          b?.createdAt ||
-          b?.created_at ||
-          0
-      ).getTime();
+  if (linkedOrders.length > 0) {
+    activeOrders = linkedOrders;
+  } else if (currentCommande) {
+    // 2) Repli pour les commandes créées avant ce lien : rapprochement par
+    // nom de produit (comportement historique, une seule commande retenue).
+    const matchingOrders = openOrders
+      .filter(
+        (order) =>
+          normalizeOrderText(order?.product) ===
+          currentCommande
+      )
+      .sort((a, b) => {
+        const dateA = new Date(
+          a?.createdat ||
+            a?.createdAt ||
+            a?.created_at ||
+            0
+        ).getTime();
 
-      return dateB - dateA;
-    });
+        const dateB = new Date(
+          b?.createdat ||
+            b?.createdAt ||
+            b?.created_at ||
+            0
+        ).getTime();
 
-  if (matchingOrders.length > 0) {
-    activeOrders = matchingOrders.slice(0, 1);
+        return dateB - dateA;
+      });
+
+    if (matchingOrders.length > 0) {
+      activeOrders = matchingOrders.slice(0, 1);
+    } else {
+      // Ni lien direct ni correspondance par nom : cette intervention n'a
+      // pas de commande connue, on n'affiche rien plutôt que de retomber
+      // sur les commandes d'une AUTRE intervention du même client.
+      activeOrders = [];
+    }
+  } else {
+    activeOrders = [];
   }
 }
 
@@ -3059,13 +3079,19 @@ const baseRows = [
                                         />
                                       )}
 
-                                      {/* Galerie photos */}
+                                      {/* Galerie photos (limitée à l'intervention choisie via les onglets, et aux commandes qui lui sont liées) */}
                                       {totalImages > 0 && (
                                         <IconSquare
                                           source={require("../assets/icons/image.png")}
                                           tintColor="#16a34a"
                                           onPress={() =>
-                                            goToImageGallery(item.id)
+                                            goToImageGallery(
+                                              item.id,
+                                              latestIntervention?.id,
+                                              activeOrders
+                                                .map((o) => o.id)
+                                                .filter(Boolean)
+                                            )
                                           }
                                         />
                                       )}
@@ -3110,6 +3136,10 @@ const baseRows = [
                                             clientName: item.name,
                                             clientPhone: item.phone,
                                             clientNumber: item.ficheNumber,
+                                            orderIds: activeOrders
+                                              .map((o) => o.id)
+                                              .filter(Boolean),
+                                            interventionId: latestIntervention?.id,
                                           })
                                         }
                                         activeOpacity={0.8}
@@ -3391,8 +3421,8 @@ const baseRows = [
     }
   };
 
-  const goToImageGallery = (clientId) => {
-    navigation.navigate("ImageGallery", { clientId });
+  const goToImageGallery = (clientId, interventionId, orderIds) => {
+    navigation.navigate("ImageGallery", { clientId, interventionId, orderIds });
   };
 
   // Ajout d'une photo à l'intervention directement depuis la Home
@@ -4311,6 +4341,18 @@ normalizedOrdersData.forEach((order) => {
             0
           );
 
+          // Solde dû des interventions "Réparé" (réparées, en attente de
+          // récupération) : exclues de client.interventions plus bas (pas
+          // d'onglet dédié), mais leur solde doit rester compté dans le
+          // total à régler affiché sur la fiche.
+          const reparedDue = interventions
+            .filter((intervention) => intervention.status === "Réparé")
+            .reduce(
+              (sum, intervention) =>
+                sum + Math.max(0, parseFloat(intervention.solderestant) || 0),
+              0
+            );
+
           const totalDevisAmount = interventions.reduce(
             (total, intervention) =>
               intervention.status === "Devis en cours" &&
@@ -4336,6 +4378,7 @@ normalizedOrdersData.forEach((order) => {
               interventionUpdatedAt: intervention.updatedAt,
             })),
             totalAmountOngoing,
+            reparedDue,
             totalOrderAmount,
             totalOrderDeposit,
             totalOrderRemaining,

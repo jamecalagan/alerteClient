@@ -179,6 +179,7 @@ const reprintIntervention = async (interventionId, navigation, onError) => {
         model,
         reference,
         description,
+        repair_action,
         guarantee,
         receiver_name,
         signature,
@@ -209,6 +210,7 @@ const reprintIntervention = async (interventionId, navigation, onError) => {
       model: data.model || "",
       reference: data.reference || "",
       description: data.description || "",
+      repairAction: data.repair_action || "",
     };
 
     // Signature de restitution (colonne dédiée) en priorité ; à défaut, anciennes

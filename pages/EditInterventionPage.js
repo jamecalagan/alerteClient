@@ -331,11 +331,14 @@ export default function EditInterventionPage({ route, navigation }) {
     // === Confirmation avant de quitter avec des modifications non enregistrées ===
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
-    const skipDirtyRef = useRef(true); // true au montage/chargement, pour ignorer l'initialisation des champs
+    // true pendant toute la durée du chargement initial (loadIntervention
+    // met à jour deviceType/brand/model en plusieurs rendus séparés par des
+    // await sur loadBrands/loadModels) : on ignore tous ces rendus tant que
+    // le chargement n'est pas totalement terminé, pas seulement le premier.
+    const skipDirtyRef = useRef(true);
 
     useEffect(() => {
         if (skipDirtyRef.current) {
-            skipDirtyRef.current = false;
             return;
         }
         setHasUnsavedChanges(true);
@@ -1010,19 +1013,37 @@ const onComponentInputChange = (text) => {
             setLabelPhoto(labelResolved);
             setCommande(inter.commande || "");
 
-            // Récupère le montant + l'id de la commande liée (best-effort, via client_id + nom du produit),
-            // pour un affichage persistant du montant sans lien direct en base entre commande et intervention.
-            if (inter.commande && clientId) {
+            // Récupère le montant + l'id de la commande liée : d'abord via le
+            // vrai lien orders.intervention_id, sinon repli sur l'ancien
+            // rapprochement par nom de produit (commandes créées avant ce lien).
+            if (clientId) {
                 try {
-                    const { data: matchingOrder } = await supabase
-                        .from("orders")
-                        .select("id, total, price, quantity, createdat")
-                        .eq("client_id", clientId)
-                        .ilike("product", inter.commande)
-                        .or("deleted.is.null,deleted.eq.false")
-                        .order("createdat", { ascending: false })
-                        .limit(1)
-                        .maybeSingle();
+                    let matchingOrder = null;
+
+                    if (interventionId) {
+                        const { data: linkedOrder } = await supabase
+                            .from("orders")
+                            .select("id, total, price, quantity, createdat")
+                            .eq("intervention_id", interventionId)
+                            .or("deleted.is.null,deleted.eq.false")
+                            .order("createdat", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                        matchingOrder = linkedOrder;
+                    }
+
+                    if (!matchingOrder && inter.commande) {
+                        const { data: legacyMatch } = await supabase
+                            .from("orders")
+                            .select("id, total, price, quantity, createdat")
+                            .eq("client_id", clientId)
+                            .ilike("product", inter.commande)
+                            .or("deleted.is.null,deleted.eq.false")
+                            .order("createdat", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                        matchingOrder = legacyMatch;
+                    }
 
                     if (matchingOrder) {
                         const amount =
@@ -1203,6 +1224,14 @@ setRestitutionNoteExpanded(false);
             setModel(inter.modele_id != null ? String(inter.modele_id) : "");
         } catch (e) {
             console.error("❌ Erreur loadIntervention :", e);
+        } finally {
+            // Petit délai avant de réarmer le suivi des modifications : laisse
+            // le temps aux effets dérivés du chargement (ex: recopie
+            // devisCost → cost) de se stabiliser sans être pris pour une
+            // modification de l'utilisateur.
+            setTimeout(() => {
+                skipDirtyRef.current = false;
+            }, 500);
         }
     };
 
@@ -1330,6 +1359,7 @@ useEffect(() => {
             const nowIso = new Date().toISOString();
             const payload = {
                 client_id: clientId,
+                intervention_id: interventionId || null,
                 order_name: orderName,
                 items_count: itemsWithTotal.length,
                 product: first.product,

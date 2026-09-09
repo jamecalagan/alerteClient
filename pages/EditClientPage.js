@@ -148,6 +148,38 @@ if (error) {
         );
       }
 
+      // Vrai statut de la commande liée (lecture seule) : lien direct via
+      // intervention_id en priorité, repli sur le rapprochement par nom de
+      // produit pour les commandes créées avant ce lien.
+      const { data: clientOrders, error: ordersError } = await supabase
+        .from("orders")
+        .select("id, product, ordered, received, intervention_id")
+        .eq("client_id", client.id)
+        .or("deleted.eq.false,deleted.is.null");
+
+      if (ordersError) {
+        console.error("❌ Chargement commandes client :", ordersError);
+      }
+
+      const normalizeText = (v) =>
+        (v ?? "").toString().trim().toLowerCase();
+
+      filteredInterventions = filteredInterventions.map((intervention) => {
+        const orders = clientOrders || [];
+        let linkedOrder =
+          orders.find((o) => o.intervention_id === intervention.id) || null;
+
+        if (!linkedOrder && intervention.commande) {
+          linkedOrder =
+            orders.find(
+              (o) =>
+                normalizeText(o.product) === normalizeText(intervention.commande)
+            ) || null;
+        }
+
+        return { ...intervention, linkedOrder };
+      });
+
       setName(updatedClient.name || "");
       setPhone(updatedClient.phone || "");
       setEmail(updatedClient.email || "");
@@ -704,6 +736,11 @@ const openRepairEstimate = async (intervention) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Interventions</Text>
+      {!!client.ficheNumber && (
+        <Text style={styles.ficheNumberText}>
+          Fiche N° {client.ficheNumber}
+        </Text>
+      )}
 
       <TextInput
         style={styles.input}
@@ -938,96 +975,44 @@ const openRepairEstimate = async (intervention) => {
                       />
                     </View>
 
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: item.commande_effectuee
-                          ? "#d6d6d6"
-                          : "#fffde7",
-                        borderWidth: 1,
-                        borderColor: item.commande_effectuee
-                          ? "#999"
-                          : "#f9a825",
-                        padding: 10,
-                        borderRadius: 8,
-                        marginTop: 8,
-                        opacity: item.commande_effectuee ? 0.6 : 1,
-                      }}
-                      disabled={item.commande_effectuee}
-                      onPress={() => {
-                        const newValue = true;
-                        showAlert(
-                          "Confirmer",
-                          "Marquer ce produit comme commandé ?",
-                          async () => {
-                            const { error } = await supabase
-                              .from("interventions")
-                              .update({ commande_effectuee: newValue })
-                              .eq("id", item.id);
-                            if (!error) {
-                              const updatedInterventions = interventions.map(
-                                (i) =>
-                                  i.id === item.id
-                                    ? { ...i, commande_effectuee: newValue }
-                                    : i
-                              );
-                              setInterventions(updatedInterventions);
-                            }
-                          }
-                        );
-                      }}
-                    >
-                      <Text
-                        style={{
-                          textAlign: "center",
-                          color: item.commande_effectuee ? "#666" : "#f57f17",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {item.commande_effectuee
-                          ? "✅ Produit commandé"
-                          : "Produit commandé ?"}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.commandeRecuButton}
-                      onPress={() => {
-                        showAlert(
-                          "Confirmer la réception de la commande",
-                          'Êtes-vous sûr de vouloir passer le statut à "Intervention en cours" ?',
-                          async () => {
-                            try {
-                              const { error } = await supabase
-                                .from("interventions")
-                                .update({ status: "Intervention en cours" })
-                                .eq("id", item.id);
-                              if (error) return;
-
-                              const updatedInterventions = interventions.map(
-                                (intervention) =>
-                                  intervention.id === item.id
-                                    ? {
-                                        ...intervention,
-                                        status: "Intervention en cours",
-                                      }
-                                    : intervention
-                              );
-                              setInterventions(updatedInterventions);
-                              showAlert(
-                                "Succès",
-                                'Statut mis à jour à "Intervention en cours".'
-                              );
-                            } catch (error) {
-                              console.error("Erreur mise à jour statut :", error);
-                            }
-                          }
-                        );
-                      }}
-                    >
-                      <Text style={styles.commandeRecuButtonText}>
-                        Commande reçue ?
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={styles.linkedOrderStatusBox}>
+                      {item.linkedOrder ? (
+                        <>
+                          <Text
+                            style={[
+                              styles.linkedOrderStatusText,
+                              {
+                                color: item.linkedOrder.ordered
+                                  ? "#2e7d32"
+                                  : "#f57f17",
+                              },
+                            ]}
+                          >
+                            {item.linkedOrder.ordered
+                              ? "✅ Commande passée"
+                              : "⏳ Commande pas encore passée"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.linkedOrderStatusText,
+                              {
+                                color: item.linkedOrder.received
+                                  ? "#2e7d32"
+                                  : "#f57f17",
+                              },
+                            ]}
+                          >
+                            {item.linkedOrder.received
+                              ? "✅ Commande reçue"
+                              : "⏳ Commande pas encore reçue"}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.linkedOrderStatusTextMuted}>
+                          Aucune commande liée trouvée pour ce produit.
+                        </Text>
+                      )}
+                    </View>
                   </>
                 )}
 
@@ -1440,9 +1425,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 4,
     textAlign: "center",
     color: "#2c3e50",
+  },
+  ficheNumberText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#6b7280",
+    marginBottom: 16,
   },
   input: {
     flexDirection: "row",
@@ -1585,19 +1577,24 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
-  commandeRecuButton: {
-    backgroundColor: "#e8f5e9",
+  linkedOrderStatusBox: {
+    backgroundColor: "#f9fafb",
     padding: 12,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "#07a252",
+    borderColor: "#e5e7eb",
+    gap: 4,
   },
-  commandeRecuButtonText: {
-    color: "#07a252",
+  linkedOrderStatusText: {
     fontWeight: "600",
+    fontSize: 14,
+  },
+  linkedOrderStatusTextMuted: {
+    color: "#6b7280",
+    fontStyle: "italic",
+    fontSize: 13,
     textAlign: "center",
-    fontSize: 16,
   },
 
   acceptText: {

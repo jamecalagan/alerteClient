@@ -2169,9 +2169,11 @@ const ongoingInterventions =
 const totalInterventionsEnCours =
   ongoingInterventions.length;
 
-const totalInterventions = item.interventions
-  ? item.interventions.length
-  : 0;
+// item.totalInterventions (précalculé sur la liste complète, non filtrée)
+// et non item.interventions.length : ce dernier exclut "Réparé"/"Récupéré"/
+// "Non réparable", ce qui masquait l'icône pour un client n'ayant plus que
+// des interventions dans ces statuts.
+const totalInterventions = item.totalInterventions || 0;
 
 // item.pendingLoanedItem / item.pendingRestitutionNote couvrent aussi les
 // interventions "Réparé" (exclues de item.interventions/latestIntervention
@@ -2199,11 +2201,47 @@ const hasReminder =
 
 const hasOrders = activeOrders.length > 0;
 
+// Distingue "en attente fournisseur" de "arrivée, à remettre au client" de
+// "terminée" (reçue + montée, ou reçue et sans montage requis) : dans ce
+// dernier cas la commande ne doit plus masquer le vrai statut de
+// l'intervention (ex: "Réparé") derrière une étiquette de commande.
+const allActiveOrdersReceived =
+  hasOrders &&
+  activeOrders.every((order) => {
+    const orderItems = Array.isArray(order?.order_items)
+      ? order.order_items
+      : [];
+    return orderItems.length > 0
+      ? orderItems.every((orderItem) => orderItem.received)
+      : !!order?.received;
+  });
+
+const allActiveOrdersDone =
+  hasOrders &&
+  activeOrders.every((order) => {
+    const orderItems = Array.isArray(order?.order_items)
+      ? order.order_items
+      : [];
+    return orderItems.length > 0
+      ? orderItems.every(
+          (orderItem) =>
+            orderItem.received &&
+            (orderItem.installed || orderItem.no_installation_needed)
+        )
+      : !!order?.received;
+  });
+
                         const status =
                           ongoingInterventions.length > 0
                             ? ongoingInterventions[0].status
-                            : hasOrders
-                            ? "Commande en cours"
+                            : hasOrders && !allActiveOrdersDone
+                            ? allActiveOrdersReceived
+                              ? "Prêt à installer / remettre au client"
+                              : "Commande en cours"
+                            : hasOrders && allActiveOrdersDone
+                            ? latestIntervention?.status ||
+                              item.latestReparedStatus ||
+                              "Aucun statut"
                             : "Aucun statut";
                         const totalImages =
                           latestIntervention?.photos?.length || 0;
@@ -4186,7 +4224,7 @@ orders(
 
 const { data: ordersData, error: ordersError } = await supabase
   .from("orders")
-  .select("*, order_items(product, brand, model, quantity, fournisseur, received)");
+  .select("*, order_items(product, brand, model, quantity, fournisseur, received, installed, no_installation_needed)");
 
 if (ordersError) throw ordersError;
 
@@ -4352,13 +4390,28 @@ normalizedOrdersData.forEach((order) => {
           // récupération) : exclues de client.interventions plus bas (pas
           // d'onglet dédié), mais leur solde doit rester compté dans le
           // total à régler affiché sur la fiche.
-          const reparedDue = interventions
-            .filter((intervention) => intervention.status === "Réparé")
-            .reduce(
-              (sum, intervention) =>
-                sum + Math.max(0, parseFloat(intervention.solderestant) || 0),
-              0
-            );
+          const reparedInterventions = interventions.filter(
+            (intervention) => intervention.status === "Réparé"
+          );
+
+          const reparedDue = reparedInterventions.reduce(
+            (sum, intervention) =>
+              sum + Math.max(0, parseFloat(intervention.solderestant) || 0),
+            0
+          );
+
+          // Intervention "Réparé" la plus récente : sert à afficher le vrai
+          // statut sur la Home une fois la commande liée terminée (reçue +
+          // montée), plutôt que de rester bloqué sur "Aucun statut" — voir
+          // updatedData.latestIntervention qui, lui, exclut ce statut.
+          const latestReparedIntervention =
+            reparedInterventions
+              .slice()
+              .sort(
+                (a, b) =>
+                  new Date(b.updatedAt || b.createdAt || 0) -
+                  new Date(a.updatedAt || a.createdAt || 0)
+              )[0] || null;
 
           // Rappels (info à donner au client / accessoire prêté) : comme le
           // solde ci-dessus, l'intervention concernée est le plus souvent
@@ -4401,6 +4454,7 @@ normalizedOrdersData.forEach((order) => {
             })),
             totalAmountOngoing,
             reparedDue,
+            latestReparedStatus: latestReparedIntervention?.status || null,
             pendingRestitutionNote:
               pendingRestitutionNoteIntervention?.restitution_note || "",
             pendingLoanedItem:
@@ -4852,7 +4906,7 @@ interventions(
       case "Intervention en cours":
         return "#528fe0"; // Bleu
       case "Réparé":
-        return "#006400"; // Vert
+        return "#22c55e"; // Vert (plus clair que #006400, illisible sur le fond gris du cercle)
       case "Devis en cours":
         return "#f37209"; // Orange
       case "Non réparable":

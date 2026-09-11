@@ -555,10 +555,32 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
                     <View style={styles.sep} />
 
-                    <View style={[styles.statusPill, { backgroundColor: statusColors.bg, alignSelf: "flex-start" }]}>
-                      <Text style={[styles.statusPillText, { color: statusColors.text }]}>
-                        {item.status || "Statut inconnu"}
-                      </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <View style={[styles.statusPill, { backgroundColor: statusColors.bg, alignSelf: "flex-start" }]}>
+                        <Text style={[styles.statusPillText, { color: statusColors.text }]}>
+                          {item.status || "Statut inconnu"}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() =>
+                          navigation.navigate("EditIntervention", {
+                            clientId: selectedClient.id,
+                            interventionId: item.id,
+                          })
+                        }
+                        style={styles.editInterventionButton}
+                      >
+                        <Text style={styles.editInterventionButtonText}>
+                          ✏️ Modifier
+                        </Text>
+                      </TouchableOpacity>
                     </View>
 
                     {[
@@ -639,26 +661,49 @@ export default function ClientInterventionsPage({ route, navigation }) {
                 )}
                 <View style={styles.photosContainerBelow}>
                   {Array.isArray(item.photos) && item.photos.length > 0 ? (
-                    item.photos.map((uri, index) => (
-                      <TouchableOpacity
-                        key={`${item.id}-${index}`}
-                        onPress={() => handleImagePress(uri)}
-                        onLongPress={() => confirmDeletePhoto(item.id, uri)}
-                        delayLongPress={350}
-                      >
-                        <SmartImage
-                          uri={uri}
-                          ficheNumber={selectedClient?.ficheNumber}
-                          interventionId={item.id}
-                          index={index}
-                          type="photo"
-                          size={64}
-                          borderRadius={8}
-                          borderWidth={1}
-                          badge
-                        />
-                      </TouchableOpacity>
-                    ))
+                    item.photos.map((uri, index) => {
+                      // La signature du client est ajoutée à la fin de ce
+                      // tableau pour être consultable dans la galerie, mais
+                      // ce n'est pas une "photo" : on ne peut pas/ne doit
+                      // pas la supprimer via l'appui long (voir chargement
+                      // plus haut, elle est réinjectée à chaque rechargement).
+                      const isSignature =
+                        !!item.signatureIntervention &&
+                        cleanRefNoToken(uri) ===
+                          cleanRefNoToken(item.signatureIntervention);
+
+                      return (
+                        <TouchableOpacity
+                          key={`${item.id}-${index}`}
+                          onPress={() => handleImagePress(uri)}
+                          onLongPress={
+                            isSignature
+                              ? undefined
+                              : () => confirmDeletePhoto(item.id, uri)
+                          }
+                          delayLongPress={350}
+                        >
+                          <SmartImage
+                            uri={uri}
+                            ficheNumber={selectedClient?.ficheNumber}
+                            interventionId={item.id}
+                            index={index}
+                            type="photo"
+                            size={64}
+                            borderRadius={8}
+                            borderWidth={1}
+                            badge
+                          />
+                          {isSignature && (
+                            <View style={styles.signatureBadge}>
+                              <Text style={styles.signatureBadgeText}>
+                                Signature
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
                   ) : (
                     <Text style={styles.noPhotosText}>
                       Pas d'images disponibles
@@ -1005,6 +1050,35 @@ const styles = StyleSheet.create({
   },
   statusPillText: {
     fontSize: 11,
+    fontWeight: "700",
+  },
+  editInterventionButton: {
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginBottom: 6,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1,
+    borderColor: "#4338ca",
+  },
+  editInterventionButtonText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#4338ca",
+  },
+  signatureBadge: {
+    position: "absolute",
+    bottom: 2,
+    left: 2,
+    right: 2,
+    backgroundColor: "rgba(30, 41, 59, 0.85)",
+    borderRadius: 4,
+    paddingVertical: 1,
+    alignItems: "center",
+  },
+  signatureBadgeText: {
+    color: "#fff",
+    fontSize: 9,
     fontWeight: "700",
   },
   infoRow: {

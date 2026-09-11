@@ -1235,6 +1235,47 @@ setRestitutionNoteExpanded(false);
         }
     };
 
+// Marque "monté" les articles de commande liés à cette intervention quand
+// elle passe "Réparé", pour éviter d'avoir à refaire ce pointage à la main
+// dans OrdersPage en plus du changement de statut ici.
+const autoMarkLinkedOrderItemsInstalled = async () => {
+    try {
+        let orderIds = [];
+
+        if (interventionId) {
+            const { data: linkedOrders } = await supabase
+                .from("orders")
+                .select("id")
+                .eq("intervention_id", interventionId)
+                .or("deleted.is.null,deleted.eq.false");
+            orderIds = (linkedOrders || []).map((o) => o.id);
+        }
+
+        if (orderIds.length === 0 && commande && clientId) {
+            const { data: legacyOrders } = await supabase
+                .from("orders")
+                .select("id")
+                .eq("client_id", clientId)
+                .ilike("product", commande)
+                .or("deleted.is.null,deleted.eq.false");
+            orderIds = (legacyOrders || []).map((o) => o.id);
+        }
+
+        if (orderIds.length === 0) return;
+
+        await supabase
+            .from("order_items")
+            .update({
+                installed: true,
+                installed_at: new Date().toISOString(),
+            })
+            .in("order_id", orderIds)
+            .or("installed.is.null,installed.eq.false");
+    } catch (e) {
+        console.warn("⚠️ Auto-montage articles liés à l'intervention :", e);
+    }
+};
+
 useEffect(() => {
     const previousStatus = prevStatusRef.current;
 
@@ -1257,13 +1298,12 @@ useEffect(() => {
         setOrderModalVisible(true);
     }
 
-    if (
-        previousStatus !== "Réparé" &&
-        status === "Réparé" &&
-        !repairCause &&
-        !repairAction
-    ) {
-        setRepairModalVisible(true);
+    if (previousStatus !== "Réparé" && status === "Réparé") {
+        autoMarkLinkedOrderItemsInstalled();
+
+        if (!repairCause && !repairAction) {
+            setRepairModalVisible(true);
+        }
     }
 
     prevStatusRef.current = status;

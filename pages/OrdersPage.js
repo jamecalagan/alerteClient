@@ -100,6 +100,7 @@ const [newOrder, setNewOrder] = useState({
     paid: false,
     client_id: clientId || null,    // 👈 on met aussi le client direct
     include_in_intervention: false,
+    no_installation_needed: false, // article sans montage (ex: souris) : "reçu" suffit, pas de "monté" à cocher
 });
 
 // Convertit une saisie texte en nombre valide, ou null si vide/non numérique
@@ -340,6 +341,7 @@ const { data, error } = await supabase
     installed,
     installed_at,
     include_in_intervention,
+    no_installation_needed,
     position
     )
 `)
@@ -378,7 +380,9 @@ const allReceived =
 
 const allInstalled =
     orderItems.length > 0
-        ? orderItems.every((i) => i.installed)
+        ? orderItems.every(
+              (i) => i.installed || i.no_installation_needed
+          )
         : toBool(o.installed);
 
 return {
@@ -440,6 +444,7 @@ installed: allInstalled,
     installed,
     installed_at,
     include_in_intervention,
+    no_installation_needed,
     position
     )
 `)
@@ -524,6 +529,7 @@ const resetNewOrderProduct = () => {
         price: "",
         quantity: "1",
         include_in_intervention: false,
+        no_installation_needed: false,
     }));
 };
 
@@ -604,6 +610,7 @@ const handleAddProductToOrder = async () => {
                     quantity,
                     unit_price: unitPrice,
                     include_in_intervention: included,
+                    no_installation_needed: !!newOrder.no_installation_needed,
                 })
                 .eq("id", editingOrderItem.id);
 
@@ -674,6 +681,7 @@ await recalculateOrderSummary(
             ? 0
             : unitPrice * quantity,
         include_in_intervention: included,
+        no_installation_needed: !!newOrder.no_installation_needed,
         received: false,
     };
 
@@ -818,6 +826,8 @@ const handleCreateOrder = async () => {
                         item.marginPercent ?? null,
 
                     received: false,
+                    no_installation_needed:
+                        !!item.no_installation_needed,
 
                     position:
                         index + 1,
@@ -1718,6 +1728,8 @@ const editOrderItem = (orderItem, parentOrder) => {
         price: String(orderItem.unit_price || ""),
         include_in_intervention:
             !!orderItem.include_in_intervention,
+        no_installation_needed:
+            !!orderItem.no_installation_needed,
         // L'acompte est un champ de la commande (orders.deposit), pas de
         // l'article (order_items) : on le reprend du parent si fourni.
         deposit:
@@ -2077,6 +2089,32 @@ const deleteOrderItem = async (orderItem) => {
                         </View>
                         <Text style={styles.checkboxLabel}>
                             Coût inclus dans l’intervention
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.checkboxRow}
+                        onPress={() =>
+                            setNewOrder((o) => ({
+                                ...o,
+                                no_installation_needed:
+                                    !o.no_installation_needed,
+                            }))
+                        }
+                    >
+                        <View
+                            style={[
+                                styles.checkbox,
+                                newOrder.no_installation_needed &&
+                                    styles.checkboxChecked,
+                            ]}
+                        >
+                            {newOrder.no_installation_needed && (
+                                <Text style={styles.checkboxMark}>✓</Text>
+                            )}
+                        </View>
+                        <Text style={styles.checkboxLabel}>
+                            Ne nécessite pas de montage (ex : souris, sacoche)
                         </Text>
                     </TouchableOpacity>
 
@@ -2667,24 +2705,37 @@ const deleteOrderItem = async (orderItem) => {
 					</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity
-					activeOpacity={0.75}
-					onPress={() =>
-						toggleOrderItemInstalled(orderItem)
-					}
-				>
+				{orderItem.no_installation_needed ? (
 					<Text
 						style={{
-							color: orderItem.installed
-								? "#16a34a"
-								: "#9ca3af",
+							color: "#9ca3af",
 							fontSize: 12,
 							fontWeight: "600",
+							fontStyle: "italic",
 						}}
 					>
-						{orderItem.installed ? "✅" : "⬜"} Montée
+						— Sans montage
 					</Text>
-				</TouchableOpacity>
+				) : (
+					<TouchableOpacity
+						activeOpacity={0.75}
+						onPress={() =>
+							toggleOrderItemInstalled(orderItem)
+						}
+					>
+						<Text
+							style={{
+								color: orderItem.installed
+									? "#16a34a"
+									: "#9ca3af",
+								fontSize: 12,
+								fontWeight: "600",
+							}}
+						>
+							{orderItem.installed ? "✅" : "⬜"} Montée
+						</Text>
+					</TouchableOpacity>
+				)}
 			</View>
 			<View
 				style={{

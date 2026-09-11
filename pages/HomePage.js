@@ -2648,7 +2648,7 @@ const baseRows = [
 
                                             {r.label === "Client" ? (
   <Text style={styles.tableValue}>
-    <Text style={{ fontWeight: "bold" }}>
+    <Text style={{ fontWeight: "bold", color: "#0f172a" }}>
       {(item.name || "—").toUpperCase()}
     </Text>
     <Text>{` · Fiche N° ${item.ficheNumber ?? "—"}`}</Text>
@@ -5415,7 +5415,7 @@ const selectedClientInterventionCount =
 
 const selectedClientOrderCount = selectedClientActiveOrders.length;
   return (
-    <View style={{ flex: 1, backgroundColor: "#e0e0e0", elevation: 5 }}>
+    <View style={{ flex: 1, backgroundColor: "#eef2ff", elevation: 5 }}>
       <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={closeMenu}>
           <View style={[styles.container, { paddingHorizontal: 15 }]}>
@@ -5425,7 +5425,6 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                 style={styles.menuIcon}
               />
             </TouchableOpacity>
-            <DateDisplay />
             <Animated.View
               style={[
                 styles.drawer,
@@ -5660,85 +5659,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
               </TouchableOpacity>
             </Animated.View>
             <View style={styles.overlay}>
-              <View style={styles.headerContainer}>
-
-                {isLoading && <ActivityIndicator size="large" color="blue" />}
-
-                {!isLoading && (
-                  <View style={styles.images_numberText}>
-                    {hasImagesToDelete === true ? (
-                      <TouchableOpacity
-                        onPress={() => navigation.navigate("ImageCleanup")}
-                        style={{
-                          marginRight: 40,
-                          marginTop: 10,
-                          padding: 12,
-                          borderRadius: 2,
-                          borderWidth: 1,
-                          borderColor: "#888787",
-                          backgroundColor: "#191f2f",
-                        }}
-                      >
-                        <Text style={{ color: "white" }}>Nettoyer les images</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => navigation.navigate("StoredImages")}
-                        style={styles.homeActionBtn}
-                      >
-                        <Text style={styles.homeActionBtnText}>
-                          Accès à la Galerie Cloud
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() =>
-                        navigation.navigate("OngoingAmountsPage", {
-                          interventions: allInterventions,
-                        })
-                      }
-                      style={styles.homeActionBtn}
-                    >
-                      <Text style={styles.homeActionBtnText}>
-                        En cours : {totalCost} €
-                      </Text>
-                    </TouchableOpacity>
-
-                    {expressList.length > 0 && (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => setExpressModalVisible(true)}
-                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
-                      >
-                        <Text style={styles.homeActionBtnText}>
-                          EXPRESS ({expressList.length})
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {ordersList.length > 0 && (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={() => setOrdersModalVisible(true)}
-                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
-                      >
-                        <Text style={styles.homeActionBtnText}>
-                          COMMANDES ({ordersList.length})
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-
-                <Text style={styles.pageNumberText}>
-                  Page {currentPage} / {totalPages}
-                </Text>
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
+              <View style={{ marginBottom: 4, marginTop: 32, marginRight: 65 }}>
                 {/* —— BARRE DE RECHERCHE —— */}
                 <View
                   style={[
@@ -5746,13 +5667,22 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                     isBannedMatch && styles.searchContainerBanned,
                   ]}
                 >
+                  <Image
+                    source={require("../assets/icons/search.png")}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      tintColor: isBannedMatch ? "#b91c1c" : "#94a3b8",
+                      marginRight: 8,
+                    }}
+                  />
                   <TextInput
                     style={[
                       styles.searchInput,
                       isBannedMatch && styles.searchInputBanned,
                     ]}
                     placeholder="Rechercher client (nom ou téléphone)"
-                    placeholderTextColor={isBannedMatch ? "#7f1d1d" : "#575757"}
+                    placeholderTextColor={isBannedMatch ? "#7f1d1d" : "#94a3b8"}
                     value={searchText}
                     onChangeText={(t) => {
                       setSearchText(t);
@@ -5766,15 +5696,6 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                     autoCorrect={false}
                     autoCapitalize="characters"
                     returnKeyType="search"
-                  />
-                  <Image
-                    source={require("../assets/icons/search.png")}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      tintColor: isBannedMatch ? "#b91c1c" : "#888787",
-                      marginLeft: 8,
-                    }}
                   />
                 </View>
 
@@ -5857,6 +5778,84 @@ const onPick = () => {
 
               </View>
 
+              <View style={styles.headerContainer}>
+
+                {isLoading && <ActivityIndicator size="large" color="blue" />}
+
+                {!isLoading && (
+                  <View style={styles.images_numberText}>
+                    {hasImagesToDelete === true ? (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate("ImageCleanup")}
+                        style={{
+                          marginRight: 40,
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 2,
+                          borderWidth: 1,
+                          borderColor: "#888787",
+                          backgroundColor: "#191f2f",
+                        }}
+                      >
+                        <Text style={{ color: "white" }}>Nettoyer les images</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => navigation.navigate("StoredImages")}
+                        style={styles.homeActionBtn}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          Accès à la Galerie Cloud
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        navigation.navigate("OngoingAmountsPage", {
+                          interventions: allInterventions,
+                        })
+                      }
+                      style={styles.homeActionBtn}
+                    >
+                      <Text style={styles.homeActionBtnText}>
+                        En cours : {totalCost} €
+                      </Text>
+                    </TouchableOpacity>
+
+                    {expressList.length > 0 && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setExpressModalVisible(true)}
+                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          EXPRESS ({expressList.length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {ordersList.length > 0 && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setOrdersModalVisible(true)}
+                        style={[styles.homeActionBtn, styles.homeActionBtnHighlight]}
+                      >
+                        <Text style={styles.homeActionBtnText}>
+                          COMMANDES ({ordersList.length})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                <Text style={styles.pageNumberText}>
+                  Page {currentPage} / {totalPages}
+                </Text>
+              </View>
+
               {(() => {
                 const badgeButtons = [];
 
@@ -5885,7 +5884,7 @@ const onPick = () => {
                       >
                         <Text
                           style={{
-                            color: "#242424",
+                            color: "#3730a3",
                             fontSize: 12,
                             fontWeight: "bold",
                           }}
@@ -5911,15 +5910,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#d97706",
+      borderColor: "#f59e0b",
       borderRadius: 10,
-      backgroundColor: showOnHoldClients ? "#fde3c4" : "#fef3e2",
-      elevation: 3,
+      backgroundColor: showOnHoldClients ? "#fde68a" : "#fef3c7",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#9a5b13",
+        color: "#92400e",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -5943,7 +5942,7 @@ const onPick = () => {
     >
       <Text
         style={{
-          color: "#9a5b13",
+          color: "#92400e",
           fontSize: 12,
           fontWeight: "bold",
         }}
@@ -5970,15 +5969,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#b45309",
+      borderColor: "#fb7185",
       borderRadius: 10,
-      backgroundColor: "#d97706",
-      elevation: 3,
+      backgroundColor: "#ffe4e6",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#9f1239",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -6002,7 +6001,7 @@ const onPick = () => {
     >
       <Text
         style={{
-          color: "#b45309",
+          color: "#9f1239",
           fontSize: 12,
           fontWeight: "bold",
         }}
@@ -6031,15 +6030,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#166534",
+      borderColor: "#34d399",
       borderRadius: 10,
-      backgroundColor: "#15803d",
-      elevation: 3,
+      backgroundColor: "#d1fae5",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#065f46",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -6063,7 +6062,7 @@ const onPick = () => {
     >
       <Text
         style={{
-          color: "#166534",
+          color: "#065f46",
           fontSize: 12,
           fontWeight: "bold",
         }}
@@ -6090,15 +6089,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#991b1b",
+      borderColor: "#f87171",
       borderRadius: 10,
-      backgroundColor: "#dc2626",
-      elevation: 3,
+      backgroundColor: "#fee2e2",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#991b1b",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -6147,16 +6146,16 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#1e40af",
+      borderColor: "#60a5fa",
       borderRadius: 10,
-      backgroundColor: "#2563eb",
-      elevation: 3,
+      backgroundColor: "#dbeafe",
+      elevation: 1,
       opacity: notifyBlinkOpacity,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#1e40af",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -6198,15 +6197,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#5b21b6",
+      borderColor: "#a78bfa",
       borderRadius: 10,
-      backgroundColor: "#7c3aed",
-      elevation: 3,
+      backgroundColor: "#ede9fe",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#5b21b6",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -6251,15 +6250,15 @@ const onPick = () => {
       justifyContent: "center",
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: "#115e59",
+      borderColor: "#2dd4bf",
       borderRadius: 10,
-      backgroundColor: "#0d9488",
-      elevation: 3,
+      backgroundColor: "#ccfbf1",
+      elevation: 1,
     }}
   >
     <Text
       style={{
-        color: "#ffffff",
+        color: "#115e59",
         fontSize: 13,
         fontWeight: "bold",
         flexShrink: 1,
@@ -9854,14 +9853,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    backgroundColor: "#cacaca",
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1,
+    borderColor: "#a5b4fc",
     borderRadius: 10,
     marginBottom: 0,
   },
   toggleText: {
     marginLeft: 2,
     fontSize: 16,
-    color: "#242424",
+    color: "#3730a3",
     fontWeight: "medium",
   },
   iconStyle: {
@@ -9871,20 +9872,28 @@ const styles = StyleSheet.create({
     tintColor: "#242424", // Supprimez si vos images ont déjà une couleur
   },
   menuButton: {
-    backgroundColor: "#cacaca",
-
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute", // Position absolue pour le placer en haut à droite
-    top: 20, // Distance depuis le haut
+    top: 32, // Aligné avec le haut de la ligne de boutons (headerContainer)
     right: 13, // Distance depuis la droite (remplacez `left`)
     zIndex: 10, // S'assure que le bouton est au-dessus du contenu
-    borderRadius: 5, // Bords arrondis pour un style plus moderne
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuIcon: {
-    width: 40,
-    height: 40,
-    tintColor: "#707070", // Supprimez si vos images ont déjà une couleur
+    width: 24,
+    height: 24,
+    tintColor: "#4f46e5",
   },
   drawer: {
     position: "absolute",
@@ -9961,10 +9970,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", // Aligner le titre à gauche et la page à droite
     alignItems: "center",
     marginBottom: 10, // Espace avant la barre de recherche
-    marginTop: 48, // Dégage le bouton menu et l'icône date (position absolue en haut)
+    marginTop: 4, // La barre de recherche (au-dessus) gère déjà le dégagement du bouton menu
   },
   pageNumberText: {
-    marginRight: 20,
+    marginRight: 8, // la ligne de boutons est maintenant sous la recherche, plus de risque de chevaucher le bouton menu
     fontSize: 14,
     color: "#242424", // Assurez-vous que la couleur correspond à votre thème
   },
@@ -9979,8 +9988,13 @@ const styles = StyleSheet.create({
   clientCard: {
     padding: 10,
     marginVertical: 5,
-    backgroundColor: "#cacaca",
+    backgroundColor: "#ffffff",
     borderRadius: 10,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
   },
   clientInfo: {
     flex: 1,
@@ -10010,13 +10024,13 @@ const styles = StyleSheet.create({
     width: 140,
     fontSize: 14,
     fontWeight: "700",
-    color: "#111827",
+    color: "#475569",
   },
 
   tableValue: {
     flex: 1,
     fontSize: 14,
-    color: "#242424",
+    color: "#334155",
     textAlign: "right",
     flexShrink: 1,
   },
@@ -10089,7 +10103,7 @@ const styles = StyleSheet.create({
     fontStyle: "normal",
     fontWeight: "bold",
     marginBottom: 10,
-    color: "#414141",
+    color: "#0f172a",
   },
   topRightButtons: {
     position: "absolute",
@@ -10288,7 +10302,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 8,
-    paddingHorizontal: 4,
   },
   alertBox: {
     width: "85%",
@@ -10456,7 +10469,7 @@ dotsRow: {
     flex: 1,
     flexDirection: "row",
     alignItems: "stretch",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     gap: 10,
   },
   homeActionBtn: {
@@ -10464,19 +10477,19 @@ dotsRow: {
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#e0e7ff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#c7d2fe",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0f172a",
+    shadowColor: "#312e81",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },
   homeActionBtnText: {
-    color: "#1e293b",
+    color: "#3730a3",
     fontWeight: "700",
     fontSize: 13,
     textAlign: "center",
@@ -10491,7 +10504,9 @@ dotsRow: {
     borderRadius: 10, // Coins arrondis
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: "#cacaca",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
     position: "absolute", // Icône compacte, à côté du bouton menu
     top: 20,
     right: 63,
@@ -10514,7 +10529,9 @@ dotsRow: {
     borderRadius: 10, // Coins arrondis
     paddingVertical: 8, // Espacement intérieur haut/bas
     paddingHorizontal: 50, // Espacement intérieur gauche/droite
-    backgroundColor: "#cacaca", // Fond blanc
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
     alignSelf: "center", // Centrage horizontal
     marginLeft: 10,
   },
@@ -10849,19 +10866,24 @@ elevation: 20,
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#888787",
-    borderRadius: 5,
-    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    paddingHorizontal: 14,
 
-    backgroundColor: "#cacaca",
+    backgroundColor: "#ffffff",
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    fontSize: 16,
-    color: "#242424",
-    paddingHorizontal: 10,
+    height: 44,
+    fontSize: 15,
+    color: "#0f172a",
+    paddingHorizontal: 0,
   },
   searchContainerBanned: {
     borderColor: "#b91c1c",

@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Text,
-  LayoutAnimation,
   Platform,
   UIManager,
   Modal,
@@ -225,84 +224,84 @@ const handlePhoneChange = (t) => {
   return (
     <View style={styles.screen}>
       <View style={styles.container}>
-        <Text style={styles.title}>Ajouter un client</Text>
-
-        {/* Nom */}
-        <View style={[styles.inputContainer, focusedField === "name" && styles.inputFocused]}>
-          <Image source={require("../assets/icons/person.png")} style={styles.checkIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Nom du client"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="characters"
-            placeholderTextColor="#888787"
-            onFocus={() => {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              setFocusedField("name");
-            }}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Téléphone */}
-<View style={[styles.inputContainer, focusedField === "phone" && styles.inputFocused]}>
-  <Image source={require("../assets/icons/call.png")} style={styles.checkIcon} />
-  <TextInput
-    style={styles.input}
-    placeholder="Numéro de téléphone"
-    value={phone}
-    onChangeText={handlePhoneChange}   // ← utilise le handler
-    keyboardType="number-pad"
-    // ❌ ne pas mettre maxLength ici, on veut détecter la tentative de 11e chiffre
-    placeholderTextColor="#888787"
-    onFocus={() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setFocusedField("phone");
-    }}
-    onBlur={() => setFocusedField(null)}
-  />
-</View>
-
-
-        {/* Email */}
-        <View style={[styles.inputContainer, focusedField === "email" && styles.inputFocused]}>
-          <Image source={require("../assets/icons/mail.png")} style={styles.checkIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Adresse e-mail (optionnel)"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholderTextColor="#888787"
-            onFocus={() => {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              setFocusedField("email");
-            }}
-            onBlur={() => setFocusedField(null)}
-          />
-        </View>
-
-        {/* Boutons */}
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleAddClient}
-          disabled={loading || isSubmitting}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "En cours..." : "Enregistrer le client"}
+        <View style={styles.card}>
+          <View style={styles.headerIconCircle}>
+            <MaterialIcons name="person-add-alt-1" size={30} color="#4f46e5" />
+          </View>
+          <Text style={styles.title}>Ajouter un client</Text>
+          <Text style={styles.subtitle}>
+            Renseigne les coordonnées pour créer une nouvelle fiche
           </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleAddCommandeClient}
-          disabled={loading || isSubmitting}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "En cours..." : "Créer une commande"}
-          </Text>
-        </TouchableOpacity>
+          {/* Nom */}
+          <View style={[styles.inputContainer, focusedField === "name" && styles.inputFocused]}>
+            <Image source={require("../assets/icons/person.png")} style={styles.checkIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Nom du client"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="characters"
+              placeholderTextColor="#94a3b8"
+              onFocus={() => setFocusedField("name")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {/* Téléphone */}
+          <View style={[styles.inputContainer, focusedField === "phone" && styles.inputFocused]}>
+            <Image source={require("../assets/icons/call.png")} style={styles.checkIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Numéro de téléphone"
+              value={phone}
+              onChangeText={handlePhoneChange}   // ← utilise le handler
+              keyboardType="number-pad"
+              // ❌ ne pas mettre maxLength ici, on veut détecter la tentative de 11e chiffre
+              placeholderTextColor="#94a3b8"
+              onFocus={() => setFocusedField("phone")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {/* Email */}
+          <View style={[styles.inputContainer, focusedField === "email" && styles.inputFocused]}>
+            <Image source={require("../assets/icons/mail.png")} style={styles.checkIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Adresse e-mail (optionnel)"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              placeholderTextColor="#94a3b8"
+              onFocus={() => setFocusedField("email")}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {/* Boutons */}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleAddClient}
+            disabled={loading || isSubmitting}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "En cours..." : "Enregistrer le client"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.buttonSecondary}
+            onPress={handleAddCommandeClient}
+            disabled={loading || isSubmitting}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buttonSecondaryText}>
+              {loading ? "En cours..." : "Créer une commande"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <CustomAlert
           visible={alertVisible}
@@ -390,31 +389,65 @@ const handlePhoneChange = (t) => {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24, fontWeight: "bold", color: "#383838",
-    textAlign: "center", marginBottom: 30, textTransform: "uppercase", letterSpacing: 1,
-  },
-  screen: { flex: 1, backgroundColor: "#e0e0e0" },
+  screen: { flex: 1, backgroundColor: "#eef2ff" },
   container: { flex: 1, padding: 20, justifyContent: "center" },
+
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  headerIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#e0e7ff",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 22, fontWeight: "800", color: "#0f172a",
+    textAlign: "center", marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 13, color: "#64748b",
+    textAlign: "center", marginBottom: 24,
+  },
 
   inputContainer: {
     flexDirection: "row", alignItems: "center",
-    borderWidth: 1, borderColor: "#585858",
-    borderRadius: 8, backgroundColor: "#cacaca",
-    paddingHorizontal: 10, marginBottom: 15, height: 45,
+    borderWidth: 1.5, borderColor: "#c7d2fe",
+    borderRadius: 14, backgroundColor: "#f8fafc",
+    paddingHorizontal: 14, marginBottom: 14, height: 50,
   },
-  inputFocused: { borderColor: "#242424", backgroundColor: "#ffffff", height: 60 },
-  input: { flex: 1, fontSize: 18, color: "#242424", paddingVertical: 8 },
+  inputFocused: {
+    borderColor: "#4f46e5", backgroundColor: "#ffffff",
+  },
+  input: { flex: 1, fontSize: 16, color: "#0f172a", paddingVertical: 8 },
 
   button: {
-    backgroundColor: "#0c0f18", paddingVertical: 14, paddingHorizontal: 20,
-    borderRadius: 10, borderWidth: 1, borderColor: "#242424",
+    backgroundColor: "#4f46e5", paddingVertical: 15, paddingHorizontal: 20,
+    borderRadius: 14,
     alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3, shadowRadius: 4, elevation: 6, marginVertical: 5,
+    marginTop: 8,
   },
-  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "bold", letterSpacing: 0.5 },
-  checkIcon: { width: 20, height: 20, tintColor: "#888787", marginRight: 10 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontWeight: "700" },
+
+  buttonSecondary: {
+    backgroundColor: "#ffffff", paddingVertical: 15, paddingHorizontal: 20,
+    borderRadius: 14, borderWidth: 1.5, borderColor: "#4f46e5",
+    alignItems: "center", justifyContent: "center", marginTop: 10,
+  },
+  buttonSecondaryText: { color: "#4f46e5", fontSize: 16, fontWeight: "700" },
+
+  checkIcon: { width: 20, height: 20, tintColor: "#6366f1", marginRight: 10 },
 
   // —— Modale rouge (pro) ——
   modalOverlay: {

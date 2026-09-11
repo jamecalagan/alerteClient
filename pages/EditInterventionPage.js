@@ -2514,7 +2514,7 @@ repair_proposal_date: repairProposalMade
                                     style={{
                                         width: 20,
                                         height: 20,
-                                        tintColor: "#007bff",
+                                        tintColor: "#4f46e5",
                                     }}
                                     resizeMode="contain"
                                 />
@@ -2884,7 +2884,7 @@ onPress={() => {
         <Text
             style={styles.repairProposalChevron}
         >
-            {loanedItemExpanded ? "⌃" : "⌄"}
+            {loanedItemExpanded ? "▲" : "▼"}
         </Text>
     </TouchableOpacity>
 
@@ -3034,8 +3034,8 @@ onPress={() => {
             style={styles.repairProposalChevron}
         >
 {restitutionNoteExpanded
-    ? "⌃"
-    : "⌄"}
+    ? "▲"
+    : "▼"}
         </Text>
     </TouchableOpacity>
 
@@ -3171,7 +3171,7 @@ onPress={() => {
                                         style={{
                                             width: 20,
                                             height: 20,
-                                            tintColor: "#007bff",
+                                            tintColor: "#4f46e5",
                                         }}
                                         resizeMode="contain"
                                     />
@@ -3410,10 +3410,10 @@ onPress={() => {
                                         alignSelf: "center",
                                         marginTop: 4,
                                         marginBottom: 12,
-                                        backgroundColor: "#191f2f",
+                                        backgroundColor: "#4f46e5",
                                         paddingVertical: 8,
                                         paddingHorizontal: 12,
-                                        borderRadius: 8,
+                                        borderRadius: 12,
                                         alignItems: "center",
                                     }}
                                 >
@@ -3608,7 +3608,7 @@ onPress={() => {
                                 {
                                     width: 22,
                                     height: 22,
-                                    tintColor: "#f0f0f0",
+                                    tintColor: "#3730a3",
                                     marginRight: 10,
                                 },
                             ]}
@@ -3626,12 +3626,12 @@ onPress={() => {
                                 {
                                     width: 20,
                                     height: 20,
-                                    tintColor: "#fcfcfc",
+                                    tintColor: "#065f46",
                                     marginRight: 10,
                                 },
                             ]}
                         />
-                        <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
+                        <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -4802,7 +4802,7 @@ function RepairChoiceModal({
     );
 }
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#e0e0e0", paddingHorizontal: 20 },
+    container: { flex: 1, backgroundColor: "#eef2ff", paddingHorizontal: 20 },
     clientName: {
         fontSize: 20,
         fontWeight: "500",
@@ -4827,23 +4827,25 @@ const styles = StyleSheet.create({
         top: -18, // un peu plus haut
         paddingHorizontal: 8,
         paddingVertical: 2,
-        backgroundColor: "#e0e0e0", // même fond que la page
+        backgroundColor: "#eef2ff", // même fond que la page
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: "#999", // contour visible
+        borderColor: "#c7d2fe", // contour visible
         fontSize: 12,
         fontWeight: "600",
-        color: "#222",
+        color: "#3730a3",
         zIndex: 10, // passe devant le champ
         elevation: 3, // Android
     },
     input: {
         height: 50,
-        paddingHorizontal: 10,
+        paddingHorizontal: 14,
         paddingVertical: 8,
         marginBottom: 16,
-        borderRadius: 10,
-        backgroundColor: "#cacaca",
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
         width: "90%",
         alignSelf: "center",
     },
@@ -4869,21 +4871,25 @@ const styles = StyleSheet.create({
     },
     referenceInput: {
         padding: 10,
-        borderRadius: 10,
-        backgroundColor: "#cacaca",
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
         width: "100%",
         fontSize: 16,
         marginBottom: 5,
-        color: "#242424",
+        color: "#64748b",
     },
     checkIcon: { marginLeft: 10 },
     thumbnail: { width: 100, height: 100, margin: 5, borderRadius: 10 },
     labelPhoto: { borderWidth: 3, borderColor: "green" },
     button: {
-        backgroundColor: "#0c0f18",
-        paddingVertical: 10,
+        backgroundColor: "#e0e7ff",
+        borderWidth: 1.5,
+        borderColor: "#a5b4fc",
+        paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 10,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
@@ -4891,12 +4897,14 @@ const styles = StyleSheet.create({
         marginTop: 20,
         marginBottom: 20,
     },
-    buttonText: { color: "#cfcdcd", fontWeight: "500" },
+    buttonText: { color: "#3730a3", fontWeight: "700" },
     saveButton: {
-        backgroundColor: "#046d16",
-        paddingVertical: 10,
+        backgroundColor: "#d1fae5",
+        borderWidth: 1.5,
+        borderColor: "#6ee7b7",
+        paddingVertical: 12,
         paddingHorizontal: 20,
-        borderRadius: 10,
+        borderRadius: 14,
         alignItems: "center",
         justifyContent: "center",
         flex: 1,
@@ -4904,7 +4912,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
         marginBottom: 20,
     },
-    saveButtonText: { color: "#f1efef", fontSize: 16, fontWeight: "500" },
+    saveButtonText: { color: "#065f46", fontSize: 16, fontWeight: "700" },
     modalOverlay: {
         flex: 1,
         justifyContent: "center",
@@ -4923,8 +4931,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderRadius: 12,
         padding: 12,
-        borderWidth: 1,
-        borderColor: "#585858",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
     },
     modalPickerTitle: {
         fontWeight: "bold",
@@ -4937,7 +4945,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 12,
     },
-    modalCloseText: { fontWeight: "600", color: "#007bff" },
+    modalCloseText: { fontWeight: "600", color: "#4f46e5" },
 
     alertBox: {
         width: 300,
@@ -5023,7 +5031,7 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderWidth: 2,
-        borderColor: "#ccc",
+        borderColor: "#c7d2fe",
         borderRadius: 5,
         justifyContent: "center",
         alignItems: "center",
@@ -5042,10 +5050,10 @@ const styles = StyleSheet.create({
     buttonLabel: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#191f2f",
+        backgroundColor: "#4f46e5",
         paddingVertical: 5,
         paddingHorizontal: 12,
-        borderRadius: 8,
+        borderRadius: 12,
         flexShrink: 1,
     },
     iconRight: { width: 30, height: 30 },
@@ -5143,10 +5151,10 @@ const styles = StyleSheet.create({
     pickerBox: {
         flex: 1,
         height: 52,
-        borderWidth: 1,
-        borderColor: "#585858",
-        borderRadius: 8,
-        backgroundColor: "#cacaca",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        borderRadius: 14,
+        backgroundColor: "#ffffff",
         paddingHorizontal: 10,
         justifyContent: "center",
     },

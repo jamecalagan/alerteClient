@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Linking,
+  ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import BackButton from "../components/BackButton";
@@ -16,45 +17,30 @@ const ExpressTypeSelectorPage = () => {
   const topButtons = ["logiciel", "reparation", "video", "demande_devis", "devis", "pc"];
 
   const gridButtons = [
-    
-    
-    
-    
-    
-    { bg: "#0b7285", text: "Liste des devis", route: "QuoteListPage" },
-    { bg: "#555", text: "Liste des commandes", route: "AllOrdersPage" },
-    
-    
-    { bg: "#6b4e16", text: "Liste des demandes de devis", route: "QuoteRequestsListPage" },
-    
-    
-    
-    
-    { bg: "#f3ae54", text: "Liste fiches express", route: "ExpressListPage" },
+    { bg: "#4f46e5", text: "Liste des devis", route: "QuoteListPage" },
+    { bg: "#0284c7", text: "Liste des commandes", route: "AllOrdersPage" },
+    { bg: "#d97706", text: "Liste des demandes de devis", route: "QuoteRequestsListPage" },
+    { bg: "#d97706", text: "Liste fiches express", route: "ExpressListPage" },
 
-    { bg: "#166534", text: "Créer une facture", route: "BillingPage" },
-    { bg: "#4338ca", text: "Liste des factures", route: "BillingListPage" },
-    { bg: "#690759", text: "Créer une affiche", route: "ProductFormScreen" },
-    { bg: "#34568B", text: "Les affiches", route: "FlyerList" },
-    
-    
-    { bg: "#f84903", text: "Créer une étiquette client", route: "QuickLabelPrintPage" },
-    
-    
-        { bg: "#7f0883", text: "Liste fiches de contrôle", route: "CheckupListPage" },
-    
+    { bg: "#059669", text: "Créer une facture", route: "BillingPage" },
+    { bg: "#059669", text: "Liste des factures", route: "BillingListPage" },
+    { bg: "#7c3aed", text: "Créer une affiche", route: "ProductFormScreen" },
+    { bg: "#7c3aed", text: "Les affiches", route: "FlyerList" },
+    { bg: "#7c3aed", text: "Créer une étiquette client", route: "QuickLabelPrintPage" },
 
-	{ bg: "#2b8a3e", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
-  { bg: "#129b00", text: "Liste des clients notifiés", route: "ClientNotificationsPage" },
+    { bg: "#e11d48", text: "Liste fiches de contrôle", route: "CheckupListPage" },
+
+    { bg: "#0d9488", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
+    { bg: "#0d9488", text: "Liste des clients notifiés", route: "ClientNotificationsPage" },
   ];
 
   const buttonPropsByType = {
-    logiciel: { icon: "🖥", label: "Logiciel", color: "#1b2a41" },
-    reparation: { icon: "🛠", label: "Réparation", color: "#14532d" },
-    video: { icon: "🎬", label: "Transfert vidéo", color: "#7a5c00" },
-    demande_devis: { icon: "📝", label: "Demande devis", color: "#6b4e16" },
-    devis: { icon: "🧾", label: "Devis", color: "#351f32" },
-    pc: { icon: "🖥️", label: "Devis PC", color: "#0f172a" },
+    logiciel: { icon: "🖥", label: "Logiciel", bg: "#e0e7ff", color: "#3730a3" },
+    reparation: { icon: "🛠", label: "Réparation", bg: "#d1fae5", color: "#065f46" },
+    video: { icon: "🎬", label: "Transfert vidéo", bg: "#fef3c7", color: "#92400e" },
+    demande_devis: { icon: "📝", label: "Demande devis", bg: "#dbeafe", color: "#1e40af" },
+    devis: { icon: "🧾", label: "Devis", bg: "#ede9fe", color: "#5b21b6" },
+    pc: { icon: "🖥️", label: "Devis PC", bg: "#e2e8f0", color: "#334155" },
   };
 
   const goTo = (type) => {
@@ -115,8 +101,9 @@ const ExpressTypeSelectorPage = () => {
   }, [gridAnimations]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Créations EXPRESS</Text>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Créations Express</Text>
+      <Text style={styles.subtitle}>Choisis un type de fiche à créer</Text>
 
       <View style={styles.creationRow}>
         {topButtons.map((type, index) => {
@@ -132,11 +119,14 @@ const ExpressTypeSelectorPage = () => {
               style={{ opacity: anim || 1, transform: [{ translateY }] }}
             >
               <TouchableOpacity
-                style={[styles.squareButton, { backgroundColor: props.color }]}
+                style={[styles.squareButton, { backgroundColor: props.bg }]}
                 onPress={() => goTo(type)}
+                activeOpacity={0.8}
               >
                 <Text style={styles.buttonIcon}>{props.icon}</Text>
-                <Text style={styles.buttonLabel}>{props.label}</Text>
+                <Text style={[styles.buttonLabel, { color: props.color }]}>
+                  {props.label}
+                </Text>
               </TouchableOpacity>
             </Animated.View>
           );
@@ -144,6 +134,7 @@ const ExpressTypeSelectorPage = () => {
       </View>
 
       <View style={styles.separator} />
+      <Text style={styles.sectionTitle}>Autres outils</Text>
 
       <View style={styles.gridContainer}>
         {gridButtons.map((cfg, idx) => {
@@ -158,12 +149,14 @@ const ExpressTypeSelectorPage = () => {
               style={[styles.gridItem, { opacity: anim || 1, transform: [{ translateY }] }]}
             >
               <TouchableOpacity
-                style={[styles.optionButton, styles.shadowBox, { backgroundColor: cfg.bg }]}
+                style={[styles.optionButton, { borderLeftColor: cfg.bg }]}
                 onPress={() => {
                   if (cfg.action) cfg.action();
                   else if (cfg.route) navigation.navigate(cfg.route);
                 }}
+                activeOpacity={0.8}
               >
+                <View style={[styles.optionDot, { backgroundColor: cfg.bg }]} />
                 <Text style={styles.optionText}>{cfg.text}</Text>
               </TouchableOpacity>
             </Animated.View>
@@ -171,17 +164,32 @@ const ExpressTypeSelectorPage = () => {
         })}
       </View>
 
-      <View style={{ alignItems: "center", marginTop: 16 }}>
+      <View style={{ alignItems: "center", marginTop: 16, marginBottom: 24 }}>
         <BackButton onPress={() => navigation.goBack()} />
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#ffffff" },
-  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", marginBottom: 18, color: "#0f172a" },
-  separator: { height: 2, backgroundColor: "#d1d5db", marginVertical: 16, borderRadius: 5 },
+  screen: { flex: 1, backgroundColor: "#eef2ff" },
+  container: { flexGrow: 1, padding: 20, paddingTop: 32 },
+  title: { fontSize: 24, fontWeight: "800", textAlign: "center", color: "#0f172a" },
+  subtitle: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  separator: { height: 1, backgroundColor: "#c7d2fe", marginTop: 16, marginBottom: 16 },
   creationRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -192,30 +200,42 @@ const styles = StyleSheet.create({
   squareButton: {
     width: 96,
     height: 96,
-    borderRadius: 14,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 8,
     marginVertical: 8,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   buttonIcon: { fontSize: 26, marginBottom: 6 },
-  buttonLabel: { fontSize: 12, fontWeight: "bold", color: "white", textAlign: "center" },
+  buttonLabel: { fontSize: 12, fontWeight: "700", textAlign: "center" },
   optionButton: {
     width: 310,
-    paddingVertical: 14,
-    backgroundColor: "#3e4c69",
-    borderRadius: 50,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    marginTop: 10,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  optionText: { fontSize: 16, color: "#ffffff", fontWeight: "600" },
-  shadowBox: {
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
+  optionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 10,
   },
+  optionText: { fontSize: 15, color: "#1e293b", fontWeight: "600" },
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -229,11 +249,9 @@ const styles = StyleSheet.create({
   gridItem: {
     width: "46%",
     marginBottom: 8,
-    marginTop: 8,
     paddingHorizontal: 6,
     alignItems: "center",
   },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
 
 export default ExpressTypeSelectorPage;

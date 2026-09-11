@@ -1126,7 +1126,7 @@ const openRepairEstimate = async (intervention) => {
             style={{
               width: 20,
               height: 20,
-              tintColor: "#888787",
+              tintColor: "#3730a3",
               marginRight: 10,
             }}
           />
@@ -1134,7 +1134,7 @@ const openRepairEstimate = async (intervention) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.iconButton, styles.addButton]}
+          style={[styles.iconButton, styles.saveButton]}
           onPress={handleSaveClient}
         >
           <Image
@@ -1142,11 +1142,11 @@ const openRepairEstimate = async (intervention) => {
             style={{
               width: 20,
               height: 20,
-              tintColor: "#888787",
+              tintColor: "#065f46",
               marginRight: 10,
             }}
           />
-          <Text style={styles.buttonText}>Sauvegarder</Text>
+          <Text style={styles.saveButtonText}>Sauvegarder</Text>
         </TouchableOpacity>
       </View>
 
@@ -1421,7 +1421,7 @@ const openRepairEstimate = async (intervention) => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#e0e0e0" },
+  container: { flex: 1, padding: 20, backgroundColor: "#eef2ff" },
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -1439,15 +1439,15 @@ const styles = StyleSheet.create({
   input: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#585858",
-    borderRadius: 8,
-    backgroundColor: "#cacaca",
-    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
     marginBottom: 15,
     height: 45,
     fontSize: 18,
-    color: "#333",
+    color: "#0f172a",
   },
 
   interventionCard: {
@@ -1456,9 +1456,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     elevation: 3,
@@ -1523,32 +1523,30 @@ const styles = StyleSheet.create({
   },
 
   addButton: {
-    backgroundColor: "#0c0f18",
-    paddingVertical: 14,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1.5,
+    borderColor: "#a5b4fc",
+    paddingVertical: 15,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#4a90e2",
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
     marginVertical: 5,
   },
-  addButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  addButtonText: { color: "#3730a3", fontSize: 18, fontWeight: "bold" },
 
   saveButton: {
-    backgroundColor: "#28a745",
-    paddingVertical: 16,
-    paddingHorizontal: 22,
-    borderRadius: 12,
+    backgroundColor: "#d1fae5",
+    borderWidth: 1.5,
+    borderColor: "#6ee7b7",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    marginVertical: 5,
   },
-  saveButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  saveButtonText: { color: "#065f46", fontSize: 18, fontWeight: "bold" },
 
   buttonContainer: {
     flexDirection: "row",
@@ -1558,17 +1556,15 @@ const styles = StyleSheet.create({
   iconButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#007bff",
-    borderWidth: 1,
+    backgroundColor: "#4f46e5",
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
-    borderColor: "#007bff",
+    borderRadius: 14,
     justifyContent: "center",
     flex: 1,
     marginHorizontal: 6,
   },
-  buttonText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
+  buttonText: { color: "#3730a3", fontSize: 17, fontWeight: "bold" },
   buttonTextNo: {
     fontSize: 17,
     color: "#888787",
@@ -1611,10 +1607,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginLeft: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#4a90e2",
-    backgroundColor: "#0c0f18",
+    borderRadius: 12,
+    backgroundColor: "#4f46e5",
     alignItems: "center",
     justifyContent: "center",
   },

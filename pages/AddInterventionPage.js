@@ -2058,7 +2058,7 @@ repair_proposal_date: repairProposalMade
         )}
 
         {/* Séparateur */}
-        <View style={{ height: 2, backgroundColor: "#cacaca", marginVertical: 8 }} />
+        <View style={{ height: 2, backgroundColor: "#c7d2fe", marginVertical: 8 }} />
 
         <View style={styles.referenceContainer}>
           <TextInput
@@ -2871,7 +2871,7 @@ onPress={() => {
               pickAdditionalImage();
             }}
           >
-            <Icon name="camera" size={20} color="#888787" style={styles.buttonIcon} />
+            <Icon name="camera" size={20} color="#3730a3" style={styles.buttonIcon} />
             <Text style={styles.buttonText}>Prendre une autre photo</Text>
           </TouchableOpacity>
 
@@ -2882,8 +2882,8 @@ onPress={() => {
               handleSaveIntervention();
             }}
           >
-            <Icon name="save" size={20} color="#e6e6e6" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Sauvegarder l'intervention</Text>
+            <Icon name="save" size={20} color="#065f46" style={styles.buttonIcon} />
+            <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
           </TouchableOpacity>
         </View>
 
@@ -3594,7 +3594,7 @@ function FloatingField({ label, children, style }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#eef2ff",
     paddingHorizontal: 20,
   },
   clientName: {
@@ -3617,7 +3617,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderWidth: 2,
-    borderColor: "#ccc",
+    borderColor: "#c7d2fe",
     borderRadius: 5,
     justifyContent: "center",
     alignItems: "center",
@@ -3632,16 +3632,18 @@ const styles = StyleSheet.create({
 
   input: {
     height: 50,
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginBottom: 16,
-    borderRadius: 10,
-    backgroundColor: "#cacaca",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#ffffff",
     width: "90%",
     alignSelf: "center",
     fontSize: 16,
     fontWeight: "500",
-    color: "#191f2f",
+    color: "#0f172a",
   },
   fieldWrapper: {
     width: "100%",
@@ -3658,13 +3660,13 @@ const styles = StyleSheet.create({
     top: -12,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#eef2ff",
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#999",
+    borderColor: "#c7d2fe",
     fontSize: 12,
     fontWeight: "600",
-    color: "#222",
+    color: "#3730a3",
     zIndex: 10,
     elevation: 3,
   },
@@ -3687,23 +3689,27 @@ const styles = StyleSheet.create({
   },
   referenceInput: {
     padding: 10,
-    borderRadius: 10,
-    backgroundColor: "#cacaca",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#ffffff",
     width: "90%",
     fontSize: 16,
     fontWeight: "500",
     marginBottom: 5,
-    color: "#888787",
+    color: "#64748b",
   },
   checkIcon: { marginLeft: 10 },
 
   thumbnail: { width: 100, height: 100, margin: 5, borderRadius: 10 },
 
   button: {
-    backgroundColor: "#0c0f18",
-    paddingVertical: 10,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1.5,
+    borderColor: "#a5b4fc",
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
@@ -3712,12 +3718,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     maxWidth: 250,
   },
-  buttonText: { color: "#fff", fontWeight: "500" },
+  buttonText: { color: "#3730a3", fontWeight: "700" },
   saveButton: {
-    backgroundColor: "#04852b",
-    paddingVertical: 10,
+    backgroundColor: "#d1fae5",
+    borderWidth: 1.5,
+    borderColor: "#6ee7b7",
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
@@ -3725,6 +3733,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
+  saveButtonText: { color: "#065f46", fontWeight: "700" },
 
   modalOverlay: {
     flex: 1,
@@ -3764,11 +3773,12 @@ const styles = StyleSheet.create({
   iconButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#888787",
+    backgroundColor: "#e0e7ff",
     borderWidth: 1,
+    borderColor: "#c7d2fe",
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 2,
+    borderRadius: 12,
     justifyContent: "center",
     flex: 1,
     marginHorizontal: 5,
@@ -3800,7 +3810,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderWidth: 2,
-    borderColor: "#ccc",
+    borderColor: "#c7d2fe",
     borderRadius: 5,
     justifyContent: "center",
     alignItems: "center",
@@ -3845,7 +3855,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#e0e0e0",
+    borderColor: "#eef2ff",
     elevation: 2,
   },
   deleteBadgeText: { color: "#fff", fontSize: 16, lineHeight: 16, fontWeight: "bold" },
@@ -3878,10 +3888,10 @@ const styles = StyleSheet.create({
   pickerBox: {
     flex: 1,
     height: 52,
-    borderWidth: 1,
-    borderColor: "#585858",
-    borderRadius: 8,
-    backgroundColor: "#cacaca",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
     paddingHorizontal: 10,
     justifyContent: "center",
   },
@@ -3914,9 +3924,9 @@ const styles = StyleSheet.create({
     width: "90%",
     alignSelf: "center",
     backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#585858",
-    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
     marginTop: -6,
     marginBottom: 10,
     overflow: "hidden",
@@ -3942,19 +3952,19 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#424242",
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
     backgroundColor: "#ffffff",
     color: "#111827",
   },
   inlineButton: {
     height: 46,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#424242",
-    backgroundColor: "#191f2f",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#4f46e5",
+    backgroundColor: "#4f46e5",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3987,7 +3997,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pwdBtnCancel: { backgroundColor: "#eeeeee", borderWidth: 1, borderColor: "#c7c7c7" },
-  pwdBtnContinue: { backgroundColor: "#0c0f18" },
+  pwdBtnContinue: { backgroundColor: "#4f46e5" },
   pwdBtnCancelText: { color: "#333", fontWeight: "600" },
   pwdBtnContinueText: { color: "#fff", fontWeight: "700" },
 

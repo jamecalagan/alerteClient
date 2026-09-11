@@ -257,7 +257,7 @@ const STATUS_OPTIONS = [
 const CHARGEUR_OPTIONS = ["Non", "Oui"];
 export default function EditInterventionPage({ route, navigation }) {
 	
-    const { clientId } = route.params || {};
+    const { clientId, returnTo } = route.params || {};
     const { interventionId } = route.params;
 
     // Champs intervention
@@ -2364,6 +2364,10 @@ repair_proposal_date: repairProposalMade
             setInvoicePromptVisible(true);
             return;
         }
+        if (returnTo) {
+            navigation.navigate(returnTo);
+            return;
+        }
         navigation.navigate("Home");
     }
 };
@@ -3850,7 +3854,7 @@ onPress={() => {
                 confirmText="Facturer"
                 onClose={() => {
                     setInvoicePromptVisible(false);
-                    navigation.navigate("Home");
+                    navigation.navigate(returnTo || "Home");
                 }}
                 onConfirm={() => {
                     setInvoicePromptVisible(false);

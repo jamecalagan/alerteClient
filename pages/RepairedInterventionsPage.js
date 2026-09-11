@@ -845,6 +845,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                     navigation.navigate("EditIntervention", {
                       interventionId: item.id,
                       clientId: item.client_id,
+                      returnTo: "RepairedInterventionsPage",
                     })
                   }
                 >

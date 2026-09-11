@@ -20,6 +20,22 @@ import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
 
+// Traite les items par lots concurrents au lieu d'un par un (chaque appel
+// Storage .list() aller-retour réseau) : indispensable dès que le nombre
+// d'interventions est grand, sinon le chargement devient très long.
+const runWithConcurrency = async (items, worker, concurrency = 8) => {
+    let index = 0;
+    const runners = new Array(Math.min(concurrency, items.length))
+        .fill(null)
+        .map(async () => {
+            while (index < items.length) {
+                const current = index++;
+                await worker(items[current], current);
+            }
+        });
+    await Promise.all(runners);
+};
+
 export default function StoredImagesPage() {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,6 +54,7 @@ export default function StoredImagesPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedImage, setSelectedImage] = useState(null);
     const [search, setSearch] = useState("");
+    const [searchFocused, setSearchFocused] = useState(false);
     const [typeFilter, setTypeFilter] = useState(null);
     const navigation = useNavigation();
     const imagesPerPage = 12;
@@ -103,13 +120,24 @@ export default function StoredImagesPage() {
 				
 				
 
+            // Un "job" par paire (intervention, dossier) au lieu d'un for
+            // imbriqué séquentiel : les appels Storage .list() partent par
+            // lots concurrents, ce qui réduit drastiquement le temps total.
+            const jobs = [];
             for (const intervention of interventionsData) {
-                const interventionId = intervention.id;
-                const relatedClient = clientsData.find(
-                    (c) => c.id === intervention.client_id
-                );
-
                 for (const folder of folders) {
+                    jobs.push({ intervention, folder });
+                }
+            }
+
+            await runWithConcurrency(
+                jobs,
+                async ({ intervention, folder }) => {
+                    const interventionId = intervention.id;
+                    const relatedClient = clientsData.find(
+                        (c) => c.id === intervention.client_id
+                    );
+
                     const { data: files } = await supabase.storage
                         .from("images")
                         .list(`${folder}/${interventionId}`);
@@ -122,7 +150,7 @@ export default function StoredImagesPage() {
 								: folder === "intervention_images" || folder === "supplementaires"
 								? "supplementaire"
 								: "supplementaire";
-						  
+
 							allImages.push({
 							  name: file.name,
 							  folder: interventionId,
@@ -134,12 +162,12 @@ export default function StoredImagesPage() {
 								? `${relatedClient.name} - ${relatedClient.ficheNumber}`
 								: `Fiche : ${interventionId}`,
 							});
-						  
+
 							setCountTotal((prev) => prev + 1);
 							if (imageType === "etiquette") setCountEtiquette((prev) => prev + 1);
 							if (imageType === "supplementaire") setCountSupp((prev) => prev + 1);
 						  });
-						  
+
                     }
 
                     processedFolders++;
@@ -150,8 +178,9 @@ export default function StoredImagesPage() {
                         duration: 200,
                         useNativeDriver: false,
                     }).start();
-                }
-            }
+                },
+                8
+            );
 
             allImages.sort(
                 (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -189,6 +218,16 @@ export default function StoredImagesPage() {
         const matchType = typeFilter ? img.type === typeFilter : true;
         return matchSearch && matchType;
     });
+
+    // Suggestions de clients/fiches correspondant à la saisie en cours.
+    const searchSuggestions =
+        search.trim().length > 0
+            ? Array.from(new Set(images.map((img) => img.ficheDisplay)))
+                  .filter((name) =>
+                      name.toLowerCase().includes(search.trim().toLowerCase())
+                  )
+                  .slice(0, 6)
+            : [];
     const totalCount = images.length;
     const etiquetteCount = images.filter(
         (img) => img.type === "etiquette"
@@ -216,7 +255,30 @@ export default function StoredImagesPage() {
                     placeholderTextColor="#888"
                     value={search}
                     onChangeText={setSearch}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() =>
+                        setTimeout(() => setSearchFocused(false), 150)
+                    }
                 />
+
+                {searchFocused && searchSuggestions.length > 0 && (
+                    <View style={styles.suggestionsBox}>
+                        {searchSuggestions.map((suggestion) => (
+                            <TouchableOpacity
+                                key={suggestion}
+                                style={styles.suggestionItem}
+                                onPress={() => {
+                                    setSearch(suggestion);
+                                    setSearchFocused(false);
+                                }}
+                            >
+                                <Text style={styles.suggestionText}>
+                                    {suggestion}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
 
 <View style={styles.filterRow}>
     <TouchableOpacity
@@ -559,6 +621,25 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         color: "#000",
         backgroundColor: "#f0f0f0",
+    },
+    suggestionsBox: {
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 8,
+        backgroundColor: "#fff",
+        marginTop: -8,
+        marginBottom: 12,
+        overflow: "hidden",
+    },
+    suggestionItem: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#eee",
+    },
+    suggestionText: {
+        color: "#333",
+        fontSize: 13,
     },
     filters: { marginBottom: 12 },
     filterButtons: {

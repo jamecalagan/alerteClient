@@ -1150,7 +1150,7 @@ const openRepairEstimate = async (intervention) => {
         </TouchableOpacity>
       </View>
 
-      <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
+      <BackButton onPress={() => navigation.navigate("Home")} style={{ marginTop: 16 }} />
 <Modal
   visible={estimateVisible}
   transparent

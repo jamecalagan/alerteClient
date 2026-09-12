@@ -71,7 +71,7 @@ c:\AlerteClient
 - **orders** : `id`, `client_id`, `product`, `brand`, `model`, `price`, `deposit`, `paid`, `paid_at`, `saved`, `deleted`, `notified`, `notified_method`, `signatureclient`, `printed`, `quantity`, `total`, `order_photos`, `ordered`, `received`, `recovered`, `source_quote_id`, `createdat`.
 - **order_items** : `id`, `order_id`, `product`, `brand`, `quantity`, `unit_price`, `ordered`, `ordered_at`, `received`, `received_at`, `installed`, `installed_at`.
 - **billing** : `id` (uuid), `clientname`, `clientphone`, `clientemail`, `client_address`, `invoicenumber`, `invoicedate`, `paymentmethod`, `acompte`, `lines` (jsonb), `totalht`, `totaltva`, `totalttc`, `created_at`, `updated_at`, `paid`, `order_id` (integer), `express_id` (uuid), `intervention_id` (uuid — était `bigint` par erreur, corrigé le 2026-08-24 : incompatible avec `interventions.id` qui est `uuid`, provoquait une erreur `22P02` à la sauvegarde d'une facture depuis une intervention réparée), `deleted`, `user_id` (uuid). Schéma complet vérifié par lecture directe (`information_schema.columns`), pas seulement par grep.
-- **express** : `id`, `client_id`, `name`, `phone`, `product`, `device`, `type`, `description`, `price`, `paid`, `notified`, `notified_at`, `created_at`, `signature`.
+- **express** : `id`, `client_id`, `name`, `phone`, `email`, `product`, `device`, `type`, `description`, `price`, `paid`, `notified`, `notified_at`, `created_at`, `signature`. `email` ajoutée le 2026-09-06 (obligatoire dans les fiches Logiciel et Réparation, `ALTER TABLE express ADD COLUMN email text;`).
 - **article** : `id`, `nom`.
 - **marque** : `id`, `nom`, `article_id`.
 - **modele** : `id`, `nom`, `marque_id`, `article_id`.

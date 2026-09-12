@@ -255,6 +255,7 @@ const FAULT_SUGGESTED_SOLUTIONS = {
 
 export default function AddInterventionPage({ route, navigation }) {
   const { clientId } = route.params || {};
+  const newInterventionIdRef = useRef(null);
 
   const [reference, setReference] = useState("");
   const [brand, setBrand] = useState("");
@@ -1315,9 +1316,9 @@ const saveNewFault = async () => {
   if (alertOnClose) {
     alertOnClose();
   } else if (alertTitle === "Succès") {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "MainTabs" }],
+    navigation.navigate("EditClient", {
+      client: { id: clientId },
+      interventionId: newInterventionIdRef.current,
     });
   }
 };
@@ -1436,7 +1437,10 @@ repair_proposal_date: repairProposalMade
     if (status === "Devis en cours") interventionData.devis_cost = formattedDevisCost;
 
     try {
-      const { error } = await supabase.from("interventions").insert(interventionData);
+      const { data, error } = await supabase
+        .from("interventions")
+        .insert(interventionData)
+        .select("id");
 
       if (error) {
         console.error("❌ Erreur d'insertion intervention :", error.message);
@@ -1444,6 +1448,7 @@ repair_proposal_date: repairProposalMade
         return;
       }
 
+      newInterventionIdRef.current = data?.[0]?.id || null;
       setHasUnsavedChanges(false);
       openAlert("success", "Succès", "Intervention enregistrée avec succès.");
     } catch (e) {

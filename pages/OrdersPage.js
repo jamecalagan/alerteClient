@@ -209,13 +209,16 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
             const v = editMap[id] || {};
             const included = !!v.include_in_intervention;
 
-            const price = included
-                ? 0
-                : parseFloat(String(v.price || "0").replace(",", ".")) || 0;
+            // On garde le prix et la quantité saisis même quand « coût inclus »
+            // est coché (comme pour l'ajout de produit) : seul le total facturé
+            // de la commande doit exclure ce montant, pas la valeur mémorisée.
+            const price =
+                parseFloat(String(v.price || "0").replace(",", ".")) || 0;
 
-            const qty = included
-                ? 1
-                : Math.max(1, parseInt(String(v.quantity || "1"), 10) || 1);
+            const qty = Math.max(
+                1,
+                parseInt(String(v.quantity || "1"), 10) || 1
+            );
 
             const deposit =
                 parseFloat(String(v.deposit || "0").replace(",", ".")) || 0;
@@ -2389,8 +2392,6 @@ const deleteOrderItem = async (orderItem) => {
                 </View>
             )}
 
-            {/* ✅ Header tableau hors FlatList (plus stable) */}
-            {orders.length > 0 && <TableHeader />}
 
             <FlatList
                 ref={listRef}
@@ -2429,6 +2430,22 @@ const deleteOrderItem = async (orderItem) => {
                     const total = item.total ?? unit * qty;
                     const isIncluded = !!item.include_in_intervention;
 
+                    // Valeur réelle du/des produit(s), même "coût inclus dans
+                    // l'intervention" : le total facturé sur la commande (ci-dessus)
+                    // exclut volontairement ce montant pour éviter un double
+                    // comptage avec la facture d'intervention, mais le prix doit
+                    // rester visible pour information.
+                    const fullValue =
+                        orderItems.length > 0
+                            ? orderItems.reduce(
+                                  (sum, oi) =>
+                                      sum +
+                                      Number(oi.unit_price || 0) *
+                                          Math.max(1, Number(oi.quantity || 1)),
+                                  0
+                              )
+                            : unit * qty;
+
                     const remaining = isIncluded
                         ? 0
                         : Math.max(0, total - (item.deposit || 0));
@@ -2446,7 +2463,7 @@ const deleteOrderItem = async (orderItem) => {
                                 onPress={() => toggleExpand(item.id)}
                             >
                                 <View style={[styles.tableRow, rowBg]}>
-                                    <View style={styles.colProduit}>
+                                    <View style={styles.cardHeaderLeft}>
                                         <Text
                                             style={styles.rowTitle}
                                             numberOfLines={1}
@@ -2478,54 +2495,25 @@ const deleteOrderItem = async (orderItem) => {
                                         )}
                                     </View>
 
-                                    <Text
-                                        style={[styles.rowText, styles.colQty]}
-                                    >
-                                        {isIncluded ? "—" : qty}
-                                    </Text>
-                                    <Text
-                                        style={[styles.rowText, styles.colUnit]}
-                                    >
-                                        {isIncluded
-                                            ? "—"
-                                            : `${fmtMoney(unit)} €`}
-                                    </Text>
-                                    <Text
-                                        style={[
-                                            styles.rowText,
-                                            styles.colTotal,
-                                        ]}
-                                    >
-                                        {isIncluded
-                                            ? "Inclus"
-                                            : `${fmtMoney(total)} €`}
-                                    </Text>
-                                    <Text
-                                        style={[
-                                            styles.rowText,
-                                            styles.colDeposit,
-                                        ]}
-                                    >
-                                        {fmtMoney(item.deposit)} €
-                                    </Text>
-                                    <Text
-                                        style={[
-                                            styles.rowText,
-                                            styles.colRemaining,
-                                            item.paid
-                                                ? styles.greenText
-                                                : styles.redText,
-                                        ]}
-                                    >
-                                        {isIncluded
-                                            ? "0,00 €"
-                                            : `${fmtMoney(remaining)} €`}
-                                    </Text>
-                                    <Text
-                                        style={[styles.rowText, styles.colPaid]}
-                                    >
-                                        {item.paid ? "Oui" : "Non"}
-                                    </Text>
+                                    <View style={styles.cardHeaderRight}>
+                                        <Text style={styles.cardTotal}>
+                                            {fmtMoney(fullValue)} €
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.cardRemaining,
+                                                item.paid || isIncluded
+                                                    ? styles.greenText
+                                                    : styles.redText,
+                                            ]}
+                                        >
+                                            {isIncluded
+                                                ? "Inclus dans l'intervention"
+                                                : item.paid
+                                                ? "Payée"
+                                                : `Reste ${fmtMoney(remaining)} €`}
+                                        </Text>
+                                    </View>
                                 </View>
                             </TouchableOpacity>
 
@@ -2794,20 +2782,18 @@ const deleteOrderItem = async (orderItem) => {
                                                 )}
                                                 {renderKV(
                                                     "Prix unitaire",
-                                                    isIncluded
-                                                        ? "—"
-                                                        : `${fmtMoney(unit)} €`
+                                                    orderItems.length > 1
+                                                        ? "Voir détail ci-dessus"
+                                                        : `${fmtMoney(unit || fullValue)} €`
                                                 )}
                                                 {renderKV(
                                                     "Quantité",
-                                                    isIncluded
-                                                        ? "—"
-                                                        : String(qty)
+                                                    String(qty)
                                                 )}
                                                 {renderKV(
                                                     "Total",
                                                     isIncluded
-                                                        ? "0,00 € (inclus)"
+                                                        ? `${fmtMoney(fullValue)} € (inclus dans l'intervention)`
                                                         : `${fmtMoney(
                                                               total
                                                           )} €`,
@@ -2822,7 +2808,7 @@ const deleteOrderItem = async (orderItem) => {
                                                 {renderKV(
                                                     "Montant restant dû",
                                                     isIncluded
-                                                        ? "0,00 € (inclus)"
+                                                        ? "0,00 € (inclus dans l'intervention)"
                                                         : `${fmtMoney(
                                                               remaining
                                                           )} €`,
@@ -3769,7 +3755,7 @@ const deleteOrderItem = async (orderItem) => {
 const styles = StyleSheet.create({
 	safeArea: {
   flex: 1,
-  backgroundColor: "#e6e6e6",
+  backgroundColor: "#f8fafc",
   paddingTop: StatusBar.currentHeight || 0, // évite que le haut passe sous la barre Android
 },
 
@@ -3829,25 +3815,37 @@ const styles = StyleSheet.create({
         color: "#dc2626",
     },
 
-    container: { flex: 1, padding: 12, backgroundColor: "#e6e6e6" },
+    container: { flex: 1, padding: 12, backgroundColor: "#f8fafc" },
     header: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: "800",
-        color: "#1f2937",
+        color: "#0f172a",
         marginBottom: 8,
     },
 
-    formContainer: { marginBottom: 12 },
+    formContainer: {
+        marginBottom: 12,
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        paddingVertical: 14,
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+    },
     input: {
         borderWidth: 1,
-        borderColor: "#b6b6b6",
+        borderColor: "#e2e8f0",
         padding: 10,
         marginBottom: 10,
         borderRadius: 8,
-        backgroundColor: "#f7f7f7",
+        backgroundColor: "#f8fafc",
         width: "92%",
         alignSelf: "center",
-        color: "#111",
+        color: "#111827",
     },
     fournisseurSuggestionsRow: {
         width: "92%",
@@ -3883,14 +3881,16 @@ const styles = StyleSheet.create({
     qtyButton: {
         width: 44,
         height: 44,
-        backgroundColor: "#111827",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
         borderRadius: 8,
         alignItems: "center",
         justifyContent: "center",
         marginHorizontal: 4,
     },
-    qtyButtonText: { color: "#fff", fontSize: 18, fontWeight: "900" },
-    buttonDisabled: { backgroundColor: "#9ca3af" },
+    qtyButtonText: { color: "#4338ca", fontSize: 18, fontWeight: "900" },
+    buttonDisabled: { backgroundColor: "#e2e8f0", borderColor: "#e2e8f0" },
 
     formHint: {
         width: "92%",
@@ -3903,12 +3903,12 @@ const styles = StyleSheet.create({
 
     addButton: {
         width: "70%",
-        paddingVertical: 10,
-        borderRadius: 8,
+        paddingVertical: 12,
+        borderRadius: 999,
         alignItems: "center",
-        backgroundColor: "#111827",
+        backgroundColor: "#4338ca",
     },
-    addButtonText: { color: "#fff", fontWeight: "900", fontSize: 15 },
+    addButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 
     checkboxRow: {
         width: "92%",
@@ -3922,20 +3922,20 @@ const styles = StyleSheet.create({
         height: 20,
         borderRadius: 4,
         borderWidth: 1,
-        borderColor: "#111827",
-        backgroundColor: "#f7f7f7",
+        borderColor: "#4338ca",
+        backgroundColor: "#f8fafc",
         alignItems: "center",
         justifyContent: "center",
         marginRight: 10,
     },
-    checkboxChecked: { backgroundColor: "#111827" },
+    checkboxChecked: { backgroundColor: "#4338ca" },
     checkboxMark: { color: "#fff", fontWeight: "900" },
-    checkboxLabel: { color: "#111", fontSize: 14, fontWeight: "700" },
+    checkboxLabel: { color: "#334155", fontSize: 14, fontWeight: "600" },
 
     tableHeader: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#111827",
+        backgroundColor: "#4338ca",
         paddingVertical: 8,
         paddingHorizontal: 6,
         borderRadius: 8,
@@ -3949,21 +3949,27 @@ const styles = StyleSheet.create({
     },
 
     orderCard: {
-        borderRadius: 10,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: "#c5c5c5",
-        marginBottom: 8,
+        borderColor: "#e5e7eb",
+        marginBottom: 12,
         overflow: "hidden",
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "#ffffff",
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
     },
     tableRow: {
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 10,
-        paddingHorizontal: 6,
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 14,
     },
-    rowEven: { backgroundColor: "#f5f5f5" },
-    rowOdd: { backgroundColor: "#ededed" },
+    rowEven: { backgroundColor: "#ffffff" },
+    rowOdd: { backgroundColor: "#ffffff" },
 
     colProduit: { flex: 3.2, paddingRight: 6 },
     colQty: { flex: 0.7, textAlign: "center" },
@@ -3973,31 +3979,36 @@ const styles = StyleSheet.create({
     colRemaining: { flex: 1.2, textAlign: "right" },
     colPaid: { flex: 0.8, textAlign: "center" },
 
-    rowTitle: { fontSize: 14, fontWeight: "900", color: "#111" },
-    rowSub: { fontSize: 12, fontWeight: "700", color: "#374151", marginTop: 2 },
+    cardHeaderLeft: { flex: 1, paddingRight: 10 },
+    cardHeaderRight: { alignItems: "flex-end" },
+    cardTotal: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
+    cardRemaining: { fontSize: 12, fontWeight: "700", marginTop: 2 },
+
+    rowTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
+    rowSub: { fontSize: 12, fontWeight: "600", color: "#64748b", marginTop: 2 },
     rowStatus: {
         fontSize: 11,
         fontWeight: "700",
-        color: "#6b7280",
-        marginTop: 2,
+        color: "#4338ca",
+        marginTop: 4,
     },
     rowText: { fontSize: 12, fontWeight: "900", color: "#111" },
 
-    greenText: { color: "#0a7a2e" },
-    redText: { color: "#b91c1c" },
+    greenText: { color: "#16a34a" },
+    redText: { color: "#dc2626" },
 
     expandArea: {
         backgroundColor: "#ffffff",
-        padding: 10,
+        padding: 14,
         borderTopWidth: 1,
-        borderTopColor: "#d9d9d9",
+        borderTopColor: "#f1f5f9",
     },
     kvBlock: {
-        backgroundColor: "#fff",
-        borderRadius: 8,
+        backgroundColor: "#f8fafc",
+        borderRadius: 10,
         borderWidth: 1,
         borderColor: "#e5e7eb",
-        padding: 8,
+        padding: 10,
         marginBottom: 10,
     },
     kvRow: {
@@ -4005,49 +4016,51 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         paddingVertical: 6,
         borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
+        borderBottomColor: "#e5e7eb",
     },
-    kvLabel: { fontSize: 13, color: "#374151", fontWeight: "800" },
-    kvValue: { fontSize: 13, color: "#111", fontWeight: "800" },
+    kvLabel: { fontSize: 13, color: "#64748b", fontWeight: "600" },
+    kvValue: { fontSize: 13, color: "#0f172a", fontWeight: "700" },
     kvStrong: { fontWeight: "900" },
 
     editButton: {
         alignSelf: "flex-end",
-        backgroundColor: "#111827",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
         marginBottom: 6,
     },
-    editButtonText: { color: "#fff", fontWeight: "900" },
+    editButtonText: { color: "#4338ca", fontWeight: "700" },
     editBlock: { marginTop: 6 },
 
     saveEditButton: {
-        backgroundColor: "#111827",
-        paddingVertical: 9,
+        backgroundColor: "#4338ca",
+        paddingVertical: 10,
         borderRadius: 8,
         flex: 1,
         marginRight: 6,
         alignItems: "center",
     },
     cancelEditButton: {
-        backgroundColor: "#9ca3af",
-        paddingVertical: 9,
+        backgroundColor: "#e2e8f0",
+        paddingVertical: 10,
         borderRadius: 8,
         flex: 1,
         marginLeft: 6,
         alignItems: "center",
     },
-    saveEditText: { color: "#fff", fontWeight: "900" },
-    cancelEditText: { color: "#fff", fontWeight: "900" },
+    saveEditText: { color: "#fff", fontWeight: "700" },
+    cancelEditText: { color: "#475569", fontWeight: "700" },
 
     thumbGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 6 },
     thumb: {
         width: 90,
         height: 90,
-        borderRadius: 8,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: "#d1d1d1",
+        borderColor: "#e5e7eb",
         marginRight: 8,
         marginBottom: 8,
     },
@@ -4056,47 +4069,53 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         justifyContent: "space-between",
-        marginTop: 6,
+        marginTop: 10,
     },
     squareButton: {
         width: "30%",
         paddingVertical: 10,
-        backgroundColor: "#111827",
-        borderRadius: 8,
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
+        borderRadius: 10,
         marginVertical: 6,
         alignItems: "center",
         justifyContent: "center",
     },
     squareButtonText: {
-        color: "#fff",
-        fontWeight: "900",
+        color: "#4338ca",
+        fontWeight: "700",
         textAlign: "center",
         fontSize: 12,
     },
     squareButtonDisabled: {
         width: "30%",
-        backgroundColor: "#d1d5db",
-        borderRadius: 8,
+        backgroundColor: "#f1f5f9",
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        borderRadius: 10,
         marginVertical: 6,
         alignItems: "center",
         justifyContent: "center",
         paddingVertical: 10,
     },
-    squareButtonTextDisabled: { color: "#6b7280" },
+    squareButtonTextDisabled: { color: "#94a3b8" },
 
     openRowButton: {
         alignSelf: "flex-end",
         marginRight: 10,
         marginBottom: 10,
-        backgroundColor: "#111827",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
         paddingVertical: 6,
         paddingHorizontal: 10,
-        borderRadius: 6,
+        borderRadius: 8,
     },
-    openRowButtonText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+    openRowButtonText: { color: "#4338ca", fontWeight: "700", fontSize: 12 },
 
     emptyBox: { padding: 20, alignItems: "center" },
-    emptyText: { color: "#374151", fontWeight: "800" },
+    emptyText: { color: "#64748b", fontWeight: "600" },
 
     fullscreenContainer: {
         flex: 1,
@@ -4129,13 +4148,13 @@ const styles = StyleSheet.create({
     },
     headerDivider: {
         marginHorizontal: 6,
-        color: "#4b5563",
+        color: "#cbd5e1",
         fontWeight: "900",
         fontSize: 14,
     },
     headerActionText: {
-        color: "#111827",
-        fontWeight: "900",
+        color: "#4338ca",
+        fontWeight: "700",
         fontSize: 13,
     },
 	

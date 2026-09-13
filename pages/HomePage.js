@@ -2297,6 +2297,7 @@ const isOnHold = !!(
   style={[
     styles.clientCard,
     getStatusStyle(status),
+    isOnHold && styles.onHoldRow, // ← fond orange pâle si mise de côté
     isBanned && styles.bannedRow, // ← fond rosé si banni
   ]}
 >
@@ -2747,6 +2748,7 @@ const baseRows = [
   const devicePhotoBox = (
     <View
       style={{
+        flex: 1,
         width: "100%",
         alignSelf: "stretch",
         marginTop: 8,
@@ -2871,6 +2873,7 @@ const baseRows = [
   const orderPhotoBox = (
     <View
       style={{
+        flex: 1,
         width: "100%",
         alignSelf: "stretch",
         marginTop: 8,
@@ -2889,7 +2892,7 @@ const baseRows = [
           marginBottom: 6,
         }}
       >
-        Photos des produits commandés
+        Commandés
         {orderPhotosFournisseur ? (
           <>
             {" chez : "}
@@ -10441,12 +10444,12 @@ dotsRow: {
     transform: [{ scale: 1.15 }],
   },
   iconCircle: {
-    backgroundColor: "#575757", // Couleur de fond gris
+    backgroundColor: "#e0e7ff",
     width: 32, // Diamètre du cercle
     height: 32, // Diamètre du cercle
-    borderWidth: 1, // Épaisseur de la bordure
-    borderRadius: 2, // Moitié de la largeur/hauteur pour faire un cercle
-    borderColor: "#242424", // Couleur de fond gris
+    borderWidth: 1.5, // Épaisseur de la bordure
+    borderRadius: 16, // Moitié de la largeur/hauteur pour faire un cercle
+    borderColor: "#a5b4fc",
     justifyContent: "center", // Centrage de l'icône à l'intérieur du cercle
     alignItems: "center", // Centrage de l'icône à l'intérieur du cercle
     marginRight: 8, // Espace entre le cercle et le texte
@@ -10816,6 +10819,9 @@ dotsRow: {
   },
   bannedRow: {
     backgroundColor: "#fff1f2", // léger rose
+  },
+  onHoldRow: {
+    backgroundColor: "#fff7ed", // orange pâle
   },
   bannedBadge: {
     alignSelf: "flex-start",

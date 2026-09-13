@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { TouchableOpacity, Image, StatusBar } from 'react-native';
+import { TouchableOpacity, Image, StatusBar, View, Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 import CustomAlert from './components/CustomAlert';
 import AlertBox from './components/AlertBox';
@@ -394,7 +394,24 @@ export default function App() {
 
     return (
         <NavigationContainer>
-		 <StatusBar backgroundColor="#000" barStyle="light-content" />
+		 <StatusBar backgroundColor="transparent" translucent barStyle="light-content" />
+		 {/* En Android récent (edge-to-edge), le backgroundColor du StatusBar est
+		     ignoré par l'OS : on peint nous-mêmes une bande derrière, en teinte
+		     assortie à l'appli plutôt qu'un noir agressif. */}
+		 {Platform.OS === 'android' && (
+			 <View
+				 pointerEvents="none"
+				 style={{
+					 position: 'absolute',
+					 top: 0,
+					 left: 0,
+					 right: 0,
+					 height: StatusBar.currentHeight || 0,
+					 backgroundColor: '#6366f1',
+					 zIndex: 999,
+				 }}
+			 />
+		 )}
 		 {user ? <MainStack setUser={setUser} /> : <AuthStack />}
         </NavigationContainer>
     );

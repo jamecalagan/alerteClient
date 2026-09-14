@@ -24,11 +24,13 @@ const ExpressTypeSelectorPage = () => {
 
     { bg: "#059669", text: "Créer une facture", route: "BillingPage" },
     { bg: "#059669", text: "Liste des factures", route: "BillingListPage" },
+    { bg: "#059669", text: "Acomptes reçus", route: "DepositsPage" },
     { bg: "#7c3aed", text: "Créer une affiche", route: "ProductFormScreen" },
     { bg: "#7c3aed", text: "Les affiches", route: "FlyerList" },
     { bg: "#7c3aed", text: "Créer une étiquette client", route: "QuickLabelPrintPage" },
 
     { bg: "#e11d48", text: "Liste fiches de contrôle", route: "CheckupListPage" },
+    { bg: "#4338ca", text: "Statistiques des réparations", route: "StatisticsPage" },
 
     { bg: "#0d9488", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
     { bg: "#0d9488", text: "Liste des clients notifiés", route: "ClientNotificationsPage" },

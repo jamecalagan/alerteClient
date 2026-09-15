@@ -37,6 +37,7 @@ import SearchClientsPage from "./pages/SearchClientsPage";
 import OngoingAmountsPage from "./pages/OngoingAmountsPage";
 import DepositsPage from "./pages/DepositsPage";
 import StatisticsPage from "./pages/StatisticsPage";
+import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import SelectInterventionPage from './pages/SelectInterventionPage';
 import AddProductPage from "./pages/AddProductPage";
 import CommandePreviewPage from "./pages/CommandePreviewPage";
@@ -287,6 +288,7 @@ function MainStack({ setUser }) {
 			<Stack.Screen name="OngoingAmountsPage" component={OngoingAmountsPage} />
 			<Stack.Screen name="DepositsPage" component={DepositsPage} />
 			<Stack.Screen name="StatisticsPage" component={StatisticsPage} />
+			<Stack.Screen name="PhoneDirectoryPage" component={PhoneDirectoryPage} />
 			<Stack.Screen name="PrintPage" component={PrintPage} />
 			<Stack.Screen name="SelectInterventionPage" component={SelectInterventionPage} options={{ title: "Choisir une intervention" }}/>
 			<Stack.Screen name="AddProductPage" component={AddProductPage} />

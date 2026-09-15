@@ -2241,7 +2241,7 @@ const allActiveOrdersDone =
                             : hasOrders && allActiveOrdersDone
                             ? latestIntervention?.status ||
                               item.latestReparedStatus ||
-                              "Aucun statut"
+                              "Commande terminée"
                             : "Aucun statut";
                         const totalImages =
                           latestIntervention?.photos?.length || 0;
@@ -4914,8 +4914,14 @@ interventions(
         return "#f37209"; // Orange
       case "Non réparable":
         return "#ff0000"; // Orange
+      case "Commande en cours":
+        return "#d97706"; // Orange (en attente fournisseur)
+      case "Prêt à installer / remettre au client":
+        return "#2563eb"; // Bleu (reçue, à traiter)
+      case "Commande terminée":
+        return "#15803d"; // Vert soutenu (reçue et montée)
       default:
-        return "#04fd57"; // Gris par défaut
+        return "#6b7280"; // Gris par défaut, plus visible que l'ancien vert néon
     }
   };
 
@@ -5148,7 +5154,7 @@ interventions(
       (order) => order.paid && !order.saved
     );
     if (hasUnsavedAndPaid) {
-      return "#16a34a"; // 🟢 Vert, commande payée prête à sauvegarder
+      return "#15803d"; // 🟢 Vert (plus soutenu), commande payée prête à sauvegarder
     }
 
     const hasUnpaidOrder = clientOrders.some((order) => !order.paid);

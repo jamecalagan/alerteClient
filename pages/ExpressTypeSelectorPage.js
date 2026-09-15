@@ -31,6 +31,7 @@ const ExpressTypeSelectorPage = () => {
 
     { bg: "#e11d48", text: "Liste fiches de contrôle", route: "CheckupListPage" },
     { bg: "#4338ca", text: "Statistiques des réparations", route: "StatisticsPage" },
+    { bg: "#0284c7", text: "Répertoire téléphonique", route: "PhoneDirectoryPage" },
 
     { bg: "#0d9488", text: "Messagerie SMS", action: () => Linking.openURL("sms:") },
     { bg: "#0d9488", text: "Liste des clients notifiés", route: "ClientNotificationsPage" },

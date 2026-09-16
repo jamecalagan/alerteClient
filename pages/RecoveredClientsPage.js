@@ -552,6 +552,14 @@ export default function RecoveredClientsPage({ navigation, route }) {
         return require("../assets/icons/cpu.png");
       case "Manette":
         return require("../assets/icons/controller.png");
+      case "Batterie":
+        return require("../assets/icons/battery.png");
+      case "Commande":
+        return require("../assets/icons/shipping_box.png");
+      case "Enceinte":
+        return require("../assets/icons/speaker.png");
+      case "PDA":
+        return require("../assets/icons/Pda.png");
       default:
         return require("../assets/icons/point-dinterrogation.png");
     }

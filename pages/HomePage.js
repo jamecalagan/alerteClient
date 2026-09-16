@@ -5008,7 +5008,12 @@ interventions(
       );
     }
 
-    const iconSource = deviceIcons[deviceType] || deviceIcons.default;
+    // Recherche insensible à la casse : "enceinte" doit trouver la même
+    // icône que "Enceinte" (les noms de type sont saisis librement).
+    const matchedKey = Object.keys(deviceIcons).find(
+      (key) => key.toLowerCase() === lowerCaseName
+    );
+    const iconSource = (matchedKey && deviceIcons[matchedKey]) || deviceIcons.default;
     return (
       <View style={styles.deviceIconCircle}>
         <Image

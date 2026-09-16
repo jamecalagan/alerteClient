@@ -4,7 +4,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    FlatList,
     StyleSheet,
     ScrollView,
     Image,
@@ -564,15 +563,10 @@ const SearchClientsPage = ({ navigation }) => {
 
                     {showDeviceDropdown && (
                         <View style={styles.dropdownPanel}>
-                            <FlatList
-                                data={deviceTypes}
-                                keyExtractor={(item, idx) => `${item}-${idx}`}
-                                numColumns={2}
-                                keyboardShouldPersistTaps="handled"
-                                nestedScrollEnabled
-                                columnWrapperStyle={styles.chipRow}
-                                renderItem={({ item }) => (
+                            <View style={styles.chipRow}>
+                                {deviceTypes.map((item, idx) => (
                                     <TouchableOpacity
+                                        key={`${item}-${idx}`}
                                         style={styles.chip}
                                         onPress={() => {
                                             setSelectedDeviceType(item);
@@ -582,8 +576,8 @@ const SearchClientsPage = ({ navigation }) => {
                                     >
                                         <Text style={styles.chipText}>{item}</Text>
                                     </TouchableOpacity>
-                                )}
-                            />
+                                ))}
+                            </View>
                         </View>
                     )}
 
@@ -610,15 +604,10 @@ const SearchClientsPage = ({ navigation }) => {
 
                     {showBrandDropdown && (
                         <View style={styles.dropdownPanel}>
-                            <FlatList
-                                data={brands}
-                                keyExtractor={(item, idx) => `${item}-${idx}`}
-                                numColumns={2}
-                                keyboardShouldPersistTaps="handled"
-                                nestedScrollEnabled
-                                columnWrapperStyle={styles.chipRow}
-                                renderItem={({ item }) => (
+                            <View style={styles.chipRow}>
+                                {brands.map((item, idx) => (
                                     <TouchableOpacity
+                                        key={`${item}-${idx}`}
                                         style={styles.chip}
                                         onPress={() => {
                                             setSelectedBrand(item);
@@ -628,8 +617,8 @@ const SearchClientsPage = ({ navigation }) => {
                                     >
                                         <Text style={styles.chipText}>{item}</Text>
                                     </TouchableOpacity>
-                                )}
-                            />
+                                ))}
+                            </View>
                         </View>
                     )}
                 </View>
@@ -1090,11 +1079,12 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 8,
         marginTop: 8,
-        maxHeight: 350,
         zIndex: 10,
         elevation: 2,
     },
     chipRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
         justifyContent: "space-between",
     },
     chip: {

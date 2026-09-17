@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  StatusBar,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -308,6 +309,18 @@ const BillingPage = () => {
           quantity: "1",
           price: String(storageCost),
           serial: "",
+        });
+      }
+
+      // 8) lignes supplémentaires (ex : commande(s) liée(s) à l'intervention)
+      if (Array.isArray(ed.extraLines)) {
+        ed.extraLines.forEach((extra) => {
+          newLines.push({
+            designation: extra.designation || "",
+            quantity: String(n(extra.quantity) || 1),
+            price: String(n(extra.price) || 0),
+            serial: extra.serial || "",
+          });
         });
       }
 
@@ -832,7 +845,7 @@ const BillingPage = () => {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingTop: StatusBar.currentHeight || 0 }}>
       <TouchableOpacity
         onPress={() => setPreviewMode((v) => !v)}
         style={{

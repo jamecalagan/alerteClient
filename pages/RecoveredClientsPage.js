@@ -152,6 +152,35 @@ const sameImage = (a, b) => {
   return !!A && !!B && A === B;
 };
 
+const normalizeOrderText = (value) =>
+  (value ?? "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+
+// Commandes réellement rattachées à une intervention : lien direct via
+// orders.intervention_id, sinon repli par rapprochement de nom de produit
+// avec interventions.commande (comportement historique), une seule retenue.
+const findLinkedOrders = (intervention, clientOrders) => {
+  const direct = clientOrders.filter(
+    (o) => o.intervention_id === intervention.id
+  );
+  if (direct.length > 0) return direct;
+
+  const currentCommande = normalizeOrderText(intervention.commande);
+  if (!currentCommande) return [];
+
+  const matching = clientOrders
+    .filter((o) => normalizeOrderText(o.product) === currentCommande)
+    .sort(
+      (a, b) => new Date(b.createdat || 0).getTime() - new Date(a.createdat || 0).getTime()
+    );
+
+  return matching.length > 0 ? [matching[0]] : [];
+};
+
 // Transforme éventuellement du base64 brut en data:image/...
 const toSignatureUri = (s) => {
   if (!s || typeof s !== "string") return null;
@@ -166,9 +195,11 @@ const toSignatureUri = (s) => {
  * -> charge l'intervention + client
  * -> envoie la signature vers PrintPage
  */
+const REPRINT_TIMEOUT_MS = 10000;
+
 const reprintIntervention = async (interventionId, navigation, onError) => {
   try {
-    const { data, error } = await supabase
+    const fetchPromise = supabase
       .from("interventions")
       .select(
         `
@@ -194,6 +225,15 @@ const reprintIntervention = async (interventionId, navigation, onError) => {
       )
       .eq("id", interventionId)
       .single();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Délai dépassé, réessaie.")),
+        REPRINT_TIMEOUT_MS
+      )
+    );
+
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (error || !data) throw error || new Error("Intervention introuvable.");
 
@@ -246,6 +286,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const pageSize = 9;
   const [expandedCards, setExpandedCards] = useState({});
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
+  const [extraImageToDelete, setExtraImageToDelete] = useState(null); // { interventionId, uri }
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -364,13 +405,35 @@ export default function RecoveredClientsPage({ navigation, route }) {
 
       if (imagesError) throw imagesError;
 
-      // 1) Joindre la table intervention_images
-      const combined = (interventions || []).map((it) => ({
-        ...it,
-        intervention_images: (images || [])
-          .filter((img) => img.intervention_id === it.id)
-          .map((img) => img.image_data || img.file_path),
-      }));
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select(
+          "id, client_id, intervention_id, product, brand, model, price, quantity, total, paid, received, recovered, deleted, createdat"
+        )
+        .or("deleted.eq.false,deleted.is.null");
+
+      if (ordersError) throw ordersError;
+
+      // 1) Joindre la table intervention_images + les commandes liées
+      const combined = (interventions || []).map((it) => {
+        const clientOrders = (orders || []).filter(
+          (o) => o.client_id === it.client_id
+        );
+        const linkedOrders = findLinkedOrders(it, clientOrders);
+        const orderCost = linkedOrders.reduce(
+          (sum, o) => sum + Number(o.total ?? o.price ?? 0),
+          0
+        );
+
+        return {
+          ...it,
+          intervention_images: (images || [])
+            .filter((img) => img.intervention_id === it.id)
+            .map((img) => img.image_data || img.file_path),
+          _linkedOrders: linkedOrders,
+          _orderCost: orderCost,
+        };
+      });
 
       // Ancienne convention old_images/ : une seule liste pour tout le monde
       const oldImagesFiles = await listOldImagesFiles();
@@ -619,6 +682,89 @@ export default function RecoveredClientsPage({ navigation, route }) {
     }
   };
 
+  const confirmDeleteExtraImage = (interventionId, uri) => {
+    setExtraImageToDelete({ interventionId, uri });
+  };
+
+  const handleDeleteExtraImage = async () => {
+    const target = extraImageToDelete;
+    setExtraImageToDelete(null);
+    if (!target) return;
+    const { interventionId, uri } = target;
+
+    try {
+      const path = bucketKeyLocal(uri);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("images")
+          .remove([path]);
+        if (storageError) {
+          console.error("Suppression Storage image :", storageError);
+        }
+      }
+
+      // Retire la référence de l'ancien champ interventions.photos si présente
+      const { data: row, error: readErr } = await supabase
+        .from("interventions")
+        .select("photos")
+        .eq("id", interventionId)
+        .single();
+      if (readErr) throw readErr;
+
+      const currentPhotos = normalizePhotosField(row?.photos);
+      const nextPhotos = currentPhotos.filter(
+        (p) => bucketKeyLocal(p) !== path
+      );
+      if (nextPhotos.length !== currentPhotos.length) {
+        const { error: updateErr } = await supabase
+          .from("interventions")
+          .update({ photos: nextPhotos })
+          .eq("id", interventionId);
+        if (updateErr) throw updateErr;
+      }
+
+      // Retire les lignes intervention_images correspondant au même fichier
+      const { data: imgRows, error: imgReadErr } = await supabase
+        .from("intervention_images")
+        .select("id, image_data, file_path")
+        .eq("intervention_id", interventionId);
+      if (imgReadErr) throw imgReadErr;
+
+      const matchingIds = (imgRows || [])
+        .filter((r) => bucketKeyLocal(r.image_data || r.file_path) === path)
+        .map((r) => r.id);
+
+      if (matchingIds.length > 0) {
+        const { error: delErr } = await supabase
+          .from("intervention_images")
+          .delete()
+          .in("id", matchingIds);
+        if (delErr) throw delErr;
+      }
+
+      const stripUri = (list) =>
+        (list || []).filter((u) => u !== uri);
+
+      setRecoveredClients((prev) =>
+        prev.map((it) =>
+          it.id === interventionId
+            ? { ...it, _extraUris: stripUri(it._extraUris) }
+            : it
+        )
+      );
+      setFilteredClients((prev) =>
+        prev.map((it) =>
+          it.id === interventionId
+            ? { ...it, _extraUris: stripUri(it._extraUris) }
+            : it
+        )
+      );
+    } catch (err) {
+      console.error("Erreur suppression image :", err);
+      showAlert("Erreur", "Impossible de supprimer cette image.");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -722,24 +868,35 @@ export default function RecoveredClientsPage({ navigation, route }) {
               {isExpanded && (
                 <View style={styles.detailBlock}>
                   <View style={styles.infoGrid}>
-                    <View style={styles.infoCell}>
+                    <View style={styles.infoCellThird}>
                       <Text style={styles.infoLabel}>Type</Text>
                       <Text style={styles.infoValue}>
                         {item.deviceType || "—"}
                       </Text>
                     </View>
-                    <View style={styles.infoCell}>
+                    <View style={styles.infoCellThird}>
                       <Text style={styles.infoLabel}>Marque</Text>
                       <Text style={styles.infoValue}>{item.brand || "—"}</Text>
                     </View>
-                    <View style={styles.infoCell}>
+                    <View style={styles.infoCellThird}>
                       <Text style={styles.infoLabel}>Modèle</Text>
                       <Text style={styles.infoValue}>{item.model || "—"}</Text>
                     </View>
-                    <View style={styles.infoCell}>
-                      <Text style={styles.infoLabel}>Coût</Text>
-                      <Text style={styles.infoValue}>{item.cost} €</Text>
+                  </View>
+
+                  <View style={styles.costBlock}>
+                    <View style={[styles.costRow, styles.costRowIntervention]}>
+                      <Text style={styles.costRowLabel}>Coût intervention</Text>
+                      <Text style={styles.costRowValue}>{item.cost} €</Text>
                     </View>
+                    {item._linkedOrders && item._linkedOrders.length > 0 && (
+                      <View style={[styles.costRow, styles.costRowOrder]}>
+                        <Text style={styles.costRowLabel}>Coût commande</Text>
+                        <Text style={styles.costRowValue}>
+                          {item._orderCost.toFixed(2)} €
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.section}>
@@ -757,6 +914,31 @@ export default function RecoveredClientsPage({ navigation, route }) {
                       {item.description || "—"}
                     </Text>
                   </View>
+
+                  {item._linkedOrders && item._linkedOrders.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionLabel}>
+                        {item._linkedOrders.length > 1
+                          ? "Commandes liées"
+                          : "Commande liée"}
+                      </Text>
+                      {item._linkedOrders.map((order) => (
+                        <View key={order.id} style={styles.orderLinkRow}>
+                          <Text style={styles.sectionValue}>
+                            {order.product || "—"}
+                            {order.brand ? ` (${order.brand})` : ""} —{" "}
+                            {Number(order.total ?? order.price ?? 0).toFixed(2)}{" "}
+                            €
+                          </Text>
+                          <Text style={styles.orderLinkMeta}>
+                            {order.received ? "Reçue" : "Non reçue"} ·{" "}
+                            {order.recovered ? "Récupérée" : "Non récupérée"} ·{" "}
+                            {order.paid ? "Payée" : "Non payée"}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   {item.detailIntervention && (
                     <View style={styles.section}>
@@ -822,28 +1004,92 @@ export default function RecoveredClientsPage({ navigation, route }) {
                         Voir toutes les images
                       </Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        navigation.navigate("BillingPage", {
+                          expressData: {
+                            name: item.clients?.name || "",
+                            phone: item.clients?.phone || "",
+                            client_address: "",
+                            description: [
+                              item.repair_action || item.description,
+                              [item.deviceType, item.brand, item.model]
+                                .filter(Boolean)
+                                .join(" — "),
+                            ]
+                              .filter(Boolean)
+                              .join("\n"),
+                            quantity: "1",
+                            price: item.cost != null ? String(item.cost) : "0",
+                            serial: item.serial_number || "",
+                            paymentmethod: "",
+                            acompte:
+                              item.partialPayment != null
+                                ? String(item.partialPayment)
+                                : "",
+                            paid: item.paymentStatus === "solde",
+                            intervention_id: item.id,
+                            extraLines: (item._linkedOrders || []).map(
+                              (order) => ({
+                                designation: [order.product, order.brand]
+                                  .filter(Boolean)
+                                  .join(" — "),
+                                quantity: order.quantity || 1,
+                                price: Number(
+                                  order.total ?? order.price ?? 0
+                                ),
+                                serial: "",
+                              })
+                            ),
+                          },
+                        })
+                      }
+                      style={styles.secondaryBtn}
+                    >
+                      <Icon name="file-text-o" size={14} color="#334155" />
+                      <Text style={styles.secondaryBtnText}>
+                        Créer une facture
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
+                  {item._extraUris && item._extraUris.length > 0 && (
+                    <Text style={styles.deletePhotoHint}>
+                      Appui long sur une image pour la supprimer
+                    </Text>
+                  )}
                   <View style={styles.imageContainer}>
                     {item._extraUris && item._extraUris.length > 0 ? (
-                      item._extraUris.map((uri) => (
-                        <TouchableOpacity
-                          key={`${item.id}-${uri}`}
-                          onPress={() => setSelectedImage(uri)}
-                        >
-                          <Image
-                            source={{ uri }}
-                            style={styles.imageThumbnail}
-                            onError={(e) => {
-                              console.warn(
-                                "thumb load error",
-                                uri,
-                                e?.nativeEvent?.error
-                              );
-                            }}
-                          />
-                        </TouchableOpacity>
-                      ))
+                      item._extraUris.map((uri) => {
+                        const isSignature =
+                          !!item.signatureIntervention &&
+                          sameImage(uri, item.signatureIntervention);
+                        return (
+                          <TouchableOpacity
+                            key={`${item.id}-${uri}`}
+                            onPress={() => setSelectedImage(uri)}
+                            onLongPress={
+                              isSignature
+                                ? undefined
+                                : () => confirmDeleteExtraImage(item.id, uri)
+                            }
+                            delayLongPress={350}
+                          >
+                            <Image
+                              source={{ uri }}
+                              style={styles.imageThumbnail}
+                              onError={(e) => {
+                                console.warn(
+                                  "thumb load error",
+                                  uri,
+                                  e?.nativeEvent?.error
+                                );
+                              }}
+                            />
+                          </TouchableOpacity>
+                        );
+                      })
                     ) : (
                       <Text style={styles.sectionValue}>
                         Pas d'images supplémentaires
@@ -928,6 +1174,16 @@ export default function RecoveredClientsPage({ navigation, route }) {
         confirmText="Supprimer"
         onClose={() => setInterventionIdToDelete(null)}
         onConfirm={confirmDeleteIntervention}
+      />
+
+      <AlertBox
+        visible={!!extraImageToDelete}
+        title="Supprimer l'image"
+        message="Supprimer définitivement cette image ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setExtraImageToDelete(null)}
+        onConfirm={handleDeleteExtraImage}
       />
 
       <CustomAlert
@@ -1056,6 +1312,10 @@ const styles = StyleSheet.create({
     width: "50%",
     marginBottom: 8,
   },
+  infoCellThird: {
+    width: "33%",
+    marginBottom: 8,
+  },
   infoLabel: {
     fontSize: 11,
     color: "#94a3b8",
@@ -1067,6 +1327,37 @@ const styles = StyleSheet.create({
     color: "#1e293b",
     fontWeight: "600",
     marginTop: 2,
+  },
+  costBlock: {
+    marginBottom: 10,
+  },
+  costRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  costRowIntervention: {
+    backgroundColor: "#eef2ff",
+    borderColor: "#c7d2fe",
+  },
+  costRowOrder: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#86efac",
+  },
+  costRowLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  costRowValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0f172a",
   },
 
   section: { marginBottom: 10 },
@@ -1081,6 +1372,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#334155",
     lineHeight: 20,
+  },
+  orderLinkRow: { marginBottom: 6 },
+  orderLinkMeta: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  deletePhotoHint: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontStyle: "italic",
+    marginBottom: 4,
   },
 
   metaRow: {

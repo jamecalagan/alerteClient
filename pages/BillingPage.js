@@ -92,29 +92,45 @@ const BillingPage = () => {
 
   // Numéro de facture auto
   const generateInvoiceNumber = async () => {
-    const { data, error } = await supabase
-      .from("billing")
-      .select("invoicenumber")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) {
-      console.error("Erreur de récupération du dernier numéro:", error);
-      setInvoiceNumber("FAC-AI20252604");
-      return;
-    }
-    if (data && data.length > 0) {
-      const lastNumber = data[0].invoicenumber;
-      const match = lastNumber?.match(/\d+$/);
-      if (match) {
-        const newNumber = (parseInt(match[0]) + 1)
-          .toString()
-          .padStart(match[0].length, "0");
-        setInvoiceNumber(`FAC-AI${newNumber}`);
+    const FETCH_TIMEOUT_MS = 8000;
+    try {
+      const fetchPromise = supabase
+        .from("billing")
+        .select("invoicenumber")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Délai dépassé")),
+          FETCH_TIMEOUT_MS
+        )
+      );
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise,
+      ]);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const lastNumber = data[0].invoicenumber;
+        const match = lastNumber?.match(/\d+$/);
+        if (match) {
+          const newNumber = (parseInt(match[0]) + 1)
+            .toString()
+            .padStart(match[0].length, "0");
+          setInvoiceNumber(`FAC-AI${newNumber}`);
+        } else {
+          setInvoiceNumber("FAC-AI20252604");
+        }
       } else {
         setInvoiceNumber("FAC-AI20252604");
       }
-    } else {
-      setInvoiceNumber("FAC-AI20252604");
+    } catch (error) {
+      // La requête a échoué ou n'a jamais répondu (session Supabase bloquée) :
+      // on retombe sur un numéro basé sur l'horodatage plutôt que de laisser
+      // le champ vide ou de risquer un doublon avec une valeur fixe.
+      console.error("Erreur de récupération du dernier numéro:", error);
+      setInvoiceNumber(`FAC-AI${Date.now()}`);
     }
   };
 
@@ -438,6 +454,17 @@ const BillingPage = () => {
           `;
         })
         .join("");
+    }
+
+    // Lignes vides pour combler l'espace en bas de page (esthétique, A5/A4)
+    const MIN_ROWS = 12;
+    const columnsCount = useGlobalTotal ? 2 : 4;
+    const fillerCount = Math.max(0, MIN_ROWS - lines.length);
+    if (fillerCount > 0) {
+      const fillerRow = `<tr>${Array(columnsCount)
+        .fill('<td class="td">&nbsp;</td>')
+        .join("")}</tr>`;
+      rows += fillerRow.repeat(fillerCount);
     }
 
     const html = `

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import SmartImage from "../components/SmartImage";
 import {
   View,
@@ -284,6 +284,8 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 9;
+  const [pageImagesLoaded, setPageImagesLoaded] = useState({}); // { [interventionId]: true }
+  const oldImagesFilesRef = useRef(null); // cache partagé, null = pas encore chargé
   const [expandedCards, setExpandedCards] = useState({});
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
   const [extraImageToDelete, setExtraImageToDelete] = useState(null); // { interventionId, uri }
@@ -384,6 +386,25 @@ export default function RecoveredClientsPage({ navigation, route }) {
     }
   };
 
+  const dedupeUris = (list) => {
+    const seen = new Set();
+    const out = [];
+    for (const u of list) {
+      const k = bucketKeyLocal(u);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        out.push(u);
+      }
+    }
+    return out;
+  };
+
+  // Chargement léger (aucun appel Storage) : DB uniquement, pour toutes les
+  // fiches "Récupéré". Le scan Storage (photos non répertoriées en base) est
+  // fait à la demande, uniquement pour la page actuellement affichée (voir
+  // loadExtraImagesForPage), afin d'éviter une rafale de centaines de
+  // requêtes réseau simultanées qui ralentissait toute l'appli (y compris
+  // des écrans sans rapport comme la création de facture juste après).
   const loadRecoveredClients = async () => {
     try {
       const { data: interventions, error: interventionsError } = await supabase
@@ -414,8 +435,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
 
       if (ordersError) throw ordersError;
 
-      // 1) Joindre la table intervention_images + les commandes liées
-      const combined = (interventions || []).map((it) => {
+      const normalized = (interventions || []).map((it) => {
         const clientOrders = (orders || []).filter(
           (o) => o.client_id === it.client_id
         );
@@ -425,78 +445,36 @@ export default function RecoveredClientsPage({ navigation, route }) {
           0
         );
 
+        const labelCandidates = explodeRefs(it.label_photo);
+        const labelUri = resolveImageUri(labelCandidates[0] || null);
+
+        // anciennes (champ `photos`) → enlever \\ fin
+        const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
+        // nouvelles (table intervention_images)
+        const newList = explodeRefs(
+          (images || [])
+            .filter((img) => img.intervention_id === it.id)
+            .map((img) => img.image_data || img.file_path)
+        );
+
+        const oldUris = oldList.map(resolveImageUri).filter(Boolean);
+        const newUris = newList.map(resolveImageUri).filter(Boolean);
+        const dbUris = dedupeUris([...oldUris, ...newUris]);
+        const extras = dbUris.filter((u) => !sameImageLocal(u, labelUri));
+
         return {
           ...it,
-          intervention_images: (images || [])
-            .filter((img) => img.intervention_id === it.id)
-            .map((img) => img.image_data || img.file_path),
+          _labelUri: labelUri || null,
+          _extraUris: extras,
           _linkedOrders: linkedOrders,
           _orderCost: orderCost,
         };
       });
 
-      // Ancienne convention old_images/ : une seule liste pour tout le monde
-      const oldImagesFiles = await listOldImagesFiles();
-
-      // 2) Normaliser : label + fusion anciennes/nouvelles/storage + dédoublonnage
-      const normalized = await Promise.all(
-        combined.map(async (it) => {
-          const labelCandidates = explodeRefs(it.label_photo);
-          const labelUri = resolveImageUri(labelCandidates[0] || null);
-
-          // anciennes (champ `photos`) → enlever \\ fin
-          const oldList = explodeRefs(it.photos).map(stripEndBackslashes);
-          // nouvelles (table)
-          const newList = explodeRefs(it.intervention_images);
-
-          // convertir en URI affichables
-          const oldUris = oldList.map(resolveImageUri).filter(Boolean);
-          const newUris = newList.map(resolveImageUri).filter(Boolean);
-
-          // fichiers presents dans le Storage sans ligne en base
-          const [fromSupp, fromAlt] = await Promise.all([
-            listFolderUris("supplementaires", it.id),
-            listFolderUris("intervention_images", it.id),
-          ]);
-
-          // ancienne convention : fichiers old_images/ dont le nom contient
-          // l'id de cette intervention
-          const fromOldImages = oldImagesFiles
-            .filter((f) => f.name.includes(it.id))
-            .map((f) => resolveImageUri(`old_images/${f.name}`))
-            .filter(Boolean);
-
-          // fusion + dédoublonnage via clé bucket
-          const merged = [
-            ...oldUris,
-            ...newUris,
-            ...fromSupp,
-            ...fromAlt,
-            ...fromOldImages,
-          ];
-          const seen = new Set();
-          const dedup = [];
-          for (const u of merged) {
-            const k = bucketKeyLocal(u);
-            if (k && !seen.has(k)) {
-              seen.add(k);
-              dedup.push(u);
-            }
-          }
-
-          // enlever l'étiquette des extras
-          const extras = dedup.filter((u) => !sameImageLocal(u, labelUri));
-
-          return {
-            ...it,
-            _labelUri: labelUri || null,
-            _extraUris: extras,
-          };
-        })
-      );
-
       setRecoveredClients(normalized);
       setFilteredClients(normalized);
+      setPageImagesLoaded({});
+      oldImagesFilesRef.current = null;
     } catch (error) {
       console.error(
         "Erreur lors du chargement des clients récupérés :",
@@ -504,6 +482,63 @@ export default function RecoveredClientsPage({ navigation, route }) {
       );
     }
   };
+
+  // Scan Storage (dossiers "supplementaires"/"intervention_images" + ancienne
+  // convention "old_images/") pour retrouver d'éventuelles photos non
+  // répertoriées en base — uniquement pour les fiches passées en paramètre
+  // (la page actuellement affichée), et une seule fois par fiche.
+  const loadExtraImagesForPage = useCallback(
+    async (items) => {
+      const pending = items.filter((it) => !pageImagesLoaded[it.id]);
+      if (pending.length === 0) return;
+
+      if (oldImagesFilesRef.current === null) {
+        oldImagesFilesRef.current = await listOldImagesFiles();
+      }
+      const oldImagesFiles = oldImagesFilesRef.current;
+
+      const updates = await Promise.all(
+        pending.map(async (it) => {
+          const [fromSupp, fromAlt] = await Promise.all([
+            listFolderUris("supplementaires", it.id),
+            listFolderUris("intervention_images", it.id),
+          ]);
+
+          const fromOldImages = oldImagesFiles
+            .filter((f) => f.name.includes(it.id))
+            .map((f) => resolveImageUri(`old_images/${f.name}`))
+            .filter(Boolean);
+
+          const merged = dedupeUris([
+            ...(it._extraUris || []),
+            ...fromSupp,
+            ...fromAlt,
+            ...fromOldImages,
+          ]);
+          const extras = merged.filter((u) => !sameImageLocal(u, it._labelUri));
+
+          return { id: it.id, extras };
+        })
+      );
+
+      setPageImagesLoaded((prev) => {
+        const next = { ...prev };
+        updates.forEach((u) => {
+          next[u.id] = true;
+        });
+        return next;
+      });
+
+      const extrasMap = new Map(updates.map((u) => [u.id, u.extras]));
+      const applyExtras = (list) =>
+        list.map((it) =>
+          extrasMap.has(it.id) ? { ...it, _extraUris: extrasMap.get(it.id) } : it
+        );
+      setRecoveredClients((prev) => applyExtras(prev));
+      setFilteredClients((prev) => applyExtras(prev));
+    },
+    [pageImagesLoaded]
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -549,6 +584,15 @@ export default function RecoveredClientsPage({ navigation, route }) {
   };
 
   const totalPages = Math.ceil(filteredClients.length / pageSize);
+
+  // Ne scanne le Storage que pour les fiches de la page actuellement
+  // affichée (voir loadExtraImagesForPage), pas pour tout l'historique.
+  useEffect(() => {
+    const currentItems = getPaginatedClients();
+    if (currentItems.length > 0) {
+      loadExtraImagesForPage(currentItems);
+    }
+  }, [currentPage, filteredClients]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {

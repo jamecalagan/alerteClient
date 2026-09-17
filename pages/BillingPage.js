@@ -92,8 +92,10 @@ const BillingPage = () => {
 
   // Numéro de facture auto
   const generateInvoiceNumber = async () => {
-    const FETCH_TIMEOUT_MS = 8000;
-    try {
+    const FETCH_TIMEOUT_MS = 5000;
+    const MAX_ATTEMPTS = 3;
+
+    const fetchLastInvoiceNumber = async () => {
       const fetchPromise = supabase
         .from("billing")
         .select("invoicenumber")
@@ -105,33 +107,45 @@ const BillingPage = () => {
           FETCH_TIMEOUT_MS
         )
       );
-      const { data, error } = await Promise.race([
-        fetchPromise,
-        timeoutPromise,
-      ]);
-      if (error) throw error;
+      return Promise.race([fetchPromise, timeoutPromise]);
+    };
 
-      if (data && data.length > 0) {
-        const lastNumber = data[0].invoicenumber;
-        const match = lastNumber?.match(/\d+$/);
-        if (match) {
-          const newNumber = (parseInt(match[0]) + 1)
-            .toString()
-            .padStart(match[0].length, "0");
-          setInvoiceNumber(`FAC-AI${newNumber}`);
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const { data, error } = await fetchLastInvoiceNumber();
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const lastNumber = data[0].invoicenumber;
+          const match = lastNumber?.match(/\d+$/);
+          if (match) {
+            const newNumber = (parseInt(match[0]) + 1)
+              .toString()
+              .padStart(match[0].length, "0");
+            setInvoiceNumber(`FAC-AI${newNumber}`);
+          } else {
+            setInvoiceNumber("FAC-AI20252604");
+          }
         } else {
           setInvoiceNumber("FAC-AI20252604");
         }
-      } else {
-        setInvoiceNumber("FAC-AI20252604");
+        return; // succès, pas besoin de retenter
+      } catch (error) {
+        lastError = error;
+        console.error(
+          `Erreur de récupération du dernier numéro (tentative ${attempt}/${MAX_ATTEMPTS}) :`,
+          error
+        );
       }
-    } catch (error) {
-      // La requête a échoué ou n'a jamais répondu (session Supabase bloquée) :
-      // on retombe sur un numéro basé sur l'horodatage plutôt que de laisser
-      // le champ vide ou de risquer un doublon avec une valeur fixe.
-      console.error("Erreur de récupération du dernier numéro:", error);
-      setInvoiceNumber(`FAC-AI${Date.now()}`);
     }
+
+    // Les 3 tentatives ont échoué : numéro de secours non séquentiel (basé
+    // sur l'horodatage) — à vérifier et corriger manuellement avant
+    // impression, car il ne respecte pas la numérotation chronologique
+    // continue exigée pour la facturation.
+    console.error("Échec définitif de la génération du numéro :", lastError);
+    setInvoiceNumber(`FAC-AI${Date.now()}`);
   };
 
   useEffect(() => {

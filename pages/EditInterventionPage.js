@@ -2219,10 +2219,21 @@ repair_proposal_date: repairProposalMade
             setTakeLabelPhoto(!!labelCloud);
 
             setHasUnsavedChanges(false);
-            setAlertType("success");
-            setAlertTitle("Succès");
-            setAlertMessage("Intervention mise à jour avec succès.");
-            setAlertVisible(true);
+
+            const savedRow = data[0];
+            if (acceptScreenRisk && !savedRow?.signatureIntervention) {
+                setAlertType("success");
+                setAlertTitle("Attention — Signature obligatoire");
+                setAlertMessage(
+                    "Le client a accepté le risque de casse de l'écran : sa signature sur la fiche est obligatoire. Vous allez être redirigé(e) vers l'aperçu pour la faire signer."
+                );
+                setAlertVisible(true);
+            } else {
+                setAlertType("success");
+                setAlertTitle("Succès");
+                setAlertMessage("Intervention mise à jour avec succès.");
+                setAlertVisible(true);
+            }
         } catch (err) {
             setAlertType("danger");
             setAlertTitle("Erreur");
@@ -2357,6 +2368,11 @@ repair_proposal_date: repairProposalMade
   const closeAlert = () => {
     console.log("ℹ️ closeAlert, title=", alertTitle);
     setAlertVisible(false);
+
+    if (alertTitle === "Attention — Signature obligatoire") {
+        navigation.navigate("ClientPreviewPage", { clientId, interventionId });
+        return;
+    }
 
     if (alertTitle === "Succès") {
         if (justRepairedRef.current) {

@@ -1450,7 +1450,20 @@ repair_proposal_date: repairProposalMade
 
       newInterventionIdRef.current = data?.[0]?.id || null;
       setHasUnsavedChanges(false);
-      openAlert("success", "Succès", "Intervention enregistrée avec succès.");
+
+      if (acceptScreenRisk) {
+        showAlert(
+          "Attention — Signature obligatoire",
+          "Le client a accepté le risque de casse de l'écran : sa signature sur la fiche est obligatoire. Vous allez être redirigé(e) vers l'aperçu pour la faire signer.",
+          () =>
+            navigation.navigate("ClientPreviewPage", {
+              clientId,
+              interventionId: newInterventionIdRef.current,
+            })
+        );
+      } else {
+        openAlert("success", "Succès", "Intervention enregistrée avec succès.");
+      }
     } catch (e) {
       console.error("❌ Exception insertion :", e);
       openAlert("danger", "Erreur", "Impossible d'enregistrer l'intervention.");

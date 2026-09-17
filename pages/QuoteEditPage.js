@@ -208,7 +208,9 @@ export default function QuoteEditPage() {
       ? (parseFloat(globalTotal || 0) || 0).toFixed(2)
       : getTotalTTC().toFixed(2),
     quote_number: quoteNumber,
-    valid_until: validUntil,
+    valid_until: validUntil
+      ? new Date(validUntil.split("/").reverse().join("-"))
+      : null,
     discount: parseFloat(discount || 0),
     deposit: parseFloat(deposit || 0),
     status,
@@ -250,7 +252,9 @@ export default function QuoteEditPage() {
       );
       setRemarks(data.remarks || "");
       setQuoteNumber(data.quote_number || "");
-      setValidUntil(data.valid_until || "");
+      setValidUntil(
+        data.valid_until ? new Date(data.valid_until).toLocaleDateString("fr-FR") : ""
+      );
       setClientId(data.client_id || null);
 
       setDiscount(
@@ -320,7 +324,7 @@ export default function QuoteEditPage() {
     if (!validUntil) {
       const future = new Date();
       future.setDate(future.getDate() + 30);
-      setValidUntil(future.toISOString().split("T")[0]);
+      setValidUntil(future.toLocaleDateString("fr-FR"));
     }
   }, []);
 
@@ -578,21 +582,19 @@ export default function QuoteEditPage() {
     const tableHeader = useGlobal
       ? `
       <tr>
-        <th style="padding:6px;border:1px solid #ddd;width:36px;">#</th>
-        <th style="padding:6px;border:1px solid #ddd;">Désignation</th>
-        <th style="padding:6px;border:1px solid #ddd;width:60px;">Qté</th>
+        <th class="th desc">Désignation</th>
+        <th class="th c" style="width:90px;">Qté</th>
       </tr>`
       : `
       <tr>
-        <th style="padding:6px;border:1px solid #ddd;width:36px;">#</th>
-        <th style="padding:6px;border:1px solid #ddd;">Désignation</th>
-        <th style="padding:6px;border:1px solid #ddd;width:60px;">Qté</th>
-        <th style="padding:6px;border:1px solid #ddd;width:90px;">PU TTC</th>
-        <th style="padding:6px;border:1px solid #ddd;width:110px;">Total TTC</th>
+        <th class="th desc">Désignation</th>
+        <th class="th c" style="width:90px;">Qté</th>
+        <th class="th r" style="width:120px;">P.U. TTC</th>
+        <th class="th r" style="width:140px;">Montant TTC</th>
       </tr>`;
 
     const rows = items
-      .map((it, idx) => {
+      .map((it) => {
         const q = parseFloat(it.quantity) || 0;
         const labelPart = it.label ? `<strong>${it.label}</strong> - ` : "";
         const brandModelPart = [it.brand, it.model]
@@ -607,26 +609,34 @@ export default function QuoteEditPage() {
         if (useGlobal) {
           return `
         <tr>
-          <td style="padding:6px;border:1px solid #ddd;">${idx + 1}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${designation}</td>
-          <td style="padding:6px;border:1px solid #ddd;text-align:center;">${q}</td>
+          <td class="td desc">${designation}</td>
+          <td class="td num c">${q}</td>
         </tr>`;
         } else {
           const pu = parseFloat(it.unitPrice) || 0;
           const tt = (q * pu).toFixed(2);
           return `
         <tr>
-          <td style="padding:6px;border:1px solid #ddd;">${idx + 1}</td>
-          <td style="padding:6px;border:1px solid #ddd;">${designation}</td>
-          <td style="padding:6px;border:1px solid #ddd;text-align:center;">${q}</td>
-          <td style="padding:6px;border:1px solid #ddd;text-align:right;">${pu.toFixed(
-            2
-          )} €</td>
-          <td style="padding:6px;border:1px solid #ddd;text-align:right;"><strong>${tt} €</strong></td>
+          <td class="td desc">${designation}</td>
+          <td class="td num c">${q}</td>
+          <td class="td num r">${pu.toFixed(2)} €</td>
+          <td class="td num r">${tt} €</td>
         </tr>`;
         }
       })
       .join("");
+
+    // Lignes vides pour combler l'espace en bas de page (esthétique, A5/A4)
+    const MIN_ROWS = 12;
+    const columnsCount = useGlobal ? 2 : 4;
+    const fillerCount = Math.max(0, MIN_ROWS - items.length);
+    const filledRows =
+      fillerCount > 0
+        ? rows +
+          `<tr>${Array(columnsCount)
+            .fill('<td class="td">&nbsp;</td>')
+            .join("")}</tr>`.repeat(fillerCount)
+        : rows;
 
     const totalHT = getTotalHT().toFixed(2);
     const remise = getDiscountValue().toFixed(2);
@@ -640,67 +650,137 @@ export default function QuoteEditPage() {
 
     const civiliteNom = name ? `M. ${name}` : "—";
     const today = new Date().toLocaleDateString();
+    // validUntil est déjà saisi/affiché au format JJ/MM/AAAA (voir le champ
+    // "Valable jusqu'au" du formulaire), pas besoin de le reparser ici.
+    const validUntilFormatted = validUntil || "—";
 
     return `
-<!DOCTYPE html><html lang="fr"><meta charset="utf-8" />
-<body style="font-family:Arial, Helvetica, sans-serif; color:#111; padding:24px;">
-  <header style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:2px solid #444; padding-bottom:8px;">
-    <div><div style="font-size:20px; font-weight:800;">AVENIR INFORMATIQUE</div><div style="font-size:12px;">Réparations & Services</div></div>
-    <div style="text-align:right;">
-      <div style="font-size:22px; font-weight:800;">DEVIS</div>
-      <div style="font-size:13px;">N° ${quoteNumber || "—"}</div>
-      <div style="font-size:12px;">Date : ${today}</div>
-      <div style="font-size:12px;">Valable jusqu'au : ${validUntil || "—"}</div>
-    </div>
-  </header>
+  <html>
+    <head>
+      <meta charset="utf-8"/>
+      <style>
+        @page { size: A4; margin: 14mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#000; font-size: 12px; }
+        .wrap { max-width: 780px; margin: 0 auto; }
 
-  <section style="margin:10px 0 16px 0;">
-    <div style="font-size:14px;"><strong>Client :</strong> ${civiliteNom}</div>
-    ${phone ? `<div style="font-size:12px;">Tél : ${phone}</div>` : ""}
-    ${email ? `<div style="font-size:12px;">E-mail : ${email}</div>` : ""}
-  </section>
+        /* En-tête centré */
+        .header {
+          text-align: center;
+          margin-bottom: 12px;
+        }
+        .header img { height: 56px; }
+        .title { font-size: 20px; font-weight: 700; margin: 6px 0 12px 0; letter-spacing: 1px; }
 
-  <table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;">
-    <thead>
-      ${tableHeader}
-    </thead>
-    <tbody>${
-      rows ||
-      `<tr><td colspan="${useGlobal ? 3 : 5}" style="padding:10px;border:1px solid #ddd;">(Aucune ligne)</td></tr>`
-    }</tbody>
-  </table>
+        /* Meta (client / devis) */
+        .meta { display:flex; gap: 12px; margin: 0 0 16px 0; }
+        .card { border:1px solid #000; border-radius:6px; padding:10px 12px; flex:1; }
+        .card h3 { margin:0 0 8px 0; font-size:13px; }
+        .card p { margin:2px 0; }
 
-  <section style="display:flex; justify-content:flex-end; margin-top:12px;">
-    <table style="border-collapse:collapse; font-size:12px;">
-      ${
-        useGlobal
-          ? `
-      <tr><td style="padding:6px;border:1px solid #ddd;">Coût total TTC</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${globalTTC} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;">Acompte</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${acompte} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total à payer</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${globalDu} €</strong></td></tr>
-      `
-          : `
-      <tr><td style="padding:6px;border:1px solid #ddd;">Total HT</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${totalHT} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;">Remise</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${remise} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;">TVA (20%)</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">${tva} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total TTC</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${totalTTC} €</strong></td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;">Acompte</td><td style="padding:6px;border:1px solid #ddd; text-align:right;">-${acompte} €</td></tr>
-      <tr><td style="padding:6px;border:1px solid #ddd;"><strong>Total à payer</strong></td><td style="padding:6px;border:1px solid #ddd; text-align:right;"><strong>${du} €</strong></td></tr>
-      `
-      }
-    </table>
-  </section>
+        /* Tableau */
+        table { width:100%; border-collapse: collapse; }
+        .th, .td { border:1px solid #000; padding:8px; }
+        thead .th { background:#e5e5e5; font-weight:bold; }
+        .desc { width:100%; }
+        .num { white-space: nowrap; }
+        .c { text-align:center; }
+        .r { text-align:right; }
 
-  ${
-    remarks
-      ? `<section style="margin-top:14px; font-size:12px;"><strong>Remarques :</strong><br/>${String(
+        /* Totaux */
+        .totals { margin-top: 12px; display:flex; justify-content:flex-end; }
+        .totals table { width: 360px; border-collapse: collapse; font-size: 12px; }
+        .totals td { border:1px solid #000; padding:8px; }
+        .totals .label { background:#f7f7f7; }
+
+        .net { margin-top: 8px; text-align: right; font-size: 14px; font-weight: bold; padding: 10px 0; }
+
+        /* Pied de page (infos société en bas) */
+        .footer {
+          position: fixed;
+          left: 0; right: 0; bottom: 10mm;
+          text-align: center;
+          font-size: 10px; color:#444; line-height: 1.4;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <!-- Logo centré + Titre -->
+        <div class="header">
+          <img src="https://www.avenir-informatique.fr/logo.webp" alt="Avenir Informatique" />
+          <div class="title">DEVIS</div>
+        </div>
+
+        <!-- Blocs client / devis -->
+        <div class="meta">
+          <div class="card">
+            <h3>Client</h3>
+            <p><strong>${civiliteNom}</strong></p>
+            <p>Téléphone : ${phone || "—"}</p>
+            <p>E-mail : ${email || "—"}</p>
+          </div>
+          <div class="card">
+            <h3>Détails</h3>
+            <p>Numéro : <strong>${quoteNumber || "—"}</strong></p>
+            <p>Date : ${today}</p>
+            <p>Valable jusqu'au : ${validUntilFormatted}</p>
+          </div>
+        </div>
+
+        <!-- Détail des articles -->
+        <table>
+          <thead>
+            ${tableHeader}
+          </thead>
+          <tbody>${
+            filledRows ||
+            `<tr><td colspan="${useGlobal ? 2 : 4}" class="td">(Aucune ligne)</td></tr>`
+          }</tbody>
+        </table>
+
+        <!-- Totaux -->
+        <div class="totals">
+          <table>
+            ${
+              useGlobal
+                ? `
+            <tr><td class="label">Coût total TTC</td><td class="r">${globalTTC} €</td></tr>
+            <tr><td class="label">Acompte</td><td class="r">-${acompte} €</td></tr>
+            <tr><td class="label"><strong>Total à payer</strong></td><td class="r"><strong>${globalDu} €</strong></td></tr>
+            `
+                : `
+            <tr><td class="label">Total HT</td><td class="r">${totalHT} €</td></tr>
+            <tr><td class="label">Remise</td><td class="r">-${remise} €</td></tr>
+            <tr><td class="label">TVA (20%)</td><td class="r">${tva} €</td></tr>
+            <tr><td class="label"><strong>Total TTC</strong></td><td class="r"><strong>${totalTTC} €</strong></td></tr>
+            <tr><td class="label">Acompte</td><td class="r">-${acompte} €</td></tr>
+            <tr><td class="label"><strong>Total à payer</strong></td><td class="r"><strong>${du} €</strong></td></tr>
+            `
+            }
+          </table>
+        </div>
+
+        <div class="net">
+          Total à payer : ${useGlobal ? globalDu : du} €
+        </div>
+
+        ${
           remarks
-        ).replace(/\n/g, "<br/>")}</section>`
-      : ""
-  }
+            ? `<section style="margin-top:14px; font-size:12px;"><strong>Remarques :</strong><br/>${String(
+                remarks
+              ).replace(/\n/g, "<br/>")}</section>`
+            : ""
+        }
+      </div>
 
-  <footer style="margin-top:18px; font-size:11px; color:#444;">Merci pour votre confiance. Devis valable sous réserve de disponibilité des pièces. Les délais de réparation sont indicatifs.</footer>
-</body></html>`;
+      <!-- Pied de page : infos société -->
+      <div class="footer">
+        <strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
+        RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457<br/>
+        Devis valable sous réserve de disponibilité des pièces. Les délais de réparation sont indicatifs.
+      </div>
+    </body>
+  </html>`;
   };
 
   const handleCreatePdfAndShare = async () => {
@@ -972,7 +1052,7 @@ export default function QuoteEditPage() {
 
   // === UI ===
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingTop: insets.top }}>
       <TouchableOpacity
         onPress={() => setPreviewMode((v) => !v)}
         style={{
@@ -1040,7 +1120,7 @@ export default function QuoteEditPage() {
               style={styles.input}
               value={validUntil}
               onChangeText={setValidUntil}
-              placeholder="2025-12-31"
+              placeholder="31/12/2025"
             />
           </View>
         </View>

@@ -10,6 +10,8 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import * as Animatable from "react-native-animatable";
 import { supabase } from "../supabaseClient";
@@ -18,6 +20,7 @@ import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import { Ionicons } from "@expo/vector-icons";
+import SmartImage from "../components/SmartImage";
 
 export default function RepairedInterventionsListPage({ navigation }) {
   const [allInterventions, setAllInterventions] = useState([]);
@@ -31,6 +34,7 @@ const [isUpdating, setIsUpdating] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const showAlert = (title, message) => {
     setAlertTitle(title);
@@ -57,7 +61,7 @@ const [isUpdating, setIsUpdating] = useState(false);
       .from("interventions")
       .select(
         `
-          id, status, notifiedBy, deviceType, brand, model, archived, archived_at, on_hold,
+          id, status, notifiedBy, deviceType, brand, model, archived, archived_at, on_hold, label_photo,
           clients (name, ficheNumber, phone)
         `
       )
@@ -274,6 +278,15 @@ const handleBulkRestitution = async () => {
 
   const formatPhoneNumber = (n) => n?.replace(/(\d{2})(?=\d)/g, "$1 ") || "";
 
+  const resolveImageUrl = (s) => {
+    if (!s || typeof s !== "string") return null;
+    const clean = s.trim();
+    if (/^https?:\/\//i.test(clean)) return clean; // déjà une URL
+    // sinon, c'est un chemin relatif du bucket "images"
+    const { data } = supabase.storage.from("images").getPublicUrl(clean);
+    return data?.publicUrl || null;
+  };
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginatedData = filtered.slice(
     (currentPage - 1) * PAGE_SIZE,
@@ -424,6 +437,7 @@ const handleBulkRestitution = async () => {
           const deviceLine = [item.deviceType, item.brand].filter(Boolean).join(" ") || "—";
           const isNonReparable = item.status === "Non réparable";
           const selected = isSelected(item.id);
+          const labelUri = resolveImageUrl(item.label_photo);
           return (
             <Animatable.View
               animation="fadeInUp"
@@ -459,10 +473,32 @@ const handleBulkRestitution = async () => {
                       </View>
                     )}
                   </View>
-                  <View
-                    style={[styles.checkbox, selected && styles.checkboxSelected]}
-                  >
-                    {selected && <Text style={styles.checkmark}>✓</Text>}
+                  <View style={styles.cardTopRowRight}>
+                    {labelUri && (
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(labelUri);
+                        }}
+                      >
+                        <SmartImage
+                          uri={labelUri}
+                          ficheNumber={ficheNum}
+                          interventionId={item.id}
+                          type="label"
+                          size={44}
+                          borderRadius={10}
+                          borderWidth={2}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.checkbox, selected && styles.checkboxSelected]}
+                      onPress={() => toggleSelection(item.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      {selected && <Text style={styles.checkmark}>✓</Text>}
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -622,6 +658,30 @@ const handleBulkRestitution = async () => {
         message={alertMessage}
         onClose={() => setAlertVisible(false)}
       />
+
+      <Modal
+        visible={!!selectedImage}
+        transparent
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSelectedImage(null)}>
+          <View style={styles.modalBackground}>
+            <TouchableOpacity style={styles.imageCloseBtn} onPress={() => setSelectedImage(null)}>
+              <Text style={styles.imageCloseBtnText}>✕</Text>
+            </TouchableOpacity>
+            {selectedImage ? (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.fullImage}
+                onError={() => {
+                  showAlert("Erreur", "Impossible de charger l'image.");
+                  setSelectedImage(null);
+                }}
+              />
+            ) : null}
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -895,6 +955,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  cardTopRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   rowAlignRight: {
     justifyContent: "flex-end",
   },
@@ -1039,4 +1104,30 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#333",
   },
+
+  modalBackground: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+  },
+  fullImage: {
+    width: "90%",
+    height: "90%",
+    resizeMode: "contain",
+    borderRadius: 16,
+  },
+  imageCloseBtn: {
+    position: "absolute",
+    top: 48,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  imageCloseBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 });

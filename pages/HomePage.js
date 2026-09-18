@@ -17,6 +17,7 @@ import {
   Keyboard,
 KeyboardAvoidingView,
 Platform,
+StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -5429,7 +5430,14 @@ const selectedClientInterventionCount =
 
 const selectedClientOrderCount = selectedClientActiveOrders.length;
   return (
-    <View style={{ flex: 1, backgroundColor: "#eef2ff", elevation: 5 }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#eef2ff",
+        elevation: 5,
+        paddingTop: StatusBar.currentHeight || 0,
+      }}
+    >
       <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={closeMenu}>
           <View style={[styles.container, { paddingHorizontal: 15 }]}>

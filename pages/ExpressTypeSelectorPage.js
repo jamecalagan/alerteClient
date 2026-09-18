@@ -7,6 +7,7 @@ import {
   Animated,
   Linking,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import BackButton from "../components/BackButton";
@@ -175,7 +176,11 @@ const ExpressTypeSelectorPage = () => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#eef2ff" },
+  screen: {
+    flex: 1,
+    backgroundColor: "#eef2ff",
+    paddingTop: StatusBar.currentHeight || 0,
+  },
   container: { flexGrow: 1, padding: 20, paddingTop: 32 },
   title: { fontSize: 24, fontWeight: "800", textAlign: "center", color: "#0f172a" },
   subtitle: {

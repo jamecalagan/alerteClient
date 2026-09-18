@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     Linking,
     Image,
+    StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import BackButton from "../components/BackButton";
@@ -260,7 +261,11 @@ export default function PhoneDirectoryPage({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: "#eef2ff", paddingTop: 16 },
+    screen: {
+        flex: 1,
+        backgroundColor: "#eef2ff",
+        paddingTop: 16 + (StatusBar.currentHeight || 0),
+    },
     header: {
         fontSize: 24,
         fontWeight: "800",

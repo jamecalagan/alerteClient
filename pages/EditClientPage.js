@@ -11,6 +11,7 @@ import {
   Easing,
   Modal,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
@@ -1421,7 +1422,12 @@ const openRepairEstimate = async (intervention) => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#eef2ff" },
+  container: {
+    flex: 1,
+    padding: 20,
+    paddingTop: 20 + (StatusBar.currentHeight || 0),
+    backgroundColor: "#eef2ff",
+  },
   title: {
     fontSize: 28,
     fontWeight: "bold",

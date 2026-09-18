@@ -13,6 +13,7 @@ import {
     TouchableWithoutFeedback,
     Pressable,
     FlatList,
+    StatusBar,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -4818,7 +4819,12 @@ function RepairChoiceModal({
     );
 }
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#eef2ff", paddingHorizontal: 20 },
+    container: {
+        flex: 1,
+        backgroundColor: "#eef2ff",
+        paddingHorizontal: 20,
+        paddingTop: StatusBar.currentHeight || 0,
+    },
     clientName: {
         fontSize: 20,
         fontWeight: "500",

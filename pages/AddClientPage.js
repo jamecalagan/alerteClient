@@ -11,6 +11,7 @@ import {
   UIManager,
   Modal,
   TouchableWithoutFeedback,
+  StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
@@ -389,7 +390,11 @@ const handlePhoneChange = (t) => {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#eef2ff" },
+  screen: {
+    flex: 1,
+    backgroundColor: "#eef2ff",
+    paddingTop: StatusBar.currentHeight || 0,
+  },
   container: { flex: 1, padding: 20, justifyContent: "center" },
 
   card: {

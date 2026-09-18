@@ -11,6 +11,7 @@ import {
   TextInput,
   Modal,
   TouchableWithoutFeedback,
+  StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -1241,7 +1242,11 @@ export default function RecoveredClientsPage({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: {
+    flex: 1,
+    backgroundColor: "#eef2ff",
+    paddingTop: StatusBar.currentHeight || 0,
+  },
 
   header: {
     paddingHorizontal: 16,

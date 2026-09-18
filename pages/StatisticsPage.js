@@ -6,6 +6,7 @@ import {
     StyleSheet,
     ActivityIndicator,
     Dimensions,
+    StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import BackButton from "../components/BackButton";
@@ -154,7 +155,11 @@ export default function StatisticsPage({ navigation }) {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: "#eef2ff" },
-    container: { padding: 20, paddingBottom: 10 },
+    container: {
+        padding: 20,
+        paddingTop: 20 + (StatusBar.currentHeight || 0),
+        paddingBottom: 10,
+    },
     header: {
         fontSize: 24,
         fontWeight: "800",

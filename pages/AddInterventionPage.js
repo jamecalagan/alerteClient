@@ -12,6 +12,7 @@ import {
   Image,
   TouchableWithoutFeedback,
   Keyboard,
+  StatusBar,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -3614,6 +3615,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eef2ff",
     paddingHorizontal: 20,
+    paddingTop: StatusBar.currentHeight || 0,
   },
   clientName: {
     fontSize: 20,

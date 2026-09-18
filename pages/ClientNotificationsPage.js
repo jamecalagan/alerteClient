@@ -9,6 +9,7 @@ import {
     Linking,
     Image,
     ActivityIndicator,
+    StatusBar,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../supabaseClient";
@@ -678,22 +679,18 @@ export default function ClientNotificationsPage() {
 
                     <View style={styles.actionsColumn}>
                         <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                { backgroundColor: "#28a745" },
-                            ]}
+                            style={[styles.actionButton, styles.actionButtonCall]}
                             onPress={() => {
                                 notifyClient(item, "téléphone");
                                 Linking.openURL(`tel:${item.phone}`);
                             }}
                         >
-                            <Text style={styles.actionText}>📞 Appeler</Text>
+                            <Text style={[styles.actionText, styles.actionTextCall]}>
+                                📞 Appeler
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                { backgroundColor: "#007bff" },
-                            ]}
+                            style={[styles.actionButton, styles.actionButtonSms]}
                             onPress={() => {
                                 notifyClient(item, "sms");
                                 const encoded = encodeURIComponent(message);
@@ -702,13 +699,12 @@ export default function ClientNotificationsPage() {
                                 );
                             }}
                         >
-                            <Text style={styles.actionText}>📩 Envoyer</Text>
+                            <Text style={[styles.actionText, styles.actionTextSms]}>
+                                📩 Envoyer
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                { backgroundColor: "#ff9900" },
-                            ]}
+                            style={[styles.actionButton, styles.actionButtonAvis]}
                             onPress={async () => {
                                 const avisMessage =
                                     "Bonjour, merci pour votre passage en boutique ! 😊\n" +
@@ -742,24 +738,23 @@ export default function ClientNotificationsPage() {
                                 );
                             }}
                         >
-                            <Text style={styles.actionText}>
+                            <Text style={[styles.actionText, styles.actionTextAvis]}>
                                 ⭐ Avis Google
                             </Text>
                         </TouchableOpacity>
 
                         {!!item.intervention_id && (
                             <TouchableOpacity
-                                style={[
-                                    styles.actionButton,
-                                    { backgroundColor: "#6b7280" },
-                                ]}
+                                style={[styles.actionButton, styles.actionButtonCapture]}
                                 onPress={() => pickAndUploadScreenshot(item)}
                                 disabled={uploadingScreenshotId === item.id}
                             >
                                 {uploadingScreenshotId === item.id ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <ActivityIndicator color="#334155" />
                                 ) : (
-                                    <Text style={styles.actionText}>
+                                    <Text
+                                        style={[styles.actionText, styles.actionTextCapture]}
+                                    >
                                         📷 Capture SMS
                                     </Text>
                                 )}
@@ -768,19 +763,18 @@ export default function ClientNotificationsPage() {
 
                         {!item.intervention_id && !!item.order_id && (
                             <TouchableOpacity
-                                style={[
-                                    styles.actionButton,
-                                    { backgroundColor: "#6b7280" },
-                                ]}
+                                style={[styles.actionButton, styles.actionButtonCapture]}
                                 onPress={() =>
                                     pickAndUploadOrderScreenshot(item)
                                 }
                                 disabled={uploadingScreenshotId === item.id}
                             >
                                 {uploadingScreenshotId === item.id ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <ActivityIndicator color="#334155" />
                                 ) : (
-                                    <Text style={styles.actionText}>
+                                    <Text
+                                        style={[styles.actionText, styles.actionTextCapture]}
+                                    >
                                         📷 Capture SMS
                                     </Text>
                                 )}
@@ -833,7 +827,12 @@ export default function ClientNotificationsPage() {
                             ]}
                             onPress={() => setFilterType(type)}
                         >
-                            <Text style={styles.filterText}>
+                            <Text
+                                style={[
+                                    styles.filterText,
+                                    filterType === type && styles.filterTextActive,
+                                ]}
+                            >
                                 {type === "all"
                                     ? "Tous"
                                     : type === "sms"
@@ -1004,23 +1003,33 @@ export default function ClientNotificationsPage() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, backgroundColor: "#f0f0f0" },
+    container: {
+        flex: 1,
+        padding: 16,
+        paddingTop: 16 + (StatusBar.currentHeight || 0),
+        backgroundColor: "#eef2ff",
+    },
     title: {
         fontSize: 22,
-        fontWeight: "bold",
+        fontWeight: "800",
         marginBottom: 12,
         textAlign: "center",
+        color: "#0f172a",
     },
     searchInput: {
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         paddingHorizontal: 14,
         paddingVertical: 10,
-        borderRadius: 10,
+        borderRadius: 12,
         marginBottom: 10,
         fontSize: 16,
+        color: "#0f172a",
     },
     filterRow: {
         flexDirection: "row",
+        flexWrap: "wrap",
         justifyContent: "center",
         marginBottom: 10,
         gap: 10,
@@ -1028,40 +1037,50 @@ const styles = StyleSheet.create({
     filterButton: {
         paddingVertical: 8,
         paddingHorizontal: 16,
-        backgroundColor: "#ccc",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         borderRadius: 20,
     },
-    activeFilter: { backgroundColor: "#007bff" },
-    filterText: { color: "#fff", fontWeight: "bold" },
+    activeFilter: { backgroundColor: "#4f46e5", borderColor: "#4f46e5" },
+    filterText: { color: "#3730a3", fontWeight: "bold" },
+    filterTextActive: { color: "#ffffff" },
     addTemplateRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
     newTemplateInput: {
         flex: 1,
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         paddingHorizontal: 12,
         paddingVertical: 8,
-        borderRadius: 10,
+        borderRadius: 12,
         fontSize: 14,
+        color: "#0f172a",
     },
     addButton: {
-        backgroundColor: "#28a745",
+        backgroundColor: "#d1fae5",
+        borderWidth: 1.5,
+        borderColor: "#6ee7b7",
         paddingHorizontal: 14,
         justifyContent: "center",
-        borderRadius: 10,
+        borderRadius: 12,
     },
-    addButtonText: { color: "white", fontWeight: "bold" },
+    addButtonText: { color: "#065f46", fontWeight: "bold" },
     card: {
         backgroundColor: "#ffffff",
         padding: 16,
         marginBottom: 12,
-        borderRadius: 10,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: "#e0e7ff",
         elevation: 2,
-        shadowColor: "#000",
+        shadowColor: "#312e81",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
     },
-    name: { fontSize: 18, fontWeight: "bold" },
-    phone: { fontSize: 16, color: "#444" },
+    name: { fontSize: 18, fontWeight: "bold", color: "#0f172a" },
+    phone: { fontSize: 16, color: "#475569" },
     methodRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     badge: {
         paddingHorizontal: 12,
@@ -1077,7 +1096,7 @@ const styles = StyleSheet.create({
         gap: 6,
         marginLeft: 10,
     },
-    actionText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+    actionText: { fontWeight: "bold", fontSize: 16 },
     paginationRow: {
         flexDirection: "row",
         justifyContent: "center",
@@ -1103,12 +1122,15 @@ const styles = StyleSheet.create({
     pageButtonIcon: { width: 18, height: 18 },
     pageIndicator: { fontSize: 14, fontWeight: "700", color: "#333" },
     messageInput: {
-        backgroundColor: "#f6f6f6",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         paddingHorizontal: 10,
         paddingVertical: 8,
-        borderRadius: 8,
+        borderRadius: 10,
         marginTop: 10,
         fontSize: 14,
+        color: "#0f172a",
     },
     templateRow: {
         flexDirection: "row",
@@ -1117,14 +1139,18 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     templateButton: {
-        backgroundColor: "#eee",
+        backgroundColor: "#e0e7ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
     },
-    templateText: { fontSize: 12, color: "#333" },
+    templateText: { fontSize: 12, color: "#3730a3" },
     banner: {
-        backgroundColor: "#fcf3e9",
+        backgroundColor: "#eef2ff",
+        borderWidth: 1,
+        borderColor: "#e0e7ff",
         padding: 10,
         borderRadius: 10,
         marginBottom: 10,
@@ -1132,7 +1158,7 @@ const styles = StyleSheet.create({
     bannerTitle: {
         fontWeight: "bold",
         marginBottom: 4,
-        color: "#155724",
+        color: "#3730a3",
     },
     bannerRow: {
         flexDirection: "row",
@@ -1143,7 +1169,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     bannerText: {
-        color: "#155724",
+        color: "#3730a3",
         fontSize: 13,
         textAlign: "center",
         textDecorationLine: "underline",
@@ -1152,19 +1178,23 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         marginTop: 6,
         marginBottom: 10,
-        backgroundColor: "#ffc107",
+        backgroundColor: "#fef3c7",
+        borderWidth: 1.5,
+        borderColor: "#fcd34d",
         paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 20,
     },
     clearButtonText: {
-        color: "#000",
+        color: "#92400e",
         fontWeight: "bold",
         fontSize: 14,
     },
     urgentBadge: {
-        backgroundColor: "#dc3545",
-        color: "#fff",
+        backgroundColor: "#fee2e2",
+        color: "#b91c1c",
+        borderWidth: 1,
+        borderColor: "#fecaca",
         alignSelf: "flex-start",
         paddingHorizontal: 10,
         paddingVertical: 4,
@@ -1177,6 +1207,15 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         paddingHorizontal: 10,
         borderRadius: 20,
+        borderWidth: 1,
         marginBottom: 6,
     },
+    actionButtonCall: { backgroundColor: "#d1fae5", borderColor: "#6ee7b7" },
+    actionTextCall: { color: "#065f46" },
+    actionButtonSms: { backgroundColor: "#e0e7ff", borderColor: "#c7d2fe" },
+    actionTextSms: { color: "#3730a3" },
+    actionButtonAvis: { backgroundColor: "#fef3c7", borderColor: "#fcd34d" },
+    actionTextAvis: { color: "#92400e" },
+    actionButtonCapture: { backgroundColor: "#e2e8f0", borderColor: "#cbd5e1" },
+    actionTextCapture: { color: "#334155" },
 });

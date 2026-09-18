@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
@@ -911,7 +912,7 @@ export default function AllOrdersPage({ navigation }) {
 
             {showDeleted && (
               <TouchableOpacity
-                style={[styles.editButton, { backgroundColor: "#17a2b8" }]}
+                style={styles.editButton}
                 onPress={async () => {
                   const { error } = await supabase
                     .from("orders")
@@ -1033,7 +1034,14 @@ export default function AllOrdersPage({ navigation }) {
             setCurrentPage(1);
           }}
         >
-          <Text style={styles.filterText}>Toutes</Text>
+          <Text
+            style={[
+              styles.filterText,
+              filterStatus === "all" && styles.filterTextActive,
+            ]}
+          >
+            Toutes
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1046,7 +1054,14 @@ export default function AllOrdersPage({ navigation }) {
             setCurrentPage(1);
           }}
         >
-          <Text style={styles.filterText}>En attente</Text>
+          <Text
+            style={[
+              styles.filterText,
+              filterStatus === "pending" && styles.filterTextActive,
+            ]}
+          >
+            En attente
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1059,7 +1074,14 @@ export default function AllOrdersPage({ navigation }) {
             setCurrentPage(1);
           }}
         >
-          <Text style={styles.filterText}>En cours</Text>
+          <Text
+            style={[
+              styles.filterText,
+              filterStatus === "inprogress" && styles.filterTextActive,
+            ]}
+          >
+            En cours
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1072,7 +1094,14 @@ export default function AllOrdersPage({ navigation }) {
             setCurrentPage(1);
           }}
         >
-          <Text style={styles.filterText}>Terminées</Text>
+          <Text
+            style={[
+              styles.filterText,
+              filterStatus === "completed" && styles.filterTextActive,
+            ]}
+          >
+            Terminées
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -1235,7 +1264,12 @@ const THUMB_W = 96;
 const THUMB_H = 72;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#f4f4f4" },
+  container: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 16 + (StatusBar.currentHeight || 0),
+    backgroundColor: "#eef2ff",
+  },
   header: {
     fontSize: 22,
     fontWeight: "600",
@@ -1244,15 +1278,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     padding: 16,
     marginBottom: 16,
-    borderRadius: 10,
-    borderColor: "#ddd",
+    borderRadius: 16,
+    borderColor: "#e0e7ff",
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 2,
   },
   row: { flexDirection: "row", alignItems: "stretch" },
@@ -1271,21 +1306,23 @@ const styles = StyleSheet.create({
   label: { color: "#4a4a4a", fontWeight: "500", fontSize: 12, marginBottom: 2 },
   value: { color: "#1a1a1a", fontWeight: "500", fontSize: 13 },
   input: {
-    backgroundColor: "#fafafa",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    backgroundColor: "#ffffff",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     marginBottom: 6,
-    borderRadius: 6,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    color: "#000",
+    borderRadius: 10,
+    borderColor: "#c7d2fe",
+    borderWidth: 1.5,
+    color: "#0f172a",
     fontSize: 13,
   },
-  buttonText: { fontSize: 15, color: "#fff", fontWeight: "500" },
+  buttonText: { fontSize: 15, color: "#065f46", fontWeight: "700" },
   editButton: {
-    backgroundColor: "#505050",
+    backgroundColor: "#d1fae5",
+    borderWidth: 1,
+    borderColor: "#6ee7b7",
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 10,
     alignItems: "center",
   },
@@ -1339,16 +1376,18 @@ const styles = StyleSheet.create({
 
   suggestionContainer: {
     backgroundColor: "#ffffff",
-    borderColor: "#ccc",
-    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    borderWidth: 1.5,
     borderTopWidth: 0,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     maxHeight: 130,
   },
   suggestionItem: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#efefef",
+    borderBottomColor: "#e0e7ff",
   },
   suggestionText: { fontSize: 14 },
   floatingLabel: {
@@ -1356,11 +1395,11 @@ const styles = StyleSheet.create({
     top: 10,
     left: 12,
     fontSize: 13,
-    color: "#999",
+    color: "#6366f1",
     zIndex: 1,
   },
-  floatingLabelFocused: { top: -10, fontSize: 12, color: "#555" },
-  inputFocused: { borderColor: "#888", backgroundColor: "#f5f5f5" },
+  floatingLabelFocused: { top: -10, fontSize: 12, color: "#3730a3" },
+  inputFocused: { borderColor: "#4f46e5", backgroundColor: "#ffffff" },
 
   // Viewer
   viewerBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)" },
@@ -1391,7 +1430,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
+    color: "#0f172a",
   },
   headerSubtitle: {
     fontSize: 12,
@@ -1413,19 +1452,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
     paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#747474",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#ffffff",
     alignItems: "center",
   },
   filterActive: {
-    backgroundColor: "#2563eb",
-    borderColor: "#1d4ed8",
+    backgroundColor: "#4f46e5",
+    borderColor: "#4f46e5",
   },
   filterText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#f9f9fa",
+    color: "#3730a3",
+  },
+  filterTextActive: {
+    color: "#ffffff",
   },
 
   toggleContainer: {
@@ -1436,20 +1478,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#ffffff",
     alignItems: "center",
     marginHorizontal: 2,
   },
   toggleButtonActive: {
-    backgroundColor: "#e5f3ff",
-    borderColor: "#3b82f6",
+    backgroundColor: "#e0e7ff",
+    borderColor: "#4f46e5",
   },
   toggleButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#111827",
+    color: "#3730a3",
   },
 
   pager: {
@@ -1489,10 +1531,10 @@ const styles = StyleSheet.create({
   totalPreview: {
     marginTop: 6,
     padding: 6,
-    borderRadius: 8,
-    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    backgroundColor: "#eef2ff",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
   },
   totalLine: {
     fontSize: 12,
@@ -1524,10 +1566,10 @@ const styles = StyleSheet.create({
   infoGrid: {
     marginTop: 4,
     marginBottom: 4,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    borderColor: "#e0e7ff",
+    backgroundColor: "#eef2ff",
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -1539,7 +1581,7 @@ const styles = StyleSheet.create({
   },
 
   infoRowAlt: {
-    backgroundColor: "#eef2f7",
+    backgroundColor: "#e0e7ff",
     borderRadius: 4,
   },
 
@@ -1598,7 +1640,7 @@ const styles = StyleSheet.create({
   orderActionText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#4f46e5",
   },
     headerRow: {
     flexDirection: "row",
@@ -1630,7 +1672,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#1d4ed8",
+    color: "#3730a3",
   },
   editSection: {
     marginTop: 4,
@@ -1675,10 +1717,10 @@ const styles = StyleSheet.create({
   editActionText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#4f46e5",
   },
   editActionPrimary: {
-    color: "#1d4ed8",
+    color: "#3730a3",
   },
   editActionDanger: {
     color: "#b91c1c",
@@ -1693,18 +1735,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: "#e0f2fe",
+    backgroundColor: "#e0e7ff",
     borderWidth: 1,
-    borderColor: "#38bdf8",
+    borderColor: "#c7d2fe",
   },
   addItemButtonText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#0369a1",
+    color: "#3730a3",
   },
   editActionDivider: {
     fontSize: 12,
-    color: "#9ca3af",
+    color: "#c7d2fe",
   },
   qtyInputSimple: {
     textAlign: "center",

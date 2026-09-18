@@ -8,6 +8,7 @@ import {
   Image,
   TextInput,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -141,8 +142,14 @@ useFocusEffect(
         {item.product_type} – {item.client_date}
       </Text>
     </View>
-    <TouchableOpacity onPress={() => reprint(item)} style={styles.iconButton}>
-      <Image source={require("../assets/icons/print.png")} style={styles.icon} />
+    <TouchableOpacity
+      onPress={() => reprint(item)}
+      style={[styles.iconButton, styles.iconButtonPrint]}
+    >
+      <Image
+        source={require("../assets/icons/print.png")}
+        style={[styles.icon, styles.iconPrint]}
+      />
     </TouchableOpacity>
     <TouchableOpacity
       onPress={() =>
@@ -151,9 +158,12 @@ useFocusEffect(
           checkup: item,
         })
       }
-      style={styles.iconButton}
+      style={[styles.iconButton, styles.iconButtonEdit]}
     >
-      <Image source={require("../assets/icons/edit.png")} style={styles.icon} />
+      <Image
+        source={require("../assets/icons/edit.png")}
+        style={[styles.icon, styles.iconEdit]}
+      />
     </TouchableOpacity>
   </View>
   <View style={styles.separator} />
@@ -219,52 +229,78 @@ useFocusEffect(
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: {
+    flex: 1,
+    padding: 20,
+    paddingTop: 20 + (StatusBar.currentHeight || 0),
+    backgroundColor: "#eef2ff",
+  },
   title: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "800",
     marginBottom: 20,
     textAlign: "center",
+    color: "#0f172a",
   },
   searchInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
     padding: 10,
     marginBottom: 5,
+    color: "#0f172a",
   },
   suggestionsBox: {
     maxHeight: 160,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
     marginBottom: 10,
   },
   suggestionText: {
     padding: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#e0e7ff",
+    color: "#0f172a",
   },
   itemContainer: {
     flexDirection: "row",
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "#ffffff",
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 16,
     alignItems: "center",
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  name: { fontWeight: "bold", fontSize: 16 },
+  name: { fontWeight: "bold", fontSize: 16, color: "#0f172a" },
   iconButton: {
     marginLeft: 10,
-    backgroundColor: "#007bff",
     padding: 6,
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  icon: { width: 20, height: 20, tintColor: "#fff" },
+  iconButtonPrint: {
+    backgroundColor: "#d1fae5",
+    borderColor: "#6ee7b7",
+  },
+  iconButtonEdit: {
+    backgroundColor: "#e0e7ff",
+    borderColor: "#c7d2fe",
+  },
+  icon: { width: 20, height: 20 },
+  iconPrint: { tintColor: "#065f46" },
+  iconEdit: { tintColor: "#3730a3" },
   separator: {
-  height: 1,
-  backgroundColor: "#ccc",
-  marginVertical: 8,
-},
-
+    height: 1,
+    backgroundColor: "#e0e7ff",
+    marginVertical: 8,
+  },
 });

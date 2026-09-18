@@ -6,6 +6,7 @@ import {
     ScrollView,
     StyleSheet,
     TouchableOpacity,
+    StatusBar,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -151,102 +152,173 @@ const fetchInvoice = async () => {
     const handlePrint = async () => {
         if (!invoice) return;
 
-        const rows = invoice.lines
-            .map(
-                (line) => `
-  <tr>
-    <td style="border: 1px solid #000; padding: 6px;">${line.designation}${
-                    line.serial ? ` (SN: ${line.serial})` : ""
-                }</td>
-    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${
-        line.quantity
-    }</td>
-    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-        parseFloat(line.price) / 1.2
-    ).toFixed(2)} €</td>
-    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(
-        parseFloat(line.price) * parseFloat(line.quantity)
-    ).toFixed(2)} €</td>
-  </tr>
-`
-            )
+        const n2p = (x) => (Number.isFinite(x) ? x.toFixed(2) : "0.00");
+
+        const totalhtLocal = invoice.totalht || 0;
+        const totaltvaLocal = invoice.totaltva || 0;
+        const totalttcLocal = invoice.totalttc || 0;
+        const acompteN = parseFloat(invoice.acompte || 0) || 0;
+        const netToPay = Math.max(0, totalttcLocal - acompteN);
+        const stamp = invoice.paid
+            ? `<div class="stamp paid">FACTURE RÉGLÉE</div>`
+            : `<div class="stamp unpaid">FACTURE NON RÉGLÉE</div>`;
+
+        let rows = invoice.lines
+            .map((line) => {
+                const q = parseFloat(String(line.quantity).replace(",", ".")) || 0;
+                const unitTTC = parseFloat(String(line.price).replace(",", ".")) || 0;
+                const unitHT = unitTTC / 1.2;
+                const lineTTC = q * unitTTC;
+                return `
+            <tr>
+              <td class="td desc">
+                ${String(line.designation || "").replace(/</g, "&lt;")}
+                ${
+                    line.serial
+                        ? `<div class="serial">SN : ${String(line.serial).replace(
+                              /</g,
+                              "&lt;"
+                          )}</div>`
+                        : ""
+                }
+              </td>
+              <td class="td num c">${n2p(q)}</td>
+              <td class="td num r">${n2p(unitHT)} €</td>
+              <td class="td num r">${n2p(lineTTC)} €</td>
+            </tr>
+          `;
+            })
             .join("");
 
-        const ttc = invoice.totalttc || 0;
-        const acompte = parseFloat(invoice.acompte || 0);
-        const tva = invoice.totaltva || 0;
+        // Lignes vides pour combler l'espace en bas de page (esthétique)
+        const MIN_ROWS = 12;
+        const fillerCount = Math.max(0, MIN_ROWS - invoice.lines.length);
+        if (fillerCount > 0) {
+            rows += `<tr>${Array(4)
+                .fill('<td class="td">&nbsp;</td>')
+                .join("")}</tr>`.repeat(fillerCount);
+        }
 
         const html = `
   <html>
-    <body style="font-family: Arial, sans-serif; padding: 10px; margin: 0; background: #fff;">
-      <div style="max-width: 480px; height: 100%; min-height: 720px; margin: auto; display: flex; flex-direction: column; justify-content: space-between;">
-        <div>
-          <div style="text-align: center; margin-bottom: 10px;">
-            <img src="https://www.avenir-informatique.fr/logo.webp" style="height: 40px;" />
-          </div>
-          <h2 style="text-align:center; font-size: 16px; margin: 10px 0;">FACTURE</h2>
+    <head>
+      <meta charset="utf-8"/>
+      <style>
+        @page { size: A4; margin: 14mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#000; font-size: 12px; }
+        .wrap { max-width: 780px; margin: 0 auto; }
 
-          <div style="font-size: 9px; margin-bottom: 8px;">
-            <p><strong>Client :</strong> ${invoice.clientname}<br/>
-            <strong>Téléphone :</strong> ${invoice.clientphone}<br/>
-            <strong>Adresse :</strong> ${
-                invoice.client_address || "Non renseignée"
-            }</p>
-          </div>
+        .header { text-align: center; margin-bottom: 12px; }
+        .header img { height: 56px; }
+        .title { font-size: 20px; font-weight: 700; margin: 6px 0 12px 0; letter-spacing: 1px; }
 
-          <div style="font-size: 9px; margin-bottom: 10px;">
-            <p><strong>Facture N° :</strong> ${invoice.invoicenumber}<br/>
-            <strong>Date :</strong> ${invoice.invoicedate}</p>
-          </div>
+        .meta { display:flex; gap: 12px; margin: 0 0 16px 0; }
+        .card { border:1px solid #000; border-radius:6px; padding:10px 12px; flex:1; }
+        .card h3 { margin:0 0 8px 0; font-size:13px; }
+        .card p { margin:2px 0; }
 
-          <table width="100%" style="border-collapse: collapse; margin-top: 20px; font-size: 9px;">
-            <thead style="background-color: #d3d3d3;">
-              <tr>
-                <th style="border: 1px solid #000; padding: 6px;">Désignation</th>
-                <th style="border: 1px solid #000; padding: 6px;">Qté</th>
-                <th style="border: 1px solid #000; padding: 6px;">P.U. HT</th>
-                <th style="border: 1px solid #000; padding: 6px;">Montant TTC</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
+        table { width:100%; border-collapse: collapse; }
+        .th, .td { border:1px solid #000; padding:8px; }
+        thead .th { background:#e5e5e5; font-weight:bold; }
+        .desc { width:100%; }
+        .serial { font-size:10px; color:#555; margin-top:4px; }
+        .num { white-space: nowrap; }
+        .c { text-align:center; }
+        .r { text-align:right; }
 
-          <div style="font-size: 9px; margin-top: 15px;">
-            <p style="text-align: right;">TVA (20%) : ${tva.toFixed(2)} €</p>
-            <p style="text-align: right;">Total TTC : ${ttc.toFixed(2)} €</p>
-            <p style="text-align: right;">Acompte versé : ${acompte.toFixed(
-                2
-            )} €</p>
-          </div>
+        .totals { margin-top: 12px; display:flex; justify-content:flex-end; }
+        .totals table { width: 360px; border-collapse: collapse; font-size: 12px; }
+        .totals td { border:1px solid #000; padding:8px; }
+        .totals .label { background:#f7f7f7; }
 
-          <div style="background: #e0f7fa; padding: 8px; border-radius: 6px; margin-top: 10px;">
-            <h3 style="text-align: right; margin: 0; font-size: 10px; color: #00796b;">
-              Net à payer : ${(ttc - acompte).toFixed(2)} €
-            </h3>
-          </div>
+        .net { margin-top: 8px; text-align: right; font-size: 14px; font-weight: bold; padding: 10px 0; }
 
-          <p style="text-align: right; margin-top: 8px; font-size: 9px;">
-            <strong>Mode de paiement :</strong> ${
-                invoice.paymentmethod || "....................................."
-            }
-          </p>
+        .stamp { display:inline-block; padding:6px 10px; border:2px solid; font-weight:700; letter-spacing:1px; margin-left:10px; }
+        .paid { color:#2e7d32; border-color:#2e7d32; }
+        .unpaid { color:#c62828; border-color:#c62828; }
+
+        .footer {
+          position: fixed;
+          left: 0; right: 0; bottom: 10mm;
+          text-align: center;
+          font-size: 10px; color:#444; line-height: 1.4;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <div class="header">
+          <img src="https://www.avenir-informatique.fr/logo.webp" alt="Avenir Informatique" />
+          <div class="title">FACTURE</div>
         </div>
 
-        <div style="margin-top: 20px; background: #f0f0f0; padding: 8px; font-size: 8px; text-align: center; color: #555;">
-          <p><strong>AVENIR INFORMATIQUE</strong> - 16, place de l'Hôtel de Ville, 93700 Drancy</p>
-          <p>Tél : 01 41 60 18 18 - SIRET : 422 240 457 00016</p>
-          <p>R.C.S : Bobigny B422 240 457 - N/Id CEE FR32422240457</p>
-          <p style="margin-top: 6px;">
-            Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
-            En cas de litige, le tribunal de Bobigny est seul compétent.
-          </p>
+        <div class="meta">
+          <div class="card">
+            <h3>Client</h3>
+            <p><strong>${invoice.clientname}</strong></p>
+            <p>Téléphone : ${invoice.clientphone}</p>
+            <p>Adresse : ${invoice.client_address || "—"}</p>
+          </div>
+          <div class="card">
+            <h3>Détails</h3>
+            <p>Numéro : <strong>${invoice.invoicenumber}</strong></p>
+            <p>Date : ${invoice.invoicedate}</p>
+            <p>Mode de paiement : ${invoice.paymentmethod || "—"}</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th class="th desc">Désignation</th>
+              <th class="th c" style="width:90px;">Qté</th>
+              <th class="th r" style="width:120px;">P.U. HT</th>
+              <th class="th r" style="width:140px;">Montant TTC</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+
+        <div class="totals">
+          <table>
+            <tr>
+              <td class="label">Total HT</td>
+              <td class="r"><strong>${n2p(totalhtLocal)} €</strong></td>
+            </tr>
+            <tr>
+              <td class="label">TVA (20%)</td>
+              <td class="r">${n2p(totaltvaLocal)} €</td>
+            </tr>
+            <tr>
+              <td class="label">Total TTC</td>
+              <td class="r"><strong>${n2p(totalttcLocal)} €</strong></td>
+            </tr>
+            ${
+                acompteN > 0
+                    ? `
+            <tr>
+              <td class="label">Acompte versé</td>
+              <td class="r">-${n2p(acompteN)} €</td>
+            </tr>`
+                    : ""
+            }
+          </table>
+        </div>
+
+        <div class="net">
+          Net à payer : ${n2p(netToPay)} €
+          ${stamp}
         </div>
       </div>
+
+      <div class="footer">
+        <strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
+        RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457<br/>
+        Clause de réserve de propriété : les marchandises restent la propriété du vendeur jusqu'au paiement intégral.<br/>
+        En cas de litige, le tribunal de Bobigny est seul compétent.
+      </div>
     </body>
-  </html>
-`;
+  </html>`;
 
         await Print.printAsync({ html });
     };
@@ -484,7 +556,9 @@ const fetchInvoice = async () => {
                         setIsSaved(true);
                     }}
                 >
-                    <Text style={styles.gridBtnText}>💾 Sauvegarder</Text>
+                    <Text style={[styles.gridBtnText, styles.gridBtnTextPrimary]}>
+                        💾 Sauvegarder
+                    </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -495,7 +569,16 @@ const fetchInvoice = async () => {
                     disabled={!isSaved}
                     onPress={handlePrint}
                 >
-                    <Text style={styles.gridBtnText}>🖨️ Réimprimer</Text>
+                    <Text
+                        style={[
+                            styles.gridBtnText,
+                            isSaved
+                                ? styles.gridBtnTextSuccess
+                                : styles.gridBtnTextDisabled,
+                        ]}
+                    >
+                        🖨️ Réimprimer
+                    </Text>
                 </TouchableOpacity>
 
                 <BackButton onPress={() => navigation.goBack()} />
@@ -517,10 +600,90 @@ const fetchInvoice = async () => {
 
 const styles = StyleSheet.create({
     ...commonStyles,
-    screen: { flex: 1, backgroundColor: "#f8fafc" },
-    fieldLabel: commonStyles.fieldLabel,
-    cardTitle: commonStyles.cardTitle,
-    card: commonStyles.card,
+
+    // Surcharges "pastel indigo" propres à cette page (le thème partagé
+    // commonStyles reste inchangé pour ne pas impacter les autres pages qui
+    // l'utilisent : BillingPage, QuoteEditPage, SearchClientsPage...).
+    screen: { flex: 1, backgroundColor: "#eef2ff" },
+    container: {
+        padding: 14,
+        paddingTop: 14 + (StatusBar.currentHeight || 0),
+        backgroundColor: "#eef2ff",
+    },
+
+    card: {
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        padding: 12,
+        marginTop: 8,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: "#e0e7ff",
+        shadowColor: "#312e81",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
+    },
+    cardTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#312e81",
+        marginBottom: 4,
+    },
+
+    input: {
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        marginBottom: 6,
+        borderRadius: 12,
+        backgroundColor: "#ffffff",
+        fontSize: 15,
+        color: "#0f172a",
+    },
+    inputFocused: { borderColor: "#4f46e5", backgroundColor: "#ffffff" },
+
+    addMiniButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: "#e0e7ff",
+        borderWidth: 1,
+        borderColor: "#c7d2fe",
+    },
+    addMiniButtonText: {
+        fontSize: 12,
+        fontWeight: "700",
+        color: "#3730a3",
+    },
+
+    gridBtnPrimary: { backgroundColor: "#e0e7ff", borderColor: "#c7d2fe" },
+    gridBtnSuccess: { backgroundColor: "#d1fae5", borderColor: "#6ee7b7" },
+    gridBtnDisabled: { backgroundColor: "#f1f5f9", borderColor: "#e2e8f0" },
+    gridBtn: {
+        width: "48%",
+        minHeight: 34,
+        borderRadius: 999,
+        paddingVertical: 6,
+        paddingHorizontal: 6,
+        marginBottom: 6,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1.5,
+        backgroundColor: "#f1f5f9",
+        borderColor: "#e2e8f0",
+    },
+    gridBtnText: {
+        color: "#3730a3",
+        fontSize: 12,
+        fontWeight: "700",
+        textAlign: "center",
+    },
+    gridBtnTextDisabled: { color: "#94a3b8" },
+    gridBtnTextPrimary: { color: "#3730a3" },
+    gridBtnTextSuccess: { color: "#065f46" },
 
     cardSectionHeaderRow: {
         flexDirection: "row",
@@ -530,10 +693,10 @@ const styles = StyleSheet.create({
     },
 
     lineCard: {
-        borderRadius: 10,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: "#e5e7eb",
-        backgroundColor: "#ffffff",
+        borderColor: "#e0e7ff",
+        backgroundColor: "#eef2ff",
         padding: 8,
         marginBottom: 8,
     },

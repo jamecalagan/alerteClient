@@ -886,16 +886,26 @@ const BillingPage = () => {
   };
 
   return (
-    <View style={{ flex: 1, paddingTop: StatusBar.currentHeight || 0 }}>
+    <View
+      style={{
+        flex: 1,
+        paddingTop: StatusBar.currentHeight || 0,
+        backgroundColor: "#eef2ff",
+      }}
+    >
       <TouchableOpacity
         onPress={() => setPreviewMode((v) => !v)}
-        style={{
-          backgroundColor: previewMode ? "#374151" : "#2563eb",
-          paddingVertical: 12,
-          alignItems: "center",
-        }}
+        style={[
+          styles.previewToggle,
+          previewMode && styles.previewToggleActive,
+        ]}
       >
-        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+        <Text
+          style={[
+            styles.previewToggleText,
+            previewMode && styles.previewToggleTextActive,
+          ]}
+        >
           {previewMode ? "✏️ Retour au formulaire" : "👁️ Aperçu de la facture"}
         </Text>
       </TouchableOpacity>
@@ -1280,7 +1290,7 @@ const BillingPage = () => {
             <Text
               style={[
                 styles.gridBtnText,
-                isSaved && styles.gridBtnTextDisabled,
+                isSaved ? styles.gridBtnTextDisabled : styles.gridBtnTextPrimary,
               ]}
             >
               {isSaved ? "✅ Sauvegardée" : "💾 Sauvegarder"}
@@ -1312,7 +1322,9 @@ const BillingPage = () => {
             <Text
               style={[
                 styles.gridBtnText,
-                (!isSaved || !paid) && styles.gridBtnTextDisabled,
+                !isSaved || !paid
+                  ? styles.gridBtnTextDisabled
+                  : styles.gridBtnTextSuccess,
               ]}
             >
               🖨️ Imprimer
@@ -1323,7 +1335,9 @@ const BillingPage = () => {
             style={[styles.gridBtn, styles.gridBtnDark]}
             onPress={() => navigation.navigate("BillingListPage")}
           >
-            <Text style={styles.gridBtnText}>📋 Liste des factures</Text>
+            <Text style={[styles.gridBtnText, styles.gridBtnTextDark]}>
+              📋 Liste des factures
+            </Text>
           </TouchableOpacity>
 
           <BackButton onPress={() => navigation.goBack()} />
@@ -1343,10 +1357,107 @@ const BillingPage = () => {
 
 const styles = StyleSheet.create({
   ...commonStyles,
-  // Alias : ce fichier utilise cardSection/cardSectionTitle dans le JSX,
-  // le thème partage centralise le style sous card/cardTitle.
-  cardSection: commonStyles.card,
-  cardSectionTitle: commonStyles.cardTitle,
+
+  // Surcharges "pastel indigo" propres à cette page (le thème partagé
+  // commonStyles reste inchangé pour ne pas impacter les autres pages qui
+  // l'utilisent : QuoteEditPage, SearchClientsPage, ArticlesPage...).
+  container: { padding: 14, backgroundColor: "#eef2ff" },
+
+  previewToggle: {
+    backgroundColor: "#e0e7ff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#c7d2fe",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  previewToggleActive: {
+    backgroundColor: "#e2e8f0",
+    borderBottomColor: "#cbd5e1",
+  },
+  previewToggleText: {
+    color: "#3730a3",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  previewToggleTextActive: {
+    color: "#334155",
+  },
+
+  cardSection: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#312e81",
+    marginBottom: 4,
+  },
+
+  input: {
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    fontSize: 15,
+    color: "#0f172a",
+  },
+  inputFocused: { borderColor: "#4f46e5", backgroundColor: "#ffffff" },
+
+  addMiniButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  addMiniButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#3730a3",
+  },
+
+  gridBtnPrimary: { backgroundColor: "#e0e7ff", borderColor: "#c7d2fe" },
+  gridBtnSuccess: { backgroundColor: "#d1fae5", borderColor: "#6ee7b7" },
+  gridBtnDark: { backgroundColor: "#e2e8f0", borderColor: "#cbd5e1" },
+  gridBtnDisabled: { backgroundColor: "#f1f5f9", borderColor: "#e2e8f0" },
+  gridBtn: {
+    width: "48%",
+    minHeight: 34,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    backgroundColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
+  },
+  gridBtnText: {
+    color: "#3730a3",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  gridBtnTextDisabled: { color: "#94a3b8" },
+  gridBtnTextPrimary: { color: "#3730a3" },
+  gridBtnTextSuccess: { color: "#065f46" },
+  gridBtnTextDark: { color: "#334155" },
 
   quoteRefText: {
     fontStyle: "italic",
@@ -1357,15 +1468,15 @@ const styles = StyleSheet.create({
 
   readonlyCell: {
     height: 40,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 6,
-    backgroundColor: "#f9fafb",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
+    backgroundColor: "#eef2ff",
     textAlign: "right",
     paddingHorizontal: 8,
     paddingTop: 9,
     fontSize: 13,
-    color: "#111827",
+    color: "#3730a3",
   },
 
   // Paiement
@@ -1378,20 +1489,20 @@ const styles = StyleSheet.create({
   paymentChip: {
     flex: 1,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     paddingVertical: 6,
     alignItems: "center",
     backgroundColor: "#ffffff",
   },
   paymentChipSelected: {
-    backgroundColor: "#2563eb",
-    borderColor: "#1d4ed8",
+    backgroundColor: "#4f46e5",
+    borderColor: "#4f46e5",
   },
   paymentChipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#111827",
+    color: "#3730a3",
   },
   paymentChipTextSelected: {
     color: "#ffffff",
@@ -1448,10 +1559,10 @@ const styles = StyleSheet.create({
   },
 
   lineCard: {
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#ffffff",
+    borderColor: "#e0e7ff",
+    backgroundColor: "#eef2ff",
     padding: 8,
     marginBottom: 8,
   },

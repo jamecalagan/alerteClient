@@ -7,6 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     Image,
+    StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import * as Print from "expo-print";
@@ -428,7 +429,7 @@ export default function QuickLabelPrintPage({ navigation }) {
                         ) : null}
                         {lbl.printed && (
                             <Text style={styles.labelLine}>
-                                <Text style={{ color: "#001d07" }}>
+                                <Text style={{ color: "#065f46", fontWeight: "700" }}>
                                     ✅ Déjà imprimée
                                 </Text>
                             </Text>
@@ -437,22 +438,19 @@ export default function QuickLabelPrintPage({ navigation }) {
 
                     <View style={styles.cardButtons}>
                         <TouchableOpacity
-                            style={styles.smallBtn}
+                            style={[styles.smallBtn, styles.smallBtnEdit]}
                             onPress={() => startEdit(lbl)}
                         >
                             <Text style={styles.smallTxt}>✏️</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={styles.smallBtn}
+                            style={[styles.smallBtn, styles.smallBtnPrint]}
                             onPress={() => printLabel(lbl)}
                         >
                             <Text style={styles.smallTxt}>🖨️</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[
-                                styles.smallBtn,
-                                { backgroundColor: "#a94442" },
-                            ]}
+                            style={[styles.smallBtn, styles.smallBtnDelete]}
                             onPress={() => confirmDelete(lbl.id)}
                         >
                             <Text style={styles.smallTxt}>🗑️</Text>
@@ -541,7 +539,8 @@ export default function QuickLabelPrintPage({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         padding: 16,
-        backgroundColor: "#e9e9e9",
+        paddingTop: 16 + (StatusBar.currentHeight || 0),
+        backgroundColor: "#eef2ff",
     },
     pagination: {
         flexDirection: "row",
@@ -575,37 +574,47 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 20,
+        fontWeight: "800",
         marginBottom: 10,
-        color: "#252525",
+        color: "#0f172a",
         textAlign: "center",
     },
     subTitle: {
         fontSize: 16,
+        fontWeight: "700",
         marginTop: 30,
         marginBottom: 10,
-        color: "#252525",
+        color: "#312e81",
         borderBottomWidth: 1,
-        borderBottomColor: "#444",
+        borderBottomColor: "#c7d2fe",
         paddingBottom: 4,
     },
     input: {
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         padding: 10,
         marginBottom: 10,
-        borderRadius: 8,
+        borderRadius: 12,
+        color: "#0f172a",
     },
     textarea: {
-        backgroundColor: "#fff",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
         padding: 10,
         height: 80,
         textAlignVertical: "top",
-        borderRadius: 8,
+        borderRadius: 12,
         marginBottom: 10,
+        color: "#0f172a",
     },
     saveButton: {
-        backgroundColor: "#046b1e",
+        backgroundColor: "#d1fae5",
+        borderWidth: 1.5,
+        borderColor: "#6ee7b7",
         padding: 12,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: "center",
     },
     cancelButton: {
@@ -613,44 +622,66 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     buttonText: {
-        color: "#fff",
+        color: "#065f46",
         fontSize: 16,
+        fontWeight: "700",
     },
     cancelText: {
-        color: "#222121",
+        color: "#64748b",
         fontSize: 14,
     },
     labelCard: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#bebebe",
+        backgroundColor: "#ffffff",
         padding: 12,
-        borderRadius: 8,
+        borderRadius: 16,
         marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#e0e7ff",
+        shadowColor: "#312e81",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
     },
     labelLine: {
-        color: "#252525",
+        color: "#334155",
         marginBottom: 2,
     },
-    bold: { fontWeight: "bold", color: "#202020" },
+    bold: { fontWeight: "bold", color: "#0f172a" },
     cardButtons: {
         flexDirection: "row",
         marginLeft: 12,
     },
     smallBtn: {
-        backgroundColor: "#afafaf",
         padding: 6,
-        borderRadius: 6,
+        borderRadius: 8,
         marginLeft: 6,
+        borderWidth: 1,
     },
-    smallTxt: { color: "#ffffff", fontSize: 16 },
+    smallBtnEdit: {
+        backgroundColor: "#e0e7ff",
+        borderColor: "#c7d2fe",
+    },
+    smallBtnPrint: {
+        backgroundColor: "#d1fae5",
+        borderColor: "#6ee7b7",
+    },
+    smallBtnDelete: {
+        backgroundColor: "#fee2e2",
+        borderColor: "#fecaca",
+    },
+    smallTxt: { fontSize: 16 },
     optionText: {
         fontSize: 18,
         color: "#ffffff",
     },
     suggestionBox: {
-        backgroundColor: "#fff",
-        borderRadius: 8,
+        backgroundColor: "#ffffff",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        borderRadius: 12,
         paddingHorizontal: 10,
         paddingVertical: 4,
         maxHeight: 150,
@@ -659,8 +690,8 @@ const styles = StyleSheet.create({
     },
     suggestionItem: {
         paddingVertical: 10,
-        borderBottomColor: "#ccc",
+        borderBottomColor: "#e0e7ff",
         borderBottomWidth: 1,
-        color: "#222",
+        color: "#0f172a",
     },
 });

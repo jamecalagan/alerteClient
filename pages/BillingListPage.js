@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  StatusBar,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import * as FileSystem from "expo-file-system/legacy";
@@ -319,7 +320,7 @@ export default function BillingListPage() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#ffffff" }}>
+    <View style={{ flex: 1, backgroundColor: "#eef2ff" }}>
       <ScrollView
         contentContainerStyle={[
           styles.container,
@@ -688,23 +689,31 @@ export default function BillingListPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: {
+    padding: 16,
+    paddingTop: 16 + (StatusBar.currentHeight || 0),
+  },
   title: {
     fontSize: 22,
     fontWeight: "800",
     marginBottom: 16,
-    color: "#111827",
+    color: "#0f172a",
     textAlign: "center",
   },
 
   /* Total période */
   periodBlock: {
-    backgroundColor: "#f9fafb",
-    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
     padding: 12,
     marginBottom: 16,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   periodTabsRow: {
     flexDirection: "row",
@@ -715,16 +724,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
     alignItems: "center",
   },
   periodTabActive: {
-    backgroundColor: "#111827",
+    backgroundColor: "#4f46e5",
+    borderColor: "#4f46e5",
   },
   periodTabText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#374151",
+    color: "#3730a3",
   },
   periodTabTextActive: {
     color: "#ffffff",
@@ -745,7 +757,7 @@ const styles = StyleSheet.create({
   periodTotalValue: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#111827",
+    color: "#0f172a",
   },
   periodCount: {
     fontSize: 11,
@@ -755,13 +767,15 @@ const styles = StyleSheet.create({
   },
   exportButton: {
     marginTop: 10,
-    backgroundColor: "#111827",
+    backgroundColor: "#d1fae5",
+    borderWidth: 1,
+    borderColor: "#6ee7b7",
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
   },
   exportButtonText: {
-    color: "#ffffff",
+    color: "#065f46",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -802,32 +816,32 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -10,
     left: 16,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#eef2ff",
     paddingHorizontal: 4,
     fontSize: 13,
-    color: "#6b7280",
+    color: "#6366f1",
     zIndex: 2,
   },
   floatingLabelActive: {
-    color: "#6b4e16",
+    color: "#3730a3",
     fontWeight: "700",
   },
   inputContainer: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
     backgroundColor: "#ffffff",
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
   inputContainerActive: {
-    borderColor: "#6b4e16",
+    borderColor: "#4f46e5",
     borderWidth: 2,
   },
   searchInputStyled: {
     fontSize: 15,
     paddingVertical: 8,
-    color: "#111827",
+    color: "#0f172a",
   },
 
   /* Toggle actif / supprimé */
@@ -840,29 +854,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     alignItems: "center",
   },
   toggleActive: {
-    backgroundColor: "#6b4e16",
+    backgroundColor: "#e0e7ff",
+    borderColor: "#4f46e5",
   },
   toggleText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#374151",
+    color: "#3730a3",
   },
   toggleTextActive: {
-    color: "#ffffff",
+    color: "#3730a3",
   },
 
   /* Carte facture */
   card: {
     backgroundColor: "#ffffff",
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardSelected: {
     borderColor: "#b91c1c",
@@ -906,8 +928,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   checkboxChecked: {
-    backgroundColor: "#6b4e16",
-    borderColor: "#6b4e16",
+    backgroundColor: "#4f46e5",
+    borderColor: "#4f46e5",
   },
   checkboxTick: {
     color: "#ffffff",
@@ -943,7 +965,7 @@ const styles = StyleSheet.create({
 
   cardDivider: {
     height: 1,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#e0e7ff",
     marginVertical: 6,
   },
 
@@ -958,7 +980,7 @@ const styles = StyleSheet.create({
   actionsTextPrimary: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: "#4f46e5",
   },
   actionsTextDanger: {
     fontSize: 13,
@@ -967,7 +989,7 @@ const styles = StyleSheet.create({
   },
   actionsDivider: {
     fontSize: 12,
-    color: "#9ca3af",
+    color: "#c7d2fe",
   },
 
   /* Pagination */

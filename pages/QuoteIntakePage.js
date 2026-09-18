@@ -308,7 +308,10 @@ const QuoteIntakePage = () => {
       extraScrollHeight={24}
       extraHeight={Platform.select({ ios: 0, android: 120 })}
       keyboardOpeningTime={0}
-      contentContainerStyle={[styles.container, { paddingBottom: 24 + insets.bottom }]}
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: 16 + insets.top, paddingBottom: 24 + insets.bottom },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Demande de devis — Prise d’informations</Text>
@@ -538,29 +541,50 @@ const QuoteIntakePage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: "#fff" },
+  container: { padding: 16, backgroundColor: "#eef2ff" },
   title: { fontSize: 20, fontWeight: "800", textAlign: "center", marginBottom: 6, color: "#0f172a" },
-  subtitle: { fontSize: 13, textAlign: "center", color: "#374151", marginBottom: 14 },
-  group: { backgroundColor: "#f7f7f7", borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#e5e7eb" },
-  legend: { fontSize: 13, fontWeight: "700", color: "#111827", marginBottom: 6 },
-  label: { fontSize: 12, fontWeight: "600", marginTop: 8, marginBottom: 6, color: "#111827" },
-  input: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#d1d5db", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: "#111827" },
+  subtitle: { fontSize: 13, textAlign: "center", color: "#4b5563", marginBottom: 14 },
+  group: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  legend: { fontSize: 13, fontWeight: "700", color: "#312e81", marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: "600", marginTop: 8, marginBottom: 6, color: "#334155" },
+  input: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#0f172a",
+  },
   inputError: { borderColor: "#dc2626", backgroundColor: "#fff5f5" },
   helperError: { color: "#b91c1c", marginTop: 4, fontSize: 12 },
   multiline: { minHeight: 80, textAlignVertical: "top" },
   actions: { marginTop: 6, marginBottom: 24, alignItems: "center", gap: 10 },
   btn: { width: "100%", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
-  btnPrimary: { backgroundColor: "#6b4e16" },
-  btnLight: { backgroundColor: "#e5e7eb" },
-  btnText: { color: "#ffffff", fontSize: 16, fontWeight: "800" },
-  btnTextLight: { color: "#1f2937", fontSize: 15, fontWeight: "700" },
+  btnPrimary: { backgroundColor: "#e0e7ff", borderWidth: 1.5, borderColor: "#c7d2fe" },
+  btnLight: { backgroundColor: "#e0e7ff", borderWidth: 1.5, borderColor: "#c7d2fe" },
+  btnText: { color: "#3730a3", fontSize: 16, fontWeight: "800" },
+  btnTextLight: { color: "#3730a3", fontSize: 15, fontWeight: "700" },
 
   // Suggestions
   suggestionBox: {
     backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
     marginTop: 6,
     marginBottom: 6,
     overflow: "hidden",
@@ -569,13 +593,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#efefef",
+    borderBottomColor: "#e0e7ff",
   },
-  suggestionText: { color: "#111827", fontSize: 14 },
+  suggestionText: { color: "#0f172a", fontSize: 14 },
 
   // Photos
   photosGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  photoWrap: { width: "30%", aspectRatio: 1, borderRadius: 10, overflow: "hidden", position: "relative", backgroundColor: "#e5e7eb" },
+  photoWrap: { width: "30%", aspectRatio: 1, borderRadius: 10, overflow: "hidden", position: "relative", backgroundColor: "#e0e7ff" },
   photo: { width: "100%", height: "100%" },
   photoRemove: { position: "absolute", top: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, paddingHorizontal: 6, paddingVertical: 0 },
     photoActionsRow: {
@@ -587,14 +611,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#e0e7ff",
   },
   photoButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#111827",
+    color: "#3730a3",
   },
 
   actionsRow: {
@@ -603,25 +627,28 @@ const styles = StyleSheet.create({
   primaryActionButton: {
     height: 40,
     borderRadius: 999,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 12,
   },
   primaryActionDisabled: {
-    backgroundColor: "#9ca3af",
+    backgroundColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
   },
   primaryActionText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#ffffff",
+    color: "#3730a3",
   },
   actionsBlock: {
     marginTop: 12,
   },
   actionsSeparator: {
     height: 1,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#e0e7ff",
     marginBottom: 10,
   },
   actionsTextRow: {
@@ -632,10 +659,10 @@ const styles = StyleSheet.create({
   actionsText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#4f46e5",
   },
   actionsTextDisabled: {
-    color: "#9ca3af",
+    color: "#94a3b8",
   },
 
 });

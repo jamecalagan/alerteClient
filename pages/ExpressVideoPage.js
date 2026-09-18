@@ -8,6 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     FlatList,
+    StatusBar,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supabase } from "../supabaseClient";
@@ -286,7 +287,7 @@ export default function ExpressVideoPage() {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={{ flex: 1 }}
+            style={{ flex: 1, backgroundColor: "#eef2ff" }}
         >
             <FlatList
                 keyboardShouldPersistTaps="handled"
@@ -406,18 +407,21 @@ export default function ExpressVideoPage() {
                             <Text style={styles.label}>Facture réglée</Text>
                             <TouchableOpacity
                                 onPress={() => setIsPaid(!isPaid)}
-                                style={{
-                                    padding: 10,
-                                    borderWidth: 1,
-                                    borderColor: "#aaa",
-                                    borderRadius: 8,
-                                    backgroundColor: isPaid
-                                        ? "#d4edda"
-                                        : "#f8d7da",
-                                    alignItems: "center",
-                                }}
+                                style={[
+                                    styles.paidToggle,
+                                    isPaid
+                                        ? styles.paidToggleOn
+                                        : styles.paidToggleOff,
+                                ]}
                             >
-                                <Text style={{ fontWeight: "600" }}>
+                                <Text
+                                    style={[
+                                        styles.paidToggleText,
+                                        isPaid
+                                            ? styles.paidToggleTextOn
+                                            : styles.paidToggleTextOff,
+                                    ]}
+                                >
                                     {isPaid
                                         ? "✅ Oui, marquer comme réglée"
                                         : "⬜ Non, encore due"}
@@ -438,7 +442,9 @@ export default function ExpressVideoPage() {
     style={[styles.actionButton, styles.actionButtonPrimary]}
     onPress={handleSubmit}
   >
-    <Text style={styles.actionButtonText}>Enregistrer</Text>
+    <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
+      Enregistrer
+    </Text>
   </TouchableOpacity>
 
   {/* 3 — Réglée / Remettre en dû (toujours présent pour garder la grille 2×2) */}
@@ -468,7 +474,16 @@ export default function ExpressVideoPage() {
       }
     }}
   >
-    <Text style={styles.actionButtonText}>
+    <Text
+      style={[
+        styles.actionButtonText,
+        !isEdit || !editData?.id
+          ? styles.actionButtonTextDisabled
+          : isPaid
+          ? styles.actionButtonTextWarning
+          : styles.actionButtonTextSuccess,
+      ]}
+    >
       {isPaid ? "Remettre en dû" : "Marquer réglée"}
     </Text>
   </TouchableOpacity>
@@ -478,7 +493,9 @@ export default function ExpressVideoPage() {
     style={[styles.actionButton, styles.actionButtonAccent]}
     onPress={handleGoToQuickLabel}
   >
-    <Text style={styles.actionButtonText}>Étiquette rapide</Text>
+    <Text style={[styles.actionButtonText, styles.actionButtonTextAccent]}>
+      Étiquette rapide
+    </Text>
   </TouchableOpacity>
 </View>
 
@@ -510,12 +527,17 @@ export default function ExpressVideoPage() {
 }
 
 const styles = StyleSheet.create({
-    container: { padding: 20 },
+    container: {
+        padding: 20,
+        paddingTop: 20 + (StatusBar.currentHeight || 0),
+        backgroundColor: "#eef2ff",
+    },
     title: {
         fontSize: 20,
-        fontWeight: "bold",
+        fontWeight: "800",
         marginBottom: 20,
         textAlign: "center",
+        color: "#0f172a",
     },
     label: {
         fontWeight: "600",
@@ -525,21 +547,21 @@ const styles = StyleSheet.create({
         color: "#475569",
     },
     input: {
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
-        backgroundColor: "#f8fafc",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 12,
         marginBottom: 10,
         width: "100%",
         fontSize: 15,
-        color: "#1e293b",
+        color: "#0f172a",
     },
     textArea: {
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
-        backgroundColor: "#f8fafc",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
         borderRadius: 12,
         padding: 12,
         marginBottom: 12,
@@ -547,7 +569,7 @@ const styles = StyleSheet.create({
         textAlignVertical: "top",
         width: "100%",
         fontSize: 15,
-        color: "#1e293b",
+        color: "#0f172a",
     },
     cassetteRow: {
         flexDirection: "row",
@@ -568,14 +590,14 @@ const styles = StyleSheet.create({
     cassetteInput: {
         width: "100%",
         textAlign: "center",
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
-        backgroundColor: "#f8fafc",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
         borderRadius: 12,
         paddingVertical: 10,
         fontSize: 16,
         fontWeight: "700",
-        color: "#1e293b",
+        color: "#3730a3",
     },
     supportRow: {
         flexDirection: "row",
@@ -587,21 +609,21 @@ const styles = StyleSheet.create({
         paddingVertical: 9,
         paddingHorizontal: 16,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: "#cbd5e1",
-        backgroundColor: "#f8fafc",
+        borderWidth: 1.5,
+        borderColor: "#c7d2fe",
+        backgroundColor: "#ffffff",
     },
     supportChipSelected: {
-        backgroundColor: "#dbeafe",
-        borderColor: "#3b82f6",
+        backgroundColor: "#4f46e5",
+        borderColor: "#4f46e5",
     },
     supportChipText: {
         fontSize: 14,
-        color: "#334155",
+        color: "#3730a3",
         fontWeight: "500",
     },
     supportChipTextSelected: {
-        color: "#1d4ed8",
+        color: "#ffffff",
         fontWeight: "700",
     },
     suggestionItem: {
@@ -609,8 +631,31 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         width: "100%",
         borderBottomWidth: 1,
-        borderColor: "#eee",
-        backgroundColor: "#f9f9f9",
+        borderColor: "#e0e7ff",
+        backgroundColor: "#ffffff",
+    },
+    paidToggle: {
+        padding: 10,
+        borderWidth: 1.5,
+        borderRadius: 12,
+        alignItems: "center",
+    },
+    paidToggleOn: {
+        backgroundColor: "#d1fae5",
+        borderColor: "#6ee7b7",
+    },
+    paidToggleOff: {
+        backgroundColor: "#fee2e2",
+        borderColor: "#fecaca",
+    },
+    paidToggleText: {
+        fontWeight: "600",
+    },
+    paidToggleTextOn: {
+        color: "#065f46",
+    },
+    paidToggleTextOff: {
+        color: "#b91c1c",
     },
     button: {
         backgroundColor: "#007bff",
@@ -669,30 +714,45 @@ actionButton: {
 },
 
 actionButtonPrimary: {
-  backgroundColor: "#2563eb",
+  backgroundColor: "#e0e7ff",
+  borderWidth: 1.5,
+  borderColor: "#c7d2fe",
 },
 
 actionButtonSuccess: {
-  backgroundColor: "#16a34a",
+  backgroundColor: "#d1fae5",
+  borderWidth: 1.5,
+  borderColor: "#6ee7b7",
 },
 
 actionButtonWarning: {
-  backgroundColor: "#ea580c",
+  backgroundColor: "#fef3c7",
+  borderWidth: 1.5,
+  borderColor: "#fcd34d",
 },
 
 actionButtonAccent: {
-  backgroundColor: "#7c3aed",
+  backgroundColor: "#ede9fe",
+  borderWidth: 1.5,
+  borderColor: "#c4b5fd",
 },
 
 actionButtonDisabled: {
-  backgroundColor: "#cbd5e1",
+  backgroundColor: "#f1f5f9",
+  borderWidth: 1.5,
+  borderColor: "#e2e8f0",
 },
 
 actionButtonText: {
   fontSize: 14,
   fontWeight: "700",
-  color: "#ffffff",
   textAlign: "center",
 },
+
+actionButtonTextPrimary: { color: "#3730a3" },
+actionButtonTextSuccess: { color: "#065f46" },
+actionButtonTextWarning: { color: "#92400e" },
+actionButtonTextAccent: { color: "#5b21b6" },
+actionButtonTextDisabled: { color: "#94a3b8" },
 
 });

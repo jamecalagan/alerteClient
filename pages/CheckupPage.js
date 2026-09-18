@@ -12,7 +12,9 @@ import {
   Platform,
   Modal,
   Pressable,
+  StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Signature from "react-native-signature-canvas";
 import * as Print from "expo-print";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -190,6 +192,7 @@ const colorMap = {
 export default function CheckupPage() {
   const route = useRoute();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const sigRef = useRef(null);
 
   const isEdit = route.params?.isEdit || false;
@@ -610,7 +613,11 @@ export default function CheckupPage() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#f3f4f6" }}
+      style={{
+        flex: 1,
+        backgroundColor: "#eef2ff",
+        paddingTop: Math.max(insets.top, StatusBar.currentHeight || 0),
+      }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
@@ -842,14 +849,18 @@ export default function CheckupPage() {
               style={[styles.footerActionSlot, { borderRightWidth: 1 }]}
               onPress={saveCheckup}
             >
-              <Text style={styles.footerActionText}>Sauvegarder</Text>
+              <Text style={[styles.footerActionText, { color: "#3730a3" }]}>
+                Sauvegarder
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.footerActionSlot, { borderRightWidth: 1 }]}
               onPress={printCheckup}
             >
-              <Text style={styles.footerActionText}>Imprimer</Text>
+              <Text style={[styles.footerActionText, { color: "#065f46" }]}>
+                Imprimer
+              </Text>
             </TouchableOpacity>
 
             {isEdit ? (
@@ -927,32 +938,30 @@ const styles = StyleSheet.create({
   },
   page: {
     maxWidth: 780,
+    width: "100%",
     alignSelf: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
   },
   title: {
     fontSize: 22,
     fontWeight: "800",
     marginBottom: 16,
     textAlign: "center",
-    color: "#111827",
+    color: "#0f172a",
   },
 
   infoCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    borderColor: "#e0e7ff",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginBottom: 14,
+    shadowColor: "#312e81",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 1,
   },
   infoRow: {
     flexDirection: "row",
@@ -967,13 +976,13 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#111827",
+    color: "#0f172a",
   },
 
   sectionTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#111827",
+    color: "#312e81",
     marginTop: 16,
     marginBottom: 8,
   },
@@ -988,17 +997,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     backgroundColor: "#ffffff",
   },
   chipSelected: {
-    backgroundColor: "#6b4e16",
-    borderColor: "#6b4e16",
+    backgroundColor: "#4f46e5",
+    borderColor: "#4f46e5",
   },
   chipText: {
     fontSize: 12,
-    color: "#374151",
+    color: "#3730a3",
     fontWeight: "600",
   },
   chipTextSelected: {
@@ -1048,9 +1057,10 @@ const styles = StyleSheet.create({
 
   componentsCard: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     overflow: "hidden",
+    backgroundColor: "#ffffff",
   },
   componentRow: {
     flexDirection: "row",
@@ -1061,12 +1071,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   componentRowAlt: {
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#eef2ff",
   },
   componentLabel: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#111827",
+    color: "#0f172a",
     marginBottom: 4,
   },
   componentStatesRow: {
@@ -1077,7 +1087,7 @@ const styles = StyleSheet.create({
   },
   stateChip: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#c7d2fe",
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1089,7 +1099,7 @@ const styles = StyleSheet.create({
   },
   stateText: {
     fontSize: 11,
-    color: "#111827",
+    color: "#0f172a",
     fontWeight: "700",
   },
 
@@ -1142,25 +1152,30 @@ const styles = StyleSheet.create({
   },
 
   remarkInput: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     paddingHorizontal: 10,
     paddingVertical: 8,
     minHeight: 70,
     textAlignVertical: "top",
     fontSize: 14,
-    color: "#111827",
-    backgroundColor: "#f9fafb",
+    color: "#0f172a",
+    backgroundColor: "#ffffff",
   },
 
   signatureCard: {
     marginTop: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    borderColor: "#e0e7ff",
+    backgroundColor: "#ffffff",
     padding: 10,
+    shadowColor: "#312e81",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 1,
   },
   signatureContainer: {
     height: 180,
@@ -1182,19 +1197,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginTop: 18,
     borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+    borderTopColor: "#e0e7ff",
   },
   footerActionSlot: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
   },
   footerActionText: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#111827",
+    color: "#0f172a",
   },
 
   /* Modal preview */

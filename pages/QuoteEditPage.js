@@ -583,14 +583,14 @@ export default function QuoteEditPage() {
       ? `
       <tr>
         <th class="th desc">Désignation</th>
-        <th class="th c" style="width:90px;">Qté</th>
+        <th class="th c col-qty">Qté</th>
       </tr>`
       : `
       <tr>
         <th class="th desc">Désignation</th>
-        <th class="th c" style="width:90px;">Qté</th>
-        <th class="th r" style="width:120px;">P.U. TTC</th>
-        <th class="th r" style="width:140px;">Montant TTC</th>
+        <th class="th c col-qty">Qté</th>
+        <th class="th r col-pu">P.U. TTC</th>
+        <th class="th r col-total">Montant TTC</th>
       </tr>`;
 
     const rows = items
@@ -626,8 +626,10 @@ export default function QuoteEditPage() {
       })
       .join("");
 
-    // Lignes vides pour combler l'espace en bas de page (esthétique, A5/A4)
-    const MIN_ROWS = 12;
+    // Lignes vides pour combler l'espace en bas de page (esthétique) — page
+    // A5 : moins de hauteur disponible qu'en A4, on limite le remplissage
+    // pour ne pas déborder sur une 2e page.
+    const MIN_ROWS = 3;
     const columnsCount = useGlobal ? 2 : 4;
     const fillerCount = Math.max(0, MIN_ROWS - items.length);
     const filledRows =
@@ -659,47 +661,96 @@ export default function QuoteEditPage() {
     <head>
       <meta charset="utf-8"/>
       <style>
-        @page { size: A4; margin: 14mm; }
-        body { font-family: Arial, Helvetica, sans-serif; color:#000; font-size: 12px; }
-        .wrap { max-width: 780px; margin: 0 auto; }
+        @page { size: A5; margin: 8mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#000; font-size: 10px; }
+        .wrap { max-width: 100%; margin: 0 auto; }
 
         /* En-tête centré */
         .header {
           text-align: center;
-          margin-bottom: 12px;
+          margin-bottom: 6px;
         }
-        .header img { height: 56px; }
-        .title { font-size: 20px; font-weight: 700; margin: 6px 0 12px 0; letter-spacing: 1px; }
+        .header img { height: 36px; }
+        .title { font-size: 15px; font-weight: 700; margin: 4px 0 6px 0; letter-spacing: 1px; }
 
         /* Meta (client / devis) */
-        .meta { display:flex; gap: 12px; margin: 0 0 16px 0; }
-        .card { border:1px solid #000; border-radius:6px; padding:10px 12px; flex:1; }
-        .card h3 { margin:0 0 8px 0; font-size:13px; }
-        .card p { margin:2px 0; }
+        .meta { display:flex; gap: 8px; margin: 0 0 8px 0; }
+        .card { border:1px solid #000; border-radius:5px; padding:5px 7px; flex:1; }
+        .card h3 { margin:0 0 3px 0; font-size:10px; }
+        .card p { margin:1px 0; font-size:9px; }
 
         /* Tableau */
         table { width:100%; border-collapse: collapse; }
-        .th, .td { border:1px solid #000; padding:8px; }
+        .th, .td { border:1px solid #000; padding:4px; font-size: 9px; }
         thead .th { background:#e5e5e5; font-weight:bold; }
         .desc { width:100%; }
         .num { white-space: nowrap; }
         .c { text-align:center; }
         .r { text-align:right; }
+        .col-qty { width:30px; }
+        .col-pu { width:55px; }
+        .col-total { width:65px; }
 
         /* Totaux */
-        .totals { margin-top: 12px; display:flex; justify-content:flex-end; }
-        .totals table { width: 360px; border-collapse: collapse; font-size: 12px; }
-        .totals td { border:1px solid #000; padding:8px; }
+        .totals { margin-top: 6px; display:flex; justify-content:flex-end; }
+        .totals table { width: 260px; border-collapse: collapse; font-size: 9px; }
+        .totals td { border:1px solid #000; padding:4px; }
         .totals .label { background:#f7f7f7; }
 
-        .net { margin-top: 8px; text-align: right; font-size: 14px; font-weight: bold; padding: 10px 0; }
+        .net { margin-top: 4px; text-align: right; font-size: 11px; font-weight: bold; padding: 4px 0; }
 
         /* Pied de page (infos société en bas) */
         .footer {
           position: fixed;
-          left: 0; right: 0; bottom: 10mm;
+          left: 0; right: 0; bottom: 6mm;
           text-align: center;
-          font-size: 10px; color:#444; line-height: 1.4;
+          font-size: 7px; color:#444; line-height: 1.25;
+        }
+
+        /* Aperçu à l'écran uniquement : remplit toute la largeur et toute
+           la hauteur de l'écran, sans jamais s'appliquer à l'impression/PDF
+           réels (canvas déjà contraint à 420x595pt). Placé en dernier pour
+           bien surcharger les règles de base ci-dessus (même spécificité :
+           la dernière déclarée gagne). */
+        @media screen {
+          body { padding: 0; font-size: 13px; }
+          .wrap {
+            position: relative;
+            max-width: 100%;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 56px;
+            box-sizing: border-box;
+          }
+
+          .header img { height: 56px; }
+          .title { font-size: 22px; margin: 6px 0 14px 0; }
+
+          .meta { gap: 16px; margin-bottom: 20px; }
+          .card { padding: 12px 14px; }
+          .card h3 { font-size: 15px; margin-bottom: 8px; }
+          .card p { font-size: 13px; margin: 3px 0; }
+
+          .th, .td { padding: 10px; font-size: 13px; }
+          .col-qty { width: 90px; }
+          .col-pu { width: 120px; }
+          .col-total { width: 150px; }
+
+          .totals { margin-top: 16px; }
+          .totals table { width: 380px; font-size: 13px; }
+          .totals td { padding: 10px; }
+
+          .net { margin-top: 10px; font-size: 16px; padding: 12px 0; }
+
+          .footer {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 16px;
+            margin-top: 0;
+            font-size: 11px;
+            line-height: 1.5;
+          }
         }
       </style>
     </head>
@@ -771,13 +822,13 @@ export default function QuoteEditPage() {
               ).replace(/\n/g, "<br/>")}</section>`
             : ""
         }
-      </div>
 
-      <!-- Pied de page : infos société -->
-      <div class="footer">
-        <strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
-        RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457<br/>
-        Devis valable sous réserve de disponibilité des pièces. Les délais de réparation sont indicatifs.
+        <!-- Pied de page : infos société -->
+        <div class="footer">
+          <strong>AVENIR INFORMATIQUE</strong> — 16, place de l'Hôtel de Ville, 93700 Drancy — Tél : 01 41 60 18 18 — SIRET : 422 240 457 00016<br/>
+          RCS Bobigny B422 240 457 — N° TVA intracommunautaire : FR32422240457<br/>
+          Devis valable sous réserve de disponibilité des pièces. Les délais de réparation sont indicatifs.
+        </div>
       </div>
     </body>
   </html>`;
@@ -1052,16 +1103,20 @@ export default function QuoteEditPage() {
 
   // === UI ===
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: "#eef2ff" }}>
       <TouchableOpacity
         onPress={() => setPreviewMode((v) => !v)}
-        style={{
-          backgroundColor: previewMode ? "#374151" : "#2563eb",
-          paddingVertical: 12,
-          alignItems: "center",
-        }}
+        style={[
+          styles.previewToggle,
+          previewMode && styles.previewToggleActive,
+        ]}
       >
-        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+        <Text
+          style={[
+            styles.previewToggleText,
+            previewMode && styles.previewToggleTextActive,
+          ]}
+        >
           {previewMode ? "✏️ Retour au formulaire" : "👁️ Aperçu du devis"}
         </Text>
       </TouchableOpacity>
@@ -1516,7 +1571,9 @@ export default function QuoteEditPage() {
           style={[styles.gridBtn, styles.gridBtnPrimary]}
           onPress={handleSave}
         >
-          <Text style={styles.gridBtnText}>💾 Enregistrer</Text>
+          <Text style={[styles.gridBtnText, styles.gridBtnTextPrimary]}>
+            💾 Enregistrer
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1530,7 +1587,7 @@ export default function QuoteEditPage() {
           <Text
             style={[
               styles.gridBtnText,
-              !isSaved && styles.gridBtnTextDisabled,
+              isSaved ? styles.gridBtnTextSuccess : styles.gridBtnTextDisabled,
             ]}
           >
             🖨️ Imprimer
@@ -1541,7 +1598,9 @@ export default function QuoteEditPage() {
           style={[styles.gridBtn, styles.gridBtnBrown]}
           onPress={handleCreatePdfAndShare}
         >
-          <Text style={styles.gridBtnText}>📄 PDF</Text>
+          <Text style={[styles.gridBtnText, styles.gridBtnTextBrown]}>
+            📄 PDF
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1555,7 +1614,7 @@ export default function QuoteEditPage() {
           <Text
             style={[
               styles.gridBtnText,
-              !phone && styles.gridBtnTextDisabled,
+              phone ? styles.gridBtnTextDark : styles.gridBtnTextDisabled,
             ]}
           >
             ✉️ SMS</Text>
@@ -1574,7 +1633,9 @@ export default function QuoteEditPage() {
           <Text
             style={[
               styles.gridBtnText,
-              (convertedOrderId || converting) && styles.gridBtnTextDisabled,
+              convertedOrderId || converting
+                ? styles.gridBtnTextDisabled
+                : styles.gridBtnTextPurple,
             ]}
           >
             {convertedOrderId
@@ -1617,6 +1678,105 @@ export default function QuoteEditPage() {
 
 const styles = StyleSheet.create({
   ...commonStyles,
+
+  // Surcharges "pastel indigo" propres à cette page (le thème partagé
+  // commonStyles reste inchangé pour ne pas impacter les autres pages qui
+  // l'utilisent : BillingPage, SearchClientsPage, ArticlesPage...).
+  container: { padding: 14, backgroundColor: "#eef2ff" },
+
+  previewToggle: {
+    backgroundColor: "#e0e7ff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#c7d2fe",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  previewToggleActive: {
+    backgroundColor: "#e2e8f0",
+    borderBottomColor: "#cbd5e1",
+  },
+  previewToggleText: {
+    color: "#3730a3",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  previewToggleTextActive: {
+    color: "#334155",
+  },
+
+  cardSection: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#312e81",
+    marginBottom: 4,
+  },
+
+  input: {
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    fontSize: 15,
+    color: "#0f172a",
+  },
+  inputFocused: { borderColor: "#4f46e5", backgroundColor: "#ffffff" },
+
+  addMiniButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e0e7ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+  },
+  addMiniButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#3730a3",
+  },
+
+  gridBtn: {
+    width: GRID_BTN_WIDTH,
+    minHeight: 34,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    backgroundColor: "#f1f5f9",
+    borderColor: "#e2e8f0",
+  },
+  gridBtnPrimary: { backgroundColor: "#e0e7ff", borderColor: "#c7d2fe" },
+  gridBtnSuccess: { backgroundColor: "#d1fae5", borderColor: "#6ee7b7" },
+  gridBtnDark: { backgroundColor: "#e2e8f0", borderColor: "#cbd5e1" },
+  gridBtnDisabled: { backgroundColor: "#f1f5f9", borderColor: "#e2e8f0" },
+  gridBtnText: {
+    color: "#3730a3",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  gridBtnTextDisabled: { color: "#94a3b8" },
+
   label: { fontWeight: "bold", marginBottom: 3, marginTop: 4 },
   subtitle: { fontSize: 18, fontWeight: "bold", marginVertical: 10 },
   itemRow: { marginBottom: 12 },
@@ -1660,17 +1820,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   pcHelperButton: {
-    backgroundColor: "#f3f4ff",
+    backgroundColor: "#e0e7ff",
     borderRadius: 10,
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#a5b4fc",
+    borderColor: "#c7d2fe",
   },
   pcHelperButtonText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: "#3730a3",
     marginBottom: 2,
   },
   pcHelperButtonSub: {
@@ -1680,10 +1840,10 @@ const styles = StyleSheet.create({
     totalsCard: {
     marginTop: 4,
     marginBottom: 4,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    borderColor: "#e0e7ff",
+    backgroundColor: "#eef2ff",
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -1695,7 +1855,7 @@ const styles = StyleSheet.create({
   },
   totalsRowHighlight: {
     borderTopWidth: 1,
-    borderTopColor: "#d1d5db",
+    borderTopColor: "#c7d2fe",
     marginTop: 4,
     paddingTop: 6,
   },
@@ -1705,17 +1865,17 @@ const styles = StyleSheet.create({
   },
   totalsLabelStrong: {
     fontWeight: "700",
-    color: "#111827",
+    color: "#0f172a",
   },
   totalsValue: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#111827",
+    color: "#0f172a",
   },
   totalsValueStrong: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: "#3730a3",
   },
   totalsValueNegative: {
     fontSize: 13,
@@ -1727,8 +1887,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#065f46",
   },
-  cardSection: commonStyles.card,
-  cardSectionTitle: commonStyles.cardTitle,
   cardSectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1741,13 +1899,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#e0e7ff",
     marginBottom: 4,
   },
   itemsHeaderText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#374151",
+    color: "#3730a3",
   },
   itemRowCard: {
     marginTop: 4,
@@ -1772,13 +1930,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
   },
-  gridBtn: { ...commonStyles.gridBtn, width: GRID_BTN_WIDTH },
-  gridBtnBrown: {
-    backgroundColor: "#92400e",
-  },
-  gridBtnPurple: {
-    backgroundColor: "#8b5cf6",
-  },
+  gridBtnBrown: { backgroundColor: "#fef3c7", borderColor: "#fcd34d" },
+  gridBtnPurple: { backgroundColor: "#ede9fe", borderColor: "#c4b5fd" },
 
-
+  gridBtnTextPrimary: { color: "#3730a3" },
+  gridBtnTextSuccess: { color: "#065f46" },
+  gridBtnTextDark: { color: "#334155" },
+  gridBtnTextBrown: { color: "#92400e" },
+  gridBtnTextPurple: { color: "#5b21b6" },
 });

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Linking,
   Image,
+  StatusBar,
 } from "react-native";
 import {
   useNavigation,
@@ -672,7 +673,7 @@ const ExpressListPage = () => {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Interventions express</Text>
         <TouchableOpacity onPress={fetchRows} style={styles.refreshBtn}>
@@ -787,39 +788,46 @@ const ExpressListPage = () => {
 
 // ================= Styles =================
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#eef2ff" },
   header: {
     paddingHorizontal: 16,
+    paddingTop: 12 + (StatusBar.currentHeight || 0),
     paddingVertical: 12,
+    backgroundColor: "#eef2ff",
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#e0e7ff",
     flexDirection: "row",
     alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "800",
+    color: "#0f172a",
     flex: 1,
     textAlign: "center",
   },
   refreshBtn: {
     position: "absolute",
     right: 12,
-    top: 10,
-    backgroundColor: "#e9ecef",
+    top: 10 + (StatusBar.currentHeight || 0),
+    backgroundColor: "#e0e7ff",
     borderRadius: 16,
     width: 32,
     height: 32,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
   },
-  refreshText: { fontSize: 18, fontWeight: "bold" },
+  refreshText: { fontSize: 18, fontWeight: "bold", color: "#3730a3" },
 
   search: {
-    borderWidth: 1,
-    borderColor: "#ccc",
+    borderWidth: 1.5,
+    borderColor: "#c7d2fe",
     padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    color: "#0f172a",
   },
 
   titleLine: { fontWeight: "bold", fontSize: 16 },
@@ -933,11 +941,16 @@ const styles = StyleSheet.create({
   },
     card: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
+    borderColor: "#e0e7ff",
+    padding: 12,
     marginBottom: 10,
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: "row",
@@ -1014,9 +1027,9 @@ const styles = StyleSheet.create({
   // Tableau infos
   infoGrid: {
     marginTop: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
     overflow: "hidden",
   },
   infoRow: {
@@ -1026,7 +1039,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   infoRowAlt: {
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#eef2ff",
   },
   infoLabel: {
     fontSize: 12,
@@ -1047,7 +1060,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
     height: 1,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#e0e7ff",
   },
   cardActionsRow: {
     flexDirection: "row",
@@ -1059,12 +1072,12 @@ const styles = StyleSheet.create({
   cardActionText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#4f46e5",
   },
   cardActionTextPrimary: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: "#3730a3",
   },
   cardActionTextDanger: {
     fontSize: 12,
@@ -1078,7 +1091,7 @@ const styles = StyleSheet.create({
   },
   cardActionDivider: {
     fontSize: 12,
-    color: "#9ca3af",
+    color: "#c7d2fe",
   },
 
 });

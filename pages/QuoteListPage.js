@@ -8,8 +8,10 @@ import {
   StyleSheet,
   Animated,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../supabaseClient";
 import BackButton from "../components/BackButton";
 
@@ -177,7 +179,7 @@ const QuoteListPage = () => {
 
           {item.deja_envoye ? (
             <Text style={[styles.statusLabel, styles.statusSent]}>
-              📤 Envoyé
+              ✉️ Envoyé
             </Text>
           ) : null}
 
@@ -196,43 +198,43 @@ const QuoteListPage = () => {
         {/* Séparation horizontale */}
         <View style={styles.cardActionsSeparator} />
 
-        <View style={styles.actionTextRow}>
+        <View style={styles.actionButtonRow}>
           <TouchableOpacity
-            style={styles.actionTextCol}
+            style={[styles.pillButton, styles.pillButtonView]}
             onPress={() =>
               navigation.navigate("QuotePrintPage", { id: item.id })
             }
           >
-            <Text style={styles.actionTextLink}>Visualiser</Text>
+            <Ionicons name="eye-outline" size={14} color="#3730a3" />
+            <Text style={[styles.pillButtonText, { color: "#3730a3" }]}>
+              Visualiser
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.actionTextVertical} />
-
           <TouchableOpacity
-            style={styles.actionTextCol}
+            style={[styles.pillButton, styles.pillButtonEdit]}
             onPress={() => navigation.navigate("QuoteEditPage", { id: item.id })}
           >
-            <Text style={styles.actionTextLink}>Modifier</Text>
+            <Ionicons name="create-outline" size={14} color="#065f46" />
+            <Text style={[styles.pillButtonText, { color: "#065f46" }]}>
+              Modifier
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.actionTextVertical} />
-
           <TouchableOpacity
-            style={styles.actionTextCol}
+            style={[styles.pillButton, styles.pillButtonDelete]}
             onPress={() => {
               setSelectedId(item.id);
               setShowConfirm(true);
             }}
           >
-            <Text style={[styles.actionTextLink, styles.actionTextDanger]}>
+            <Ionicons name="trash-outline" size={14} color="#b91c1c" />
+            <Text style={[styles.pillButtonText, { color: "#b91c1c" }]}>
               Supprimer
             </Text>
           </TouchableOpacity>
         </View>
-
-
       </View>
-
     );
   };
 
@@ -277,24 +279,30 @@ const QuoteListPage = () => {
       {showConfirm && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={{ fontSize: 16, marginBottom: 20 }}>Supprimer ce devis ?</Text>
+            <Text style={{ fontSize: 16, marginBottom: 20, color: "#0f172a" }}>
+              Supprimer ce devis ?
+            </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#6c757d" }]}
+                style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setShowConfirm(false)}
               >
-                <Text style={styles.buttonText}>Annuler</Text>
+                <Text style={[styles.buttonText, { color: "#334155" }]}>
+                  Annuler
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#dc3545" }]}
+                style={[styles.modalButton, styles.modalButtonDanger]}
                 onPress={async () => {
                   await deleteQuote(selectedId);
                   setShowConfirm(false);
                   setSelectedId(null);
                 }}
               >
-                <Text style={styles.buttonText}>Supprimer</Text>
+                <Text style={[styles.buttonText, { color: "#b91c1c" }]}>
+                  Supprimer
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -305,34 +313,46 @@ const QuoteListPage = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 16, flex: 1, backgroundColor: "#f4f4f4" },
-  title: { fontSize: 22, fontWeight: "600", marginBottom: 12, textAlign: "center", color: "#2e2e2e" },
-  input: {
-    borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
-    fontSize: 15, backgroundColor: "#fff", color: "#333",
+  container: {
+    padding: 16,
+    flex: 1,
+    backgroundColor: "#eef2ff",
+    paddingTop: 16 + (StatusBar.currentHeight || 0),
   },
-  inputFocused: { height: 50, fontSize: 16, borderColor: "#888", backgroundColor: "#f0f0f0" },
-  floatingLabel: { position: "absolute", top: 12, left: 12, fontSize: 13, color: "#888", zIndex: 1 },
-  floatingLabelFocused: { top: -10, left: 10, fontSize: 12, color: "#444", backgroundColor: "#f9f9f9", paddingHorizontal: 4, borderRadius: 4 },
+  title: { fontSize: 22, fontWeight: "800", marginBottom: 12, textAlign: "center", color: "#0f172a" },
+  input: {
+    borderWidth: 1.5, borderColor: "#c7d2fe", borderRadius: 14,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
+    fontSize: 15, backgroundColor: "#ffffff", color: "#0f172a",
+  },
+  inputFocused: { height: 50, fontSize: 16, borderColor: "#4f46e5", backgroundColor: "#ffffff" },
+  floatingLabel: { position: "absolute", top: 12, left: 12, fontSize: 13, color: "#6366f1", zIndex: 1 },
+  floatingLabelFocused: { top: -10, left: 10, fontSize: 12, color: "#3730a3", backgroundColor: "#eef2ff", paddingHorizontal: 4, borderRadius: 4 },
 
   number: { fontWeight: "600", fontSize: 16, marginBottom: 4, color: "#2c2c2c" },
   client: { fontSize: 15, marginBottom: 4, color: "#444" },
   meta: { fontSize: 13, color: "#555", marginBottom: 2 },
   date: { fontSize: 13, color: "#777" },
   total: { marginTop: 6, fontWeight: "600", fontSize: 15, textAlign: "right", color: "#111" },
-  empty: { textAlign: "center", marginTop: 20, color: "#999" },
-  modalOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 999 },
-  modalContent: { backgroundColor: "#fff", padding: 24, borderRadius: 10, width: "85%", elevation: 8, alignItems: "center" },
+  empty: { textAlign: "center", marginTop: 20, color: "#6366f1" },
+  modalOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "center", alignItems: "center", zIndex: 999 },
+  modalContent: { backgroundColor: "#ffffff", padding: 24, borderRadius: 16, width: "85%", elevation: 8, alignItems: "center" },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginTop: 16 },
-  modalButton: { flex: 1, padding: 12, borderRadius: 6, alignItems: "center", backgroundColor: "#b0b0b0" },
+  modalButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", borderWidth: 1.5 },
+  modalButtonCancel: { backgroundColor: "#f8fafc", borderColor: "#cbd5e1" },
+  modalButtonDanger: { backgroundColor: "#fee2e2", borderColor: "#fecaca" },
     card: {
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: "#ffffff",
-    padding: 10,
-    marginBottom: 8,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e0e7ff",
+    shadowColor: "#312e81",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -343,7 +363,7 @@ const styles = StyleSheet.create({
   cardNumber: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#111827",
+    color: "#312e81",
   },
   cardDate: {
     marginTop: 2,
@@ -355,17 +375,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: "#eef2ff",
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
     alignItems: "flex-end",
     minWidth: 90,
   },
   cardAmountLabel: {
     fontSize: 10,
-    color: "#4b5563",
+    color: "#4f46e5",
   },
   cardAmountValue: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#1d4ed8",
+    color: "#3730a3",
   },
   cardClient: {
     fontSize: 14,
@@ -396,10 +418,11 @@ labelsRow: {
 },
 statusLabel: {
   fontSize: 11,
+  fontWeight: "700",
   paddingHorizontal: 8,
   paddingVertical: 4,
   borderRadius: 999,
-  color: "#f9fafb",
+  borderWidth: 1,
   overflow: "hidden",
   marginBottom: 6,
   textAlignVertical: "center", // 👈 Android : centre verticalement
@@ -408,16 +431,24 @@ statusLabel: {
 },
 
   statusPrinted: {
-    backgroundColor: "#4b5563",
+    backgroundColor: "#e2e8f0",
+    borderColor: "#cbd5e1",
+    color: "#334155",
   },
   statusSent: {
-    backgroundColor: "#15803d",
+    backgroundColor: "#dcfce7",
+    borderColor: "#86efac",
+    color: "#15803d",
   },
   statusPending: {
-    backgroundColor: "#b45309",
+    backgroundColor: "#fef3c7",
+    borderColor: "#fcd34d",
+    color: "#b45309",
   },
   statusLinked: {
-    backgroundColor: "#6b4e16",
+    backgroundColor: "#ede9fe",
+    borderColor: "#c4b5fd",
+    color: "#6d28d9",
   },
   actionRow: {
     flexDirection: "row",
@@ -467,7 +498,7 @@ statusLabel: {
     marginBottom: 4,
     paddingVertical: 4,
     borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+    borderTopColor: "#e0e7ff",
   },
   cardClientRow: {
     flexDirection: "row",
@@ -485,35 +516,44 @@ statusLabel: {
     fontSize: 13,
     color: "#111827",
   },
-  actionTextRow: {
+  actionButtonRow: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 2,
   },
-  actionTextCol: {
-    flex: 1,
+  pillButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
+    gap: 6,
+    flexGrow: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  actionTextVertical: {
-    width: 1,
-    height: 16,
-    backgroundColor: "#e5e7eb",
+  pillButtonView: {
+    backgroundColor: "#e0e7ff",
+    borderColor: "#c7d2fe",
   },
-  actionTextLink: {
+  pillButtonEdit: {
+    backgroundColor: "#d1fae5",
+    borderColor: "#6ee7b7",
+  },
+  pillButtonDelete: {
+    backgroundColor: "#fee2e2",
+    borderColor: "#fecaca",
+  },
+  pillButtonText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#2563eb",
-  },
-  actionTextDanger: {
-    color: "#b91c1c",
+    fontWeight: "700",
   },
   cardActionsSeparator: {
     marginTop: 6,
     marginBottom: 4,
     height: 1,
-    backgroundColor: "#e5e7eb", // gris clair visible
+    backgroundColor: "#e0e7ff",
   },
 
 });

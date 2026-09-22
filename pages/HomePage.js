@@ -2317,7 +2317,9 @@ const isOnHold = !!(
       {interventionsForTabs.map((intervention, tabIndex) => {
         const isActiveTab = tabIndex === selectedInterventionIndex;
         const tabLabel =
-          intervention.deviceType?.trim() || `Intervention ${tabIndex + 1}`;
+          [intervention.deviceType?.trim(), intervention.brand?.trim()]
+            .filter(Boolean)
+            .join(" ") || `Intervention ${tabIndex + 1}`;
         return (
           <TouchableOpacity
             key={intervention.id}
@@ -10487,24 +10489,24 @@ folderTab: {
   maxWidth: 140,
 },
 folderTabActive: {
-  backgroundColor: "#cacaca", // meme couleur que la carte -> se fond dedans
-  borderColor: "#9a9a9a",
+  backgroundColor: "#ffffff", // meme couleur que la carte -> se fond dedans
+  borderColor: "#4f46e5",
   elevation: 3,
 },
 folderTabInactive: {
-  backgroundColor: "#a8a8a8",
-  borderColor: "#8f8f8f",
+  backgroundColor: "#c7d2fe",
+  borderColor: "#a5b4fc",
   marginTop: 6, // decale vers le bas -> a l'air "derriere" l'onglet actif
   elevation: 1,
 },
 folderTabText: {
   fontSize: 11,
   fontWeight: "700",
-  color: "#4b5563",
+  color: "#3730a3",
   textAlign: "center",
 },
 folderTabTextActive: {
-  color: "#1f2937",
+  color: "#312e81",
 },
 
 descriptionText: {

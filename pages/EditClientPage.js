@@ -38,6 +38,7 @@ export default function EditClientPage({ route, navigation }) {
   const [name, setName] = useState(client.name || "");
   const [phone, setPhone] = useState(client.phone || "");
   const [email, setEmail] = useState(client.email || "");
+  const [ficheNumber, setFicheNumber] = useState(client.ficheNumber || "");
   const [etiquetteImprimee, setEtiquetteImprimee] = useState(false);
 
   const [interventions, setInterventions] = useState(() => {
@@ -184,6 +185,7 @@ if (error) {
       setName(updatedClient.name || "");
       setPhone(updatedClient.phone || "");
       setEmail(updatedClient.email || "");
+      setFicheNumber(updatedClient.ficheNumber || "");
       setInterventions(filteredInterventions || []);
 
       const anyNotPrinted = (filteredInterventions || []).some(
@@ -689,7 +691,7 @@ const openRepairEstimate = async (intervention) => {
             </head>
             <body>
               <div class="label-section"><p class="bold">Numéro Client :</p><p>${
-                client.ficheNumber
+                ficheNumber
               }</p></div>
               <div class="label-section"><p class="bold">Nom :</p><p>${name}</p></div>
               <div class="label-section"><p class="bold">Téléphone :</p><p>${formatWithSpaces(
@@ -737,9 +739,9 @@ const openRepairEstimate = async (intervention) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Interventions</Text>
-      {!!client.ficheNumber && (
+      {!!ficheNumber && (
         <Text style={styles.ficheNumberText}>
-          Fiche N° {client.ficheNumber}
+          Fiche N° {ficheNumber}
         </Text>
       )}
 

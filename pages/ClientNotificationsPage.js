@@ -139,7 +139,10 @@ export default function ClientNotificationsPage() {
             }
         });
 
-        // Ajout des clients avec commandes uniquement
+        // Ajout des clients avec commandes (ou rattachement de la commande à
+        // un client déjà présent via une intervention, pour que "Notifier"
+        // puisse aussi marquer sa commande — sinon elle restait invisible et
+        // n'était jamais mise à jour).
         orders.forEach((order) => {
             if (!order.client) return;
             const key = `${order.client.id}`;
@@ -156,6 +159,11 @@ export default function ClientNotificationsPage() {
                     deviceType: "Commande",
                     status: "Commande",
                 });
+            } else {
+                const existing = combined.find((c) => String(c.id) === key);
+                if (existing && !existing.order_id) {
+                    existing.order_id = order.id;
+                }
             }
         });
 
@@ -421,23 +429,52 @@ export default function ClientNotificationsPage() {
             notifiedat: timestamp,
         };
 
-        let updateResult;
+        let error;
+        let rowsTouched = 0;
+
+        if (!client.intervention_id && !client.order_id) {
+            showAlert(
+                "Erreur",
+                "Aucune intervention ni commande identifiée pour ce client (order_id/intervention_id manquants)."
+            );
+            return;
+        }
 
         if (client.intervention_id) {
             // ✅ Si intervention → mise à jour dans interventions
-            updateResult = await supabase
+            const res = await supabase
                 .from("interventions")
                 .update(updateFields)
-                .eq("id", client.intervention_id);
-        } else {
-            // ✅ Si commande uniquement → mise à jour dans orders (colonne "notified" booléenne)
-            updateResult = await supabase
-                .from("orders")
-                .update({ notified: true }) // uniquement ça
-                .eq("client_id", client.id);
+                .eq("id", client.intervention_id)
+                .select("id");
+            error = res.error;
+            rowsTouched += res.data?.length || 0;
         }
 
-        const { error } = updateResult;
+        // ✅ Si ce client a aussi une commande en cours → la marquer notifiée
+        // elle aussi (mise à jour ciblée sur cette commande précise, plus
+        // fiable qu'un update sur tout le client_id).
+        if (!error && client.order_id) {
+            const res = await supabase
+                .from("orders")
+                .update({ notified: true })
+                .eq("id", client.order_id)
+                .select("id");
+            error = res.error;
+            rowsTouched += res.data?.length || 0;
+        }
+
+        if (!error && rowsTouched === 0) {
+            console.error(
+                "notifyClient: 0 ligne mise à jour",
+                { intervention_id: client.intervention_id, order_id: client.order_id }
+            );
+            showAlert(
+                "Erreur",
+                `Aucune ligne mise à jour (intervention_id=${client.intervention_id || "—"}, order_id=${client.order_id || "—"}). Vérifiez les permissions ou l'existence de l'enregistrement.`
+            );
+            return;
+        }
 
         if (!error) {
             const updatedClient = {

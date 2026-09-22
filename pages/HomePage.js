@@ -678,15 +678,25 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   // Ouvre la feuille de sélection
   const openNotifyChooser = (client) => {
     const latest = __pickLatestActiveIntervention(client?.interventions || []);
-    if (!latest) {
-      showAlert(
-        "Aucune intervention active",
-        "Ce client n'a pas de fiche active."
-      );
+    if (latest) {
+      setNotifySheetCtx({ client, latest });
+      setNotifySheetVisible(true);
       return;
     }
-    setNotifySheetCtx({ client, latest });
-    setNotifySheetVisible(true);
+
+    // Pas d'intervention active : si le client a une commande active, la
+    // notifier directement (pas de choix pickup/info/none, propre aux
+    // interventions — une commande n'a que "notifiée" ou non).
+    const latestOrder = __pickLatestActiveOrder(client?.orders || []);
+    if (latestOrder) {
+      updateClientNotification(client, "SMS");
+      return;
+    }
+
+    showAlert(
+      "Aucune fiche active",
+      "Ce client n'a pas d'intervention ni de commande active."
+    );
   };
 
   // lecture de l'état effectif: d'abord local, sinon champs de l'objet
@@ -3001,6 +3011,36 @@ const baseRows = [
                                           __pickLatestActiveIntervention(
                                             item?.interventions || []
                                           );
+
+                                        if (!latestForIcon) {
+                                          // Pas d'intervention active : reflète
+                                          // l'état de notification de la commande.
+                                          const latestOrderForIcon =
+                                            __pickLatestActiveOrder(
+                                              item?.orders || []
+                                            );
+                                          const orderIsNotified = Boolean(
+                                            latestOrderForIcon?.notified
+                                          );
+                                          return (
+                                            <IconSquare
+                                              source={
+                                                orderIsNotified
+                                                  ? require("../assets/icons/ok.png")
+                                                  : require("../assets/icons/sms.png")
+                                              }
+                                              tintColor={
+                                                orderIsNotified
+                                                  ? "#00c853"
+                                                  : "#888787"
+                                              }
+                                              onPress={() =>
+                                                openNotifyChooser(item)
+                                              }
+                                            />
+                                          );
+                                        }
+
                                         const choice =
                                           getNotifyChoice(latestForIcon);
                                         const notifyIconSource =
@@ -3404,20 +3444,49 @@ const baseRows = [
       const latestO = __pickLatestActiveOrder(client.orders || []);
 
       let error,
-        updated = false;
+        updated = false,
+        rowsTouched = 0;
+
+      if (!latestI && !latestO) {
+        showAlert(
+          "Erreur",
+          "Aucune intervention ni commande active trouvée pour ce client."
+        );
+        return;
+      }
 
       if (latestI) {
-        ({ error } = await supabase
+        const res = await supabase
           .from("interventions")
           .update({ is_notified: true, notifiedBy: method || "autre" })
-          .eq("id", latestI.id));
+          .eq("id", latestI.id)
+          .select("id");
+        error = res.error;
+        rowsTouched += res.data?.length || 0;
         updated = true;
-      } else if (latestO) {
-        ({ error } = await supabase
+      }
+
+      if (!error && latestO) {
+        const res = await supabase
           .from("orders")
-          .update({ notified: true, notified_method: method || "autre" })
-          .eq("id", latestO.id));
+          .update({ notified: true })
+          .eq("id", latestO.id)
+          .select("id");
+        error = res.error;
+        rowsTouched += res.data?.length || 0;
         updated = true;
+      }
+
+      if (!error && updated && rowsTouched === 0) {
+        console.error("updateClientNotification: 0 ligne mise à jour", {
+          intervention_id: latestI?.id,
+          order_id: latestO?.id,
+        });
+        showAlert(
+          "Erreur",
+          `Aucune ligne mise à jour (intervention_id=${latestI?.id || "—"}, order_id=${latestO?.id || "—"}).`
+        );
+        return;
       }
 
       if (!error && updated) {
@@ -3425,6 +3494,7 @@ const baseRows = [
         setNotifyModalVisible(false);
       } else if (error) {
         console.error("update notif:", error);
+        showAlert("Erreur", error.message || "Impossible de notifier ce client.");
       }
     } catch (e) {
       console.error("update notif ex:", e);

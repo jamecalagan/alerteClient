@@ -100,9 +100,9 @@ export default function ClientNotificationsPage() {
     const fetchNotifications = async () => {
         const { data: interventions, error: error1 } = await supabase
             .from("interventions")
-            .select("id, notifiedBy, notifiedat, notify_type, review_requested, client_id, deviceType, status, client:client_id(id, name, phone)")
+            .select("id, notifiedBy, notifiedat, notify_type, review_requested, client_id, deviceType, status, createdAt, client:client_id(id, name, phone)")
 
-            .order("created_at", { ascending: false });
+            .order("createdAt", { ascending: false });
 
         const { data: orders, error: error2 } = await supabase
             .from("orders")
@@ -119,24 +119,61 @@ export default function ClientNotificationsPage() {
         const seen = new Set();
         const combined = [];
 
-        // Ajout des clients depuis interventions
+        // Statuts qui ferment une intervention (elle ne doit plus être
+        // choisie comme représentante du client si une autre est encore
+        // active) — ex: un client avec un écran "Non réparable" ancien ET
+        // une PS5 "Réparé" récente doit être notifié pour la PS5, pas
+        // l'écran.
+        const CLOSED_STATUSES = new Set([
+            "recupere", "restitue", "annule", "non reparable",
+            "livre", "termine", "terminee", "archive", "archivee",
+        ]);
+        const normalizeStatus = (s) =>
+            (s ?? "")
+                .toString()
+                .normalize("NFD")
+                .replace(/\p{Diacritic}/gu, "")
+                .trim()
+                .toLowerCase();
+        const isActiveStatus = (s) => !CLOSED_STATUSES.has(normalizeStatus(s));
+
+        // Ajout des clients depuis interventions : on garde, pour chaque
+        // client, l'intervention active la plus récente si elle existe,
+        // sinon la plus récente tout court (au lieu de la première
+        // rencontrée, qui pouvait être une vieille fiche déjà close).
+        const byClient = new Map();
         interventions.forEach((inter) => {
             if (!inter.client) return;
             const key = `${inter.client.id}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                combined.push({
-                    id: inter.client.id,
-                    name: inter.client.name,
-                    phone: inter.client.phone,
-                    notifiedBy: inter.notifiedBy,
-                    notifiedat: inter.notifiedat,
-					review_requested: inter.review_requested,
-                    intervention_id: inter.id,
-                    deviceType: inter.deviceType,
-                    status: inter.status || "Intervention",
-                });
+            const current = byClient.get(key);
+            if (!current) {
+                byClient.set(key, inter);
+                return;
             }
+            const currentActive = isActiveStatus(current.status);
+            const nextActive = isActiveStatus(inter.status);
+            if (nextActive && !currentActive) {
+                byClient.set(key, inter);
+            } else if (nextActive === currentActive) {
+                const currentDate = new Date(current.createdAt || 0).getTime();
+                const nextDate = new Date(inter.createdAt || 0).getTime();
+                if (nextDate > currentDate) byClient.set(key, inter);
+            }
+        });
+
+        byClient.forEach((inter, key) => {
+            seen.add(key);
+            combined.push({
+                id: inter.client.id,
+                name: inter.client.name,
+                phone: inter.client.phone,
+                notifiedBy: inter.notifiedBy,
+                notifiedat: inter.notifiedat,
+                review_requested: inter.review_requested,
+                intervention_id: inter.id,
+                deviceType: inter.deviceType,
+                status: inter.status || "Intervention",
+            });
         });
 
         // Ajout des clients avec commandes (ou rattachement de la commande à

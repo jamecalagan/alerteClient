@@ -337,6 +337,7 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [photoChoiceOrder, setPhotoChoiceOrder] = useState(null); // commande pour laquelle la popup Caméra/Galerie/Web est ouverte
   const [deletePhotoTarget, setDeletePhotoTarget] = useState(null); // { interventionId, uri } photo d'intervention à confirmer avant suppression
   const [deleteOrderPhotoTarget, setDeleteOrderPhotoTarget] = useState(null); // { orderId, uri } photo de commande à confirmer avant suppression
+  const [reminderToDismiss, setReminderToDismiss] = useState(null); // { interventionId, field } rappel à confirmer avant suppression
   const [uploadingOrderProductPhotoId, setUploadingOrderProductPhotoId] = useState(null); // photo d'appareil (commande) en cours d'envoi
   const [photoChoiceOrderProduct, setPhotoChoiceOrderProduct] = useState(null); // commande pour laquelle la popup Caméra/Galerie (photo d'appareil) est ouverte
   const [deleteOrderProductPhotoTarget, setDeleteOrderProductPhotoTarget] = useState(null); // { orderId, uri } photo d'appareil (commande) à confirmer avant suppression
@@ -555,6 +556,27 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
 
     setClients((prev) => prev.map(patch));
     setFilteredClients((prev) => prev.map(patch));
+  };
+
+  // Supprime (marque résolu) un rappel affiché sur la fiche client de la
+  // Home : accessoire prêté (loaned_item_returned) ou information client
+  // (restitution_note_done). interventionId cible précisément l'intervention
+  // propriétaire du rappel (peut différer de latestIntervention si le
+  // rappel vient d'une intervention "Réparé" non affichée dans les onglets).
+  const dismissReminder = async (interventionId, field) => {
+    if (!interventionId) return;
+    const { error } = await supabase
+      .from("interventions")
+      .update({ [field]: true })
+      .eq("id", interventionId);
+
+    if (error) {
+      console.error("Erreur suppression rappel :", error);
+      showAlert("Erreur", "Impossible de supprimer ce rappel.");
+      return;
+    }
+
+    await loadClients();
   };
 
   // Bascule "mise de côté" depuis la modale "Fiches en cours" (popupData) —
@@ -2192,20 +2214,33 @@ const totalInterventions = item.totalInterventions || 0;
 const loanedItem =
   latestIntervention?.loaned_item || item.pendingLoanedItem || "";
 
+const loanedItemFromLatest = latestIntervention?.loaned_item === loanedItem;
+
 const hasLoanedItem =
   loanedItem.trim().length > 0 &&
-  (latestIntervention?.loaned_item === loanedItem
+  (loanedItemFromLatest
     ? latestIntervention?.loaned_item_returned !== true
     : true);
+
+const loanedItemInterventionId = loanedItemFromLatest
+  ? latestIntervention?.id
+  : item.pendingLoanedItemInterventionId;
 
 const restitutionNote =
   latestIntervention?.restitution_note || item.pendingRestitutionNote || "";
 
+const restitutionNoteFromLatest =
+  latestIntervention?.restitution_note === restitutionNote;
+
 const hasRestitutionNote =
   restitutionNote.trim() !== "" &&
-  (latestIntervention?.restitution_note === restitutionNote
+  (restitutionNoteFromLatest
     ? latestIntervention?.restitution_note_done !== true
     : true);
+
+const restitutionNoteInterventionId = restitutionNoteFromLatest
+  ? latestIntervention?.id
+  : item.pendingRestitutionNoteInterventionId;
 
 const hasReminder =
   hasLoanedItem || hasRestitutionNote;
@@ -2420,9 +2455,26 @@ const isOnHold = !!(
 
     {hasLoanedItem && (
       <View style={[styles.reminderItem, styles.reminderItemLoan]}>
-        <Text style={styles.reminderLoanTitle}>
-          📦 ACCESSOIRE PRÊTÉ
-        </Text>
+        <View style={styles.reminderHeaderRow}>
+          <Text style={styles.reminderLoanTitle}>
+            📦 ACCESSOIRE PRÊTÉ
+          </Text>
+          <TouchableOpacity
+            style={styles.reminderCloseBtn}
+            onPress={() =>
+              setReminderToDismiss({
+                interventionId: loanedItemInterventionId,
+                field: "loaned_item_returned",
+              })
+            }
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Image
+              source={require("../assets/icons/close.png")}
+              style={styles.reminderCloseIcon}
+            />
+          </TouchableOpacity>
+        </View>
 
         <Text
           style={styles.reminderText}
@@ -2441,9 +2493,26 @@ const isOnHold = !!(
           hasLoanedItem && styles.reminderItemSpacing,
         ]}
       >
-        <Text style={styles.reminderInfoTitle}>
-          💬 INFORMATION CLIENT
-        </Text>
+        <View style={styles.reminderHeaderRow}>
+          <Text style={styles.reminderInfoTitle}>
+            💬 INFORMATION CLIENT
+          </Text>
+          <TouchableOpacity
+            style={styles.reminderCloseBtn}
+            onPress={() =>
+              setReminderToDismiss({
+                interventionId: restitutionNoteInterventionId,
+                field: "restitution_note_done",
+              })
+            }
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Image
+              source={require("../assets/icons/close.png")}
+              style={styles.reminderCloseIcon}
+            />
+          </TouchableOpacity>
+        </View>
 
         <Text
           style={styles.reminderText}
@@ -4533,8 +4602,12 @@ normalizedOrdersData.forEach((order) => {
             latestReparedStatus: latestReparedIntervention?.status || null,
             pendingRestitutionNote:
               pendingRestitutionNoteIntervention?.restitution_note || "",
+            pendingRestitutionNoteInterventionId:
+              pendingRestitutionNoteIntervention?.id || null,
             pendingLoanedItem:
               pendingLoanedItemIntervention?.loaned_item || "",
+            pendingLoanedItemInterventionId:
+              pendingLoanedItemIntervention?.id || null,
             totalOrderAmount,
             totalOrderDeposit,
             totalOrderRemaining,
@@ -7479,6 +7552,20 @@ const onPick = () => {
                 confirmText="Supprimer"
                 onClose={() => setDeleteOrderPhotoTarget(null)}
                 onConfirm={confirmDeleteOrderPhoto}
+              />
+
+              <AlertBox
+                visible={!!reminderToDismiss}
+                title="Supprimer ce rappel ?"
+                message="Ce rappel ne sera plus affiché sur la fiche client."
+                cancelText="Annuler"
+                confirmText="Supprimer"
+                onClose={() => setReminderToDismiss(null)}
+                onConfirm={() => {
+                  const target = reminderToDismiss;
+                  setReminderToDismiss(null);
+                  if (target) dismissReminder(target.interventionId, target.field);
+                }}
               />
 
               <AlertBox
@@ -11070,6 +11157,25 @@ reminderItem: {
   paddingVertical: 7,
   borderRadius: 7,
   backgroundColor: "#ffffff",
+},
+
+reminderHeaderRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
+
+reminderCloseBtn: {
+  width: 18,
+  height: 18,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+reminderCloseIcon: {
+  width: 12,
+  height: 12,
+  tintColor: "#64748b",
 },
 
 reminderItemInfo: {

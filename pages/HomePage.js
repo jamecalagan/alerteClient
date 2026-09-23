@@ -2873,6 +2873,7 @@ const baseRows = [
       )}
       <ScrollView
         horizontal
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           flexDirection: "row",
@@ -2998,6 +2999,7 @@ const baseRows = [
 
       <ScrollView
         horizontal
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           flexDirection: "row",

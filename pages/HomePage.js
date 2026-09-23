@@ -2871,13 +2871,11 @@ const baseRows = [
           Appui long sur une photo pour la supprimer
         </Text>
       )}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
+      <View
+        style={{
           flexDirection: "row",
+          flexWrap: "wrap",
           gap: 8,
-          flexGrow: 1,
           justifyContent: "center",
         }}
       >
@@ -2926,7 +2924,7 @@ const baseRows = [
             />
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </View>
   );
 
@@ -2996,13 +2994,11 @@ const baseRows = [
         </Text>
       )}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
+      <View
+        style={{
           flexDirection: "row",
+          flexWrap: "wrap",
           gap: 8,
-          flexGrow: 1,
           justifyContent: "center",
         }}
       >
@@ -3056,7 +3052,7 @@ const baseRows = [
             )}
           </TouchableOpacity>,
         ])}
-      </ScrollView>
+      </View>
     </View>
   );
 

@@ -672,12 +672,7 @@ const [ordersModalVisible, setOrdersModalVisible] = useState(false);
     return (
       <Animated.Image
         source={source}
-        style={{
-          width: 28,
-          height: 28,
-          tintColor: "#00BFFF",
-          opacity,
-        }}
+        style={{ width: 28, height: 28, tintColor: "#00BFFF", opacity }}
       />
     );
   };
@@ -2132,13 +2127,7 @@ const isOnHold = !!(
       </View>
       {isOnHold && (
         <Text
-          style={{
-            marginTop: -6,
-            marginBottom: 8,
-            fontSize: 11,
-            fontWeight: "700",
-            color: "#9a5b13",
-          }}
+          style={{ marginTop: -6, marginBottom: 8, fontSize: 11, fontWeight: "700", color: "#9a5b13" }}
         >
           Mise de côté
         </Text>
@@ -2693,11 +2682,7 @@ const baseRows = [
                                         {orderNotified ? (
                                           <Image
                                             source={require("../assets/icons/checklist.png")}
-                                            style={{
-                                              width: 28,
-                                              height: 28,
-                                              tintColor: "#1E90FF",
-                                            }}
+                                            style={{ width: 28, height: 28, tintColor: "#1E90FF" }}
                                             resizeMode="contain"
                                           />
                                         ) : Array.isArray(item.orders) &&
@@ -2709,13 +2694,7 @@ const baseRows = [
                                         ) : (
                                           <Image
                                             source={require("../assets/icons/order.png")}
-                                            style={{
-                                              width: 28,
-                                              height: 28,
-                                              tintColor: getOrderColor(
-                                                item.orders || []
-                                              ),
-                                            }}
+                                            style={{ width: 28, height: 28, tintColor: getOrderColor(item.orders || []) }}
                                             resizeMode="contain"
                                           />
                                         )}
@@ -2868,11 +2847,7 @@ const baseRows = [
                                         >
                                           <Image
                                             source={require("../assets/icons/trash.png")}
-                                            style={{
-                                              width: 28,
-                                              height: 28,
-                                              tintColor: "red",
-                                            }}
+                                            style={{ width: 28, height: 28, tintColor: "red" }}
                                             resizeMode="contain"
                                           />
                                         </TouchableOpacity>
@@ -4932,12 +4907,7 @@ const selectedClientInterventionCount =
 const selectedClientOrderCount = selectedClientActiveOrders.length;
   return (
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "#eef2ff",
-        elevation: 5,
-        paddingTop: StatusBar.currentHeight || 0,
-      }}
+      style={{ flex: 1, backgroundColor: "#eef2ff", elevation: 5, paddingTop: StatusBar.currentHeight || 0 }}
     >
       <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={closeMenu}>
@@ -5192,12 +5162,7 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
                 >
                   <Image
                     source={require("../assets/icons/search.png")}
-                    style={{
-                      width: 18,
-                      height: 18,
-                      tintColor: isBannedMatch ? "#b91c1c" : "#94a3b8",
-                      marginRight: 8,
-                    }}
+                    style={{ width: 18, height: 18, tintColor: isBannedMatch ? "#b91c1c" : "#94a3b8", marginRight: 8 }}
                   />
                   <TextInput
                     style={[
@@ -5406,11 +5371,7 @@ const onPick = () => {
                         }}
                       >
                         <Text
-                          style={{
-                            color: "#3730a3",
-                            fontSize: 12,
-                            fontWeight: "bold",
-                          }}
+                          style={{ color: "#3730a3", fontSize: 12, fontWeight: "bold" }}
                         >
                           {popupData.filter((c) => !c.allOnHold).length}
                         </Text>
@@ -5440,13 +5401,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#92400e",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#92400e", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       {showOnHoldClients ? "Masquer mises de côté" : "Mises de côté"}
     </Text>
@@ -5464,11 +5419,7 @@ const onPick = () => {
       }}
     >
       <Text
-        style={{
-          color: "#92400e",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
+        style={{ color: "#92400e", fontSize: 12, fontWeight: "bold" }}
       >
         {onHoldClientsCount}
       </Text>
@@ -5499,13 +5450,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#9f1239",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#9f1239", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       Propositions
     </Text>
@@ -5523,11 +5468,7 @@ const onPick = () => {
       }}
     >
       <Text
-        style={{
-          color: "#9f1239",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
+        style={{ color: "#9f1239", fontSize: 12, fontWeight: "bold" }}
       >
         {pendingProposals.length}
       </Text>
@@ -5560,13 +5501,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#065f46",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#065f46", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       Réparés en attente
     </Text>
@@ -5584,11 +5519,7 @@ const onPick = () => {
       }}
     >
       <Text
-        style={{
-          color: "#065f46",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
+        style={{ color: "#065f46", fontSize: 12, fontWeight: "bold" }}
       >
         {repairedNotReturnedCountSafe}
       </Text>
@@ -5619,13 +5550,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#991b1b",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#991b1b", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       Non récupérés 30j+
     </Text>
@@ -5643,11 +5568,7 @@ const onPick = () => {
       }}
     >
       <Text
-        style={{
-          color: "#991b1b",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
+        style={{ color: "#991b1b", fontSize: 12, fontWeight: "bold" }}
       >
         {overdueRepairedClients.length}
       </Text>
@@ -5677,13 +5598,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#1e40af",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#1e40af", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       À prévenir
     </Text>
@@ -5727,13 +5642,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#5b21b6",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#5b21b6", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       Pièce reçue
     </Text>
@@ -5780,13 +5689,7 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        color: "#115e59",
-        fontSize: 13,
-        fontWeight: "bold",
-        flexShrink: 1,
-        textAlign: "center",
-      }}
+      style={{ color: "#115e59", fontSize: 13, fontWeight: "bold", flexShrink: 1, textAlign: "center" }}
     >
       Soldes dus
     </Text>
@@ -5951,13 +5854,7 @@ const onPick = () => {
   onRequestClose={closeSearchActions}
 >
   <View
-    style={{
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.65)",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingHorizontal: 20,
-    }}
+    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}
   >
     <View
       style={{
@@ -5974,24 +5871,13 @@ const onPick = () => {
       }}
     >
       <Text
-        style={{
-          fontSize: 22,
-          fontWeight: "bold",
-          color: "#242424",
-          textAlign: "center",
-          marginBottom: 6,
-        }}
+        style={{ fontSize: 22, fontWeight: "bold", color: "#242424", textAlign: "center", marginBottom: 6 }}
       >
         {searchSelectedClient?.name || "Client"}
       </Text>
 
       <Text
-        style={{
-          fontSize: 15,
-          color: "#555",
-          textAlign: "center",
-          marginBottom: 2,
-        }}
+        style={{ fontSize: 15, color: "#555", textAlign: "center", marginBottom: 2 }}
       >
         {searchSelectedClient?.phone
           ? formatPhoneNumber(searchSelectedClient.phone)
@@ -5999,24 +5885,14 @@ const onPick = () => {
       </Text>
 
       <Text
-        style={{
-          fontSize: 15,
-          color: "#555",
-          textAlign: "center",
-          marginBottom: 12,
-        }}
+        style={{ fontSize: 15, color: "#555", textAlign: "center", marginBottom: 12 }}
       >
         Fiche N° {searchSelectedClient?.ficheNumber || "—"}
       </Text>
 
       {/* —— Contacter le client —— */}
       <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginBottom: 18,
-          gap: 8,
-        }}
+        style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 18, gap: 8 }}
       >
         <TouchableOpacity
           activeOpacity={0.85}
@@ -6110,11 +5986,7 @@ const onPick = () => {
       </View>
 
 <View
-  style={{
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 18,
-  }}
+  style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 18 }}
 >
   <View
     style={{
@@ -6130,21 +6002,13 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        fontSize: 22,
-        fontWeight: "800",
-        color: "#1d4ed8",
-      }}
+      style={{ fontSize: 22, fontWeight: "800", color: "#1d4ed8" }}
     >
       {selectedClientInterventionCount}
     </Text>
 
     <Text
-      style={{
-        fontSize: 13,
-        color: "#1e3a8a",
-        textAlign: "center",
-      }}
+      style={{ fontSize: 13, color: "#1e3a8a", textAlign: "center" }}
     >
       Intervention
       {selectedClientInterventionCount > 1 ? "s" : ""} en cours
@@ -6165,21 +6029,13 @@ const onPick = () => {
     }}
   >
     <Text
-      style={{
-        fontSize: 22,
-        fontWeight: "800",
-        color: "#c2410c",
-      }}
+      style={{ fontSize: 22, fontWeight: "800", color: "#c2410c" }}
     >
       {selectedClientOrderCount}
     </Text>
 
     <Text
-      style={{
-        fontSize: 13,
-        color: "#7c2d12",
-        textAlign: "center",
-      }}
+      style={{ fontSize: 13, color: "#7c2d12", textAlign: "center" }}
     >
       Commande
       {selectedClientOrderCount > 1 ? "s" : ""} en cours
@@ -6187,13 +6043,7 @@ const onPick = () => {
   </View>
 </View>
       <Text
-        style={{
-          fontSize: 17,
-          fontWeight: "700",
-          color: "#242424",
-          textAlign: "center",
-          marginBottom: 14,
-        }}
+        style={{ fontSize: 17, fontWeight: "700", color: "#242424", textAlign: "center", marginBottom: 14 }}
       >
         Que voulez-vous faire ?
       </Text>
@@ -6215,21 +6065,11 @@ const onPick = () => {
         <Image
           source={require("../assets/icons/plus.png")}
           resizeMode="contain"
-          style={{
-            width: 24,
-            height: 24,
-            marginRight: 14,
-            tintColor: "#ffffff",
-          }}
+          style={{ width: 24, height: 24, marginRight: 14, tintColor: "#ffffff" }}
         />
 
 <Text
-  style={{
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#ffffff",
-  }}
+  style={{ flex: 1, fontSize: 17, fontWeight: "700", color: "#ffffff" }}
 >
   {selectedClientInterventionCount > 0
     ? "Ajouter une intervention"
@@ -6254,21 +6094,11 @@ const onPick = () => {
         <Image
           source={require("../assets/icons/order.png")}
           resizeMode="contain"
-          style={{
-            width: 24,
-            height: 24,
-            marginRight: 14,
-            tintColor: "#ffffff",
-          }}
+          style={{ width: 24, height: 24, marginRight: 14, tintColor: "#ffffff" }}
         />
 
         <Text
-          style={{
-            flex: 1,
-            fontSize: 17,
-            fontWeight: "700",
-            color: "#ffffff",
-          }}
+          style={{ flex: 1, fontSize: 17, fontWeight: "700", color: "#ffffff" }}
         >
           {selectedClientOrderCount > 0
   ? "Ajouter une commande"
@@ -6293,21 +6123,11 @@ const onPick = () => {
         <Image
           source={require("../assets/icons/checklist.png")}
           resizeMode="contain"
-          style={{
-            width: 24,
-            height: 24,
-            marginRight: 14,
-            tintColor: "#ffffff",
-          }}
+          style={{ width: 24, height: 24, marginRight: 14, tintColor: "#ffffff" }}
         />
 
         <Text
-          style={{
-            flex: 1,
-            fontSize: 17,
-            fontWeight: "700",
-            color: "#ffffff",
-          }}
+          style={{ flex: 1, fontSize: 17, fontWeight: "700", color: "#ffffff" }}
         >
           Voir la fiche client
         </Text>
@@ -6316,21 +6136,10 @@ const onPick = () => {
       <TouchableOpacity
         onPress={closeSearchActions}
         activeOpacity={0.8}
-        style={{
-          height: 48,
-          borderRadius: 9,
-          backgroundColor: "#e5e7eb",
-          justifyContent: "center",
-          alignItems: "center",
-          marginTop: 4,
-        }}
+        style={{ height: 48, borderRadius: 9, backgroundColor: "#e5e7eb", justifyContent: "center", alignItems: "center", marginTop: 4 }}
       >
         <Text
-          style={{
-            color: "#991b1b",
-            fontSize: 16,
-            fontWeight: "700",
-          }}
+          style={{ color: "#991b1b", fontSize: 16, fontWeight: "700" }}
         >
           Annuler
         </Text>
@@ -6674,12 +6483,7 @@ const onPick = () => {
                     </Text>
                     {selectedCommandeFournisseur ? (
                       <Text
-                        style={{
-                          fontSize: 15,
-                          color: "#6B7280",
-                          fontStyle: "italic",
-                          marginBottom: 12,
-                        }}
+                        style={{ fontSize: 15, color: "#6B7280", fontStyle: "italic", marginBottom: 12 }}
                       >
                         Fournisseur : {selectedCommandeFournisseur}
                       </Text>
@@ -6697,12 +6501,7 @@ const onPick = () => {
                         }}
                       >
                         <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: "bold",
-                            color: "#9a5b13",
-                            marginBottom: 4,
-                          }}
+                          style={{ fontSize: 13, fontWeight: "bold", color: "#9a5b13", marginBottom: 4 }}
                         >
                           Produits non reçus :
                         </Text>
@@ -6982,32 +6781,14 @@ const onPick = () => {
 >
   <TouchableWithoutFeedback onPress={() => setExpressModalVisible(false)}>
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
@@ -7020,14 +6801,7 @@ const onPick = () => {
 
             <TouchableOpacity
               onPress={() => setExpressModalVisible(false)}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
                 ✕
@@ -7109,32 +6883,14 @@ const onPick = () => {
 >
   <TouchableWithoutFeedback onPress={() => setOrdersModalVisible(false)}>
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
@@ -7147,14 +6903,7 @@ const onPick = () => {
 
             <TouchableOpacity
               onPress={() => setOrdersModalVisible(false)}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
                 ✕
@@ -7256,51 +7005,24 @@ const onPick = () => {
     }
   >
     <View
-      style={{
-        flex: 1,
-        backgroundColor:
-          "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text
-                style={{
-                  fontSize: 21,
-                  fontWeight: "bold",
-                  color: "#1e293b",
-                }}
+                style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}
               >
                 Estimations à confirmer
               </Text>
 
               <Text
-                style={{
-                  marginTop: 3,
-                  fontSize: 13,
-                  color: "#64748b",
-                }}
+                style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}
               >
                 Clients en attente d’une
                 décision
@@ -7320,11 +7042,7 @@ const onPick = () => {
               }}
             >
               <Text
-                style={{
-                  color: "#ffffff",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                }}
+                style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}
               >
                 {pendingProposals.length}
               </Text>
@@ -7336,21 +7054,10 @@ const onPick = () => {
                   false
                 )
               }
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text
-                style={{
-                  color: "#475569",
-                  fontSize: 17,
-                  fontWeight: "bold",
-                }}
+                style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}
               >
                 ✕
               </Text>
@@ -7358,20 +7065,12 @@ const onPick = () => {
           </View>
 
           <View
-            style={{
-              height: 1,
-              marginBottom: 12,
-              backgroundColor: "#e2e8f0",
-            }}
+            style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }}
           />
 
           {pendingProposalsLoading ? (
             <View
-              style={{
-                minHeight: 220,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={{ minHeight: 220, justifyContent: "center", alignItems: "center" }}
             >
               <ActivityIndicator
                 size="large"
@@ -7379,10 +7078,7 @@ const onPick = () => {
               />
 
               <Text
-                style={{
-                  marginTop: 10,
-                  color: "#64748b",
-                }}
+                style={{ marginTop: 10, color: "#64748b" }}
               >
                 Chargement…
               </Text>
@@ -7427,39 +7123,20 @@ const onPick = () => {
                         }
                       );
                     }}
-                    style={{
-                      marginBottom: 10,
-                      padding: 13,
-                      borderWidth: 1,
-                      borderColor: "#fdba74",
-                      borderRadius: 12,
-                      backgroundColor:
-                        "#fff7ed",
-                    }}
+                    style={{ marginBottom: 10, padding: 13, borderWidth: 1, borderColor: "#fdba74", borderRadius: 12, backgroundColor: "#fff7ed" }}
                   >
                     <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                      }}
+                      style={{ flexDirection: "row", alignItems: "center" }}
                     >
                       <View style={{ flex: 1 }}>
                         <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: "bold",
-                            color: "#1e293b",
-                          }}
+                          style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}
                         >
                           {clientName.toUpperCase()}
                         </Text>
 
                         <Text
-                          style={{
-                            marginTop: 2,
-                            fontSize: 12,
-                            color: "#64748b",
-                          }}
+                          style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}
                         >
                           Fiche n°{" "}
                           {item.client
@@ -7469,20 +7146,10 @@ const onPick = () => {
                       </View>
 
                       <View
-                        style={{
-                          paddingHorizontal: 8,
-                          paddingVertical: 5,
-                          borderRadius: 99,
-                          backgroundColor:
-                            "#fef3c7",
-                        }}
+                        style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: "#fef3c7" }}
                       >
                         <Text
-                          style={{
-                            color: "#92400e",
-                            fontSize: 10,
-                            fontWeight: "bold",
-                          }}
+                          style={{ color: "#92400e", fontSize: 10, fontWeight: "bold" }}
                         >
                           À CONFIRMER
                         </Text>
@@ -7491,43 +7158,23 @@ const onPick = () => {
 
                     {!!deviceText && (
                       <Text
-                        style={{
-                          marginTop: 9,
-                          fontSize: 13,
-                          fontWeight: "600",
-                          color: "#475569",
-                        }}
+                        style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}
                       >
                         {deviceText}
                       </Text>
                     )}
 
                     <View
-                      style={{
-                        marginTop: 10,
-                        padding: 10,
-                        borderRadius: 9,
-                        backgroundColor:
-                          "#ffffff",
-                      }}
+                      style={{ marginTop: 10, padding: 10, borderRadius: 9, backgroundColor: "#ffffff" }}
                     >
                       <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: "bold",
-                          color: "#92400e",
-                        }}
+                        style={{ fontSize: 10, fontWeight: "bold", color: "#92400e" }}
                       >
                         RÉPARATION ENVISAGÉE
                       </Text>
 
                       <Text
-                        style={{
-                          marginTop: 4,
-                          fontSize: 14,
-                          fontWeight: "700",
-                          color: "#1f2937",
-                        }}
+                        style={{ marginTop: 4, fontSize: 14, fontWeight: "700", color: "#1f2937" }}
                       >
                         {item.repair_proposal ||
                           "Non renseignée"}
@@ -7535,19 +7182,10 @@ const onPick = () => {
                     </View>
 
                     <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginTop: 10,
-                      }}
+                      style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}
                     >
                       <Text
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          fontWeight: "bold",
-                          color: "#b45309",
-                        }}
+                        style={{ flex: 1, fontSize: 16, fontWeight: "bold", color: "#b45309" }}
                       >
                         {item.repair_proposal_price !=
                         null
@@ -7558,11 +7196,7 @@ const onPick = () => {
                       </Text>
 
                       <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: "bold",
-                          color: "#2563eb",
-                        }}
+                        style={{ fontSize: 13, fontWeight: "bold", color: "#2563eb" }}
                       >
                         Ouvrir la fiche ›
                       </Text>
@@ -7593,50 +7227,24 @@ const onPick = () => {
     }
   >
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text
-                style={{
-                  fontSize: 21,
-                  fontWeight: "bold",
-                  color: "#1e293b",
-                }}
+                style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}
               >
                 Réparés non récupérés
               </Text>
 
               <Text
-                style={{
-                  marginTop: 3,
-                  fontSize: 13,
-                  color: "#64748b",
-                }}
+                style={{ marginTop: 3, fontSize: 13, color: "#64748b" }}
               >
                 Prêts depuis plus de 30 jours, jamais récupérés
               </Text>
@@ -7655,11 +7263,7 @@ const onPick = () => {
               }}
             >
               <Text
-                style={{
-                  color: "#ffffff",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                }}
+                style={{ color: "#ffffff", fontSize: 16, fontWeight: "bold" }}
               >
                 {overdueRepairedClients.length}
               </Text>
@@ -7669,21 +7273,10 @@ const onPick = () => {
               onPress={() =>
                 setOverdueRepairedModalVisible(false)
               }
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text
-                style={{
-                  color: "#475569",
-                  fontSize: 17,
-                  fontWeight: "bold",
-                }}
+                style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}
               >
                 ✕
               </Text>
@@ -7691,20 +7284,12 @@ const onPick = () => {
           </View>
 
           <View
-            style={{
-              height: 1,
-              marginBottom: 12,
-              backgroundColor: "#e2e8f0",
-            }}
+            style={{ height: 1, marginBottom: 12, backgroundColor: "#e2e8f0" }}
           />
 
           {overdueRepairedLoading ? (
             <View
-              style={{
-                minHeight: 220,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={{ minHeight: 220, justifyContent: "center", alignItems: "center" }}
             >
               <ActivityIndicator size="large" color="#dc2626" />
 
@@ -7742,38 +7327,20 @@ const onPick = () => {
 
                 return (
                   <View
-                    style={{
-                      marginBottom: 10,
-                      padding: 13,
-                      borderWidth: 1,
-                      borderColor: "#fca5a5",
-                      borderRadius: 12,
-                      backgroundColor: "#fef2f2",
-                    }}
+                    style={{ marginBottom: 10, padding: 13, borderWidth: 1, borderColor: "#fca5a5", borderRadius: 12, backgroundColor: "#fef2f2" }}
                   >
                     <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                      }}
+                      style={{ flexDirection: "row", alignItems: "center" }}
                     >
                       <View style={{ flex: 1 }}>
                         <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: "bold",
-                            color: "#1e293b",
-                          }}
+                          style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}
                         >
                           {clientName.toUpperCase()}
                         </Text>
 
                         <Text
-                          style={{
-                            marginTop: 2,
-                            fontSize: 12,
-                            color: "#64748b",
-                          }}
+                          style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}
                         >
                           Fiche n° {item.client?.ficheNumber ?? "—"}
                           {item.client?.phone
@@ -7783,19 +7350,10 @@ const onPick = () => {
                       </View>
 
                       <View
-                        style={{
-                          paddingHorizontal: 8,
-                          paddingVertical: 5,
-                          borderRadius: 99,
-                          backgroundColor: "#fee2e2",
-                        }}
+                        style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: "#fee2e2" }}
                       >
                         <Text
-                          style={{
-                            color: "#991b1b",
-                            fontSize: 10,
-                            fontWeight: "bold",
-                          }}
+                          style={{ color: "#991b1b", fontSize: 10, fontWeight: "bold" }}
                         >
                           {daysSince != null
                             ? `${daysSince} JOURS`
@@ -7806,23 +7364,14 @@ const onPick = () => {
 
                     {!!deviceText && (
                       <Text
-                        style={{
-                          marginTop: 9,
-                          fontSize: 13,
-                          fontWeight: "600",
-                          color: "#475569",
-                        }}
+                        style={{ marginTop: 9, fontSize: 13, fontWeight: "600", color: "#475569" }}
                       >
                         {deviceText}
                       </Text>
                     )}
 
                     <View
-                      style={{
-                        flexDirection: "row",
-                        marginTop: 10,
-                        gap: 10,
-                      }}
+                      style={{ flexDirection: "row", marginTop: 10, gap: 10 }}
                     >
                       <TouchableOpacity
                         activeOpacity={0.85}
@@ -7856,11 +7405,7 @@ const onPick = () => {
                         }}
                       >
                         <Text
-                          style={{
-                            color: "#ffffff",
-                            fontSize: 13,
-                            fontWeight: "bold",
-                          }}
+                          style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}
                         >
                           📩 Renotifier par SMS
                         </Text>
@@ -7886,11 +7431,7 @@ const onPick = () => {
                         }}
                       >
                         <Text
-                          style={{
-                            color: "#991b1b",
-                            fontSize: 13,
-                            fontWeight: "bold",
-                          }}
+                          style={{ color: "#991b1b", fontSize: 13, fontWeight: "bold" }}
                         >
                           Voir la fiche
                         </Text>
@@ -7918,32 +7459,14 @@ const onPick = () => {
     onPress={() => setNotNotifiedRepairedModalVisible(false)}
   >
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
@@ -7973,14 +7496,7 @@ const onPick = () => {
 
             <TouchableOpacity
               onPress={() => setNotNotifiedRepairedModalVisible(false)}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
                 ✕
@@ -8008,14 +7524,7 @@ const onPick = () => {
 
                 return (
                   <View
-                    style={{
-                      marginBottom: 10,
-                      padding: 13,
-                      borderWidth: 1,
-                      borderColor: "#bfdbfe",
-                      borderRadius: 12,
-                      backgroundColor: "#eff6ff",
-                    }}
+                    style={{ marginBottom: 10, padding: 13, borderWidth: 1, borderColor: "#bfdbfe", borderRadius: 12, backgroundColor: "#eff6ff" }}
                   >
                     <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
                       {clientName.toUpperCase()}
@@ -8102,32 +7611,14 @@ const onPick = () => {
 >
   <TouchableWithoutFeedback onPress={() => setPartsReceivedModalVisible(false)}>
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
@@ -8157,14 +7648,7 @@ const onPick = () => {
 
             <TouchableOpacity
               onPress={() => setPartsReceivedModalVisible(false)}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
                 ✕
@@ -8195,14 +7679,7 @@ const onPick = () => {
 
                 return (
                   <View
-                    style={{
-                      marginBottom: 10,
-                      padding: 13,
-                      borderWidth: 1,
-                      borderColor: "#ddd6fe",
-                      borderRadius: 12,
-                      backgroundColor: "#f5f3ff",
-                    }}
+                    style={{ marginBottom: 10, padding: 13, borderWidth: 1, borderColor: "#ddd6fe", borderRadius: 12, backgroundColor: "#f5f3ff" }}
                   >
                     <Text style={{ fontSize: 16, fontWeight: "bold", color: "#1e293b" }}>
                       {clientName.toUpperCase()}
@@ -8233,13 +7710,7 @@ const onPick = () => {
                             clientId: item.client_id,
                           });
                         }}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 10,
-                          borderRadius: 9,
-                          alignItems: "center",
-                          backgroundColor: "#7c3aed",
-                        }}
+                        style={{ flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center", backgroundColor: "#7c3aed" }}
                       >
                         <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
                           Voir la fiche
@@ -8266,32 +7737,14 @@ const onPick = () => {
 >
   <TouchableWithoutFeedback onPress={() => setOutstandingBalancesModalVisible(false)}>
     <View
-      style={{
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.70)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 12,
-      }}
+      style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.70)", justifyContent: "center", alignItems: "center", padding: 12 }}
     >
       <TouchableWithoutFeedback>
         <View
-          style={{
-            width: "96%",
-            maxWidth: 1050,
-            maxHeight: "88%",
-            padding: 18,
-            borderRadius: 18,
-            backgroundColor: "#ffffff",
-            elevation: 20,
-          }}
+          style={{ width: "96%", maxWidth: 1050, maxHeight: "88%", padding: 18, borderRadius: 18, backgroundColor: "#ffffff", elevation: 20 }}
         >
           <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}
           >
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 21, fontWeight: "bold", color: "#1e293b" }}>
@@ -8325,14 +7778,7 @@ const onPick = () => {
 
             <TouchableOpacity
               onPress={() => setOutstandingBalancesModalVisible(false)}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#e5e7eb",
-              }}
+              style={{ width: 38, height: 38, borderRadius: 19, justifyContent: "center", alignItems: "center", backgroundColor: "#e5e7eb" }}
             >
               <Text style={{ color: "#475569", fontSize: 17, fontWeight: "bold" }}>
                 ✕
@@ -8361,14 +7807,7 @@ const onPick = () => {
 
                 return (
                   <View
-                    style={{
-                      marginBottom: 10,
-                      padding: 13,
-                      borderWidth: 1,
-                      borderColor: "#99f6e4",
-                      borderRadius: 12,
-                      backgroundColor: "#f0fdfa",
-                    }}
+                    style={{ marginBottom: 10, padding: 13, borderWidth: 1, borderColor: "#99f6e4", borderRadius: 12, backgroundColor: "#f0fdfa" }}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
                       <View style={{ flex: 1 }}>
@@ -8382,12 +7821,7 @@ const onPick = () => {
                       </View>
 
                       <View
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 99,
-                          backgroundColor: "#ccfbf1",
-                        }}
+                        style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99, backgroundColor: "#ccfbf1" }}
                       >
                         <Text style={{ color: "#115e59", fontSize: 13, fontWeight: "bold" }}>
                           {Number(item.solderestant).toFixed(2)} €
@@ -8415,12 +7849,7 @@ const onPick = () => {
                           }}
                         >
                           <Text
-                            style={{
-                              flex: 1,
-                              fontSize: 13,
-                              fontWeight: "600",
-                              color: it.on_hold ? "#9a5b13" : "#475569",
-                            }}
+                            style={{ flex: 1, fontSize: 13, fontWeight: "600", color: it.on_hold ? "#9a5b13" : "#475569" }}
                           >
                             {label} ({suffix}) · {it.solderestant.toFixed(2)} €
                             {it.on_hold ? " — mise de côté" : ""}
@@ -8440,11 +7869,7 @@ const onPick = () => {
                             }}
                           >
                             <Text
-                              style={{
-                                fontSize: 11,
-                                fontWeight: "bold",
-                                color: it.on_hold ? "#0d9488" : "#64748b",
-                              }}
+                              style={{ fontSize: 11, fontWeight: "bold", color: it.on_hold ? "#0d9488" : "#64748b" }}
                             >
                               {it.on_hold ? "Réactiver" : "Mettre de côté"}
                             </Text>
@@ -8462,13 +7887,7 @@ const onPick = () => {
                             clientId: item.client_id,
                           });
                         }}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 10,
-                          borderRadius: 9,
-                          alignItems: "center",
-                          backgroundColor: "#0d9488",
-                        }}
+                        style={{ flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center", backgroundColor: "#0d9488" }}
                       >
                         <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "bold" }}>
                           Voir la fiche
@@ -8481,13 +7900,7 @@ const onPick = () => {
             />
             {displayedOutstandingBalances.length > OUTSTANDING_BALANCES_PAGE_SIZE && (
               <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 16,
-                  marginTop: 14,
-                }}
+                style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14 }}
               >
                 <TouchableOpacity
                   onPress={() =>
@@ -8507,11 +7920,7 @@ const onPick = () => {
                 >
                   <Image
                     source={require("../assets/icons/chevrong.png")}
-                    style={{
-                      width: 18,
-                      height: 18,
-                      tintColor: outstandingBalancesPage === 1 ? "#cbd5e1" : "#0d9488",
-                    }}
+                    style={{ width: 18, height: 18, tintColor: outstandingBalancesPage === 1 ? "#cbd5e1" : "#0d9488" }}
                   />
                 </TouchableOpacity>
 
@@ -8612,29 +8021,13 @@ const onPick = () => {
         onRequestClose={() => setPopupVisible(false)}
       >
         <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.6)",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" }}
         >
           <View
-            style={{
-              width: "92%",
-              maxHeight: "80%",
-              backgroundColor: "#fff",
-              borderRadius: 10,
-              padding: 12,
-            }}
+            style={{ width: "92%", maxHeight: "80%", backgroundColor: "#fff", borderRadius: 10, padding: 12 }}
           >
             <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "bold",
-                marginBottom: 8,
-                textAlign: "center",
-              }}
+              style={{ fontSize: 18, fontWeight: "bold", marginBottom: 8, textAlign: "center" }}
             >
               Clients avec interventions / commandes en cours
             </Text>
@@ -8690,12 +8083,7 @@ const onPick = () => {
 
                       <View style={{ alignItems: "center" }}>
                         <View
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 99,
-                            backgroundColor: "#fee2e2",
-                          }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99, backgroundColor: "#fee2e2" }}
                         >
                           <Text style={{ color: "#b91c1c", fontSize: 14, fontWeight: "bold" }}>
                             {item.totals.due.toLocaleString("fr-FR", {
@@ -8711,14 +8099,7 @@ const onPick = () => {
                             order.order_photos.length > 0
                         ) && (
                           <View
-                            style={{
-                              flexDirection: "row",
-                              flexWrap: "wrap",
-                              justifyContent: "flex-end",
-                              gap: 6,
-                              marginTop: 8,
-                              maxWidth: 90,
-                            }}
+                            style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, marginTop: 8, maxWidth: 90 }}
                           >
                             {item.ordersEnCours.flatMap((order) =>
                               Array.isArray(order.order_photos)
@@ -8726,14 +8107,7 @@ const onPick = () => {
                                     <Image
                                       key={`${order.id}-photo-${index}`}
                                       source={{ uri }}
-                                      style={{
-                                        width: 70,
-                                        height: 70,
-                                        borderRadius: 8,
-                                        borderWidth: 1,
-                                        borderColor: "#270381",
-                                        resizeMode: "cover",
-                                      }}
+                                      style={{ width: 70, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "#270381", resizeMode: "cover" }}
                                     />
                                   ))
                                 : []
@@ -8766,12 +8140,7 @@ const onPick = () => {
                     <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                       {item.interventionsEnCours.length > 0 && (
                         <View
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 8,
-                            backgroundColor: "#eef2ff",
-                          }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#eef2ff" }}
                         >
                           <Text style={{ color: "#4338ca", fontSize: 12, fontWeight: "700" }}>
                             🔧 {item.interventionsEnCours.length} intervention
@@ -8781,12 +8150,7 @@ const onPick = () => {
                       )}
                       {item.ordersEnCours.length > 0 && (
                         <View
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 8,
-                            backgroundColor: "#f5f3ff",
-                          }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "#f5f3ff" }}
                         >
                           <Text style={{ color: "#6d28d9", fontSize: 12, fontWeight: "700" }}>
                             🛒 {item.ordersEnCours.length} commande
@@ -8815,12 +8179,7 @@ const onPick = () => {
                               }}
                             >
                               <Text
-                                style={{
-                                  flex: 1,
-                                  fontSize: 12,
-                                  fontWeight: "600",
-                                  color: it.on_hold ? "#9a5b13" : "#475569",
-                                }}
+                                style={{ flex: 1, fontSize: 12, fontWeight: "600", color: it.on_hold ? "#9a5b13" : "#475569" }}
                                 numberOfLines={1}
                               >
                                 {label} ({it.status})
@@ -8842,11 +8201,7 @@ const onPick = () => {
                                 }}
                               >
                                 <Text
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: "bold",
-                                    color: it.on_hold ? "#0d9488" : "#64748b",
-                                  }}
+                                  style={{ fontSize: 11, fontWeight: "bold", color: it.on_hold ? "#0d9488" : "#64748b" }}
                                 >
                                   {it.on_hold ? "Réactiver" : "Mettre de côté"}
                                 </Text>
@@ -8872,12 +8227,7 @@ const onPick = () => {
                               }}
                             >
                               <Text
-                                style={{
-                                  flex: 1,
-                                  fontSize: 12,
-                                  fontWeight: "600",
-                                  color: o.on_hold ? "#9a5b13" : "#475569",
-                                }}
+                                style={{ flex: 1, fontSize: 12, fontWeight: "600", color: o.on_hold ? "#9a5b13" : "#475569" }}
                                 numberOfLines={1}
                               >
                                 {label} (commande)
@@ -8899,11 +8249,7 @@ const onPick = () => {
                                 }}
                               >
                                 <Text
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: "bold",
-                                    color: o.on_hold ? "#0d9488" : "#64748b",
-                                  }}
+                                  style={{ fontSize: 11, fontWeight: "bold", color: o.on_hold ? "#0d9488" : "#64748b" }}
                                 >
                                   {o.on_hold ? "Réactiver" : "Mettre de côté"}
                                 </Text>
@@ -8915,11 +8261,7 @@ const onPick = () => {
                     )}
 
                     <View
-                      style={{
-                        flexDirection: "row",
-                        gap: 8,
-                        marginTop: 10,
-                      }}
+                      style={{ flexDirection: "row", gap: 8, marginTop: 10 }}
                     >
                       {item.interventionsEnCours.length > 0 && (
                         <TouchableOpacity
@@ -8940,11 +8282,7 @@ const onPick = () => {
                           }}
                         >
                           <Text
-                            style={{
-                              color: "#3730a3",
-                              fontWeight: "700",
-                              fontSize: 13,
-                            }}
+                            style={{ color: "#3730a3", fontWeight: "700", fontSize: 13 }}
                           >
                             Voir interventions
                           </Text>
@@ -8972,11 +8310,7 @@ const onPick = () => {
                           }}
                         >
                           <Text
-                            style={{
-                              color: "#5b21b6",
-                              fontWeight: "700",
-                              fontSize: 13,
-                            }}
+                            style={{ color: "#5b21b6", fontWeight: "700", fontSize: 13 }}
                           >
                             Voir commandes
                           </Text>
@@ -8989,26 +8323,14 @@ const onPick = () => {
             )}
 
             <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginTop: 6,
-              }}
+              style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}
             >
               <TouchableOpacity
                 onPress={() => setPopupVisible(false)}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 16,
-                  backgroundColor: "#888",
-                  borderRadius: 6,
-                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "#888", borderRadius: 6 }}
               >
                 <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "bold",
-                  }}
+                  style={{ color: "#fff", fontWeight: "bold" }}
                 >
                   Fermer
                 </Text>
@@ -9018,18 +8340,10 @@ const onPick = () => {
                 onPress={async () => {
                   await loadPopupData();
                 }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 16,
-                  backgroundColor: "#28a745",
-                  borderRadius: 6,
-                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "#28a745", borderRadius: 6 }}
               >
                 <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "bold",
-                  }}
+                  style={{ color: "#fff", fontWeight: "bold" }}
                 >
                   Rafraîchir
                 </Text>

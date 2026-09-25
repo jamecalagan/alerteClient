@@ -82,17 +82,12 @@ const uploadVideoToStorage = async (uri, mimeTypeHint, interventionId, folder) =
   const fileName = `${uuidv4()}.${extension}`;
   const filePath = `${folder}/${interventionId}/${fileName}`;
 
-  try {
-    return await uploadLargeFileToStorage(
-      "intervention-videos",
-      filePath,
-      uri,
-      mimeType
-    );
-  } catch (error) {
-    console.error("❌ Erreur upload vidéo Supabase:", error.message);
-    return null;
-  }
+  return uploadLargeFileToStorage(
+    "intervention-videos",
+    filePath,
+    uri,
+    mimeType
+  );
 };
 
 // Helper: détecte une URI locale
@@ -1021,15 +1016,13 @@ const groupedFaults = filteredFaults.reduce(
         "depot"
       );
 
-      if (!publicUrl) {
-        showAlert("Erreur", "Échec de l'import de la vidéo.");
-        return;
-      }
-
       setVideoDepot(publicUrl);
     } catch (error) {
       console.error("Erreur import vidéo de dépôt :", error);
-      showAlert("Erreur", "Impossible d'importer cette vidéo.");
+      showAlert(
+        "Erreur",
+        `Impossible d'importer cette vidéo.\n\n${error?.message || error}`
+      );
     } finally {
       setIsUploadingVideo(false);
     }

@@ -792,7 +792,10 @@ export default function RecoveredClientsPage({ navigation, route }) {
       setFilteredClients(patch);
     } catch (error) {
       console.error("Erreur import vidéo de restitution :", error);
-      showAlert("Erreur", "Impossible d'importer cette vidéo.");
+      showAlert(
+        "Erreur",
+        `Impossible d'importer cette vidéo.\n\n${error?.message || error}`
+      );
     } finally {
       setUploadingVideoId(null);
     }

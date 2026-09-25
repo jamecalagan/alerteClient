@@ -17,9 +17,11 @@ import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
+import * as ImagePicker from "expo-image-picker";
 import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import VideoPreviewModal from "../components/VideoPreviewModal";
 
 // Helper pour obtenir une URI exploitable par <Image>
 const stripQuotes = (s) =>
@@ -290,6 +292,8 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [expandedCards, setExpandedCards] = useState({});
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
   const [extraImageToDelete, setExtraImageToDelete] = useState(null); // { interventionId, uri }
+  const [uploadingVideoId, setUploadingVideoId] = useState(null); // interventionId dont la vidéo de restitution est en cours d'import
+  const [videoPreviewUri, setVideoPreviewUri] = useState(null); // vidéo actuellement visionnée en plein écran
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -727,6 +731,76 @@ export default function RecoveredClientsPage({ navigation, route }) {
     }
   };
 
+  // Importe une vidéo déjà présente sur la tablette (extraite de la
+  // vidéosurveillance) prouvant la restitution du produit au client — pas de
+  // prise de vue live, juste une sélection dans les fichiers/la galerie.
+  const ALLOWED_VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
+  const pickAndUploadRestitutionVideo = async (interventionId) => {
+    if (uploadingVideoId) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== "granted") {
+      showAlert(
+        "Permission requise",
+        "Autorisez l'accès aux fichiers pour importer une vidéo."
+      );
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setUploadingVideoId(interventionId);
+
+      const uriWithoutQuery = asset.uri.split("?")[0];
+      const rawExtension =
+        uriWithoutQuery.split(".").pop()?.toLowerCase() || "mp4";
+      const extension = ALLOWED_VIDEO_EXTENSIONS.includes(rawExtension)
+        ? rawExtension
+        : "mp4";
+      const mimeType =
+        asset.mimeType ||
+        (extension === "mov" ? "video/quicktime" : `video/${extension}`);
+
+      const filePath = `restitution/${interventionId}/${Date.now()}.${extension}`;
+      const file = { uri: asset.uri, name: filePath.split("/").pop(), type: mimeType };
+
+      const { error: uploadError } = await supabase.storage
+        .from("intervention-videos")
+        .upload(filePath, file, { upsert: true, contentType: mimeType });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("intervention-videos")
+        .getPublicUrl(filePath);
+      const publicUrl = publicUrlData?.publicUrl || filePath;
+
+      const { error: updateError } = await supabase
+        .from("interventions")
+        .update({ video_restitution: publicUrl })
+        .eq("id", interventionId);
+
+      if (updateError) throw updateError;
+
+      const patch = (list) =>
+        list.map((it) =>
+          it.id === interventionId ? { ...it, video_restitution: publicUrl } : it
+        );
+      setRecoveredClients(patch);
+      setFilteredClients(patch);
+    } catch (error) {
+      console.error("Erreur import vidéo de restitution :", error);
+      showAlert("Erreur", "Impossible d'importer cette vidéo.");
+    } finally {
+      setUploadingVideoId(null);
+    }
+  };
+
   const confirmDeleteExtraImage = (interventionId, uri) => {
     setExtraImageToDelete({ interventionId, uri });
   };
@@ -1097,6 +1171,29 @@ export default function RecoveredClientsPage({ navigation, route }) {
                         Créer une facture
                       </Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        item.video_restitution
+                          ? setVideoPreviewUri(item.video_restitution)
+                          : pickAndUploadRestitutionVideo(item.id)
+                      }
+                      disabled={uploadingVideoId === item.id}
+                      style={styles.secondaryBtn}
+                    >
+                      <Icon
+                        name={item.video_restitution ? "check-circle" : "video-camera"}
+                        size={14}
+                        color={item.video_restitution ? "#065f46" : "#334155"}
+                      />
+                      <Text style={styles.secondaryBtnText}>
+                        {uploadingVideoId === item.id
+                          ? "Import en cours..."
+                          : item.video_restitution
+                          ? "Voir vidéo restitution"
+                          : "Importer vidéo restitution"}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   {item._extraUris && item._extraUris.length > 0 && (
@@ -1210,6 +1307,12 @@ export default function RecoveredClientsPage({ navigation, route }) {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <VideoPreviewModal
+        visible={!!videoPreviewUri}
+        uri={videoPreviewUri}
+        onClose={() => setVideoPreviewUri(null)}
+      />
 
       <AlertBox
         visible={!!interventionIdToDelete}

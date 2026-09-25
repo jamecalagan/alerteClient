@@ -2983,35 +2983,40 @@ onPress={() => {
             disabled={isUploadingVideo}
             onPress={() => {
               Keyboard.dismiss();
-              if (videoDepot) {
-                setVideoPreviewVisible(true);
-              } else {
-                pickDepositVideo();
-              }
+              pickDepositVideo();
             }}
           >
             <Icon
-              name={videoDepot ? "check-circle" : "video-camera"}
+              name="video-camera"
               size={20}
-              color={videoDepot ? "#065f46" : "#3730a3"}
+              color="#3730a3"
               style={styles.buttonIcon}
             />
             <Text style={styles.buttonText}>
-              {isUploadingVideo
-                ? "Import en cours..."
-                : videoDepot
-                ? "Vidéo de dépôt importée (voir)"
-                : "Importer vidéo de dépôt"}
+              {isUploadingVideo ? "Import en cours..." : "Importer vidéo de dépôt"}
             </Text>
           </TouchableOpacity>
           {videoDepot && (
             <TouchableOpacity
-              style={{ alignSelf: "center", marginTop: -8, marginBottom: 8 }}
-              onPress={() => setVideoDepot(null)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                alignSelf: "center",
+                gap: 6,
+                backgroundColor: "#d1fae5",
+                borderWidth: 1,
+                borderColor: "#6ee7b7",
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 10,
+                marginBottom: 8,
+              }}
+              onPress={() => setVideoPreviewVisible(true)}
+              onLongPress={() => setVideoDepot(null)}
             >
-              <Text style={{ color: "#b91c1c", fontSize: 13, fontWeight: "600" }}>
-                Retirer la vidéo
+              <Icon name="check-circle" size={14} color="#065f46" />
+              <Text style={{ color: "#065f46", fontSize: 12, fontWeight: "700" }}>
+                Vidéo de dépôt ajoutée — appui long pour supprimer
               </Text>
             </TouchableOpacity>
           )}

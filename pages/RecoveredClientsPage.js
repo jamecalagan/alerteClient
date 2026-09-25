@@ -294,6 +294,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [extraImageToDelete, setExtraImageToDelete] = useState(null); // { interventionId, uri }
   const [uploadingVideoId, setUploadingVideoId] = useState(null); // interventionId dont la vidéo de restitution est en cours d'import
   const [videoPreviewUri, setVideoPreviewUri] = useState(null); // vidéo actuellement visionnée en plein écran
+  const [videoToDelete, setVideoToDelete] = useState(null); // interventionId dont la vidéo de restitution est à confirmer avant suppression
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -801,6 +802,44 @@ export default function RecoveredClientsPage({ navigation, route }) {
     }
   };
 
+  const handleDeleteRestitutionVideo = async () => {
+    const interventionId = videoToDelete;
+    setVideoToDelete(null);
+    if (!interventionId) return;
+
+    try {
+      const item = recoveredClients.find((it) => it.id === interventionId);
+      const url = item?.video_restitution;
+      const m = (url || "").match(
+        /\/storage\/v1\/object\/(?:public|sign)\/intervention-videos\/(.+?)(\?|$)/i
+      );
+      if (m && m[1]) {
+        const { error: storageError } = await supabase.storage
+          .from("intervention-videos")
+          .remove([m[1]]);
+        if (storageError) {
+          console.error("Suppression Storage vidéo :", storageError);
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from("interventions")
+        .update({ video_restitution: null })
+        .eq("id", interventionId);
+      if (updateError) throw updateError;
+
+      const patch = (list) =>
+        list.map((it) =>
+          it.id === interventionId ? { ...it, video_restitution: null } : it
+        );
+      setRecoveredClients(patch);
+      setFilteredClients(patch);
+    } catch (error) {
+      console.error("Erreur suppression vidéo de restitution :", error);
+      showAlert("Erreur", "Impossible de supprimer cette vidéo.");
+    }
+  };
+
   const confirmDeleteExtraImage = (interventionId, uri) => {
     setExtraImageToDelete({ interventionId, uri });
   };
@@ -1173,28 +1212,31 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() =>
-                        item.video_restitution
-                          ? setVideoPreviewUri(item.video_restitution)
-                          : pickAndUploadRestitutionVideo(item.id)
-                      }
+                      onPress={() => pickAndUploadRestitutionVideo(item.id)}
                       disabled={uploadingVideoId === item.id}
                       style={styles.secondaryBtn}
                     >
-                      <Icon
-                        name={item.video_restitution ? "check-circle" : "video-camera"}
-                        size={14}
-                        color={item.video_restitution ? "#065f46" : "#334155"}
-                      />
+                      <Icon name="video-camera" size={14} color="#334155" />
                       <Text style={styles.secondaryBtnText}>
                         {uploadingVideoId === item.id
                           ? "Import en cours..."
-                          : item.video_restitution
-                          ? "Voir vidéo restitution"
                           : "Importer vidéo restitution"}
                       </Text>
                     </TouchableOpacity>
                   </View>
+
+                  {item.video_restitution && (
+                    <TouchableOpacity
+                      onPress={() => setVideoPreviewUri(item.video_restitution)}
+                      onLongPress={() => setVideoToDelete(item.id)}
+                      style={styles.videoIndicator}
+                    >
+                      <Icon name="check-circle" size={14} color="#065f46" />
+                      <Text style={styles.videoIndicatorText}>
+                        Vidéo restitution ajoutée — appui long pour supprimer
+                      </Text>
+                    </TouchableOpacity>
+                  )}
 
                   {item._extraUris && item._extraUris.length > 0 && (
                     <Text style={styles.deletePhotoHint}>
@@ -1332,6 +1374,16 @@ export default function RecoveredClientsPage({ navigation, route }) {
         confirmText="Supprimer"
         onClose={() => setExtraImageToDelete(null)}
         onConfirm={handleDeleteExtraImage}
+      />
+
+      <AlertBox
+        visible={!!videoToDelete}
+        title="Supprimer la vidéo"
+        message="Supprimer définitivement cette vidéo de restitution ?"
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setVideoToDelete(null)}
+        onConfirm={handleDeleteRestitutionVideo}
       />
 
       <CustomAlert
@@ -1574,6 +1626,24 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: "#334155",
     fontSize: 12,
+    fontWeight: "700",
+  },
+  videoIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 6,
+    backgroundColor: "#d1fae5",
+    borderWidth: 1,
+    borderColor: "#6ee7b7",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  videoIndicatorText: {
+    color: "#065f46",
+    fontSize: 11,
     fontWeight: "700",
   },
 

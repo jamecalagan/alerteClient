@@ -3016,7 +3016,7 @@ onPress={() => {
             >
               <Icon name="check-circle" size={14} color="#065f46" />
               <Text style={{ color: "#065f46", fontSize: 12, fontWeight: "700" }}>
-                Vidéo de dépôt ajoutée — appui long pour supprimer
+                Vidéo
               </Text>
             </TouchableOpacity>
           )}

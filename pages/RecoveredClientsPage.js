@@ -1233,7 +1233,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     >
                       <Icon name="check-circle" size={14} color="#065f46" />
                       <Text style={styles.videoIndicatorText}>
-                        Vidéo restitution ajoutée — appui long pour supprimer
+                        Vidéo
                       </Text>
                     </TouchableOpacity>
                   )}

@@ -17,12 +17,9 @@ import { supabase } from "../supabaseClient";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Animatable from "react-native-animatable";
-import * as ImagePicker from "expo-image-picker";
 import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
-import VideoPreviewModal from "../components/VideoPreviewModal";
-import { uploadLargeFileToStorage } from "../utils/uploadLargeFile";
 
 // Helper pour obtenir une URI exploitable par <Image>
 const stripQuotes = (s) =>
@@ -293,9 +290,6 @@ export default function RecoveredClientsPage({ navigation, route }) {
   const [expandedCards, setExpandedCards] = useState({});
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
   const [extraImageToDelete, setExtraImageToDelete] = useState(null); // { interventionId, uri }
-  const [uploadingVideoId, setUploadingVideoId] = useState(null); // interventionId dont la vidéo de restitution est en cours d'import
-  const [videoPreviewUri, setVideoPreviewUri] = useState(null); // vidéo actuellement visionnée en plein écran
-  const [videoToDelete, setVideoToDelete] = useState(null); // interventionId dont la vidéo de restitution est à confirmer avant suppression
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -733,112 +727,6 @@ export default function RecoveredClientsPage({ navigation, route }) {
     }
   };
 
-  // Importe une vidéo déjà présente sur la tablette (extraite de la
-  // vidéosurveillance) prouvant la restitution du produit au client — pas de
-  // prise de vue live, juste une sélection dans les fichiers/la galerie.
-  const ALLOWED_VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
-  const pickAndUploadRestitutionVideo = async (interventionId) => {
-    if (uploadingVideoId) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== "granted") {
-      showAlert(
-        "Permission requise",
-        "Autorisez l'accès aux fichiers pour importer une vidéo."
-      );
-      return;
-    }
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["videos"],
-      });
-
-      if (result.canceled || !result.assets?.length) return;
-
-      const asset = result.assets[0];
-      setUploadingVideoId(interventionId);
-
-      const uriWithoutQuery = asset.uri.split("?")[0];
-      const rawExtension =
-        uriWithoutQuery.split(".").pop()?.toLowerCase() || "mp4";
-      const extension = ALLOWED_VIDEO_EXTENSIONS.includes(rawExtension)
-        ? rawExtension
-        : "mp4";
-      const mimeType =
-        asset.mimeType ||
-        (extension === "mov" ? "video/quicktime" : `video/${extension}`);
-
-      const filePath = `restitution/${interventionId}/${Date.now()}.${extension}`;
-
-      const publicUrl = await uploadLargeFileToStorage(
-        "intervention-videos",
-        filePath,
-        asset.uri,
-        mimeType
-      );
-
-      const { error: updateError } = await supabase
-        .from("interventions")
-        .update({ video_restitution: publicUrl })
-        .eq("id", interventionId);
-
-      if (updateError) throw updateError;
-
-      const patch = (list) =>
-        list.map((it) =>
-          it.id === interventionId ? { ...it, video_restitution: publicUrl } : it
-        );
-      setRecoveredClients(patch);
-      setFilteredClients(patch);
-    } catch (error) {
-      console.error("Erreur import vidéo de restitution :", error);
-      showAlert(
-        "Erreur",
-        `Impossible d'importer cette vidéo.\n\n${error?.message || error}`
-      );
-    } finally {
-      setUploadingVideoId(null);
-    }
-  };
-
-  const handleDeleteRestitutionVideo = async () => {
-    const interventionId = videoToDelete;
-    setVideoToDelete(null);
-    if (!interventionId) return;
-
-    try {
-      const item = recoveredClients.find((it) => it.id === interventionId);
-      const url = item?.video_restitution;
-      const m = (url || "").match(
-        /\/storage\/v1\/object\/(?:public|sign)\/intervention-videos\/(.+?)(\?|$)/i
-      );
-      if (m && m[1]) {
-        const { error: storageError } = await supabase.storage
-          .from("intervention-videos")
-          .remove([m[1]]);
-        if (storageError) {
-          console.error("Suppression Storage vidéo :", storageError);
-        }
-      }
-
-      const { error: updateError } = await supabase
-        .from("interventions")
-        .update({ video_restitution: null })
-        .eq("id", interventionId);
-      if (updateError) throw updateError;
-
-      const patch = (list) =>
-        list.map((it) =>
-          it.id === interventionId ? { ...it, video_restitution: null } : it
-        );
-      setRecoveredClients(patch);
-      setFilteredClients(patch);
-    } catch (error) {
-      console.error("Erreur suppression vidéo de restitution :", error);
-      showAlert("Erreur", "Impossible de supprimer cette vidéo.");
-    }
-  };
-
   const confirmDeleteExtraImage = (interventionId, uri) => {
     setExtraImageToDelete({ interventionId, uri });
   };
@@ -1209,33 +1097,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                         Créer une facture
                       </Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => pickAndUploadRestitutionVideo(item.id)}
-                      disabled={uploadingVideoId === item.id}
-                      style={styles.secondaryBtn}
-                    >
-                      <Icon name="video-camera" size={14} color="#334155" />
-                      <Text style={styles.secondaryBtnText}>
-                        {uploadingVideoId === item.id
-                          ? "Import en cours..."
-                          : "Importer vidéo restitution"}
-                      </Text>
-                    </TouchableOpacity>
                   </View>
-
-                  {item.video_restitution && (
-                    <TouchableOpacity
-                      onPress={() => setVideoPreviewUri(item.video_restitution)}
-                      onLongPress={() => setVideoToDelete(item.id)}
-                      style={styles.videoIndicator}
-                    >
-                      <Icon name="check-circle" size={14} color="#065f46" />
-                      <Text style={styles.videoIndicatorText}>
-                        Vidéo
-                      </Text>
-                    </TouchableOpacity>
-                  )}
 
                   {item._extraUris && item._extraUris.length > 0 && (
                     <Text style={styles.deletePhotoHint}>
@@ -1349,12 +1211,6 @@ export default function RecoveredClientsPage({ navigation, route }) {
         </TouchableWithoutFeedback>
       </Modal>
 
-      <VideoPreviewModal
-        visible={!!videoPreviewUri}
-        uri={videoPreviewUri}
-        onClose={() => setVideoPreviewUri(null)}
-      />
-
       <AlertBox
         visible={!!interventionIdToDelete}
         title="Confirmation"
@@ -1373,16 +1229,6 @@ export default function RecoveredClientsPage({ navigation, route }) {
         confirmText="Supprimer"
         onClose={() => setExtraImageToDelete(null)}
         onConfirm={handleDeleteExtraImage}
-      />
-
-      <AlertBox
-        visible={!!videoToDelete}
-        title="Supprimer la vidéo"
-        message="Supprimer définitivement cette vidéo de restitution ?"
-        cancelText="Annuler"
-        confirmText="Supprimer"
-        onClose={() => setVideoToDelete(null)}
-        onConfirm={handleDeleteRestitutionVideo}
       />
 
       <CustomAlert
@@ -1625,24 +1471,6 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: "#334155",
     fontSize: 12,
-    fontWeight: "700",
-  },
-  videoIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 6,
-    backgroundColor: "#d1fae5",
-    borderWidth: 1,
-    borderColor: "#6ee7b7",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  videoIndicatorText: {
-    color: "#065f46",
-    fontSize: 11,
     fontWeight: "700",
   },
 

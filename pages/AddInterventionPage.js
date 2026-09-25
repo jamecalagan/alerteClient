@@ -20,8 +20,6 @@ import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
-import VideoPreviewModal from "../components/VideoPreviewModal";
-import { uploadLargeFileToStorage } from "../utils/uploadLargeFile";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -63,31 +61,6 @@ const uploadImageToStorage = async (uri, interventionId, isLabel = false) => {
 
   const { data } = supabase.storage.from("images").getPublicUrl(filePath);
   return data.publicUrl;
-};
-
-// Vidéo importée depuis la vidéosurveillance (dépôt/restitution du produit,
-// pour preuve en cas de litige) — bucket dédié "intervention-videos" vu le
-// poids des fichiers, bien plus lourds que des photos.
-const ALLOWED_VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
-const uploadVideoToStorage = async (uri, mimeTypeHint, interventionId, folder) => {
-  const uriWithoutQuery = uri.split("?")[0];
-  const rawExtension = uriWithoutQuery.split(".").pop()?.toLowerCase() || "mp4";
-  const extension = ALLOWED_VIDEO_EXTENSIONS.includes(rawExtension)
-    ? rawExtension
-    : "mp4";
-  const mimeType =
-    mimeTypeHint ||
-    (extension === "mov" ? "video/quicktime" : `video/${extension}`);
-
-  const fileName = `${uuidv4()}.${extension}`;
-  const filePath = `${folder}/${interventionId}/${fileName}`;
-
-  return uploadLargeFileToStorage(
-    "intervention-videos",
-    filePath,
-    uri,
-    mimeType
-  );
 };
 
 // Helper: détecte une URI locale
@@ -321,9 +294,6 @@ export default function AddInterventionPage({ route, navigation }) {
   const [isPhotoTaken, setIsPhotoTaken] = useState(false);
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [labelPhoto, setLabelPhoto] = useState(null);
-  const [videoDepot, setVideoDepot] = useState(null);
-  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
-  const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
   const [model, setModel] = useState("");
   const [customBrand, setCustomBrand] = useState("");
   const [customModel, setCustomModel] = useState("");
@@ -985,49 +955,6 @@ const groupedFaults = filteredFaults.reduce(
     }
   };
 
-  // Importe une vidéo déjà présente sur la tablette (extraite de la
-  // vidéosurveillance) prouvant le dépôt du produit — pas de prise de vue
-  // live, juste une sélection dans les fichiers/la galerie.
-  const pickDepositVideo = async () => {
-    if (isUploadingVideo) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== "granted") {
-      showAlert(
-        "Permission requise",
-        "Autorisez l'accès aux fichiers pour importer une vidéo."
-      );
-      return;
-    }
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["videos"],
-      });
-
-      if (result.canceled || !result.assets?.length) return;
-
-      const asset = result.assets[0];
-      setIsUploadingVideo(true);
-
-      const publicUrl = await uploadVideoToStorage(
-        asset.uri,
-        asset.mimeType,
-        clientId || "tmp",
-        "depot"
-      );
-
-      setVideoDepot(publicUrl);
-    } catch (error) {
-      console.error("Erreur import vidéo de dépôt :", error);
-      showAlert(
-        "Erreur",
-        `Impossible d'importer cette vidéo.\n\n${error?.message || error}`
-      );
-    } finally {
-      setIsUploadingVideo(false);
-    }
-  };
-
   const confirmDeletePhoto = (uri) => {
     setPhotoUriToDelete(uri);
     setDeletePhotoConfirmVisible(true);
@@ -1497,7 +1424,6 @@ repair_proposal_date: repairProposalMade
       client_id: clientId,
       photos: uploadedPhotoUrls,
       label_photo: labelPhotoUrl,
-      video_depot: videoDepot,
       article_id: articleId,
       marque_id: brandId,
       modele_id: modelId,
@@ -2969,49 +2895,6 @@ onPress={() => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.iconButton, styles.button]}
-            disabled={isUploadingVideo}
-            onPress={() => {
-              Keyboard.dismiss();
-              pickDepositVideo();
-            }}
-          >
-            <Icon
-              name="video-camera"
-              size={20}
-              color="#3730a3"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.buttonText}>
-              {isUploadingVideo ? "Import en cours..." : "Importer vidéo de dépôt"}
-            </Text>
-          </TouchableOpacity>
-          {videoDepot && (
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                alignSelf: "center",
-                gap: 6,
-                backgroundColor: "#d1fae5",
-                borderWidth: 1,
-                borderColor: "#6ee7b7",
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderRadius: 10,
-                marginBottom: 8,
-              }}
-              onPress={() => setVideoPreviewVisible(true)}
-              onLongPress={() => setVideoDepot(null)}
-            >
-              <Icon name="check-circle" size={14} color="#065f46" />
-              <Text style={{ color: "#065f46", fontSize: 12, fontWeight: "700" }}>
-                Vidéo
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
             style={[styles.iconButton, styles.saveButton]}
             onPress={() => {
               Keyboard.dismiss();
@@ -3022,12 +2905,6 @@ onPress={() => {
             <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
           </TouchableOpacity>
         </View>
-
-        <VideoPreviewModal
-          visible={videoPreviewVisible}
-          uri={videoDepot}
-          onClose={() => setVideoPreviewVisible(false)}
-        />
 
         <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
       </ScrollView>

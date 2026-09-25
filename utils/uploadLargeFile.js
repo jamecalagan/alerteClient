@@ -1,4 +1,5 @@
 import * as tus from "tus-js-client";
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "../supabaseClient";
 
 const SUPABASE_PROJECT_ID = "fncgffajwabqrnhumgzd";
@@ -20,38 +21,50 @@ export async function uploadLargeFileToStorage(bucket, filePath, localUri, mimeT
   } = await supabase.auth.getSession();
   const token = session?.access_token || SUPABASE_ANON_KEY;
 
-  await new Promise((resolve, reject) => {
-    const upload = new tus.Upload(
-      { uri: localUri, name: filePath.split("/").pop(), type: mimeType },
-      {
-        endpoint: `https://${SUPABASE_PROJECT_ID}.storage.supabase.co/storage/v1/upload/resumable`,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: {
-          authorization: `Bearer ${token}`,
-          apikey: SUPABASE_ANON_KEY,
-          "x-upsert": "true",
-        },
-        uploadDataDuringCreation: true,
-        removeFingerprintOnSuccess: true,
-        metadata: {
-          bucketName: bucket,
-          objectName: filePath,
-          contentType: mimeType,
-          cacheControl: "3600",
-        },
-        chunkSize: 6 * 1024 * 1024, // imposé par l'implémentation TUS de Supabase
-        onError: (error) => reject(error),
-        onSuccess: () => resolve(),
-      }
-    );
+  // L'URI renvoyée par le sélecteur de fichiers (souvent une URI
+  // "content://" sur Android) n'est pas toujours lisible telle quelle par
+  // la lecture générique (XHR) que fait tus-js-client, surtout pour un
+  // gros fichier. On la copie d'abord vers un vrai fichier local de
+  // l'appli, garanti lisible.
+  const cacheUri = `${FileSystem.cacheDirectory}${filePath.split("/").pop()}`;
+  await FileSystem.copyAsync({ from: localUri, to: cacheUri });
 
-    upload.findPreviousUploads().then((previousUploads) => {
-      if (previousUploads.length > 0) {
-        upload.resumeFromPreviousUpload(previousUploads[0]);
-      }
-      upload.start();
+  try {
+    await new Promise((resolve, reject) => {
+      const upload = new tus.Upload(
+        { uri: cacheUri, name: filePath.split("/").pop(), type: mimeType },
+        {
+          endpoint: `https://${SUPABASE_PROJECT_ID}.storage.supabase.co/storage/v1/upload/resumable`,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          headers: {
+            authorization: `Bearer ${token}`,
+            apikey: SUPABASE_ANON_KEY,
+            "x-upsert": "true",
+          },
+          uploadDataDuringCreation: true,
+          removeFingerprintOnSuccess: true,
+          metadata: {
+            bucketName: bucket,
+            objectName: filePath,
+            contentType: mimeType,
+            cacheControl: "3600",
+          },
+          chunkSize: 6 * 1024 * 1024, // imposé par l'implémentation TUS de Supabase
+          onError: (error) => reject(error),
+          onSuccess: () => resolve(),
+        }
+      );
+
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      });
     });
-  });
+  } finally {
+    FileSystem.deleteAsync(cacheUri, { idempotent: true }).catch(() => {});
+  }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
   return data.publicUrl;

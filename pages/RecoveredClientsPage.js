@@ -22,6 +22,7 @@ import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import VideoPreviewModal from "../components/VideoPreviewModal";
+import { uploadLargeFileToStorage } from "../utils/uploadLargeFile";
 
 // Helper pour obtenir une URI exploitable par <Image>
 const stripQuotes = (s) =>
@@ -768,18 +769,13 @@ export default function RecoveredClientsPage({ navigation, route }) {
         (extension === "mov" ? "video/quicktime" : `video/${extension}`);
 
       const filePath = `restitution/${interventionId}/${Date.now()}.${extension}`;
-      const file = { uri: asset.uri, name: filePath.split("/").pop(), type: mimeType };
 
-      const { error: uploadError } = await supabase.storage
-        .from("intervention-videos")
-        .upload(filePath, file, { upsert: true, contentType: mimeType });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("intervention-videos")
-        .getPublicUrl(filePath);
-      const publicUrl = publicUrlData?.publicUrl || filePath;
+      const publicUrl = await uploadLargeFileToStorage(
+        "intervention-videos",
+        filePath,
+        asset.uri,
+        mimeType
+      );
 
       const { error: updateError } = await supabase
         .from("interventions")

@@ -21,6 +21,7 @@ import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import VideoPreviewModal from "../components/VideoPreviewModal";
+import { uploadLargeFileToStorage } from "../utils/uploadLargeFile";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -81,21 +82,17 @@ const uploadVideoToStorage = async (uri, mimeTypeHint, interventionId, folder) =
   const fileName = `${uuidv4()}.${extension}`;
   const filePath = `${folder}/${interventionId}/${fileName}`;
 
-  const file = { uri, name: fileName, type: mimeType };
-
-  const { error } = await supabase.storage
-    .from("intervention-videos")
-    .upload(filePath, file, { upsert: true, contentType: mimeType });
-
-  if (error) {
+  try {
+    return await uploadLargeFileToStorage(
+      "intervention-videos",
+      filePath,
+      uri,
+      mimeType
+    );
+  } catch (error) {
     console.error("❌ Erreur upload vidéo Supabase:", error.message);
     return null;
   }
-
-  const { data } = supabase.storage
-    .from("intervention-videos")
-    .getPublicUrl(filePath);
-  return data.publicUrl;
 };
 
 // Helper: détecte une URI locale

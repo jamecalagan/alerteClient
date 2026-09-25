@@ -16,6 +16,7 @@ import {
 import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
+import BottomMenu from "../components/BottomMenu";
 import * as Print from "expo-print";
 import { isValidEmail } from "../utils/validateEmail";
 
@@ -787,6 +788,7 @@ const openRepairEstimate = async (intervention) => {
         <FlatList
           data={interventions}
           keyExtractor={(item, idx) => idx.toString()}
+          contentContainerStyle={{ paddingBottom: 90 }}
           renderItem={({ item, index }) => {
             const statusBorderStyle = getStatusStyle(item.status);
             const { bgColor, textColor } = getStatusBadgeColors(item.status);
@@ -1153,7 +1155,7 @@ const openRepairEstimate = async (intervention) => {
         </TouchableOpacity>
       </View>
 
-      <BackButton onPress={() => navigation.navigate("Home")} style={{ marginTop: 16 }} />
+      <BackButton onPress={() => navigation.navigate("Home")} style={{ marginTop: 16, marginBottom: 90 }} />
 <Modal
   visible={estimateVisible}
   transparent
@@ -1419,6 +1421,8 @@ const openRepairEstimate = async (intervention) => {
         }}
         onClose={() => setAlertVisible(false)}
       />
+
+      <BottomMenu navigation={navigation} />
     </View>
   );
 }

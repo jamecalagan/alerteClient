@@ -32,6 +32,8 @@ import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import ClientPhotoBlocks from "../components/ClientPhotoBlocks";
+import { MaterialIcons } from "@expo/vector-icons";
+import VideoPreviewModal from "../components/VideoPreviewModal";
 import ClientReminderBlock from "../components/ClientReminderBlock";
 import deviceIcons from "../utils/deviceIcons";
 import {
@@ -102,6 +104,7 @@ const [searchSelectedClient, setSearchSelectedClient] = useState(null);
   const [photoChoiceOrder, setPhotoChoiceOrder] = useState(null); // commande pour laquelle la popup Caméra/Galerie/Web est ouverte
   const [deletePhotoTarget, setDeletePhotoTarget] = useState(null); // { interventionId, uri } photo d'intervention à confirmer avant suppression
   const [deleteOrderPhotoTarget, setDeleteOrderPhotoTarget] = useState(null); // { orderId, uri } photo de commande à confirmer avant suppression
+  const [homeVideoUri, setHomeVideoUri] = useState(null); // vidéo (dépôt/réparation) ouverte en plein écran depuis la fiche
   const [reminderToDismiss, setReminderToDismiss] = useState(null); // { interventionId, field } rappel à confirmer avant suppression
   const [uploadingOrderProductPhotoId, setUploadingOrderProductPhotoId] = useState(null); // photo d'appareil (commande) en cours d'envoi
   const [photoChoiceOrderProduct, setPhotoChoiceOrderProduct] = useState(null); // commande pour laquelle la popup Caméra/Galerie (photo d'appareil) est ouverte
@@ -2792,6 +2795,36 @@ const baseRows = [
                                         );
                                       })()}
 
+                                      {/* Vidéos de l'intervention : D = dépôt, R = réparation (tap = lecture plein écran) */}
+                                      {latestIntervention?.video_depot && (
+                                        <TouchableOpacity
+                                          style={styles.iconSquare}
+                                          activeOpacity={0.8}
+                                          onPress={() =>
+                                            setHomeVideoUri(latestIntervention.video_depot)
+                                          }
+                                        >
+                                          <MaterialIcons name="videocam" size={28} color="#16a34a" />
+                                          <View style={styles.countBadge}>
+                                            <Text style={styles.countBadgeText}>D</Text>
+                                          </View>
+                                        </TouchableOpacity>
+                                      )}
+                                      {latestIntervention?.video_reparation && (
+                                        <TouchableOpacity
+                                          style={styles.iconSquare}
+                                          activeOpacity={0.8}
+                                          onPress={() =>
+                                            setHomeVideoUri(latestIntervention.video_reparation)
+                                          }
+                                        >
+                                          <MaterialIcons name="videocam" size={28} color="#4f46e5" />
+                                          <View style={styles.countBadge}>
+                                            <Text style={styles.countBadgeText}>R</Text>
+                                          </View>
+                                        </TouchableOpacity>
+                                      )}
+
                                       {/* Icônes matériels (toutes les interventions en cours) */}
                                       {(item.interventions || [])
                                         .filter(
@@ -3692,7 +3725,9 @@ const baseRows = [
             loaned_item_returned,
 restitution_note,
 restitution_note_done,
-on_hold
+on_hold,
+video_depot,
+video_reparation
 ),
 orders(
   id,
@@ -4284,7 +4319,8 @@ interventions(
   id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
   photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note, loaned_item, loaned_item_returned,
-  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
+  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted,
+  video_depot, video_reparation
 )
 
         `
@@ -4301,7 +4337,8 @@ interventions(
   id, status, deviceType, description, cost, solderestant,
   createdAt, "updatedAt", commande,
   photos, product_photos, label_photo, notifiedBy, notify_type, print_etiquette, info_note,
-  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted
+  devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted,
+  video_depot, video_reparation
 )
 
         `
@@ -6707,6 +6744,12 @@ const onPick = () => {
                 confirmText="Supprimer"
                 onClose={() => setDeleteOrderPhotoTarget(null)}
                 onConfirm={confirmDeleteOrderPhoto}
+              />
+
+              <VideoPreviewModal
+                visible={!!homeVideoUri}
+                uri={homeVideoUri}
+                onClose={() => setHomeVideoUri(null)}
               />
 
               <AlertBox

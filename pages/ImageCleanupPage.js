@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, Image, Button, StyleSheet, TouchableOpacity
+  View, Text, ScrollView, Image, StyleSheet, TouchableOpacity, StatusBar
 } from 'react-native';
 import { supabase } from '../supabaseClient';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +28,7 @@ const [bulkDeleting, setBulkDeleting] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
+  const [alertOnClose, setAlertOnClose] = useState(null);
 
   const openConfirm = (title, message, onConfirm, confirmText = 'Oui, supprimer') => {
     setConfirmDialog({ visible: true, title, message, confirmText, onConfirm });
@@ -37,11 +38,15 @@ const [bulkDeleting, setBulkDeleting] = useState(false);
     setConfirmDialog((prev) => ({ ...prev, visible: false }));
   };
 
-  const showAlert = (title, message) => {
+  const showAlert = (title, message, onCloseAction = null) => {
     setAlertTitle(title);
     setAlertMessage(message || '');
+    setAlertOnClose(onCloseAction ? () => onCloseAction : null);
     setAlertVisible(true);
   };
+
+  // Après une suppression réussie : retour à l'accueil une fois l'alerte fermée.
+  const goHome = () => navigation.navigate('Home');
   const [eligibleInterventionsList, setEligibleInterventionsList] =
   useState([]);
 const getImageUrl = (value) => {
@@ -374,7 +379,7 @@ if (isEtiquettePath(imageUrl)) {
           );
         }
 
-        showAlert("Image supprimée.");
+        showAlert("Image supprimée.", "", goHome);
         setArchivedImages((prev) => [...prev, imageUrl]);
       }
     );
@@ -430,7 +435,7 @@ if (isEtiquettePath(imageUrl)) {
           return;
         }
 
-        showAlert("✅ Image supprimée avec succès.");
+        showAlert("✅ Image supprimée avec succès.", "", goHome);
         setExtraImages(prev => prev.filter(img => img.id !== imageId));
       }
     );
@@ -492,7 +497,8 @@ const deleteStorageImage = (
 
         showAlert(
           "Image supprimée",
-          "L’image a été archivée puis supprimée."
+          "L’image a été archivée puis supprimée.",
+          goHome
         );
       } catch (error) {
         console.error(
@@ -834,7 +840,8 @@ const deleteSelectedStorageImages = () => {
                   deletedSelectionIds.length > 1
                     ? "s ont été archivées puis supprimées."
                     : " a été archivée puis supprimée."
-                }`
+                }`,
+                goHome
               );
             } else {
               showAlert(
@@ -861,7 +868,7 @@ const deleteSelectedStorageImages = () => {
   );
 };
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.title}>🧼 Nettoyage des images anciennes</Text>
 <View style={styles.bulkActions}>
   <TouchableOpacity
@@ -952,9 +959,12 @@ const deleteSelectedStorageImages = () => {
           : "Client inconnu"}
       </Text>
 
-      <Button
-        title="Supprimer"
-        color="red"
+      <TouchableOpacity
+        style={[
+          styles.deleteBtn,
+          archivedImages.includes(photo.original) &&
+            styles.disabledButton,
+        ]}
         onPress={() =>
           deleteImage(
             photo.original,
@@ -965,7 +975,9 @@ const deleteSelectedStorageImages = () => {
         disabled={archivedImages.includes(
           photo.original
         )}
-      />
+      >
+        <Text style={styles.deleteBtnText}>Supprimer</Text>
+      </TouchableOpacity>
     </View>
   );
 })}
@@ -1019,9 +1031,8 @@ const isSelected =
     />
   </TouchableOpacity>
                   <Text style={styles.imageText}>{label}</Text>
-                  <Button
-                    title="Supprimer"
-                    color="red"
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
                     onPress={() =>
   deleteImage(
     img.original,
@@ -1030,7 +1041,9 @@ const isSelected =
     img.id
   )
 }
-                  />
+                  >
+                    <Text style={styles.deleteBtnText}>Supprimer</Text>
+                  </TouchableOpacity>
                 </View>
               );
             })}
@@ -1098,9 +1111,12 @@ const isSelected =
                 : `Intervention ${img.intervention_id}`}
             </Text>
 
-            <Button
-              title="Supprimer"
-              color="red"
+            <TouchableOpacity
+              style={[
+                styles.deleteBtn,
+                archivedImages.includes(img.image_url) &&
+                  styles.disabledButton,
+              ]}
               disabled={archivedImages.includes(
                 img.image_url
               )}
@@ -1110,7 +1126,9 @@ const isSelected =
                   clientLabel
                 )
               }
-            />
+            >
+              <Text style={styles.deleteBtnText}>Supprimer</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         );
       })}
@@ -1135,7 +1153,14 @@ const isSelected =
         visible={alertVisible}
         title={alertTitle}
         message={alertMessage}
-        onClose={() => setAlertVisible(false)}
+        onClose={() => {
+          setAlertVisible(false);
+          if (alertOnClose) {
+            const action = alertOnClose;
+            setAlertOnClose(null);
+            action();
+          }
+        }}
       />
 
       <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
@@ -1144,25 +1169,38 @@ const isSelected =
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#eef2ff',
+    paddingTop: StatusBar.currentHeight || 0,
+  },
   container: {
     padding: 16,
-    backgroundColor: '#e9e9e9',
+    backgroundColor: '#eef2ff',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
+    color: '#0f172a',
   },
   card: {
     marginBottom: 24,
     padding: 12,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#e0e7ff',
+    borderRadius: 16,
+    shadowColor: '#312e81',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   idText: {
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#3730a3',
   },
   imageRow: {
     flexDirection: 'row',
@@ -1179,77 +1217,97 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     marginBottom: 8,
-    borderRadius: 4,
+    borderRadius: 10,
   },
   imageText: {
     fontSize: 12,
     fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: 4,
+    color: '#64748b',
   },
   bulkActions: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: 10,
-  marginBottom: 18,
-},
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 18,
+  },
 
-selectAllButton: {
-  backgroundColor: "#2c3e50",
-  paddingVertical: 10,
-  paddingHorizontal: 14,
-  borderRadius: 8,
-},
+  selectAllButton: {
+    backgroundColor: '#e0e7ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
 
-selectAllButtonText: {
-  color: "#ffffff",
-  fontWeight: "bold",
-},
+  selectAllButtonText: {
+    color: '#3730a3',
+    fontWeight: 'bold',
+  },
 
-deleteSelectedButton: {
-  backgroundColor: "#c00000",
-  paddingVertical: 10,
-  paddingHorizontal: 14,
-  borderRadius: 8,
-},
+  deleteSelectedButton: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
 
-deleteSelectedButtonText: {
-  color: "#ffffff",
-  fontWeight: "bold",
-},
+  deleteSelectedButtonText: {
+    color: '#b91c1c',
+    fontWeight: 'bold',
+  },
 
-disabledButton: {
-  opacity: 0.4,
-},
+  deleteBtn: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
 
-selectedImageBlock: {
-  backgroundColor: "#ffe5e5",
-  borderWidth: 2,
-  borderColor: "#c00000",
-  borderRadius: 8,
-  padding: 6,
-},
+  deleteBtnText: {
+    color: '#b91c1c',
+    fontWeight: '700',
+    fontSize: 12,
+  },
 
-selectionCircle: {
-  width: 26,
-  height: 26,
-  borderRadius: 13,
-  borderWidth: 2,
-  borderColor: "#777777",
-  backgroundColor: "#ffffff",
-  justifyContent: "center",
-  alignItems: "center",
-  marginBottom: 6,
-},
+  disabledButton: {
+    opacity: 0.4,
+  },
 
-selectionCircleActive: {
-  backgroundColor: "#c00000",
-  borderColor: "#c00000",
-},
+  selectedImageBlock: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 2,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
+    padding: 6,
+  },
 
-selectionCheck: {
-  color: "#ffffff",
-  fontSize: 17,
-  fontWeight: "bold",
-},
+  selectionCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#a5b4fc',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+
+  selectionCircleActive: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+
+  selectionCheck: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
 });

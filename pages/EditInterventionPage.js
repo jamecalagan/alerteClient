@@ -14,6 +14,7 @@ import {
     Pressable,
     FlatList,
     StatusBar,
+    ActivityIndicator,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -22,8 +23,15 @@ import { formatClientAddress } from "../utils/formatClientAddress";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
+import VideoPreviewModal from "../components/VideoPreviewModal";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
+
+// Vidéo prise pendant la réparation (bucket dédié "intervention-videos").
+// Limite par fichier du plan Supabase gratuit : 50 Mo (non contournable).
+const ALLOWED_VIDEO_EXTENSIONS = ["mp4", "mov", "m4v", "avi", "mkv", "webm"];
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 // -------- Helpers string image (version unique) --------
 const stripQuotes = (s) =>
@@ -299,6 +307,13 @@ export default function EditInterventionPage({ route, navigation }) {
     // Média
     const [photos, setPhotos] = useState([]);
     const [isAddingPhoto, setIsAddingPhoto] = useState(false);
+    const [videoReparation, setVideoReparation] = useState(null);
+    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+    const [videoPreviewVisible, setVideoPreviewVisible] = useState(false);
+    const [videoDeleteVisible, setVideoDeleteVisible] = useState(false);
+    const [videoDepot, setVideoDepot] = useState(null);
+    const [videoDepotPreviewVisible, setVideoDepotPreviewVisible] = useState(false);
+    const [videoDepotDeleteVisible, setVideoDepotDeleteVisible] = useState(false);
     const [labelPhoto, setLabelPhoto] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [labelPhotoDB, setLabelPhotoDB] = useState(null); // ref cloud DB (stable)
@@ -952,7 +967,7 @@ const onComponentInputChange = (text) => {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date, video_reparation, video_depot"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -998,6 +1013,8 @@ const onComponentInputChange = (text) => {
 
             // Hydratation simple
             setReference(inter.reference || "");
+            setVideoReparation(inter.video_reparation || null);
+            setVideoDepot(inter.video_depot || null);
             setDescription(inter.description || "");
             setCost(inter.cost != null ? String(inter.cost) : "");
             setDevisCost(
@@ -2026,6 +2043,142 @@ const validateRepairInformation = () => {
 
     setRepairModalVisible(false);
 };
+    // Importe une vidéo déjà présente sur la tablette et l'enregistre tout de
+    // suite sur la fiche (interventions.video_reparation), sans attendre le
+    // bouton "Sauvegarder".
+    const pickRepairVideo = async () => {
+        if (isUploadingVideo) return;
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== "granted") {
+            showAlert(
+                "Permission requise",
+                "Autorisez l'accès aux fichiers pour importer une vidéo."
+            );
+            return;
+        }
+
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ["videos"],
+            });
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            if (asset.fileSize && asset.fileSize > MAX_VIDEO_BYTES) {
+                showAlert(
+                    "Vidéo trop lourde",
+                    `Cette vidéo fait ${Math.round(
+                        asset.fileSize / (1024 * 1024)
+                    )} Mo. La limite est de 50 Mo : réduisez la durée ou la qualité avant l'import.`
+                );
+                return;
+            }
+
+            setIsUploadingVideo(true);
+
+            const rawExtension =
+                asset.uri.split("?")[0].split(".").pop()?.toLowerCase() || "mp4";
+            const extension = ALLOWED_VIDEO_EXTENSIONS.includes(rawExtension)
+                ? rawExtension
+                : "mp4";
+            const mimeType =
+                asset.mimeType ||
+                (extension === "mov" ? "video/quicktime" : `video/${extension}`);
+
+            const filePath = `reparation/${interventionId}/${Date.now()}.${extension}`;
+            const file = {
+                uri: asset.uri,
+                name: filePath.split("/").pop(),
+                type: mimeType,
+            };
+
+            const { error: uploadError } = await supabase.storage
+                .from("intervention-videos")
+                .upload(filePath, file, { upsert: true, contentType: mimeType });
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+                .from("intervention-videos")
+                .getPublicUrl(filePath);
+            const publicUrl = publicUrlData?.publicUrl || filePath;
+
+            const { error: updateError } = await supabase
+                .from("interventions")
+                .update({ video_reparation: publicUrl })
+                .eq("id", interventionId);
+            if (updateError) throw updateError;
+
+            setVideoReparation(publicUrl);
+        } catch (error) {
+            console.error("Erreur import vidéo de réparation :", error);
+            showAlert(
+                "Erreur",
+                `Impossible d'importer cette vidéo. ${error?.message || error}`
+            );
+        } finally {
+            setIsUploadingVideo(false);
+        }
+    };
+
+    const deleteRepairVideo = async () => {
+        setVideoDeleteVisible(false);
+        try {
+            const storagePath = (videoReparation || "")
+                .split("/intervention-videos/")[1]
+                ?.split("?")[0];
+            if (storagePath) {
+                const { error: storageError } = await supabase.storage
+                    .from("intervention-videos")
+                    .remove([storagePath]);
+                if (storageError) {
+                    console.error("Suppression Storage vidéo :", storageError);
+                }
+            }
+
+            const { error: updateError } = await supabase
+                .from("interventions")
+                .update({ video_reparation: null })
+                .eq("id", interventionId);
+            if (updateError) throw updateError;
+
+            setVideoReparation(null);
+        } catch (error) {
+            console.error("Erreur suppression vidéo de réparation :", error);
+            showAlert("Erreur", "Impossible de supprimer cette vidéo.");
+        }
+    };
+
+    // Vidéo de dépôt (importée à la création de la fiche) : lecture et
+    // suppression possibles ici une fois la fiche enregistrée.
+    const deleteDepositVideo = async () => {
+        setVideoDepotDeleteVisible(false);
+        try {
+            const storagePath = (videoDepot || "")
+                .split("/intervention-videos/")[1]
+                ?.split("?")[0];
+            if (storagePath) {
+                const { error: storageError } = await supabase.storage
+                    .from("intervention-videos")
+                    .remove([storagePath]);
+                if (storageError) {
+                    console.error("Suppression Storage vidéo :", storageError);
+                }
+            }
+
+            const { error: updateError } = await supabase
+                .from("interventions")
+                .update({ video_depot: null })
+                .eq("id", interventionId);
+            if (updateError) throw updateError;
+
+            setVideoDepot(null);
+        } catch (error) {
+            console.error("Erreur suppression vidéo de dépôt :", error);
+            showAlert("Erreur", "Impossible de supprimer cette vidéo.");
+        }
+    };
+
     const performSaveIntervention = async () => {
         const articleName =
             articles.find((a) => a.id === deviceType)?.nom || null;
@@ -3545,10 +3698,12 @@ onPress={() => {
                 </FloatingField>
 
                 {/* Galerie photos supplémentaires */}
-                {Array.isArray(photos) && photos.filter(Boolean).length > 0 && (
+                {(
                     <>
                         <Text style={[styles.label, { marginTop: 8 }]}>
-                            Photos supplémentaires
+                            {Array.isArray(photos) && photos.filter(Boolean).length > 0
+                                ? "Photos supplémentaires"
+                                : "Vidéo de réparation"}
                         </Text>
                         <ScrollView
                             horizontal
@@ -3556,9 +3711,7 @@ onPress={() => {
                             style={styles.galleryScroll}
                             contentContainerStyle={styles.galleryContent}
                         >
-                            {Array.isArray(photos) &&
-                                _uniqPhotosForView(photos, labelPhotoDB ?? labelPhoto).length >
-                                    0 && (
+                            {(
                                     <View
                                         style={{
                                             flexDirection: "row",
@@ -3591,6 +3744,56 @@ onPress={() => {
                                                 );
                                             }
                                         )}
+                                        <View style={{ margin: 6, alignItems: "center" }}>
+                                            <TouchableOpacity
+                                                activeOpacity={0.85}
+                                                disabled={isUploadingVideo}
+                                                onPress={() =>
+                                                    videoReparation
+                                                        ? setVideoPreviewVisible(true)
+                                                        : pickRepairVideo()
+                                                }
+                                                onLongPress={() =>
+                                                    videoReparation && setVideoDeleteVisible(true)
+                                                }
+                                                delayLongPress={400}
+                                                style={{
+                                                    width: 100,
+                                                    height: 100,
+                                                    margin: 5,
+                                                    borderRadius: 10,
+                                                    borderWidth: 2,
+                                                    borderColor: videoReparation ? "#6ee7b7" : "#a5b4fc",
+                                                    backgroundColor: videoReparation ? "#d1fae5" : "#e0e7ff",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    padding: 6,
+                                                }}
+                                            >
+                                                {isUploadingVideo ? (
+                                                    <ActivityIndicator size="small" color="#3730a3" />
+                                                ) : (
+                                                    <>
+                                                        <MaterialIcons
+                                                            name={videoReparation ? "play-circle-filled" : "videocam"}
+                                                            size={34}
+                                                            color={videoReparation ? "#065f46" : "#3730a3"}
+                                                        />
+                                                        <Text
+                                                            style={{
+                                                                marginTop: 4,
+                                                                fontSize: 11,
+                                                                fontWeight: "700",
+                                                                textAlign: "center",
+                                                                color: videoReparation ? "#065f46" : "#3730a3",
+                                                            }}
+                                                        >
+                                                            {videoReparation ? "Vidéo réparation" : "Ajouter vidéo"}
+                                                        </Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 )}
                         </ScrollView>
@@ -3635,6 +3838,30 @@ onPress={() => {
                         />
                         <Text style={styles.buttonText}>Prendre une autre photo</Text>
                     </TouchableOpacity>
+                    {videoDepot && (
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                alignSelf: "center",
+                                gap: 6,
+                                backgroundColor: "#d1fae5",
+                                borderWidth: 1,
+                                borderColor: "#6ee7b7",
+                                paddingVertical: 6,
+                                paddingHorizontal: 10,
+                                borderRadius: 10,
+                                marginBottom: 8,
+                            }}
+                            onPress={() => setVideoDepotPreviewVisible(true)}
+                            onLongPress={() => setVideoDepotDeleteVisible(true)}
+                        >
+                            <MaterialIcons name="check-circle" size={16} color="#065f46" />
+                            <Text style={{ color: "#065f46", fontSize: 12, fontWeight: "700" }}>
+                                Vidéo dépôt
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         style={[styles.iconButton, styles.saveButton]}
                         onPress={handleSaveIntervention}
@@ -3654,6 +3881,38 @@ onPress={() => {
                         <Text style={styles.saveButtonText}>Sauvegarder l'intervention</Text>
                     </TouchableOpacity>
                 </View>
+
+                <VideoPreviewModal
+                    visible={videoPreviewVisible}
+                    uri={videoReparation}
+                    onClose={() => setVideoPreviewVisible(false)}
+                />
+
+                <VideoPreviewModal
+                    visible={videoDepotPreviewVisible}
+                    uri={videoDepot}
+                    onClose={() => setVideoDepotPreviewVisible(false)}
+                />
+
+                <AlertBox
+                    visible={videoDepotDeleteVisible}
+                    title="Supprimer la vidéo"
+                    message="Supprimer définitivement cette vidéo de dépôt ?"
+                    cancelText="Annuler"
+                    confirmText="Supprimer"
+                    onClose={() => setVideoDepotDeleteVisible(false)}
+                    onConfirm={deleteDepositVideo}
+                />
+
+                <AlertBox
+                    visible={videoDeleteVisible}
+                    title="Supprimer la vidéo"
+                    message="Supprimer définitivement cette vidéo de réparation ?"
+                    cancelText="Annuler"
+                    confirmText="Supprimer"
+                    onClose={() => setVideoDeleteVisible(false)}
+                    onConfirm={deleteRepairVideo}
+                />
 
                 <BackButton onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
             </ScrollView>

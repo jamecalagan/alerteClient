@@ -1572,7 +1572,9 @@ const checkImagesToDelete = async () => {
     const { data: interventionsData, error: interventionsError } =
       await supabase
         .from("interventions")
-        .select('id, photos, "updatedAt", status')
+        .select(
+          'id, photos, "updatedAt", status, video_depot, video_reparation, video_restitution'
+        )
         .eq("status", "Récupéré")
         .lte("updatedAt", dateLimite);
 
@@ -1664,7 +1666,20 @@ const checkImagesToDelete = async () => {
     // ImageCleanupPage ne traite que interventions.photos et intervention_images :
     // storageCount n'est pas exploitable par cette page, donc exclu du déclenchement du bouton
     // (sinon le bouton reste affiché en permanence sans rien à nettoyer sur cette page).
-    const total = photosCount + extraCount;
+    // Vidéos (dépôt / réparation / restitution) de plus de 10 jours : même
+    // règle que les photos, à supprimer depuis ImageCleanupPage.
+    const videosCount = (interventionsData || []).reduce(
+      (count, intervention) =>
+        count +
+        [
+          intervention.video_depot,
+          intervention.video_reparation,
+          intervention.video_restitution,
+        ].filter(Boolean).length,
+      0
+    );
+
+    const total = photosCount + extraCount + videosCount;
 
     setHasImagesToDelete(total > 0);
   } catch (error) {

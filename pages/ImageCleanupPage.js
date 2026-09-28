@@ -12,6 +12,7 @@ export default function ImageCleanupPage() {
   const navigation = useNavigation();
   const [interventions, setInterventions] = useState([]);
   const [extraImages, setExtraImages] = useState([]);
+  const [oldVideos, setOldVideos] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [archivedImages, setArchivedImages] = useState([]);
@@ -134,7 +135,9 @@ useEffect(() => {
       const { data: interventionData, error: intvError } =
         await supabase
           .from("interventions")
-          .select('id, "updatedAt", photos, status, client_id')
+          .select(
+            'id, "updatedAt", photos, status, client_id, video_depot, video_reparation, video_restitution'
+          )
           .eq("status", "Récupéré");
 
       if (intvError) throw intvError;
@@ -231,6 +234,32 @@ if (eligibleIds.size > 0) {
 }
 const foundStorageImages = [];
 
+      // 5. Vidéos (dépôt / réparation / restitution) des fiches éligibles
+      const VIDEO_FIELDS = [
+        ["video_depot", "Dépôt"],
+        ["video_reparation", "Réparation"],
+        ["video_restitution", "Restitution"],
+      ];
+      const videosToClean = eligibleInterventions.flatMap((intervention) => {
+        const client = (clientsData || []).find(
+          (c) => c.id === intervention.client_id
+        );
+        const clientLabel = client
+          ? `${client.ficheNumber} - ${client.name}`
+          : "Client inconnu";
+        return VIDEO_FIELDS.filter(([field]) => intervention[field]).map(
+          ([field, typeLabel]) => ({
+            key: `${intervention.id}:${field}`,
+            interventionId: intervention.id,
+            field,
+            typeLabel,
+            clientLabel,
+            url: intervention[field],
+          })
+        );
+      });
+
+      setOldVideos(videosToClean);
       setClients(clientsData || []);
 	  setEligibleInterventionsList(eligibleInterventions);
       setInterventions(interventionsWithPhotos);
@@ -246,6 +275,7 @@ const foundStorageImages = [];
       setInterventions([]);
       setExtraImages([]);
       setStorageImages([]);
+      setOldVideos([]);
     } finally {
       setLoading(false);
     }
@@ -867,6 +897,81 @@ const deleteSelectedStorageImages = () => {
     `Supprimer ${selectedStorageImages.length}`
   );
 };
+  // ---- Vidéos anciennes : suppression du fichier (bucket) puis de la colonne ----
+  const videoStoragePath = (url) =>
+    String(url || "").split("/intervention-videos/")[1]?.split("?")[0] || null;
+
+  const removeVideoEntries = async (entries) => {
+    const deleted = [];
+    const failed = [];
+    for (const entry of entries) {
+      try {
+        const path = videoStoragePath(entry.url);
+        if (path) {
+          const { error: storageError } = await supabase.storage
+            .from("intervention-videos")
+            .remove([path]);
+          if (storageError) throw storageError;
+        }
+        const { error: updateError } = await supabase
+          .from("interventions")
+          .update({ [entry.field]: null })
+          .eq("id", entry.interventionId);
+        if (updateError) throw updateError;
+        deleted.push(entry.key);
+      } catch (error) {
+        console.error("❌ Suppression vidéo :", error);
+        failed.push(entry.key);
+      }
+    }
+    setOldVideos((current) => current.filter((v) => !deleted.includes(v.key)));
+    return { deleted, failed };
+  };
+
+  const deleteOneVideo = (entry) => {
+    openConfirm(
+      "Supprimer la vidéo",
+      `Supprimer définitivement la vidéo ${entry.typeLabel.toLowerCase()} de ${entry.clientLabel} ?`,
+      async () => {
+        const { failed } = await removeVideoEntries([entry]);
+        if (failed.length > 0) {
+          showAlert("Erreur", "Impossible de supprimer cette vidéo.");
+        } else {
+          showAlert("Vidéo supprimée", "La vidéo a été supprimée.", goHome);
+        }
+      }
+    );
+  };
+
+  const deleteAllVideos = () => {
+    if (oldVideos.length === 0) return;
+    openConfirm(
+      "Supprimer les vidéos",
+      `Supprimer définitivement ${oldVideos.length} vidéo(s) de plus de 10 jours ?`,
+      async () => {
+        setBulkDeleting(true);
+        try {
+          const { deleted, failed } = await removeVideoEntries(oldVideos);
+          if (failed.length === 0) {
+            showAlert(
+              "Nettoyage terminé",
+              `${deleted.length} vidéo(s) supprimée(s).`,
+              goHome
+            );
+          } else {
+            showAlert(
+              "Nettoyage partiel",
+              `${deleted.length} vidéo(s) supprimée(s), ${failed.length} non supprimée(s).`
+            );
+          }
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+      `Supprimer ${oldVideos.length}`
+    );
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.title}>🧼 Nettoyage des images anciennes</Text>
@@ -1136,6 +1241,43 @@ const isSelected =
   </View>
 )}
 
+      {oldVideos.length > 0 && (
+        <View style={{ marginTop: 30 }}>
+          <Text style={styles.title}>🎬 Vidéos de plus de 10 jours</Text>
+          <TouchableOpacity
+            style={[
+              styles.deleteSelectedButton,
+              bulkDeleting && styles.disabledButton,
+              { alignSelf: 'flex-start', marginBottom: 12 },
+            ]}
+            onPress={deleteAllVideos}
+            disabled={bulkDeleting}
+          >
+            <Text style={styles.deleteSelectedButtonText}>
+              {bulkDeleting
+                ? "Suppression en cours…"
+                : `Supprimer les vidéos (${oldVideos.length})`}
+            </Text>
+          </TouchableOpacity>
+          {oldVideos.map((video) => (
+            <View key={video.key} style={styles.videoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.idText}>{video.clientLabel}</Text>
+                <Text style={[styles.imageText, { textAlign: 'left' }]}>
+                  Vidéo {video.typeLabel.toLowerCase()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => deleteOneVideo(video)}
+              >
+                <Text style={styles.deleteBtnText}>Supprimer</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       <AlertBox
         visible={confirmDialog.visible}
         title={confirmDialog.title}
@@ -1278,6 +1420,18 @@ const styles = StyleSheet.create({
 
   disabledButton: {
     opacity: 0.4,
+  },
+
+  videoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
+    borderRadius: 12,
   },
 
   selectedImageBlock: {

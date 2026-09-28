@@ -18,6 +18,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
+import { formatClientAddress } from "../utils/formatClientAddress";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
@@ -375,6 +376,7 @@ export default function EditInterventionPage({ route, navigation }) {
 
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
+    const [clientAddress, setClientAddress] = useState("");
     const [openType, setOpenType] = useState(false);
     const [openBrand, setOpenBrand] = useState(false);
     const [openModel, setOpenModel] = useState(false);
@@ -677,12 +679,13 @@ useEffect(() => {
         const fetchClientName = async () => {
             const { data, error } = await supabase
                 .from("clients")
-                .select("name, phone")
+                .select("name, phone, address, postal_code, city")
                 .eq("id", clientId)
                 .single();
             if (!error && data) {
                 setClientName(data.name);
                 setClientPhone(data.phone || "");
+                setClientAddress(formatClientAddress(data));
             }
         };
         if (clientId) fetchClientName();
@@ -3885,7 +3888,7 @@ onPress={() => {
                         expressData: {
                             name: clientName,
                             phone: clientPhone,
-                            client_address: "",
+                            client_address: clientAddress,
                             description: `${description}\n${articleName} — ${brandName} — ${modelName}`,
                             quantity: "1",
                             price: cost?.toString() || "0",

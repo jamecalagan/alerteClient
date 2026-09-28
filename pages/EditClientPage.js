@@ -17,6 +17,7 @@ import { supabase } from "../supabaseClient";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import BottomMenu from "../components/BottomMenu";
+import AddressAutocomplete from "../components/AddressAutocomplete";
 import * as Print from "expo-print";
 import { isValidEmail } from "../utils/validateEmail";
 
@@ -39,6 +40,9 @@ export default function EditClientPage({ route, navigation }) {
   const [name, setName] = useState(client.name || "");
   const [phone, setPhone] = useState(client.phone || "");
   const [email, setEmail] = useState(client.email || "");
+  const [address, setAddress] = useState(client.address || "");
+  const [postalCode, setPostalCode] = useState(client.postal_code || "");
+  const [city, setCity] = useState(client.city || "");
   const [ficheNumber, setFicheNumber] = useState(client.ficheNumber || "");
   const [etiquetteImprimee, setEtiquetteImprimee] = useState(false);
 
@@ -186,6 +190,9 @@ if (error) {
       setName(updatedClient.name || "");
       setPhone(updatedClient.phone || "");
       setEmail(updatedClient.email || "");
+      setAddress(updatedClient.address || "");
+      setPostalCode(updatedClient.postal_code || "");
+      setCity(updatedClient.city || "");
       setFicheNumber(updatedClient.ficheNumber || "");
       setInterventions(filteredInterventions || []);
 
@@ -214,6 +221,9 @@ if (error) {
         name,
         phone,
         email: (email || "").trim() || null,
+        address: address.trim() || null,
+        postal_code: postalCode || null,
+        city: city.trim() || null,
         updatedAt: new Date().toISOString(),
       };
 
@@ -783,6 +793,15 @@ const openRepairEstimate = async (intervention) => {
           />
         </TouchableOpacity>
       </View>
+
+      <AddressAutocomplete
+        address={address}
+        postalCode={postalCode}
+        city={city}
+        onChangeAddress={setAddress}
+        onChangePostalCode={setPostalCode}
+        onChangeCity={setCity}
+      />
 
       {interventions.length > 0 ? (
         <FlatList

@@ -18,6 +18,12 @@ import CustomAlert from "../components/CustomAlert";
 import BottomMenu from "../components/BottomMenu";
 import { MaterialIcons } from "@expo/vector-icons";
 import { isValidEmail } from "../utils/validateEmail";
+import AddressAutocomplete from "../components/AddressAutocomplete";
+import AlertBox from "../components/AlertBox";
+import { formatClientAddress } from "../utils/formatClientAddress";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const DRAFT_KEY = "addClientDraft";
 // ——— Helpers ———
 const onlyDigits10 = (s = "") => String(s).replace(/\D/g, "").slice(0, 10);
 
@@ -29,6 +35,52 @@ export default function AddClientPage({ navigation, route }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [draftReady, setDraftReady] = useState(false);
+  const [confirmKind, setConfirmKind] = useState(null); // "client" | "commande" : création en attente de confirmation
+
+  // Brouillon : les champs saisis sont conservés sur la tablette (même si
+  // l'appli est fermée ou plante) et ne sont effacés qu'après un
+  // enregistrement réussi du client.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(DRAFT_KEY);
+        if (raw && !cancelled) {
+          const draft = JSON.parse(raw);
+          setName(draft.name || "");
+          setPhone(draft.phone || "");
+          setEmail(draft.email || "");
+          setAddress(draft.address || "");
+          setPostalCode(draft.postalCode || "");
+          setCity(draft.city || "");
+        }
+      } catch {
+        // brouillon illisible : on repart d'un formulaire vide
+      } finally {
+        if (!cancelled) setDraftReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const isEmpty = !name && !phone && !email && !address && !postalCode && !city;
+    if (isEmpty) {
+      AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
+    } else {
+      AsyncStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ name, phone, email, address, postalCode, city })
+      ).catch(() => {});
+    }
+  }, [draftReady, name, phone, email, address, postalCode, city]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -85,6 +137,40 @@ const validateFields = () => {
     return data ? data.ficheNumber + 1 : 6001;
   };
 
+  // Confirmation avant création : évite d'enregistrer un client (et de vider
+  // le formulaire) en appuyant sur le mauvais bouton ou avec une faute de saisie.
+  const askConfirm = (kind) => {
+    if (isSubmitting) return;
+    if (!validateFields()) return;
+    setConfirmKind(kind);
+  };
+
+  const confirmRecap = () => {
+    const addressLine = formatClientAddress({
+      address,
+      postal_code: postalCode,
+      city,
+    });
+    return [
+      `Nom : ${name}`,
+      `Téléphone : ${phone}`,
+      email ? `E-mail : ${email}` : null,
+      addressLine ? `Adresse : ${addressLine}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
+
+  const clearForm = () => {
+    setName("");
+    setPhone("");
+    setEmail("");
+    setAddress("");
+    setPostalCode("");
+    setCity("");
+    AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
+  };
+
   const handleAddClient = async () => {
     if (!validateFields()) return;
     if (isSubmitting) return;
@@ -113,6 +199,9 @@ const validateFields = () => {
             name,
             phone,
             email: email || null,
+            address: address.trim() || null,
+            postal_code: postalCode || null,
+            city: city.trim() || null,
             ficheNumber: newFicheNumber,
             createdAt: new Date().toISOString(),
           },
@@ -127,7 +216,7 @@ const validateFields = () => {
         return;
       }
 
-      setName(""); setPhone(""); setEmail("");
+      clearForm();
       Keyboard.dismiss();
       navigation.navigate("AddIntervention", { clientId: insertedData.id });
     } catch (error) {
@@ -167,6 +256,9 @@ const validateFields = () => {
             name,
             phone,
             email: email || null,
+            address: address.trim() || null,
+            postal_code: postalCode || null,
+            city: city.trim() || null,
             ficheNumber: newFicheNumber,
             createdAt: new Date().toISOString(),
           },
@@ -181,7 +273,7 @@ const validateFields = () => {
         return;
       }
 
-      setName(""); setPhone(""); setEmail("");
+      clearForm();
       Keyboard.dismiss();
       navigation.navigate("OrdersPage", {
         clientId: insertedData.id,
@@ -280,10 +372,20 @@ const handlePhoneChange = (t) => {
             />
           </View>
 
+          {/* Adresse */}
+          <AddressAutocomplete
+            address={address}
+            postalCode={postalCode}
+            city={city}
+            onChangeAddress={setAddress}
+            onChangePostalCode={setPostalCode}
+            onChangeCity={setCity}
+          />
+
           {/* Boutons */}
           <TouchableOpacity
             style={styles.button}
-            onPress={handleAddClient}
+            onPress={() => askConfirm("client")}
             disabled={loading || isSubmitting}
             activeOpacity={0.85}
           >
@@ -294,7 +396,7 @@ const handlePhoneChange = (t) => {
 
           <TouchableOpacity
             style={styles.buttonSecondary}
-            onPress={handleAddCommandeClient}
+            onPress={() => askConfirm("commande")}
             disabled={loading || isSubmitting}
             activeOpacity={0.85}
           >
@@ -303,6 +405,25 @@ const handlePhoneChange = (t) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <AlertBox
+          visible={!!confirmKind}
+          title={
+            confirmKind === "commande"
+              ? "Créer le client et sa commande ?"
+              : "Créer ce client ?"
+          }
+          message={confirmRecap()}
+          cancelText="Corriger"
+          confirmText="Créer"
+          onClose={() => setConfirmKind(null)}
+          onConfirm={() => {
+            const kind = confirmKind;
+            setConfirmKind(null);
+            if (kind === "commande") handleAddCommandeClient();
+            else handleAddClient();
+          }}
+        />
 
         <CustomAlert
           visible={alertVisible}

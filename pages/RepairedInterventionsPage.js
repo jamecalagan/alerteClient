@@ -28,6 +28,7 @@ import * as Print from "expo-print";
 
 import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
+import { formatClientAddress } from "../utils/formatClientAddress";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
@@ -94,7 +95,7 @@ export default function RepairedInterventionsPage({ navigation }) {
         .select(
           `
 					*,
-					clients (phone, name, ficheNumber)
+					clients (phone, name, ficheNumber, address, postal_code, city)
 					`
         )
         .in("status", ["Réparé", "Non réparable"]); // Inclure les deux statuts
@@ -865,7 +866,7 @@ export default function RepairedInterventionsPage({ navigation }) {
                       expressData: {
                         name: item.clients?.name || "",
                         phone: item.clients?.phone || "",
-                        client_address: "",
+                        client_address: formatClientAddress(item.clients),
                         description: `${
                           item.detailIntervention?.trim() ||
                           item.description ||

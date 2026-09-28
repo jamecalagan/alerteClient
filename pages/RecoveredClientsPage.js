@@ -20,6 +20,7 @@ import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
+import { formatClientAddress } from "../utils/formatClientAddress";
 
 // Helper pour obtenir une URI exploitable par <Image>
 const stripQuotes = (s) =>
@@ -413,7 +414,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
         .select(
           `
         *,
-        clients (name, ficheNumber, phone)
+        clients (name, ficheNumber, phone, address, postal_code, city)
       `
         )
         .eq("status", "Récupéré")
@@ -1056,7 +1057,7 @@ export default function RecoveredClientsPage({ navigation, route }) {
                           expressData: {
                             name: item.clients?.name || "",
                             phone: item.clients?.phone || "",
-                            client_address: "",
+                            client_address: formatClientAddress(item.clients),
                             description: [
                               item.repair_action || item.description,
                               [item.deviceType, item.brand, item.model]

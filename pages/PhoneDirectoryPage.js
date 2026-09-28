@@ -22,6 +22,11 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const formatPhone = (phone) =>
     phone ? String(phone).replace(/(\d{2})(?=\d)/g, "$1 ").trim() : "—";
 
+const formatAddress = (c) =>
+    [c?.address, [c?.postal_code, c?.city].filter(Boolean).join(" ")]
+        .filter(Boolean)
+        .join(", ");
+
 const firstLetterOf = (name) => {
     const cleaned = (name || "").trim().toUpperCase();
     const letter = cleaned.charAt(0);
@@ -41,7 +46,7 @@ export default function PhoneDirectoryPage({ navigation }) {
             try {
                 const { data, error } = await supabase
                     .from("clients")
-                    .select("id, name, phone, email, ficheNumber")
+                    .select("id, name, phone, email, ficheNumber, address, postal_code, city")
                     .order("name", { ascending: true });
 
                 if (error) throw error;
@@ -73,7 +78,8 @@ export default function PhoneDirectoryPage({ navigation }) {
                 (c) =>
                     c.name?.toLowerCase().includes(q) ||
                     String(c.phone ?? "").includes(q) ||
-                    String(c.ficheNumber ?? "").includes(q)
+                    String(c.ficheNumber ?? "").includes(q) ||
+                    formatAddress(c).toLowerCase().includes(q)
             );
         }
 
@@ -108,7 +114,7 @@ export default function PhoneDirectoryPage({ navigation }) {
 
             <TextInput
                 style={styles.search}
-                placeholder="Rechercher (nom, téléphone, fiche)"
+                placeholder="Rechercher (nom, téléphone, fiche, adresse)"
                 placeholderTextColor="#94a3b8"
                 value={search}
                 onChangeText={setSearch}
@@ -190,6 +196,11 @@ export default function PhoneDirectoryPage({ navigation }) {
                                 {item.ficheNumber != null && (
                                     <Text style={styles.rowFiche}>
                                         Fiche n° {item.ficheNumber}
+                                    </Text>
+                                )}
+                                {!!formatAddress(item) && (
+                                    <Text style={styles.rowAddress} numberOfLines={1}>
+                                        {formatAddress(item)}
                                     </Text>
                                 )}
                             </View>
@@ -347,6 +358,7 @@ const styles = StyleSheet.create({
     },
     rowName: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
     rowFiche: { fontSize: 12, color: "#64748b", marginTop: 2 },
+    rowAddress: { fontSize: 12, color: "#3730a3", marginTop: 2 },
     rowPhoneMissing: { fontSize: 13, color: "#94a3b8" },
     phonePill: {
         borderWidth: 1,

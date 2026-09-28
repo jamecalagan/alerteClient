@@ -40,7 +40,8 @@
     },
     "plugins": [
       "expo-mail-composer",
-      "expo-font"
+      "expo-font",
+      "expo-video"
     ]
   }
 }

@@ -313,8 +313,18 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
 
     const toBool = (v) => v === true || v === "true" || v === 1;
 
+    // Au moins deux effets déclenchent loadOrders() en même temps à l'arrivée
+    // sur la page (montage + focus navigation), en plus de l'appel explicite
+    // après création d'une commande. Sans garde-fou, un ancien appel plus
+    // lent (parti avant que la commande existe) peut se résoudre après le
+    // nouveau et écraser l'état avec un résultat périmé — invisible tant
+    // qu'on ne quitte pas la page. Seul le dernier appel lancé est autorisé
+    // à mettre à jour l'état.
+    const loadOrdersSeqRef = useRef(0);
+
     // 🔁 Charge commandes
     const loadOrders = async () => {
+        const requestId = ++loadOrdersSeqRef.current;
         try {
             const focusId = route.params?.focusId
                 ? String(route.params.focusId)
@@ -419,7 +429,7 @@ installed: allInstalled,
                 const scopedRows = Array.isArray(orderIds)
                     ? rows.filter((r) => orderIds.includes(r.id))
                     : rows;
-                setOrders(scopedRows);
+                if (requestId === loadOrdersSeqRef.current) setOrders(scopedRows);
                 return;
             }
 
@@ -475,22 +485,24 @@ installed: allInstalled,
                             ? data.total
                             : unit * qty;
 
-                    setOrders([
-                        {
-                            ...data,
-                            quantity: qty,
-                            total,
-                            include_in_intervention: toBool(
-                                data.include_in_intervention
-                            ),
-                            notified: toBool(data.notified),
-                            received: toBool(data.received),
-                            paid: toBool(data.paid),
-                            ordered: toBool(data.ordered),
-                            recovered: toBool(data.recovered),
-                            saved: toBool(data.saved),
-                        },
-                    ]);
+                    if (requestId === loadOrdersSeqRef.current) {
+                        setOrders([
+                            {
+                                ...data,
+                                quantity: qty,
+                                total,
+                                include_in_intervention: toBool(
+                                    data.include_in_intervention
+                                ),
+                                notified: toBool(data.notified),
+                                received: toBool(data.received),
+                                paid: toBool(data.paid),
+                                ordered: toBool(data.ordered),
+                                recovered: toBool(data.recovered),
+                                saved: toBool(data.saved),
+                            },
+                        ]);
+                    }
 
                     if (!clientName || !clientPhone) {
                         const { data: cli } = await supabase
@@ -507,17 +519,17 @@ installed: allInstalled,
                             });
                         }
                     }
-                } else {
+                } else if (requestId === loadOrdersSeqRef.current) {
                     setOrders([]);
                 }
                 return;
             }
 
-            setOrders([]);
+            if (requestId === loadOrdersSeqRef.current) setOrders([]);
         } catch (e) {
             console.error("loadOrders error:", e);
             showAlert("Erreur", "Impossible de charger les commandes.");
-            setOrders([]);
+            if (requestId === loadOrdersSeqRef.current) setOrders([]);
         }
     };
 const resetNewOrderProduct = () => {

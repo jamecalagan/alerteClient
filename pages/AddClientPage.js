@@ -280,6 +280,7 @@ const validateFields = () => {
         clientName: insertedData.name,
         clientPhone: insertedData.phone,
         clientNumber: insertedData.ficheNumber,
+        openFormOnEntry: true,
       });
     } catch (error) {
       setAlertTitle("Erreur");
@@ -410,8 +411,8 @@ const handlePhoneChange = (t) => {
           visible={!!confirmKind}
           title={
             confirmKind === "commande"
-              ? "Créer le client et sa commande ?"
-              : "Créer ce client ?"
+              ? "Créer ce client et sa commande ?"
+              : "Créer ce client et son intervention ?"
           }
           message={confirmRecap()}
           cancelText="Corriger"

@@ -24,6 +24,22 @@ import { isValidEmail } from "../utils/validateEmail";
 export default function EditClientPage({ route, navigation }) {
   const { client, interventionId } = route.params;
 
+  // Ouverte juste après la création d'une intervention (redirection pour
+  // imprimer), route.params.client ne contient alors que { id } — sans
+  // "name". Dans ce cas précis, le retour matériel Android (qui, sans ça,
+  // dépile simplement vers la fiche d'intervention qu'on vient de créer)
+  // doit ramener à l'accueil, comme le bouton Retour à l'écran.
+  const cameFromInterventionCreation = !client?.name;
+  useEffect(() => {
+    if (!cameFromInterventionCreation) return;
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (e.data.action.type !== "GO_BACK") return;
+      e.preventDefault();
+      navigation.navigate("Home");
+    });
+    return unsubscribe;
+  }, [navigation, cameFromInterventionCreation]);
+
   const [checkupExists, setCheckupExists] = useState(false);
   useEffect(() => {
     const checkIfCheckupExists = async () => {

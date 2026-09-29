@@ -36,13 +36,14 @@ export default function OrdersPage({ route, navigation, order }) {
         autoReturnOnCreate, // (idem, dispo si tu veux l'utiliser)
         orderIds,           // 👈 quand fourni (onglet d'intervention sur la Home), restreint la liste aux commandes de cette intervention
         interventionId,     // 👈 intervention sélectionnée sur la Home, pour lier les commandes créées ici
+        openFormOnEntry,    // 👈 depuis "Ajouter un client > Créer une commande" : le client vient d'être créé sans commande, on ouvre direct le formulaire
     } = route?.params || {};
 
 
     const [orders, setOrders] = useState([]);
     const [expandedOrders, setExpandedOrders] = useState([]);
     const [uploadingOrderId, setUploadingOrderId] = useState(null);
-    const [showForm, setShowForm] = useState(!!prefillProduct);
+    const [showForm, setShowForm] = useState(!!prefillProduct || !!openFormOnEntry);
 
     const [imageModalVisible, setImageModalVisible] = useState(false);
     const [imageModalUrl, setImageModalUrl] = useState(null);

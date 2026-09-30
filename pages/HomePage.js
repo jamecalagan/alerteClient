@@ -55,6 +55,14 @@ import {
 // version "animée" du composant pour que le clignotement soit visible.
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
+// Lignes de la fiche dont la valeur est un montant (affichées en noir gras).
+const AMOUNT_ROW_LABELS = [
+  "Montant intervention",
+  "Solde restant",
+  "Commandes",
+  "Total à régler",
+];
+
 export default function HomePage({ navigation, route, setUser }) {
   const flatListRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -2319,14 +2327,13 @@ const baseRows = [
                                         : "—",
                                   },
                                   {
-                                    label: "Total à régler",
-                                    value: dueValue,
+                                    label: "Commandes",
+                                    value: ordersSummary,
+                                    product: ordersListText,
                                   },
                                   {
-                                    label: "Commandes",
-                                    value: ordersListText
-                                      ? `${ordersSummary}\n${ordersListText}`
-                                      : ordersSummary,
+                                    label: "Total à régler",
+                                    value: dueValue,
                                   },
                                   {
                                     label: "Création fiche client",
@@ -2393,12 +2400,21 @@ const baseRows = [
                                             </Text>
 
                                             {r.label === "Client" ? (
-  <Text style={styles.tableValue}>
-    <Text style={{ fontWeight: "bold", color: "#0f172a" }}>
+  <View
+    style={{
+      flex: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    }}
+  >
+    <Text style={{ fontWeight: "bold", color: "#0f172a", fontSize: 14 }}>
       {(item.name || "—").toUpperCase()}
     </Text>
-    <Text>{` · Fiche N° ${item.ficheNumber ?? "—"}`}</Text>
-  </Text>
+    <Text style={{ color: "#334155", fontSize: 14 }}>
+      {`Fiche N° ${item.ficheNumber ?? "—"}`}
+    </Text>
+  </View>
 ) : r.label === "Téléphone" && item.phone ? (
   <TouchableOpacity
     onLongPress={() => Linking.openURL(`tel:${item.phone}`)}
@@ -2415,10 +2431,28 @@ const baseRows = [
   >
     <Text style={styles.tableValue}>{r.value}</Text>
   </TouchableOpacity>
+) : r.label === "Commandes" && r.product ? (
+  <View
+    style={{
+      flex: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 8,
+    }}
+  >
+    <Text style={{ flexShrink: 1, fontSize: 14, color: "#334155" }}>
+      {r.product}
+    </Text>
+    <Text style={[styles.tableValue, styles.tableValueAmount, { flex: 0 }]}>
+      {r.value}
+    </Text>
+  </View>
 ) : (
   <Text
     style={[
       styles.tableValue,
+      AMOUNT_ROW_LABELS.includes(r.label) && styles.tableValueAmount,
       isDueRow &&
         totalDue > 0 &&
         styles.tableValueDueRed,
@@ -8867,6 +8901,11 @@ const styles = StyleSheet.create({
   },
   tableValueDueRed: {
     color: "#b00000",
+    fontWeight: "bold",
+  },
+
+  tableValueAmount: {
+    color: "#000000",
     fontWeight: "bold",
   },
 

@@ -3839,9 +3839,9 @@ const normalizedOrdersData = (ordersData || [])
       order?.saved === 1 ||
       order?.saved === "1";
 
-    // Une commande est affichée uniquement si elle est :
-    // non supprimée, non payée et non sauvegardée.
-    return !isDeleted && !isPaid && !isSaved;
+    // Une commande est affichée tant qu'elle n'est pas supprimée et pas à
+    // la fois payée ET sauvegardée (même règle que le bouton Commande).
+    return !isDeleted && !(isPaid && isSaved);
   })
   .map((order) => {
     let rawPhotos = [];

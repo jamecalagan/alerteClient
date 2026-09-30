@@ -177,10 +177,12 @@ export const __isActiveOrder = (order) => {
   const isSaved = isTrue(order.saved);
   const isRecovered = isTrue(order.recovered);
 
+  // Une commande reste "en cours" tant qu'elle n'est pas à la fois payée ET
+  // sauvegardée (même règle que le bouton Commande de l'accueil) : une
+  // commande payée mais pas encore sauvegardée doit rester visible.
   return (
     !isDeleted &&
-    !isPaid &&
-    !isSaved &&
+    !(isPaid && isSaved) &&
     !isRecovered
   );
 };

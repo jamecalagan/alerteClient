@@ -22,6 +22,10 @@ import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
 import { formatClientAddress } from "../utils/formatClientAddress";
+import {
+  fetchOrdersForInterventionInvoice,
+  detachOrdersFromIntervention,
+} from "../utils/clientDues";
 import VideoPreviewModal from "../components/VideoPreviewModal";
 
 // Helper pour obtenir une URI exploitable par <Image>
@@ -708,6 +712,10 @@ export default function RecoveredClientsPage({ navigation, route }) {
     const id = interventionIdToDelete;
     setInterventionIdToDelete(null);
     try {
+      // Les commandes liées bloquent la suppression : on les détache
+      // (elles restent sur la fiche du client).
+      await detachOrdersFromIntervention(id);
+
       const { error: imageError } = await supabase
         .from("intervention_images")
         .delete()
@@ -1178,7 +1186,26 @@ export default function RecoveredClientsPage({ navigation, route }) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() =>
+                      onPress={async () => {
+                        // Commandes du client pas encore facturées (jamais
+                        // une commande déjà facturée seule) : ajoutées sur la
+                        // même facture que l'intervention.
+                        let ordersPart = {
+                          extraLines: [],
+                          ordersDeposit: 0,
+                          ordersAllPaid: true,
+                        };
+                        try {
+                          ordersPart = await fetchOrdersForInterventionInvoice(
+                            item
+                          );
+                        } catch (e) {
+                          console.error("❌ Commandes pour facture :", e);
+                        }
+                        const totalDeposit =
+                          (parseFloat(
+                            String(item.partialPayment ?? "").replace(",", ".")
+                          ) || 0) + ordersPart.ordersDeposit;
                         navigation.navigate("BillingPage", {
                           expressData: {
                             name: item.clients?.name || "",
@@ -1197,26 +1224,15 @@ export default function RecoveredClientsPage({ navigation, route }) {
                             serial: item.serial_number || "",
                             paymentmethod: "",
                             acompte:
-                              item.partialPayment != null
-                                ? String(item.partialPayment)
-                                : "",
-                            paid: item.paymentStatus === "solde",
+                              totalDeposit > 0 ? String(totalDeposit) : "",
+                            paid:
+                              item.paymentStatus === "solde" &&
+                              ordersPart.ordersAllPaid,
                             intervention_id: item.id,
-                            extraLines: (item._linkedOrders || []).map(
-                              (order) => ({
-                                designation: [order.product, order.brand]
-                                  .filter(Boolean)
-                                  .join(" — "),
-                                quantity: order.quantity || 1,
-                                price: Number(
-                                  order.total ?? order.price ?? 0
-                                ),
-                                serial: "",
-                              })
-                            ),
+                            extraLines: ordersPart.extraLines,
                           },
-                        })
-                      }
+                        });
+                      }}
                       style={styles.secondaryBtn}
                     >
                       <Icon name="file-text-o" size={14} color="#334155" />

@@ -20,6 +20,11 @@ import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import { formatClientAddress } from "../utils/formatClientAddress";
+import {
+    fetchOrdersForInterventionInvoice,
+    fetchUnpaidOrders,
+    formatEuro,
+} from "../utils/clientDues";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
@@ -283,6 +288,11 @@ export default function EditInterventionPage({ route, navigation }) {
     // Paiement / coût
     const [cost, setCost] = useState("");
     const [paymentStatus, setPaymentStatus] = useState("non_regle");
+    // Cocher "Soldé" alors que le client a aussi une commande à régler :
+    // proposition de la marquer payée en même temps (appliquée à
+    // l'enregistrement de l'intervention).
+    const [orderPayOffer, setOrderPayOffer] = useState(null);
+    const [ordersToPayOnSave, setOrdersToPayOnSave] = useState([]);
     const [partialPayment, setPartialPayment] = useState("");
     const [solderestant, setSolderestant] = useState("");
     const [noCostButRestitution, setNoCostButRestitution] = useState(false);
@@ -2377,18 +2387,41 @@ repair_proposal_date: repairProposalMade
 
             setHasUnsavedChanges(false);
 
+            // Commande(s) réglée(s) en même temps que l'intervention soldée.
+            let ordersPaidNote = "";
+            if (paymentStatus === "solde" && ordersToPayOnSave.length > 0) {
+                const { error: ordersPaidError } = await supabase
+                    .from("orders")
+                    .update({ paid: true })
+                    .in("id", ordersToPayOnSave);
+                if (ordersPaidError) {
+                    console.error("❌ Paiement commande :", ordersPaidError);
+                    ordersPaidNote =
+                        "\n\n⚠️ La commande n'a pas pu être marquée payée : faites-le depuis la page des commandes.";
+                } else {
+                    ordersPaidNote =
+                        ordersToPayOnSave.length > 1
+                            ? "\n\nLes commandes sont aussi marquées payées."
+                            : "\n\nLa commande est aussi marquée payée.";
+                    setOrdersToPayOnSave([]);
+                }
+            }
+
             const savedRow = data[0];
             if (acceptScreenRisk && !savedRow?.signatureIntervention) {
                 setAlertType("success");
                 setAlertTitle("Attention — Signature obligatoire");
                 setAlertMessage(
-                    "Le client a accepté le risque de casse de l'écran : sa signature sur la fiche est obligatoire. Vous allez être redirigé(e) vers l'aperçu pour la faire signer."
+                    "Le client a accepté le risque de casse de l'écran : sa signature sur la fiche est obligatoire. Vous allez être redirigé(e) vers l'aperçu pour la faire signer." +
+                        ordersPaidNote
                 );
                 setAlertVisible(true);
             } else {
                 setAlertType("success");
                 setAlertTitle("Succès");
-                setAlertMessage("Intervention mise à jour avec succès.");
+                setAlertMessage(
+                    "Intervention mise à jour avec succès." + ordersPaidNote
+                );
                 setAlertVisible(true);
             }
         } catch (err) {
@@ -3406,9 +3439,19 @@ onPress={() => {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            onPress={() => {
+                            onPress={async () => {
+                                const wasSolde = paymentStatus === "solde";
                                 setPaymentStatus("solde");
                                 setNoCostButRestitution(false);
+                                if (wasSolde) return;
+                                try {
+                                    const unpaidOrders = await fetchUnpaidOrders(clientId);
+                                    if (unpaidOrders.length > 0) {
+                                        setOrderPayOffer(unpaidOrders);
+                                    }
+                                } catch (e) {
+                                    console.error("❌ Commandes à régler :", e);
+                                }
                             }}
                             style={styles.checkboxRow}
                         >
@@ -4124,6 +4167,35 @@ onPress={() => {
                 }}
             />
 
+            {/* Soldé : proposer de régler aussi la/les commande(s) du client */}
+            <AlertBox
+                visible={!!orderPayOffer}
+                title="Attention : commande aussi à régler"
+                message={(() => {
+                    const list = orderPayOffer || [];
+                    const total = list.reduce((sum, o) => sum + o.remaining, 0);
+                    const detail = list
+                        .map((o) => `• ${o.product || "Commande"} : ${formatEuro(o.remaining)}`)
+                        .join("\n");
+                    return `Ce client a aussi ${formatEuro(total)} à régler sur ${
+                        list.length > 1 ? "ses commandes" : "sa commande"
+                    } :\n${detail}\n\nMarquer aussi ${
+                        list.length > 1 ? "les commandes payées" : "la commande payée"
+                    } à l'enregistrement de l'intervention ?`;
+                })()}
+                cancelText="Intervention seule"
+                confirmText="Oui, tout régler"
+                onClose={() => {
+                    setOrderPayOffer(null);
+                    setOrdersToPayOnSave([]);
+                }}
+                onConfirm={() => {
+                    setOrdersToPayOnSave((orderPayOffer || []).map((o) => o.id));
+                    setOrderPayOffer(null);
+                    setHasUnsavedChanges(true);
+                }}
+            />
+
             {/* Modale proposition de facturation (passage au statut Réparé) */}
             <AlertBox
                 visible={invoicePromptVisible}
@@ -4135,7 +4207,7 @@ onPress={() => {
                     setInvoicePromptVisible(false);
                     navigation.navigate(returnTo || "Home");
                 }}
-                onConfirm={() => {
+                onConfirm={async () => {
                     setInvoicePromptVisible(false);
                     const articleName =
                         articles.find((a) => a.id === deviceType)?.nom || "";
@@ -4143,6 +4215,30 @@ onPress={() => {
                         brands.find((b) => b.id === brand)?.nom || "";
                     const modelName =
                         models.find((m) => m.id === model)?.nom || "";
+
+                    // Commandes du client pas encore facturées : ajoutées
+                    // sur la même facture que l'intervention.
+                    let ordersPart = {
+                        extraLines: [],
+                        ordersDeposit: 0,
+                        ordersAllPaid: true,
+                    };
+                    try {
+                        ordersPart = await fetchOrdersForInterventionInvoice({
+                            id: interventionId,
+                            client_id: clientId,
+                            commande,
+                        });
+                    } catch (e) {
+                        console.error("❌ Commandes pour facture :", e);
+                    }
+                    const interventionDeposit =
+                        parseFloat(
+                            String(partialPayment ?? "").replace(",", ".")
+                        ) || 0;
+                    const totalDeposit =
+                        interventionDeposit + ordersPart.ordersDeposit;
+
                     navigation.navigate("BillingPage", {
                         expressData: {
                             name: clientName,
@@ -4153,9 +4249,13 @@ onPress={() => {
                             price: cost?.toString() || "0",
                             serial: serial_number || "",
                             paymentmethod: "",
-                            acompte: partialPayment?.toString() || "",
-                            paid: paymentStatus === "solde",
+                            acompte:
+                                totalDeposit > 0 ? String(totalDeposit) : "",
+                            paid:
+                                paymentStatus === "solde" &&
+                                ordersPart.ordersAllPaid,
                             intervention_id: interventionId,
+                            extraLines: ordersPart.extraLines,
                         },
                     });
                 }}

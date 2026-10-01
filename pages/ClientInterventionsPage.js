@@ -16,6 +16,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "../supabaseClient";
+import { detachOrdersFromIntervention } from "../utils/clientDues";
 import BottomMenu from "../components/BottomMenu";
 import AlertBox from "../components/AlertBox";
 import CustomAlert from "../components/CustomAlert";
@@ -207,6 +208,7 @@ export default function ClientInterventionsPage({ route, navigation }) {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [interventionIdToDelete, setInterventionIdToDelete] = useState(null);
+  const [orderToDelete, setOrderToDelete] = useState(null);
   const [photoToDelete, setPhotoToDelete] = useState(null); // { interventionId, uri }
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -433,6 +435,9 @@ export default function ClientInterventionsPage({ route, navigation }) {
 
   const handleDeleteIntervention = async (interventionId) => {
     try {
+      // Les commandes liées bloquent la suppression : on les détache
+      // (elles restent sur la fiche du client).
+      await detachOrdersFromIntervention(interventionId);
       const { error } = await supabase
         .from("interventions")
         .delete()
@@ -449,6 +454,32 @@ export default function ClientInterventionsPage({ route, navigation }) {
     } catch (err) {
       showAlert("Erreur", "Impossible de supprimer l'intervention.");
       console.error("Erreur :", err);
+    }
+  };
+
+  // Suppression définitive d'une commande du client (et de ses articles).
+  const handleDeleteOrder = async (order) => {
+    try {
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", order.id);
+      if (itemsError) throw itemsError;
+
+      const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", order.id);
+      if (error) throw error;
+
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      showAlert("Succès", "La commande a été supprimée.");
+    } catch (err) {
+      console.error("Erreur suppression commande :", err);
+      showAlert(
+        "Erreur",
+        "Impossible de supprimer la commande. " + (err?.message || "")
+      );
     }
   };
 
@@ -759,6 +790,17 @@ export default function ClientInterventionsPage({ route, navigation }) {
                               </Text>
                             </View>
                           ))}
+
+                          {/* Bouton supprimer la commande */}
+                          <View style={styles.deleteButtonContainer}>
+                            <TouchableOpacity
+                              style={styles.deleteButton}
+                              onPress={() => setOrderToDelete(order)}
+                            >
+                              <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                              <Text style={styles.deleteButtonText}>Supprimer</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
 
                         <View style={styles.mediaColumn}>
@@ -863,6 +905,26 @@ export default function ClientInterventionsPage({ route, navigation }) {
           </TouchableOpacity>
         </Modal>
       )}
+
+      <AlertBox
+        visible={!!orderToDelete}
+        title="Confirmation"
+        message={`Supprimer définitivement la commande « ${
+          orderToDelete?.product || "commande"
+        } » ?${
+          orderToDelete && !orderToDelete.paid
+            ? "\n\n⚠️ Cette commande n'est pas payée."
+            : ""
+        }`}
+        cancelText="Annuler"
+        confirmText="Supprimer"
+        onClose={() => setOrderToDelete(null)}
+        onConfirm={() => {
+          const order = orderToDelete;
+          setOrderToDelete(null);
+          if (order) handleDeleteOrder(order);
+        }}
+      />
 
       <AlertBox
         visible={!!interventionIdToDelete}

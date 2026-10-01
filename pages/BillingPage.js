@@ -350,6 +350,9 @@ const BillingPage = () => {
             quantity: String(n(extra.quantity) || 1),
             price: String(n(extra.price) || 0),
             serial: extra.serial || "",
+            // Garde la trace de la commande facturée ici (évite de la
+            // refacturer seule depuis la page des commandes).
+            ...(extra.order_id != null ? { order_id: extra.order_id } : {}),
           });
         });
       }

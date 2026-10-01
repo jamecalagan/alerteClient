@@ -49,6 +49,7 @@ import {
   __pickLatestActiveOrder,
   pathFromSupabaseUrl,
 } from "../utils/homeHelpers";
+import { describeIntervention, formatEuro } from "../utils/clientDues";
 
 // TouchableOpacity classique n'anime pas une Animated.Value externe passée
 // via style (seule son animation interne de press le fait) : il faut une
@@ -2474,6 +2475,23 @@ const baseRows = [
                                           </Text>
                                         )}
 
+                                      {(item.reparedDueItems || []).map(
+                                        (due) => (
+                                          <View
+                                            key={`repared-due-${due.id}`}
+                                            style={styles.reparedDueBanner}
+                                          >
+                                            <Text
+                                              style={styles.reparedDueBannerText}
+                                            >
+                                              {`⚠️ Intervention réparée à régler : ${formatEuro(
+                                                due.amount
+                                              )} (${due.label})`}
+                                            </Text>
+                                          </View>
+                                        )
+                                      )}
+
                                       {isBanned && (
                                         <View style={styles.bannedBadge}>
                                           <Text style={styles.bannedBadgeText}>
@@ -4044,6 +4062,19 @@ normalizedOrdersData.forEach((order) => {
             })),
             totalAmountOngoing,
             reparedDue,
+            // Détail des interventions réparées encore à régler, affiché en
+            // rouge sur la fiche (elles ne sont plus visibles ailleurs sur
+            // l'accueil une fois passées en "Réparé").
+            reparedDueItems: reparedInterventions
+              .filter(
+                (intervention) =>
+                  (parseFloat(intervention.solderestant) || 0) > 0
+              )
+              .map((intervention) => ({
+                id: intervention.id,
+                amount: parseFloat(intervention.solderestant) || 0,
+                label: describeIntervention(intervention),
+              })),
             latestReparedStatus: latestReparedIntervention?.status || null,
             pendingRestitutionNote:
               pendingRestitutionNoteIntervention?.restitution_note || "",
@@ -8904,6 +8935,20 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  reparedDueBanner: {
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#dc2626",
+    backgroundColor: "#fee2e2",
+  },
+  reparedDueBannerText: {
+    color: "#b91c1c",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
   tableValueAmount: {
     color: "#000000",
     fontWeight: "bold",

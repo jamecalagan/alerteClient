@@ -14,6 +14,7 @@ import {
   StatusBar,
 } from "react-native";
 import { supabase } from "../supabaseClient";
+import { detachOrdersFromIntervention } from "../utils/clientDues";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import BottomMenu from "../components/BottomMenu";
@@ -685,6 +686,9 @@ const openRepairEstimate = async (intervention) => {
       "Êtes-vous sûr de vouloir supprimer cette intervention ?",
       async () => {
         try {
+          // Les commandes liées bloquent la suppression : on les détache
+          // (elles restent sur la fiche du client).
+          await detachOrdersFromIntervention(interventionId);
           const { error } = await supabase
             .from("interventions")
             .delete()

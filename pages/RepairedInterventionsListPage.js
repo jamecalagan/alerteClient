@@ -18,6 +18,7 @@ import { supabase } from "../supabaseClient";
 import BottomMenu from "../components/BottomMenu";
 import { useRoute, useFocusEffect } from "@react-navigation/native";
 import AlertBox from "../components/AlertBox";
+import { fetchUnpaidOrders, formatEuro } from "../utils/clientDues";
 import CustomAlert from "../components/CustomAlert";
 import { Ionicons } from "@expo/vector-icons";
 import SmartImage from "../components/SmartImage";
@@ -30,6 +31,8 @@ export default function RepairedInterventionsListPage({ navigation }) {
   const [selectedIds, setSelectedIds] = useState([]);
 const [isUpdating, setIsUpdating] = useState(false);
   const [bulkRestitutionConfirmVisible, setBulkRestitutionConfirmVisible] = useState(false);
+  // Commandes encore à régler des clients sélectionnés (rappel avant restitution)
+  const [bulkOrderDueText, setBulkOrderDueText] = useState("");
   const [interventionIdToArchive, setInterventionIdToArchive] = useState(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -61,7 +64,7 @@ const [isUpdating, setIsUpdating] = useState(false);
       .from("interventions")
       .select(
         `
-          id, status, notifiedBy, deviceType, brand, model, archived, archived_at, on_hold, label_photo,
+          id, client_id, status, notifiedBy, deviceType, brand, model, archived, archived_at, on_hold, label_photo,
           clients (name, ficheNumber, phone)
         `
       )
@@ -167,8 +170,38 @@ const handleSelectAllVisible = () => {
   }
 };
 
-const confirmBulkRestitution = () => {
+const confirmBulkRestitution = async () => {
   if (selectedIds.length === 0 || isUpdating) return;
+
+  // Rappel : commandes des clients sélectionnés encore à régler (elles
+  // restent sur l'accueil alors que l'intervention en disparaît).
+  let warningText = "";
+  try {
+    const selected = allInterventions.filter((item) =>
+      selectedIds.includes(item.id)
+    );
+    const clientIds = [
+      ...new Set(selected.map((item) => item.client_id).filter(Boolean)),
+    ];
+    const parts = [];
+    for (const cid of clientIds) {
+      const unpaidOrders = await fetchUnpaidOrders(cid);
+      if (unpaidOrders.length > 0) {
+        const name =
+          selected.find((item) => item.client_id === cid)?.clients?.name ||
+          "Client";
+        const total = unpaidOrders.reduce((sum, o) => sum + o.remaining, 0);
+        parts.push(`• ${name} : ${formatEuro(total)}`);
+      }
+    }
+    if (parts.length > 0) {
+      warningText = `\n\n⚠️ Commandes encore à régler :\n${parts.join("\n")}`;
+    }
+  } catch (error) {
+    console.error("Erreur vérification commandes à régler :", error);
+  }
+
+  setBulkOrderDueText(warningText);
   setBulkRestitutionConfirmVisible(true);
 };
 
@@ -632,7 +665,7 @@ const handleBulkRestitution = async () => {
       <AlertBox
         visible={bulkRestitutionConfirmVisible}
         title="Confirmer la restitution"
-        message={`Passer ${selectedIds.length} fiche${selectedIds.length > 1 ? "s" : ""} sélectionnée${selectedIds.length > 1 ? "s" : ""} au statut « Récupéré » ?`}
+        message={`Passer ${selectedIds.length} fiche${selectedIds.length > 1 ? "s" : ""} sélectionnée${selectedIds.length > 1 ? "s" : ""} au statut « Récupéré » ?${bulkOrderDueText}`}
         cancelText="Annuler"
         confirmText="Confirmer"
         onClose={() => setBulkRestitutionConfirmVisible(false)}

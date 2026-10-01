@@ -13,6 +13,8 @@ import {
 import Signature from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
+import AlertBox from "../components/AlertBox";
+import { fetchUnpaidOrders, formatEuro } from "../utils/clientDues";
 import BackButton from "../components/BackButton";
 
 export default function SignaturePage({ route, navigation }) {
@@ -45,6 +47,10 @@ export default function SignaturePage({ route, navigation }) {
 
   const ref = useRef(null);
 
+  // Rappel : commande(s) du client encore à régler au moment de restituer
+  // l'intervention (la commande reste sur l'accueil, l'intervention non).
+  const [orderDueWarning, setOrderDueWarning] = useState(null);
+
   const isValidUUID = (id) =>
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
       id || ""
@@ -67,6 +73,26 @@ export default function SignaturePage({ route, navigation }) {
         if (error) throw error;
 
         setClientInfo(data);
+
+        try {
+          const unpaidOrders = await fetchUnpaidOrders(
+            data?.client_id || clientId
+          );
+          if (unpaidOrders.length > 0) {
+            const total = unpaidOrders.reduce((sum, o) => sum + o.remaining, 0);
+            const detail = unpaidOrders
+              .map((o) => `• ${o.product || "Commande"} : ${formatEuro(o.remaining)}`)
+              .join("\n");
+            setOrderDueWarning({
+              clientId: data?.client_id || clientId,
+              message: `Ce client a encore ${formatEuro(total)} à régler sur ${
+                unpaidOrders.length > 1 ? "ses commandes" : "sa commande"
+              } :\n${detail}\n\nPensez à la faire régler en même temps que l'intervention.`,
+            });
+          }
+        } catch (e) {
+          console.error("Erreur vérification commandes à régler :", e);
+        }
 
         // Signature de dépôt existante en BDD (colonne dédiée, jamais la colonne
         // "signature" qui sert maintenant à la restitution)
@@ -445,6 +471,27 @@ export default function SignaturePage({ route, navigation }) {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <AlertBox
+        visible={!!orderDueWarning}
+        title="Attention : commande à régler"
+        message={orderDueWarning?.message || ""}
+        cancelText="Voir la commande"
+        confirmText="Continuer la restitution"
+        onClose={() => {
+          const warning = orderDueWarning;
+          setOrderDueWarning(null);
+          if (warning?.clientId) {
+            navigation.navigate("OrdersPage", {
+              clientId: warning.clientId,
+              clientName: clientInfo?.clients?.name || "",
+              clientPhone: clientInfo?.clients?.phone || "",
+              clientNumber: clientInfo?.clients?.ficheNumber || "",
+            });
+          }
+        }}
+        onConfirm={() => setOrderDueWarning(null)}
+      />
 
       <CustomAlert
         visible={alertVisible}

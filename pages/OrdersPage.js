@@ -20,6 +20,12 @@ import { supabase } from "../supabaseClient";
 import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
+import {
+    fetchRepairedInterventionsDue,
+    describeIntervention,
+    formatEuro,
+    isOrderAlreadyInvoiced,
+} from "../utils/clientDues";
 
 // === Réglages bucket/chemin ===
 const ORDER_PHOTOS_BUCKET = "images"; // bucket existant
@@ -86,6 +92,87 @@ export default function OrdersPage({ route, navigation, order }) {
 
     // —— Proposition de facturation au moment de "Marquer récupérée" ——
     const [invoicePromptOrder, setInvoicePromptOrder] = useState(null);
+
+    // —— Rappel "intervention réparée encore à régler" avant Payée/Récupérée ——
+    const [dueWarning, setDueWarning] = useState(null);
+
+    // Si le client doit encore le solde d'une intervention réparée (qui n'est
+    // plus visible sur l'accueil), on l'affiche avant de régler ou remettre
+    // la commande, pour ne jamais oublier de faire payer l'intervention.
+    const withInterventionDueCheck = async (ord, proceed, mode = "recovered") => {
+        const targetClientId = ord?.client_id || clientId;
+        let dues = [];
+        try {
+            dues = await fetchRepairedInterventionsDue(targetClientId);
+        } catch (e) {
+            console.error("❌ Vérification solde intervention :", e);
+        }
+        if (dues.length === 0) {
+            proceed();
+            return;
+        }
+        const total = dues.reduce(
+            (sum, i) => sum + (parseFloat(i.solderestant) || 0),
+            0
+        );
+        const detail = dues
+            .map((i) => `• ${describeIntervention(i)} : ${formatEuro(i.solderestant)}`)
+            .join("\n");
+        setDueWarning({
+            message:
+                `Ce client doit encore ${formatEuro(total)} sur ${
+                    dues.length > 1
+                        ? "ses interventions réparées"
+                        : "son intervention réparée"
+                } :\n${detail}\n\nPensez à la faire régler en même temps que la commande.`,
+            interventionId: dues[0].id,
+            clientId: targetClientId,
+            onContinue: proceed,
+            mode,
+            ord,
+            dues,
+            total,
+        });
+    };
+
+    // Règlement en une fois : la commande ET l'intervention réparée passent
+    // en payé (intervention : paymentStatus "solde" + solderestant 0, comme
+    // la case "Soldé" de l'édition d'intervention).
+    const markOrderAndInterventionsPaid = async (warning) => {
+        try {
+            const { error: orderError } = await supabase
+                .from("orders")
+                .update({ paid: true })
+                .eq("id", warning.ord.id);
+            if (orderError) throw orderError;
+
+            const interventionIds = (warning.dues || []).map((i) => i.id);
+            if (interventionIds.length > 0) {
+                const { error: interventionError } = await supabase
+                    .from("interventions")
+                    .update({
+                        paymentStatus: "solde",
+                        solderestant: 0,
+                        updatedAt: new Date().toISOString(),
+                    })
+                    .in("id", interventionIds);
+                if (interventionError) throw interventionError;
+            }
+
+            loadOrders();
+            showAlert(
+                "Succès",
+                "La commande et l'intervention sont marquées payées."
+            );
+        } catch (e) {
+            console.error("❌ Paiement commande + intervention :", e);
+            showAlert(
+                "Erreur",
+                "Impossible d'enregistrer le paiement. " + (e?.message || "")
+            );
+            loadOrders();
+        }
+    };
 
 const [newOrder, setNewOrder] = useState({
     product: prefillProduct || "",  // 👈 prérempli si tu viens d'une intervention
@@ -313,6 +400,16 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
 
     const toBool = (v) => v === true || v === "true" || v === 1;
 
+    // Commande entièrement "coût inclus dans l'intervention" : déterminé par
+    // ses articles (le drapeau orders.include_in_intervention n'était fixé
+    // qu'à la création et pouvait ne plus correspondre après modification).
+    const isOrderFullyIncluded = (ord) => {
+        const items = Array.isArray(ord?.order_items) ? ord.order_items : [];
+        return items.length > 0
+            ? items.every((it) => toBool(it.include_in_intervention))
+            : toBool(ord?.include_in_intervention);
+    };
+
     // Au moins deux effets déclenchent loadOrders() en même temps à l'arrivée
     // sur la page (montage + focus navigation), en plus de l'appel explicite
     // après création d'une commande. Sans garde-fou, un ancien appel plus
@@ -321,6 +418,10 @@ const [editingOrderItem, setEditingOrderItem] = useState(null);
     // qu'on ne quitte pas la page. Seul le dernier appel lancé est autorisé
     // à mettre à jour l'état.
     const loadOrdersSeqRef = useRef(0);
+
+    // Commandes créées depuis cette page : à afficher même quand la liste est
+    // restreinte par orderIds (ouverture depuis l'icône chariot de l'accueil).
+    const createdOrderIdsRef = useRef([]);
 
     // 🔁 Charge commandes
     const loadOrders = async () => {
@@ -426,8 +527,14 @@ installed: allInstalled,
                 // orderIds absent (undefined) : pas de restriction (ex. recherche,
                 // admin). orderIds fourni (même vide []) : restriction stricte —
                 // un tableau vide signifie "aucune commande pour cette intervention".
+                // Les commandes créées sur cette page restent visibles même si
+                // elles ne sont pas dans orderIds (liste figée à l'ouverture).
                 const scopedRows = Array.isArray(orderIds)
-                    ? rows.filter((r) => orderIds.includes(r.id))
+                    ? rows.filter(
+                          (r) =>
+                              orderIds.includes(r.id) ||
+                              createdOrderIdsRef.current.includes(r.id)
+                      )
                     : rows;
                 if (requestId === loadOrdersSeqRef.current) setOrders(scopedRows);
                 return;
@@ -865,6 +972,11 @@ const handleCreateOrder = async () => {
             throw itemsError;
         }
 
+        createdOrderIdsRef.current = [
+            ...createdOrderIdsRef.current,
+            createdOrder.id,
+        ];
+
         setNewOrderItems([]);
 
         setNewOrder({
@@ -990,13 +1102,13 @@ const handleCancelOrder = (ord) => {
     };
 
     const handleMarkAsPaid = (ord) => {
-        const isIncluded = !!ord.include_in_intervention;
+        const isIncluded = isOrderFullyIncluded(ord);
         const total = isIncluded
             ? 0
             : ord.total ?? (ord.price || 0) * (ord.quantity || 1);
         const remaining = Math.max(0, total - (ord.deposit || 0));
 
-        openConfirm(
+        withInterventionDueCheck(ord, () => openConfirm(
             "Paiement complet",
             `Confirmez-vous le paiement de ${remaining.toFixed(2)} € ?`,
             async () => {
@@ -1011,7 +1123,7 @@ const handleCancelOrder = (ord) => {
                     console.error("❌ Paiement:", e);
                 }
             }
-        );
+        ), "paid");
     };
 
     const handleSaveOrder = async (ord) => {
@@ -1044,7 +1156,7 @@ const handleCancelOrder = (ord) => {
     };
 
     const handleMarkAsRecovered = async (ord) => {
-        openConfirm(
+        withInterventionDueCheck(ord, () => openConfirm(
             "Commande récupérée",
             "Confirmez-vous la récupération par le client ?",
             async () => {
@@ -1056,15 +1168,107 @@ const handleCancelOrder = (ord) => {
                     if (error) throw error;
                     loadOrders();
 
-                    const alreadyInvoiced = (ord.billing?.length ?? 0) > 0;
-                    if (!alreadyInvoiced && !ord.include_in_intervention) {
+                    // Déjà facturée seule (billing.order_id) ou sur la
+                    // facture de l'intervention (ligne { order_id }).
+                    let alreadyInvoiced = (ord.billing?.length ?? 0) > 0;
+                    if (!alreadyInvoiced) {
+                        try {
+                            alreadyInvoiced = await isOrderAlreadyInvoiced(ord.id);
+                        } catch (e) {
+                            console.error("❌ Vérification facture :", e);
+                        }
+                    }
+                    if (!alreadyInvoiced && !isOrderFullyIncluded(ord)) {
                         setInvoicePromptOrder(ord);
                     }
                 } catch (e) {
                     console.error("❌ Récupération:", e);
                 }
             }
-        );
+        ));
+    };
+
+    // Ouvre la facture d'une commande seule (bouton "Créer facture" et
+    // proposition après "Récupérée"). Refusée si la commande est entièrement
+    // incluse dans le coût de l'intervention, ou déjà facturée (seule ou sur
+    // la facture de l'intervention) : évite toute double facturation.
+    const openOrderInvoice = async (item) => {
+        if (!item) return;
+        if (isOrderFullyIncluded(item)) {
+            showAlert(
+                "Pas de facture",
+                "Cette commande est incluse dans le coût de l'intervention : elle apparaît sur la facture de l'intervention."
+            );
+            return;
+        }
+        let alreadyInvoiced = (item.billing?.length ?? 0) > 0;
+        if (!alreadyInvoiced) {
+            try {
+                alreadyInvoiced = await isOrderAlreadyInvoiced(item.id);
+            } catch (e) {
+                console.error("❌ Vérification facture :", e);
+            }
+        }
+        if (alreadyInvoiced) {
+            showAlert(
+                "Déjà facturée",
+                "Cette commande figure déjà sur une facture (par exemple celle de l'intervention)."
+            );
+            return;
+        }
+
+        // Une ligne par article de la commande (quantité × P.U.),
+        // les articles "coût inclus dans l'intervention" à 0 €.
+        // orders.total est déjà le total de toute la commande :
+        // on ne le multiplie jamais par une quantité.
+        const invoiceLines = (Array.isArray(item.order_items)
+            ? item.order_items
+            : []
+        ).map((it) => ({
+            designation: [it.product, it.brand, it.model]
+                .filter((v) => v && String(v).trim())
+                .join(" ")
+                .concat(
+                    it.include_in_intervention
+                        ? " (inclus dans l'intervention)"
+                        : ""
+                ),
+            quantity: Math.max(1, Number(it.quantity) || 1),
+            price: it.include_in_intervention
+                ? 0
+                : Number(it.unit_price) || 0,
+            serial: it.serial || "",
+        }));
+        const [firstLine, ...otherLines] = invoiceLines;
+
+        navigation.navigate("BillingPage", {
+            expressData: {
+                order_id: item.id,
+                clientname: clientName,
+                clientphone: clientPhone,
+                product: item.product,
+                brand: item.brand,
+                model: item.model,
+                // BillingPage attend ici le total de la ligne
+                // (il le divise par la quantité pour le P.U.).
+                price: firstLine
+                    ? String(firstLine.price * firstLine.quantity)
+                    : String(
+                          item.total ?? (item.price || 0) * (item.quantity || 1)
+                      ),
+                quantity: firstLine
+                    ? String(firstLine.quantity)
+                    : "1",
+                description: firstLine
+                    ? firstLine.designation
+                    : `${item.product} ${item.brand} ${item.model}`,
+                acompte: item.deposit?.toString() || "0",
+                paymentmethod: item.paymentmethod || "",
+                serial: firstLine ? firstLine.serial : item.serial || "",
+                paid: item.paid || false,
+                extraLines: otherLines,
+            },
+        });
     };
 
     const confirmMarkAsOrdered = (ord) => {
@@ -1806,6 +2010,13 @@ const recalculateOrderSummary = async (orderId) => {
                     total,
                     price: total,
                     items_count: itemsCount,
+                    // Garde le drapeau de la commande aligné sur ses articles
+                    // (même règle qu'à la création).
+                    include_in_intervention:
+                        safeItems.length > 0 &&
+                        safeItems.every(
+                            (item) => item.include_in_intervention === true
+                        ),
                 })
                 .eq("id", orderId);
 
@@ -2441,7 +2652,7 @@ const deleteOrderItem = async (orderItem) => {
                     const qty = item.quantity || 1;
                     const unit = item.price || 0;
                     const total = item.total ?? unit * qty;
-                    const isIncluded = !!item.include_in_intervention;
+                    const isIncluded = isOrderFullyIncluded(item);
 
                     // Valeur réelle du/des produit(s), même "coût inclus dans
                     // l'intervention" : le total facturé sur la commande (ci-dessus)
@@ -3347,48 +3558,7 @@ const deleteOrderItem = async (orderItem) => {
                                                 ]}
                                                 onPress={() =>
                                                     !isIncluded &&
-                                                    navigation.navigate(
-                                                        "BillingPage",
-                                                        {
-                                                            expressData: {
-                                                                order_id:
-                                                                    item.id,
-                                                                clientname:
-                                                                    clientName,
-                                                                clientphone:
-                                                                    clientPhone,
-                                                                product:
-                                                                    item.product,
-                                                                brand: item.brand,
-                                                                model: item.model,
-                                                                price: String(
-                                                                    item.total ??
-                                                                        (item.price ||
-                                                                            0) *
-                                                                            (item.quantity ||
-                                                                                1)
-                                                                ),
-                                                                quantity:
-                                                                    String(
-                                                                        item.quantity ||
-                                                                            1
-                                                                    ),
-                                                                description: `${item.product} ${item.brand} ${item.model}`,
-                                                                acompte:
-                                                                    item.deposit?.toString() ||
-                                                                    "0",
-                                                                paymentmethod:
-                                                                    item.paymentmethod ||
-                                                                    "",
-                                                                serial:
-                                                                    item.serial ||
-                                                                    "",
-                                                                paid:
-                                                                    item.paid ||
-                                                                    false,
-                                                            },
-                                                        }
-                                                    )
+                                                    openOrderInvoice(item)
                                                 }
                                                 disabled={isIncluded}
                                             >
@@ -3739,25 +3909,125 @@ const deleteOrderItem = async (orderItem) => {
                 onConfirm={() => {
                     const item = invoicePromptOrder;
                     setInvoicePromptOrder(null);
-                    navigation.navigate("BillingPage", {
-                        expressData: {
-                            order_id: item.id,
-                            clientname: clientName,
-                            clientphone: clientPhone,
-                            product: item.product,
-                            brand: item.brand,
-                            model: item.model,
-                            price: String(
-                                item.total ?? (item.price || 0) * (item.quantity || 1)
-                            ),
-                            quantity: String(item.quantity || 1),
-                            description: `${item.product} ${item.brand} ${item.model}`,
-                            acompte: item.deposit?.toString() || "0",
-                            paymentmethod: item.paymentmethod || "",
-                            serial: item.serial || "",
-                            paid: item.paid || false,
-                        },
-                    });
+                    openOrderInvoice(item);
+                }}
+            />
+
+            {/* Rappel : intervention réparée encore à régler */}
+            {/* Paiement : commande + intervention réparée en une seule fois */}
+            <Modal
+                visible={!!dueWarning && dueWarning.mode === "paid"}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setDueWarning(null)}
+            >
+                <Pressable
+                    style={styles.photoChoiceOverlay}
+                    onPress={() => setDueWarning(null)}
+                >
+                    <Pressable style={styles.photoChoiceCard} onPress={() => {}}>
+                        <Text style={styles.photoChoiceTitle}>
+                            Intervention aussi à régler
+                        </Text>
+                        <Text style={styles.photoChoiceSubtitle}>
+                            {(() => {
+                                const ord = dueWarning?.ord;
+                                const orderTotal = ord?.include_in_intervention
+                                    ? 0
+                                    : Number(
+                                          ord?.total ??
+                                              (ord?.price || 0) * (ord?.quantity || 1)
+                                      ) || 0;
+                                const orderRemaining = Math.max(
+                                    0,
+                                    orderTotal - (Number(ord?.deposit) || 0)
+                                );
+                                return `${dueWarning?.message || ""}\n\nCommande : ${formatEuro(
+                                    orderRemaining
+                                )}\nTotal à encaisser : ${formatEuro(
+                                    orderRemaining + (dueWarning?.total || 0)
+                                )}`;
+                            })()}
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceOption}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                const warning = dueWarning;
+                                setDueWarning(null);
+                                if (warning) markOrderAndInterventionsPaid(warning);
+                            }}
+                        >
+                            <Text style={styles.photoChoiceOptionText}>
+                                ✅ Tout marquer payé (commande + intervention)
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceOption}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                const warning = dueWarning;
+                                setDueWarning(null);
+                                warning?.onContinue?.();
+                            }}
+                        >
+                            <Text style={styles.photoChoiceOptionText}>
+                                Commande seule
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceOption}
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                const warning = dueWarning;
+                                setDueWarning(null);
+                                if (warning?.interventionId) {
+                                    navigation.navigate("EditIntervention", {
+                                        clientId: warning.clientId,
+                                        interventionId: warning.interventionId,
+                                    });
+                                }
+                            }}
+                        >
+                            <Text style={styles.photoChoiceOptionText}>
+                                Voir l'intervention
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.photoChoiceCancel}
+                            activeOpacity={0.75}
+                            onPress={() => setDueWarning(null)}
+                        >
+                            <Text style={styles.photoChoiceCancelText}>Annuler</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            <AlertBox
+                visible={!!dueWarning && dueWarning.mode !== "paid"}
+                title="Attention : intervention à régler"
+                message={dueWarning?.message || ""}
+                cancelText="Voir l'intervention"
+                confirmText="Continuer quand même"
+                onClose={() => {
+                    const warning = dueWarning;
+                    setDueWarning(null);
+                    if (warning?.interventionId) {
+                        navigation.navigate("EditIntervention", {
+                            clientId: warning.clientId,
+                            interventionId: warning.interventionId,
+                        });
+                    }
+                }}
+                onConfirm={() => {
+                    const warning = dueWarning;
+                    setDueWarning(null);
+                    warning?.onContinue?.();
                 }}
             />
         </View>

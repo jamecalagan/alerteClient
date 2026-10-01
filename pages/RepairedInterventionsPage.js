@@ -29,6 +29,7 @@ import * as Print from "expo-print";
 import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
 import { formatClientAddress } from "../utils/formatClientAddress";
+import { fetchOrdersForInterventionInvoice } from "../utils/clientDues";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
@@ -856,12 +857,28 @@ export default function RepairedInterventionsPage({ navigation }) {
 
                 <TouchableOpacity
                   style={styles.actionBtnPrimary}
-                  onPress={() => {
+                  onPress={async () => {
                     const existingBillingId = billingByIntervention[item.id];
                     if (existingBillingId) {
                       openInvoicePreview(existingBillingId);
                       return;
                     }
+                    // Commandes du client pas encore facturées : ajoutées
+                    // sur la même facture que l'intervention.
+                    let ordersPart = {
+                      extraLines: [],
+                      ordersDeposit: 0,
+                      ordersAllPaid: true,
+                    };
+                    try {
+                      ordersPart = await fetchOrdersForInterventionInvoice(item);
+                    } catch (e) {
+                      console.error("❌ Commandes pour facture :", e);
+                    }
+                    const totalDeposit =
+                      (parseFloat(
+                        String(item.partialPayment ?? "").replace(",", ".")
+                      ) || 0) + ordersPart.ordersDeposit;
                     navigation.navigate("BillingPage", {
                       expressData: {
                         name: item.clients?.name || "",
@@ -878,9 +895,13 @@ export default function RepairedInterventionsPage({ navigation }) {
                         price: item.cost?.toString() || "0",
                         serial: item.serial_number || "",
                         paymentmethod: "",
-                        acompte: item.partialPayment?.toString() || "",
-                        paid: item.paymentStatus === "solde",
+                        acompte:
+                          totalDeposit > 0 ? String(totalDeposit) : "",
+                        paid:
+                          item.paymentStatus === "solde" &&
+                          ordersPart.ordersAllPaid,
                         intervention_id: item.id,
+                        extraLines: ordersPart.extraLines,
                       },
                     });
                   }}

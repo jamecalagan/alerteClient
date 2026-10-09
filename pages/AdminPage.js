@@ -356,6 +356,17 @@ export default function AdminPage({ navigation, route }) {
                 </View>
                 <Text style={styles.buttonText}>Barème réparations</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => navigation.navigate("RepriseListPage")}
+                activeOpacity={0.85}
+              >
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="recycling" size={20} color="#4338ca" />
+                </View>
+                <Text style={styles.buttonText}>Reprises de matériel</Text>
+              </TouchableOpacity>
             </View>
 
             {/* --- Recherche + Liste --- */}

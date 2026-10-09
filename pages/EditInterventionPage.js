@@ -15,6 +15,7 @@ import {
     FlatList,
     StatusBar,
     ActivityIndicator,
+    Linking,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../supabaseClient";
@@ -516,6 +517,20 @@ const [chargeurPickerVisible, setChargeurPickerVisible] = useState(false);
     // true si cette sauvegarde vient de faire passer le statut à "Réparé"
     const justRepairedRef = useRef(false);
     const [invoicePromptVisible, setInvoicePromptVisible] = useState(false);
+    // true si cette sauvegarde vient de faire passer le statut à "Non réparable"
+    // → proposition d'un SMS au client (matériel récupérable dès à présent)
+    const justNotRepairableRef = useRef(false);
+    const [notRepairableSmsVisible, setNotRepairableSmsVisible] = useState(false);
+    // Raison ajoutée au SMS (pré-remplie avec la cause de panne de la fiche)
+    const [notRepairableReason, setNotRepairableReason] = useState("");
+    const notRepairableSmsText = () => {
+        const deviceName =
+            articles.find((a) => a.id === deviceType)?.nom || "matériel";
+        const reason = notRepairableReason.trim().replace(/[.\s]+$/, "");
+        return `Bonjour, après diagnostic, votre ${deviceName.toLowerCase()} n'est malheureusement pas réparable${
+            reason ? ` : ${reason}` : ""
+        }. Vous pouvez le récupérer dès à présent en boutique. N'oubliez pas le bon de restitution, merci\n\nAVENIR INFORMATIQUE`;
+    };
     // statut tel que chargé depuis la base à l'ouverture de la fiche (ne change pas pendant la session)
     const initialStatusRef = useRef(null);
 const [repairCausesList, setRepairCausesList] = useState([]);
@@ -2360,6 +2375,9 @@ repair_proposal_date: repairProposalMade
 
         justRepairedRef.current =
             initialStatusRef.current !== "Réparé" && status === "Réparé";
+        justNotRepairableRef.current =
+            initialStatusRef.current !== "Non réparable" &&
+            status === "Non réparable";
 
         const formattedDevisCost =
             isEstimateMode && devisCost ? parseFloat(devisCost) : null;
@@ -2568,6 +2586,12 @@ repair_proposal_date: repairProposalMade
         if (justRepairedRef.current) {
             justRepairedRef.current = false;
             setInvoicePromptVisible(true);
+            return;
+        }
+        if (justNotRepairableRef.current) {
+            justNotRepairableRef.current = false;
+            setNotRepairableReason(repairCause || "");
+            setNotRepairableSmsVisible(true);
             return;
         }
         if (returnTo) {
@@ -4195,6 +4219,179 @@ onPress={() => {
                     setHasUnsavedChanges(true);
                 }}
             />
+
+            {/* Passage à "Non réparable" : proposer un SMS au client */}
+            <Modal
+                visible={notRepairableSmsVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setNotRepairableSmsVisible(false);
+                    navigation.navigate(returnTo || "Home");
+                }}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    style={{
+                        flex: 1,
+                        backgroundColor: "rgba(15, 23, 42, 0.55)",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <View
+                        style={{
+                            width: 600,
+                            maxWidth: "92%",
+                            backgroundColor: "#fff",
+                            borderRadius: 20,
+                            padding: 22,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                fontSize: 20,
+                                fontWeight: "bold",
+                                textAlign: "center",
+                                color: "#0f172a",
+                                marginBottom: 6,
+                            }}
+                        >
+                            Prévenir le client ?
+                        </Text>
+
+                        {clientPhone ? (
+                            <>
+                                <Text
+                                    style={{
+                                        textAlign: "center",
+                                        color: "#475569",
+                                        marginBottom: 14,
+                                    }}
+                                >
+                                    {`SMS au ${clientPhone}`}
+                                </Text>
+
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        color: "#334155",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Raison (facultatif)
+                                </Text>
+                                <TextInput
+                                    value={notRepairableReason}
+                                    onChangeText={setNotRepairableReason}
+                                    placeholder="ex. carte mère hors service, pièce plus fabriquée…"
+                                    placeholderTextColor="#94a3b8"
+                                    multiline
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: "#cbd5e1",
+                                        borderRadius: 10,
+                                        padding: 10,
+                                        minHeight: 60,
+                                        textAlignVertical: "top",
+                                        color: "#0f172a",
+                                        backgroundColor: "#f8fafc",
+                                        marginBottom: 14,
+                                    }}
+                                />
+
+                                <Text
+                                    style={{
+                                        fontWeight: "bold",
+                                        color: "#334155",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Aperçu du message
+                                </Text>
+                                <Text
+                                    style={{
+                                        backgroundColor: "#dcfce7",
+                                        borderRadius: 10,
+                                        padding: 10,
+                                        color: "#14532d",
+                                        marginBottom: 18,
+                                    }}
+                                >
+                                    {notRepairableSmsText()}
+                                </Text>
+                            </>
+                        ) : (
+                            <Text
+                                style={{
+                                    textAlign: "center",
+                                    color: "#b91c1c",
+                                    marginVertical: 14,
+                                }}
+                            >
+                                Aucun numéro de téléphone n'est enregistré pour ce client : impossible d'envoyer le SMS.
+                            </Text>
+                        )}
+
+                        <View style={{ flexDirection: "row", gap: 12 }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 12,
+                                    borderRadius: 12,
+                                    backgroundColor: "#e2e8f0",
+                                    alignItems: "center",
+                                }}
+                                onPress={() => {
+                                    setNotRepairableSmsVisible(false);
+                                    navigation.navigate(returnTo || "Home");
+                                }}
+                            >
+                                <Text style={{ fontWeight: "bold", color: "#334155" }}>
+                                    Plus tard
+                                </Text>
+                            </TouchableOpacity>
+
+                            {!!clientPhone && (
+                                <TouchableOpacity
+                                    style={{
+                                        flex: 1,
+                                        paddingVertical: 12,
+                                        borderRadius: 12,
+                                        backgroundColor: "#16a34a",
+                                        alignItems: "center",
+                                    }}
+                                    onPress={async () => {
+                                        const smsText = notRepairableSmsText();
+                                        setNotRepairableSmsVisible(false);
+                                        Linking.openURL(
+                                            `sms:${clientPhone}?body=${encodeURIComponent(
+                                                smsText
+                                            )}`
+                                        );
+                                        // Même marquage que "Notifier > SMS" des interventions terminées
+                                        const { error: notifyError } = await supabase
+                                            .from("interventions")
+                                            .update({ notifiedBy: "SMS" })
+                                            .eq("id", interventionId);
+                                        if (notifyError) {
+                                            console.error(
+                                                "❌ Marquage notification :",
+                                                notifyError
+                                            );
+                                        }
+                                        navigation.navigate(returnTo || "Home");
+                                    }}
+                                >
+                                    <Text style={{ fontWeight: "bold", color: "#fff" }}>
+                                        Envoyer le SMS
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
 
             {/* Modale proposition de facturation (passage au statut Réparé) */}
             <AlertBox

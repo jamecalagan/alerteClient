@@ -5148,6 +5148,19 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
               <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("RepriseListPage");
+                }}
+              >
+                <Text style={[styles.drawerItemIcon, { textAlign: "center", fontSize: 18 }]}>
+                  ♻️
+                </Text>
+                <Text style={styles.drawerItemText}>REPRISES</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
                   setLogoutConfirmVisible(true);
                 }}
               >

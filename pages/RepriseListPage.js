@@ -200,6 +200,13 @@ export default function RepriseListPage({ navigation }) {
         <Text style={styles.newBtnText}>＋ Nouvelle reprise</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.newBtn, { backgroundColor: "#e0e7ff" }]}
+        onPress={() => navigation.navigate("RepriseDepotListPage")}
+      >
+        <Text style={[styles.newBtnText, { color: "#3730a3" }]}>📥 Dépôts à tester</Text>
+      </TouchableOpacity>
+
       <TextInput
         style={styles.search}
         value={search}

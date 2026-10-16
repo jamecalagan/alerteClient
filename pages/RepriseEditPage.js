@@ -367,6 +367,37 @@ export default function RepriseEditPage({ route, navigation }) {
     load();
   }, [route.params?.repriseId]);
 
+  // === Nouvelle fiche créée depuis un bon de dépôt : pré-remplissage ===
+  const depotLink = route.params?.depotLink || null;
+  useEffect(() => {
+    const prefill = route.params?.prefill;
+    if (!prefill || route.params?.repriseId) return;
+    setClientId(prefill.client_id || null);
+    setSellerName(prefill.seller_name || "");
+    setSellerPhone(prefill.seller_phone || "");
+    setSellerEmail(prefill.seller_email || "");
+    setDeviceType(prefill.device_type || "");
+    setBrand(prefill.brand || "");
+    setModel(prefill.model || "");
+    setCondition(prefill.condition || "");
+    setAccessories(prefill.accessories || "");
+    // Adresse depuis la fiche client
+    if (prefill.client_id) {
+      supabase
+        .from("clients")
+        .select("address, postal_code, city, banned, ban_reason")
+        .eq("id", prefill.client_id)
+        .single()
+        .then(({ data }) => {
+          if (!data) return;
+          setSellerAddress(data.address || "");
+          setSellerPostalCode(data.postal_code || "");
+          setSellerCity(data.city || "");
+          setBannedInfo(data.banned ? data.ban_reason || "Client banni" : null);
+        });
+    }
+  }, []);
+
   // === Recherche client ===
   const searchClients = async (text) => {
     setSellerName(text);
@@ -571,6 +602,27 @@ export default function RepriseEditPage({ route, navigation }) {
           .single();
         if (error) throw error;
         row = data;
+
+        // Fiche créée depuis un bon de dépôt : on y note la reprise de l'appareil.
+        if (depotLink?.depotId && depotLink?.itemKey) {
+          const { data: depot, error: depotError } = await supabase
+            .from("reprise_depots")
+            .select("items")
+            .eq("id", depotLink.depotId)
+            .single();
+          if (depotError) {
+            console.error("❌ Lecture du dépôt :", depotError);
+          } else {
+            const nextItems = (depot.items || []).map((it) =>
+              it.key === depotLink.itemKey ? { ...it, status: "accepte", reprise_id: row.id } : it
+            );
+            const { error: linkError } = await supabase
+              .from("reprise_depots")
+              .update({ items: nextItems, updated_at: new Date().toISOString() })
+              .eq("id", depotLink.depotId);
+            if (linkError) console.error("❌ Lien dépôt → reprise :", linkError);
+          }
+        }
       }
 
       // Envoi des photos prises localement, puis enregistrement des chemins.
@@ -607,6 +659,10 @@ export default function RepriseEditPage({ route, navigation }) {
         ).filter(Boolean);
         // Aperçu avant impression (l'impression se lance depuis l'aperçu)
         setPrintPreviewHtml(buildRepriseHtml(finalRow, photoUrls));
+      } else if (depotLink) {
+        // Fiche créée depuis un bon de dépôt : retour au bon de dépôt
+        leavingRef.current = true;
+        navigation.goBack();
       } else {
         // Retour à la liste des reprises (la fiche y apparaît)
         leavingRef.current = true;

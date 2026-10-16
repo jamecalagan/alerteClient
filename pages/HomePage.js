@@ -5161,6 +5161,19 @@ const selectedClientOrderCount = selectedClientActiveOrders.length;
               <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => {
+                  toggleMenu();
+                  navigation.navigate("RepriseDepotListPage");
+                }}
+              >
+                <Text style={[styles.drawerItemIcon, { textAlign: "center", fontSize: 18 }]}>
+                  📥
+                </Text>
+                <Text style={styles.drawerItemText}>DÉPÔTS À TESTER</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
                   setLogoutConfirmVisible(true);
                 }}
               >

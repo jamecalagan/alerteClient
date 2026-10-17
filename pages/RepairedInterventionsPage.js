@@ -30,6 +30,7 @@ import BottomMenu from "../components/BottomMenu";
 import BackButton from "../components/BackButton";
 import { formatClientAddress } from "../utils/formatClientAddress";
 import { fetchOrdersForInterventionInvoice } from "../utils/clientDues";
+import { repairQuotePending } from "../utils/repairCheck";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Animatable from "react-native-animatable";
 const backgroundImage = require("../assets/listing2.jpg");
@@ -60,6 +61,13 @@ export default function RepairedInterventionsPage({ navigation }) {
   const [selectedInterventionDeviceType, setSelectedInterventionDeviceType] = useState("appareil");
   const [reviewOfferVisible, setReviewOfferVisible] = useState(false);
   const [pendingRestitution, setPendingRestitution] = useState(null);
+  // Devis complémentaire accepté mais non traité : alerte avant facture / restitution
+  const [quoteWarn, setQuoteWarn] = useState(null); // { labels, onContinue }
+  const guardQuote = (intervention, action) => {
+    const reste = repairQuotePending(intervention?.repair_check);
+    if (reste.labels.length) setQuoteWarn({ labels: reste.labels, onContinue: action });
+    else action();
+  };
 
   const [billingByIntervention, setBillingByIntervention] = useState({}); // { [intervention_id]: billing.id } — évite de recréer une facture
 
@@ -502,7 +510,46 @@ export default function RepairedInterventionsPage({ navigation }) {
   const closeAlert = () => {
     setAlertVisible(false);
   };
-  const handleRestitution = (intervention) => {
+  // Création de la facture d'une intervention (bouton « Facture »), déplacée telle quelle dans une
+  // fonction pour pouvoir être appelée après l'alerte « Devis complémentaire non traité ».
+  const openBillingFor = async (item) => {
+    // Commandes du client pas encore facturées : ajoutées
+    // sur la même facture que l'intervention.
+    let ordersPart = {
+      extraLines: [],
+      ordersDeposit: 0,
+      ordersAllPaid: true,
+    };
+    try {
+      ordersPart = await fetchOrdersForInterventionInvoice(item);
+    } catch (e) {
+      console.error("❌ Commandes pour facture :", e);
+    }
+    const totalDeposit =
+      (parseFloat(String(item.partialPayment ?? "").replace(",", ".")) || 0) +
+      ordersPart.ordersDeposit;
+    navigation.navigate("BillingPage", {
+      expressData: {
+        name: item.clients?.name || "",
+        phone: item.clients?.phone || "",
+        client_address: formatClientAddress(item.clients),
+        description: `${item.detailIntervention?.trim() || item.description || ""}\n${
+          item.deviceType || "Appareil"
+        } — ${item.brand || "Marque inconnue"} — ${item.model || "Modèle inconnu"}`,
+        quantity: "1",
+        price: item.cost?.toString() || "0",
+        serial: item.serial_number || "",
+        paymentmethod: "",
+        acompte: totalDeposit > 0 ? String(totalDeposit) : "",
+        paid: item.paymentStatus === "solde" && ordersPart.ordersAllPaid,
+        intervention_id: item.id,
+        extraLines: ordersPart.extraLines,
+      },
+    });
+  };
+
+  const handleRestitution = (intervention) =>
+    guardQuote(intervention, () => {
     if (
       (!intervention.intervention_images ||
         intervention.intervention_images.length === 0) &&
@@ -515,7 +562,7 @@ export default function RepairedInterventionsPage({ navigation }) {
       setPendingRestitution(intervention);
       setReviewOfferVisible(true);
     }
-  };
+    });
 
   const openImageModal = (imageUri, imageId, interventionId) => {
     setSelectedImage({
@@ -713,6 +760,27 @@ export default function RepairedInterventionsPage({ navigation }) {
                 </Text>
               </View>
 
+              {/* Devis complémentaire accepté pas encore commandé / ajouté au montant */}
+              {repairQuotePending(item.repair_check).labels.length ? (
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#fdba74",
+                    backgroundColor: "#fff7ed",
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text style={{ color: "#c2410c", fontWeight: "800" }}>
+                    Devis complémentaire accepté — à traiter
+                  </Text>
+                  <Text style={{ color: "#9a3412" }}>
+                    {repairQuotePending(item.repair_check).labels.join(", ")}
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.metaRow}>
                 <Text style={styles.metaText}>
                   Chargeur : {item.chargeur ? "Oui" : "Non"}
@@ -863,47 +931,13 @@ export default function RepairedInterventionsPage({ navigation }) {
                       openInvoicePreview(existingBillingId);
                       return;
                     }
-                    // Commandes du client pas encore facturées : ajoutées
-                    // sur la même facture que l'intervention.
-                    let ordersPart = {
-                      extraLines: [],
-                      ordersDeposit: 0,
-                      ordersAllPaid: true,
-                    };
-                    try {
-                      ordersPart = await fetchOrdersForInterventionInvoice(item);
-                    } catch (e) {
-                      console.error("❌ Commandes pour facture :", e);
+                    // Devis complémentaire accepté non traité : alerte avant de créer la facture
+                    const reste = repairQuotePending(item.repair_check);
+                    if (reste.labels.length) {
+                      setQuoteWarn({ labels: reste.labels, onContinue: () => openBillingFor(item) });
+                      return;
                     }
-                    const totalDeposit =
-                      (parseFloat(
-                        String(item.partialPayment ?? "").replace(",", ".")
-                      ) || 0) + ordersPart.ordersDeposit;
-                    navigation.navigate("BillingPage", {
-                      expressData: {
-                        name: item.clients?.name || "",
-                        phone: item.clients?.phone || "",
-                        client_address: formatClientAddress(item.clients),
-                        description: `${
-                          item.detailIntervention?.trim() ||
-                          item.description ||
-                          ""
-                        }\n${item.deviceType || "Appareil"} — ${
-                          item.brand || "Marque inconnue"
-                        } — ${item.model || "Modèle inconnu"}`,
-                        quantity: "1",
-                        price: item.cost?.toString() || "0",
-                        serial: item.serial_number || "",
-                        paymentmethod: "",
-                        acompte:
-                          totalDeposit > 0 ? String(totalDeposit) : "",
-                        paid:
-                          item.paymentStatus === "solde" &&
-                          ordersPart.ordersAllPaid,
-                        intervention_id: item.id,
-                        extraLines: ordersPart.extraLines,
-                      },
-                    });
+                    await openBillingFor(item);
                   }}
                 >
                   <Ionicons name="receipt-outline" size={18} color="#fff" />
@@ -1010,6 +1044,22 @@ export default function RepairedInterventionsPage({ navigation }) {
           setIsDeleting(false);
           closeImageModal();
           await loadRepairedInterventions();
+        }}
+      />
+
+      <AlertBox
+        visible={!!quoteWarn}
+        title="Devis complémentaire non traité"
+        message={`Le client a accepté un devis complémentaire qui n’a pas encore été commandé ou ajouté au montant de l’intervention :\n\n${
+          quoteWarn ? quoteWarn.labels.join("\n") : ""
+        }\n\nOuvrez la fiche (Éditer) pour le traiter, ou continuez quand même.`}
+        cancelText="Retour"
+        confirmText="Continuer quand même"
+        onClose={() => setQuoteWarn(null)}
+        onConfirm={() => {
+          const suite = quoteWarn?.onContinue;
+          setQuoteWarn(null);
+          if (suite) setTimeout(suite, 300);
         }}
       />
 

@@ -2,18 +2,35 @@
 // Voir scripts/sql/intake_check.sql. Utilisé par components/IntakeCheck.js (saisie),
 // SignatureClient.js et ClientPreviewPage.js (récapitulatif et fiche imprimée).
 
+// Une fonction par ligne (pas de « USB / HDMI ») : une fonction en panne devient une ligne du devis
+// complémentaire, puis un produit à commander, qui doit être sans ambiguïté.
 export const INTAKE_FUNCTIONS = [
   { key: "ecran", label: "Écran" },
   { key: "clavier", label: "Clavier" },
   { key: "pave", label: "Pavé tactile" },
   { key: "wifi", label: "Wi-Fi" },
   { key: "bluetooth", label: "Bluetooth" },
-  { key: "son", label: "Son / haut-parleurs" },
-  { key: "webcam", label: "Webcam / micro" },
-  { key: "ports", label: "Ports USB / HDMI" },
-  { key: "charge", label: "Charge / batterie" },
+  { key: "son", label: "Haut-parleurs" },
+  { key: "webcam", label: "Webcam" },
+  { key: "micro", label: "Micro" },
+  { key: "usb", label: "Port USB" },
+  { key: "hdmi", label: "Port HDMI" },
+  { key: "charge", label: "Prise de charge" },
+  { key: "batterie", label: "Batterie" },
   { key: "autre", label: "Autre" },
 ];
+
+// Anciennes clés regroupées (premiers tests) : « ports » (USB / HDMI) devient « usb ».
+const ANCIENNES_CLES = { ports: "usb" };
+export const migrateFunctionKeys = (functions) => {
+  if (!functions || typeof functions !== "object") return {};
+  const out = { ...functions };
+  Object.entries(ANCIENNES_CLES).forEach(([ancienne, nouvelle]) => {
+    if (out[ancienne] && !out[nouvelle]) out[nouvelle] = out[ancienne];
+    delete out[ancienne];
+  });
+  return out;
+};
 
 // Ordre de rotation au toucher : (vide) → OK → En panne → Non testable → (vide)
 export const INTAKE_STATES = {
@@ -59,7 +76,7 @@ export const normalizeIntake = (v) => {
   if (!o || typeof o !== "object") return emptyIntake();
   return {
     powers_on: typeof o.powers_on === "boolean" ? o.powers_on : null,
-    functions: o.functions && typeof o.functions === "object" ? o.functions : {},
+    functions: migrateFunctionKeys(o.functions),
     physical: Array.isArray(o.physical) ? o.physical : [],
     autre_label: o.autre_label || "",
   };

@@ -50,6 +50,7 @@ import {
   pathFromSupabaseUrl,
 } from "../utils/homeHelpers";
 import { describeIntervention, formatEuro } from "../utils/clientDues";
+import { repairQuotePending } from "../utils/repairCheck";
 
 // TouchableOpacity classique n'anime pas une Animated.Value externe passée
 // via style (seule son animation interne de press le fait) : il faut une
@@ -2203,40 +2204,31 @@ const isOnHold = !!(
 
  
 
-                                // format "produit · marque modèle" sur une seule ligne
+                                // format "produit (prix)" sur une seule ligne, ex. « Pavé tactile (45,00 €) + Batterie (60,00 €) »
+                                // (le prix remplace la marque et le modèle, déjà affichés sur la ligne Matériel)
+                                const euroCourt = (v) =>
+                                  Number(v).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
                                 const formatOrderLine = (o) => {
-                                  const p = (
-                                    o.product ??
-                                    o.produit ??
-                                    "Produit"
-                                  )
-                                    .toString()
-                                    .trim();
-
-                                  const b = (
-                                    o.brand ??
-                                    o.marque ??
-                                    o.product_brand ??
-                                    o.produit_marque ??
-                                    ""
-                                  )
-                                    .toString()
-                                    .trim();
-
-                                  const m = (
-                                    o.model ??
-                                    o.modele ??
-                                    o.product_model ??
-                                    o.produit_modele ??
-                                    ""
-                                  )
-                                    .toString()
-                                    .trim();
-
-                                  if (b && m) return `${p} · ${b} ${m}`;
-                                  if (b) return `${p} · ${b}`;
-                                  if (m) return `${p} · ${m}`;
-                                  return p;
+                                  // Commande de plusieurs produits : orders.product ne contient que le
+                                  // premier, la liste complète est dans order_items → on affiche tout.
+                                  const lignesCommande = Array.isArray(o.order_items)
+                                    ? o.order_items.filter((it) => it?.product)
+                                    : [];
+                                  if (lignesCommande.length > 0) {
+                                    return lignesCommande
+                                      .map((it) => {
+                                        const qte = Number(it.quantity) > 1 ? Number(it.quantity) : 1;
+                                        const pu = n(it.unit_price);
+                                        return `${String(it.product).trim()}${qte > 1 ? ` ×${qte}` : ""}${
+                                          pu > 0 ? ` (${euroCourt(pu * qte)})` : ""
+                                        }`;
+                                      })
+                                      .join(" + ");
+                                  }
+                                  // Anciennes commandes sans lignes de produits
+                                  const p = (o.product ?? o.produit ?? "Produit").toString().trim();
+                                  const prixCommande = n(o.total) || n(o.price);
+                                  return prixCommande > 0 ? `${p} (${euroCourt(prixCommande)})` : p;
                                 };
 
                                 const ordersListText = activeOrders
@@ -2277,6 +2269,16 @@ const baseRows = [
     label: materialLabel,
     value: materialValue,
   },
+  // Devis complémentaire accepté mais pas encore commandé / ajouté au montant : rappel visible
+  ...(repairQuotePending(li?.repair_check).labels.length
+    ? [
+        {
+          label: "Devis compl.",
+          value: `À traiter : ${repairQuotePending(li.repair_check).labels.join(", ")}`,
+          alerte: true,
+        },
+      ]
+    : []),
 ];
 
                                 const ordersSummary = activeOrders.length
@@ -2457,6 +2459,7 @@ const baseRows = [
       isDueRow &&
         totalDue > 0 &&
         styles.tableValueDueRed,
+      r.alerte && { color: "#c2410c", fontWeight: "800" },
     ]}
   >
     {r.value}
@@ -2780,12 +2783,38 @@ const baseRows = [
                                           : activeOrders.length > 0 &&
                                             activeOrders.every((o) => o.received);
 
-                                        const label =
-                                          commande ||
-                                          activeOrders
-                                            .map((o) => o.product)
-                                            .filter(Boolean)
-                                            .join(", ");
+                                        // Tous les produits des commandes liées, avec leur prix
+                                        // (ex. « Pavé tactile (45,00 €) + Batterie (60,00 €) ») ;
+                                        // sinon le texte « commande » de l'intervention (anciennes fiches).
+                                        const eur = (v) =>
+                                          Number(v).toLocaleString("fr-FR", {
+                                            style: "currency",
+                                            currency: "EUR",
+                                          });
+                                        const produitsCommandes = activeOrders
+                                          .map((o) => {
+                                            const lignes = Array.isArray(o.order_items)
+                                              ? o.order_items.filter((it) => it?.product)
+                                              : [];
+                                            if (!lignes.length) {
+                                              const prixCmd = n(o.total) || n(o.price);
+                                              return o.product
+                                                ? `${o.product}${prixCmd > 0 ? ` (${eur(prixCmd)})` : ""}`
+                                                : "";
+                                            }
+                                            return lignes
+                                              .map((it) => {
+                                                const qte = Number(it.quantity) > 1 ? Number(it.quantity) : 1;
+                                                const pu = n(it.unit_price);
+                                                return `${it.product}${qte > 1 ? ` ×${qte}` : ""}${
+                                                  pu > 0 ? ` (${eur(pu * qte)})` : ""
+                                                }`;
+                                              })
+                                              .join(" + ");
+                                          })
+                                          .filter(Boolean)
+                                          .join(", ");
+                                        const label = produitsCommandes || commande;
 
                                         const fournisseurLabel = hasLegacyCommande
                                           ? ""
@@ -3779,6 +3808,7 @@ const baseRows = [
 						notifiedBy,
 						notify_type,
 						accept_screen_risk,
+						repair_check,
 						devis_cost,
 						imprimee,
 						print_etiquette,
@@ -3818,6 +3848,7 @@ orders(
     order_id,
     product,
     quantity,
+    unit_price,
     ordered,
     received,
     installed
@@ -3832,7 +3863,7 @@ orders(
 
 const { data: ordersData, error: ordersError } = await supabase
   .from("orders")
-  .select("*, order_items(product, brand, model, quantity, fournisseur, received, installed, no_installation_needed)");
+  .select("*, order_items(product, brand, model, quantity, unit_price, fournisseur, received, installed, no_installation_needed)");
 
 if (ordersError) throw ordersError;
 
@@ -4442,7 +4473,7 @@ interventions(
 
       const { data: ordersData, error: orderError } = await supabase
         .from("orders")
-        .select("*, client_id, order_items(product, brand, model, quantity, fournisseur, received)")
+        .select("*, client_id, order_items(product, brand, model, quantity, unit_price, fournisseur, received)")
         .in(
           "client_id",
           combined.map((c) => c.id)

@@ -32,6 +32,8 @@ import BackButton from "../components/BackButton";
 import VideoPreviewModal from "../components/VideoPreviewModal";
 import IntakeCheck from "../components/IntakeCheck";
 import { emptyIntake, normalizeIntake, intakeForSave } from "../utils/intakeCheck";
+import RepairCheck from "../components/RepairCheck";
+import { emptyRepairCheck, normalizeRepairCheck, repairCheckForSave } from "../utils/repairCheck";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -289,6 +291,8 @@ export default function EditInterventionPage({ route, navigation }) {
     const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
     // Fiche de prise en charge : état de l'appareil au dépôt (colonne intake_check)
     const [intakeCheck, setIntakeCheck] = useState(emptyIntake());
+    // Test après réparation, autres défauts, client prévenu, devis complémentaire (colonne repair_check)
+    const [repairCheck, setRepairCheck] = useState(emptyRepairCheck());
 
     // Paiement / coût
     const [cost, setCost] = useState("");
@@ -384,6 +388,7 @@ export default function EditInterventionPage({ route, navigation }) {
         chargeur,
         acceptScreenRisk,
         intakeCheck,
+        repairCheck,
         cost,
         paymentStatus,
         partialPayment,
@@ -997,7 +1002,7 @@ const onComponentInputChange = (text) => {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, intake_check, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date, video_reparation, video_depot"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, intake_check, repair_check, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date, video_reparation, video_depot"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -1121,6 +1126,7 @@ const onComponentInputChange = (text) => {
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
             setIntakeCheck(normalizeIntake(inter.intake_check));
+            setRepairCheck(normalizeRepairCheck(inter.repair_check));
 			setRepairCause(inter.repair_cause || "");
 			setRepairAction(inter.repair_action || "");
 			setRepairDuration(inter.repair_duration || "");
@@ -1570,6 +1576,30 @@ setOrderDeposit("");
 
 setOrderModalVisible(false);
 
+// Lignes issues du devis complémentaire accepté : notées comme commandées (enregistré tout de suite,
+// la commande étant déjà créée en base)
+const clesDevis = items
+    .map((item) => String(item.localId || ""))
+    .filter((id) => id.startsWith("devis-"))
+    .map((id) => id.slice(6));
+if (clesDevis.length) {
+    const rc = normalizeRepairCheck(repairCheck);
+    const majRepairCheck = {
+        ...rc,
+        order_done: {
+            at: nowIso,
+            order_id: createdOrder.id,
+            keys: [...((rc.order_done && rc.order_done.keys) || []), ...clesDevis],
+        },
+    };
+    setRepairCheck(majRepairCheck);
+    const { error: rcError } = await supabase
+        .from("interventions")
+        .update({ repair_check: majRepairCheck })
+        .eq("id", interventionId);
+    if (rcError) console.error("❌ repair_check (commande du devis) :", rcError);
+}
+
 showAlert(
     "✅ Commande",
     `${itemsWithTotal.length} produit${itemsWithTotal.length > 1 ? "s" : ""} enregistré${
@@ -1580,6 +1610,60 @@ showAlert(
             console.error("❌ handleCreateOrderFromStatus:", e);
             showAlert("Erreur", "Création de la commande impossible.");
         }
+    };
+
+    // Devis complémentaire accepté : ouvre la fenêtre de commande habituelle, pré-remplie avec les pièces.
+    // Les produits gardent un localId « devis-<clé> » : à la création de la commande, ces lignes sont
+    // notées comme commandées dans repair_check (voir handleCreateOrderFromStatus).
+    const handleQuoteCreateOrder = (pieces) => {
+        const brandName = brands.find((b) => b.id === brand)?.nom || "";
+        const modelName = models.find((m) => m.id === model)?.nom || "";
+        setOrderItems(
+            pieces.map((l) => ({
+                localId: `devis-${l.key}`,
+                product: l.label,
+                brand: brandName,
+                model: modelName,
+                price: l.value,
+                qty: 1,
+            }))
+        );
+        setOrderProduct("");
+        setOrderBrand("");
+        setOrderModel("");
+        setOrderUnitPrice("");
+        setOrderQty("1");
+        setOrderDeposit("");
+        setRepairModalVisible(false);
+        setOrderModalVisible(true);
+    };
+
+    // Devis complémentaire accepté : ajoute réparations sans pièce + main-d'œuvre de pose au montant
+    // de l'intervention (le reste dû suit à la sauvegarde) et le note dans les remarques.
+    const handleQuoteAddToCost = (lignes, montant) => {
+        const actuel = parseFloat(String(cost || "0").replace(",", ".")) || 0;
+        const nouveau = Math.round((actuel + montant + Number.EPSILON) * 100) / 100;
+        const nowIso = new Date().toISOString();
+        const detail = lignes
+            .map((l) => `${l.type === "piece" ? "pose " : ""}${l.label} ${l.costValue} €`)
+            .join(", ");
+        setCost(String(nouveau));
+        setRemarks((r) =>
+            `${r ? `${r}\n` : ""}Devis complémentaire accepté le ${new Date().toLocaleDateString("fr-FR")} : ${detail}`
+        );
+        const rc = normalizeRepairCheck(repairCheck);
+        setRepairCheck({
+            ...rc,
+            cost_added: {
+                at: nowIso,
+                amount: Math.round(((rc.cost_added?.amount || 0) + montant) * 100) / 100,
+                keys: [...((rc.cost_added && rc.cost_added.keys) || []), ...lignes.map((l) => l.key)],
+            },
+        });
+        showAlert(
+            "Montant mis à jour",
+            `${montant.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })} ajouté : le montant de l’intervention passe à ${nouveau.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}. Pensez à sauvegarder la fiche.`
+        );
     };
 
     const handleViewOrder = () => {
@@ -2346,6 +2430,7 @@ repair_proposal_date: repairProposalMade
             chargeur: chargeur === "Oui",
             accept_screen_risk: acceptScreenRisk,
             intake_check: intakeForSave(intakeCheck),
+            repair_check: repairCheckForSave(repairCheck),
             estimate_min: isEstimateMode
                 ? parseFloat(normalizeNumber(estimateMin))
                 : null,
@@ -3762,6 +3847,17 @@ onPress={() => {
                 {/* Fiche de prise en charge : état de l'appareil au dépôt */}
                 <IntakeCheck value={intakeCheck} onChange={setIntakeCheck} />
 
+                {/* Test après réparation (statut « Réparé ») : aussi dans la fenêtre « Réparation terminée » */}
+                {status === "Réparé" ? (
+                    <RepairCheck
+                        value={repairCheck}
+                        onChange={setRepairCheck}
+                        intake={intakeCheck}
+                        onCreateOrder={handleQuoteCreateOrder}
+                        onAddToCost={handleQuoteAddToCost}
+                    />
+                ) : null}
+
                 {/* Remarques */}
                 <FloatingField label="Remarques">
                     <TextInput
@@ -4679,11 +4775,17 @@ onPress={() => {
     animationType="fade"
     onRequestClose={() => setRepairModalVisible(false)}
 >
-    <View style={styles.repairModalOverlay}>
+    {/* KeyboardAvoidingView (iOS et Android) : le clavier ne masque plus les champs du bas
+        (devis complémentaire, composants utilisés) */}
+    <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.repairModalOverlay}
+    >
         <View style={styles.repairModalBox}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 10 }}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 40 }}
             >
                 <Text style={styles.repairModalTitle}>
                     ✅ Réparation terminée
@@ -4873,6 +4975,15 @@ onPress={() => {
                     textAlignVertical="top"
                 />
 
+                {/* Fiche de prise en charge : test après réparation */}
+                <RepairCheck
+                        value={repairCheck}
+                        onChange={setRepairCheck}
+                        intake={intakeCheck}
+                        onCreateOrder={handleQuoteCreateOrder}
+                        onAddToCost={handleQuoteAddToCost}
+                    />
+
                 <Text style={styles.repairFieldLabel}>
                     Composants utilisés
                 </Text>
@@ -4959,7 +5070,7 @@ onPress={() => {
                 </View>
             </ScrollView>
         </View>
-    </View>
+    </KeyboardAvoidingView>
 </Modal>
 <RepairChoiceModal
     visible={repairCausePickerVisible}

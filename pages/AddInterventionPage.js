@@ -21,6 +21,8 @@ import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import VideoPreviewModal from "../components/VideoPreviewModal";
+import IntakeCheck from "../components/IntakeCheck";
+import { emptyIntake, intakeForSave } from "../utils/intakeCheck";
 
 import { MaterialIcons } from "@expo/vector-icons";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -344,6 +346,8 @@ export default function AddInterventionPage({ route, navigation }) {
   const [models, setModels] = useState([]);
   const [remarks, setRemarks] = useState("");
   const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
+  // Fiche de prise en charge : état de l'appareil au dépôt (colonne intake_check)
+  const [intakeCheck, setIntakeCheck] = useState(emptyIntake());
   // Proposition de réparation faite avant la création de la fiche
 const [repairProposalMade, setRepairProposalMade] =
   useState(false);
@@ -416,6 +420,7 @@ const [
     remarks,
     clientName,
     partialPayment,
+    intakeCheck,
   ]);
 
   useEffect(() => {
@@ -1526,6 +1531,7 @@ repair_proposal_date: repairProposalMade
       // ✅ FIX #3 : parseEu au lieu de parseFloat pour accepter la virgule décimale
       partialPayment: partialPayment ? parseEu(partialPayment) : null,
       accept_screen_risk: acceptScreenRisk,
+      intake_check: intakeForSave(intakeCheck),
       createdAt: new Date().toISOString(),
     };
 
@@ -2904,6 +2910,9 @@ onPress={() => {
             </View>
           </View>
         )}
+
+        {/* Fiche de prise en charge : état de l'appareil au dépôt */}
+        <IntakeCheck value={intakeCheck} onChange={setIntakeCheck} />
 
         <FloatingField label="Remarques">
           <TextInput

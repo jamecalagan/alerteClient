@@ -30,6 +30,8 @@ import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import BackButton from "../components/BackButton";
 import VideoPreviewModal from "../components/VideoPreviewModal";
+import IntakeCheck from "../components/IntakeCheck";
+import { emptyIntake, normalizeIntake, intakeForSave } from "../utils/intakeCheck";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -285,6 +287,8 @@ export default function EditInterventionPage({ route, navigation }) {
     const [remarks, setRemarks] = useState("");
     const [chargeur, setChargeur] = useState("Non");
     const [acceptScreenRisk, setAcceptScreenRisk] = useState(false);
+    // Fiche de prise en charge : état de l'appareil au dépôt (colonne intake_check)
+    const [intakeCheck, setIntakeCheck] = useState(emptyIntake());
 
     // Paiement / coût
     const [cost, setCost] = useState("");
@@ -379,6 +383,7 @@ export default function EditInterventionPage({ route, navigation }) {
         remarks,
         chargeur,
         acceptScreenRisk,
+        intakeCheck,
         cost,
         paymentStatus,
         partialPayment,
@@ -992,7 +997,7 @@ const onComponentInputChange = (text) => {
                 supabase
                     .from("interventions")
                     .select(
-                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date, video_reparation, video_depot"
+                        "article_id, marque_id, modele_id, deviceType, brand, model, reference, description, cost, partialPayment, solderestant, status, commande, createdAt, serial_number, password, chargeur, photos, label_photo, remarks, paymentStatus, accept_screen_risk, intake_check, devis_cost, is_estimate, estimate_min, estimate_max, estimate_type, estimate_accepted, estimate_accepted_at, no_cost_but_restitution, repair_cause, repair_action, repair_duration, repair_comment, repair_components, repair_proposal_made, repair_proposal, repair_proposal_price, repair_proposal_status, repair_proposal_method, repair_proposal_comment, repair_proposal_date, loaned_item, loaned_item_returned, restitution_note, restitution_note_done, restitution_note_date, video_reparation, video_depot"
                     )
                     .eq("id", interventionId)
                     .single(),
@@ -1115,6 +1120,7 @@ const onComponentInputChange = (text) => {
             );
             setChargeur(inter.chargeur ? "Oui" : "Non");
             setAcceptScreenRisk(!!inter.accept_screen_risk);
+            setIntakeCheck(normalizeIntake(inter.intake_check));
 			setRepairCause(inter.repair_cause || "");
 			setRepairAction(inter.repair_action || "");
 			setRepairDuration(inter.repair_duration || "");
@@ -2339,6 +2345,7 @@ repair_proposal_date: repairProposalMade
             paymentStatus,
             chargeur: chargeur === "Oui",
             accept_screen_risk: acceptScreenRisk,
+            intake_check: intakeForSave(intakeCheck),
             estimate_min: isEstimateMode
                 ? parseFloat(normalizeNumber(estimateMin))
                 : null,
@@ -3751,6 +3758,9 @@ onPress={() => {
                         )}
                     </View>
                 </View>
+
+                {/* Fiche de prise en charge : état de l'appareil au dépôt */}
+                <IntakeCheck value={intakeCheck} onChange={setIntakeCheck} />
 
                 {/* Remarques */}
                 <FloatingField label="Remarques">

@@ -12,6 +12,15 @@ import SignatureScreen from "react-native-signature-canvas";
 import { supabase } from "../supabaseClient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
+import {
+  hasIntake,
+  normalizeIntake,
+  intakeFunctionLines,
+  intakePhysicalLabels,
+  INTAKE_STATES,
+  INTAKE_CLAUSE,
+  INTAKE_CLAUSE_DUE,
+} from "../utils/intakeCheck";
 
 // ———————————————————————————————————————————
 // Aide : formatage (identique à ClientPreviewPage)
@@ -93,6 +102,7 @@ export default function SignatureClient() {
           chargeur,
           signatureIntervention,
           accept_screen_risk,
+          intake_check,
           remarks,
           createdAt,
           is_estimate,
@@ -298,6 +308,36 @@ export default function SignatureClient() {
               </Text>
             ) : null}
           </View>
+
+          {/* Fiche de prise en charge : état à la réception + clause, lus par le client avant de signer */}
+          {hasIntake(itv?.intake_check) ? (
+            <View style={[styles.card, { borderColor: "#b91c1c" }]}>
+              <Text style={[styles.cardTitle, { color: "#b91c1c" }]}>État à la réception</Text>
+              {normalizeIntake(itv.intake_check).powers_on === false ? (
+                <Text style={styles.line}>
+                  L’appareil ne s’allume pas : ses fonctions ne peuvent pas être testées.
+                </Text>
+              ) : null}
+              {intakeFunctionLines(itv.intake_check).map((l) => (
+                <Text key={l.label} style={styles.line}>
+                  <Text style={styles.label}>{l.label} :</Text>{" "}
+                  <Text style={{ color: INTAKE_STATES[l.state].color, fontWeight: "bold" }}>
+                    {INTAKE_STATES[l.state].label}
+                  </Text>
+                </Text>
+              ))}
+              {intakePhysicalLabels(itv.intake_check).length ? (
+                <Text style={styles.line}>
+                  <Text style={styles.label}>État physique :</Text>{" "}
+                  {intakePhysicalLabels(itv.intake_check).join(", ")}
+                </Text>
+              ) : null}
+              <Text style={[styles.line, { marginTop: 6 }]}>{INTAKE_CLAUSE}</Text>
+              <Text style={[styles.line, { color: "#b91c1c", fontWeight: "bold" }]}>
+                {INTAKE_CLAUSE_DUE}
+              </Text>
+            </View>
+          ) : null}
 
           <Text style={styles.locationLine}>
             Fait à : Drancy, le : {new Date().toLocaleDateString("fr-FR")}

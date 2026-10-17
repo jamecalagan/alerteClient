@@ -13,6 +13,17 @@ import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/nativ
 import * as Print from "expo-print";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
+import {
+  hasIntake,
+  intakeHtml,
+  INTAKE_PRINT_CSS,
+  normalizeIntake,
+  intakeFunctionLines,
+  intakePhysicalLabels,
+  INTAKE_STATES,
+  INTAKE_CLAUSE,
+  INTAKE_CLAUSE_DUE,
+} from "../utils/intakeCheck";
 
 // ———————————————————————————————————————————
 // Aide : formatage
@@ -76,6 +87,7 @@ export default function ClientPreviewPage() {
             chargeur,
             signatureIntervention,
             accept_screen_risk,
+            intake_check,
             remarks,
             createdAt,
             is_estimate,
@@ -320,6 +332,7 @@ export default function ClientPreviewPage() {
       .terms-text-bottom {
         font-size: 7px;
         color: #333;
+        margin-top: 0; /* pas de marge haute par défaut des <p> : la fiche tient sur une page A5 */
         margin-bottom: 3px;
         line-height: 1.25;
       }
@@ -364,6 +377,7 @@ export default function ClientPreviewPage() {
         width: 105px;
         height: 42px;
       }
+      ${INTAKE_PRINT_CSS}
     </style>
   </head>
   <body>
@@ -398,26 +412,27 @@ export default function ClientPreviewPage() {
             <div class="info"><strong>Marque:</strong> ${itv.brand}</div>
             <div class="info"><strong>Modèle:</strong> ${itv.model}</div>
             <div class="info"><strong>N° Série:</strong> ${itv.reference}</div>
-            <div class="info"><strong>Mot de passe:</strong> ${itv.password}</div>
-            <div class="info"><strong>Chargeur:</strong> ${
+            <div class="info"><strong>Mot de passe:</strong> ${itv.password} &nbsp;—&nbsp; <strong>Chargeur:</strong> ${
               itv.chargeur ? "Oui" : "Non"
             }</div>
           </div>
         </div>
 
-        <div class="section-title">Détail du problème</div>
-        <div class="box">
-          <div class="terms-text-bottom">${itv.description}</div>
+        <!-- Détail du problème et solution proposée côte à côte (gain de place : fiche sur une seule page A5) -->
+        <div class="flex-row">
+          <div class="box">
+            <div class="section-title" style="margin-top:0">Détail du problème</div>
+            <div class="terms-text-bottom">${itv.description}</div>
+          </div>
+          ${
+            itv.repair_proposal_made && itv.repair_proposal
+              ? `<div class="box">
+            <div class="section-title" style="margin-top:0">Solution proposée</div>
+            <div class="terms-text-bottom">${itv.repair_proposal}</div>
+          </div>`
+              : ""
+          }
         </div>
-
-        ${
-          itv.repair_proposal_made && itv.repair_proposal
-            ? `<div class="section-title">Solution proposée</div>
-        <div class="box">
-          <div class="terms-text-bottom">${itv.repair_proposal}</div>
-        </div>`
-            : ""
-        }
 
         ${priceBlock}
         ${
@@ -503,6 +518,7 @@ export default function ClientPreviewPage() {
                 </div>`
               : ""
           }
+          ${intakeHtml(itv.intake_check)}
           <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
           <p class="info-recup">
             Ce document (ou sa photo) est à présenter (par vous ou par un tiers
@@ -623,6 +639,7 @@ export default function ClientPreviewPage() {
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; }
     th, td { border: 1px solid #444; padding: 4px; text-align: left; }
     th { background-color: #eee; }
+    ${INTAKE_PRINT_CSS}
   </style>
 </head>
 <body>
@@ -698,6 +715,7 @@ ${
   <p class="terms-text">Responsabilité en cas de perte de données : Le client est seul responsable de ses données personnelles et/ou professionnelles et de leur sauvegarde régulière.</p>
   <p class="terms-text">En cas de perte de données lors d’une prestation et/ou d’une manipulation, qu’elle soit d’origine logicielle ou matérielle, le client (particulier ou professionnel) ne pourra prétendre à aucune indemnisation, qu'il ait ou non une sauvegarde récente ou ancienne de ses données sur un autre support.</p>
   <p class="terms-text">Toute intervention effectuée par le personnel d'AVENIR INFORMATIQUE se fait sous l’entière responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la perte éventuelle d’informations. Le client reste donc seul responsable de ses données.</p>
+  ${intakeHtml(intervention.intake_check)}
   <p class="terms-text">En signant ce document, vous acceptez les conditions ci-dessus.</p>
   ${
     intervention.accept_screen_risk
@@ -926,6 +944,32 @@ ${checkupSignatureHtml}
             responsabilité du client. AVENIR INFORMATIQUE ne pourra en aucun cas être tenue responsable de la
             perte éventuelle d’informations. Le client reste donc seul responsable de ses données.
           </Text>
+          {/* Fiche de prise en charge : état à la réception + clause (affichés avant la signature) */}
+          {hasIntake(itv?.intake_check) ? (
+            <View style={styles.intakeBox}>
+              <Text style={styles.intakeTitle}>État à la réception</Text>
+              {normalizeIntake(itv.intake_check).powers_on === false ? (
+                <Text style={styles.intakeLine}>
+                  L’appareil ne s’allume pas : ses fonctions ne peuvent pas être testées.
+                </Text>
+              ) : null}
+              {intakeFunctionLines(itv.intake_check).map((l) => (
+                <Text key={l.label} style={styles.intakeLine}>
+                  {l.label} :{" "}
+                  <Text style={{ color: INTAKE_STATES[l.state].color, fontWeight: "bold" }}>
+                    {INTAKE_STATES[l.state].label}
+                  </Text>
+                </Text>
+              ))}
+              {intakePhysicalLabels(itv.intake_check).length ? (
+                <Text style={styles.intakeLine}>
+                  État physique : {intakePhysicalLabels(itv.intake_check).join(", ")}
+                </Text>
+              ) : null}
+              <Text style={styles.termsText}>{INTAKE_CLAUSE}</Text>
+              <Text style={styles.orderNonCancelableText}>{INTAKE_CLAUSE_DUE}</Text>
+            </View>
+          ) : null}
           <Text style={styles.termsText}>
             En signant ce document, vous acceptez les conditions ci-dessus.
           </Text>
@@ -1150,6 +1194,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 8,
   },
+
+  // Fiche de prise en charge : état à la réception
+  intakeBox: {
+    borderWidth: 1,
+    borderColor: "#b91c1c",
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 8,
+    backgroundColor: "#fff",
+  },
+  intakeTitle: { fontSize: 15, fontWeight: "bold", color: "#b91c1c", marginBottom: 4 },
+  intakeLine: { fontSize: 14, color: "#222", marginBottom: 2 },
 
   // ✅ AJOUT : style clause commande non annulable (écran)
   orderNonCancelableText: {

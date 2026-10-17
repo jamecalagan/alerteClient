@@ -89,10 +89,12 @@ export default function PrintPage({ navigation }) {
     <html>
       <head>
         <style>
+          /* La boutique imprime uniquement en A5 : attestation sur une seule page A5 */
+          @page { size: A5; margin: 8mm; }
           body {
             font-family: Arial, sans-serif;
             font-size: 11px;
-            margin: 10mm;
+            margin: 0;
             color: #000;
           }
           h4 {

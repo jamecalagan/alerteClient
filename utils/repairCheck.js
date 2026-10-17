@@ -128,6 +128,26 @@ export const repairQuotePending = (v, intake) => {
 
 export const hasPendingQuote = (v, intake) => repairQuotePending(v, intake).labels.length > 0;
 
+// Résumé pour la restitution (SignaturePage, PrintPage) : ce qui a été testé, et les défauts
+// constatés avec la réponse du client au devis complémentaire. null si aucun test n'a été saisi.
+export const restitutionSummary = (v) => {
+  if (!hasRepairCheck(v)) return null;
+  const o = normalizeRepairCheck(v);
+  const lignes = repairFunctionLines(o);
+  const ok = lignes.filter((l) => l.state === "ok").map((l) => l.label);
+  const defauts = lignes.filter((l) => l.state === "panne").map((l) => l.label);
+  if (o.other_defects.trim()) defauts.push(o.other_defects.trim());
+  const devis =
+    !defauts.length
+      ? ""
+      : o.quote_accepted === true
+      ? "devis complémentaire accepté"
+      : o.quote_accepted === false
+      ? "devis complémentaire refusé : non réparé"
+      : "devis complémentaire en attente de réponse";
+  return { ok, defauts, devis };
+};
+
 export const repairCheckForSave = (v) => (hasRepairCheck(v) ? normalizeRepairCheck(v) : null);
 
 // Fonctions testées, dans l'ordre de la fiche : [{ key, label, state }]

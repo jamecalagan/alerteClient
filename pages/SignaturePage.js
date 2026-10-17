@@ -16,6 +16,7 @@ import CustomAlert from "../components/CustomAlert";
 import AlertBox from "../components/AlertBox";
 import { fetchUnpaidOrders, formatEuro } from "../utils/clientDues";
 import BackButton from "../components/BackButton";
+import { restitutionSummary } from "../utils/repairCheck";
 
 export default function SignaturePage({ route, navigation }) {
   const { clientId, interventionId } = route.params || {};
@@ -223,6 +224,7 @@ export default function SignaturePage({ route, navigation }) {
           date: clientInfo?.updatedAt || "",
           description: clientInfo?.description || "",
           repairAction: clientInfo?.repair_action || "",
+          repairCheck: clientInfo?.repair_check || null,
         },
       });
     } catch (e) {
@@ -273,6 +275,7 @@ export default function SignaturePage({ route, navigation }) {
           date: clientInfo?.updatedAt || "",
           description: clientInfo?.description || "",
           repairAction: clientInfo?.repair_action || "",
+          repairCheck: clientInfo?.repair_check || null,
         },
       });
     } catch (e) {
@@ -316,6 +319,7 @@ export default function SignaturePage({ route, navigation }) {
         date: clientInfo?.updatedAt || "",
         description: clientInfo?.description || "",
         repairAction: clientInfo?.repair_action || "",
+        repairCheck: clientInfo?.repair_check || null,
       },
       useExistingSignature: true,
     });
@@ -416,6 +420,25 @@ export default function SignaturePage({ route, navigation }) {
             {"\n\n"}
             <Text style={styles.boldText}>4. Responsabilité données :</Text>
             {"\n"}Le client reste responsable de ses sauvegardes.
+            {"\n\n"}
+            <Text style={styles.boldText}>5. Appareil restitué et testé devant moi :</Text>
+            {"\n"}Le matériel a été testé devant moi et présenté comme fonctionnel au moment
+            de la remise, pour la panne réparée.
+            {(() => {
+              // Test après réparation (fiche de prise en charge) : rappelé avant la signature
+              const resume = restitutionSummary(clientInfo?.repair_check);
+              if (!resume) return null;
+              return (
+                <Text>
+                  {resume.ok.length ? `\nFonctions vérifiées : ${resume.ok.join(", ")}.` : ""}
+                  {resume.defauts.length ? (
+                    <Text style={styles.boldText}>
+                      {`\nAutres défauts constatés : ${resume.defauts.join(", ")} (${resume.devis}).`}
+                    </Text>
+                  ) : null}
+                </Text>
+              );
+            })()}
             {"\n\n"}Fait à : Drancy
             {"\n"}Le : {new Date().toLocaleDateString("fr-FR")}
             {"\n"}Signature du client :

@@ -11,6 +11,7 @@ import * as Print from "expo-print";
 import { useRoute } from "@react-navigation/native";
 import CustomAlert from "../components/CustomAlert";
 import BackButton from "../components/BackButton";
+import { restitutionSummary } from "../utils/repairCheck";
 
 // Normalise la signature pour <Image> et pour <img src="...">
 const normalizeSignatureUri = (sig) => {
@@ -62,6 +63,20 @@ export default function PrintPage({ navigation }) {
     null;
 
   const signatureUri = normalizeSignatureUri(rawSignature);
+
+  // Test après réparation (fiche de prise en charge) : fonctions vérifiées et défauts constatés
+  const resumeTest = restitutionSummary(productInfo?.repairCheck);
+  const esc = (s) =>
+    String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const testHtml = resumeTest
+    ? `${resumeTest.ok.length ? `<br/>Fonctions vérifiées : ${esc(resumeTest.ok.join(", "))}.` : ""}${
+        resumeTest.defauts.length
+          ? `<br/><strong>Autres défauts constatés : ${esc(resumeTest.defauts.join(", "))} (${esc(
+              resumeTest.devis
+            )}).</strong>`
+          : ""
+      }`
+    : "";
 
   console.log(
     "🔎 PrintPage signatureUri (début) =",
@@ -142,11 +157,11 @@ export default function PrintPage({ navigation }) {
         Il appartient exclusivement au client de procéder à la sauvegarde préalable de ses données.<br/>
         AVENIR INFORMATIQUE décline toute responsabilité en cas de perte totale ou partielle de données, quelle qu’en soit la cause, y compris lors de l’intervention technique.</p>
 
-        <p><strong>5. Attestation de restitution :</strong><br/>
+        <p><strong>5. Attestation de restitution — appareil restitué et testé devant moi :</strong><br/>
         Je soussigné(e), M./Mme ${
           receiverName || clientInfo?.name || "________________________"
         }, atteste avoir récupéré le matériel mentionné et reconnais avoir été informé(e) de l’ensemble des conditions de garantie susmentionnées.<br/>
-        Je reconnais également que le matériel a été testé et présenté comme fonctionnel par le personnel d’AVENIR INFORMATIQUE, au moment de la remise.</p>
+        Je reconnais également que le matériel a été testé devant moi et présenté comme fonctionnel par le personnel d’AVENIR INFORMATIQUE, au moment de la remise, pour la panne réparée.${testHtml}</p>
 
         <p><strong>Fait à :</strong> Drancy<br/>
         <strong>Le :</strong> ${new Date().toLocaleDateString("fr-FR")}</p>
@@ -252,6 +267,20 @@ export default function PrintPage({ navigation }) {
         {"\n"}AVENIR INFORMATIQUE décline toute responsabilité en cas de perte
         totale ou partielle de données, quelle qu’en soit la cause, y compris
         lors de l’intervention technique.
+        {"\n\n"}
+        <Text style={styles.boldText}>
+          5. Appareil restitué et testé devant moi :
+        </Text>
+        {"\n"}Je reconnais que le matériel a été testé devant moi et présenté comme
+        fonctionnel au moment de la remise, pour la panne réparée.
+        {resumeTest && resumeTest.ok.length
+          ? `\nFonctions vérifiées : ${resumeTest.ok.join(", ")}.`
+          : ""}
+        {resumeTest && resumeTest.defauts.length ? (
+          <Text style={styles.boldText}>
+            {`\nAutres défauts constatés : ${resumeTest.defauts.join(", ")} (${resumeTest.devis}).`}
+          </Text>
+        ) : null}
         {"\n\n"}Fait à : Drancy
         {"\n"}Le : {new Date().toLocaleDateString("fr-FR")}
         {"\n\n"}Signature du client :

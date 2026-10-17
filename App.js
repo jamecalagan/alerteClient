@@ -80,6 +80,7 @@ import QuoteRequestEditPage from "./pages/QuoteRequestEditPage";
 import QuoteRequestDetailsPage from "./pages/QuoteRequestDetailsPage";
 import InterventionImagesPage from "./pages/InterventionImagesPage";
 import PcComponentsTablePage from "./pages/PcComponentsTablePage";
+import Print3DCalculatorPage from "./pages/Print3DCalculatorPage";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -334,6 +335,7 @@ function MainStack({ setUser }) {
 				<Stack.Screen name="EditExpressPage" component={EditExpressPage} />
         		<Stack.Screen  name="QuickLabelPrintPage"  component={QuickLabelPrintPage}  options={{ title: "Impression Étiquette" }} />
 				<Stack.Screen name="RepairPrices" component={RepairPricesPage} />
+				<Stack.Screen name="Print3DCalculator" component={Print3DCalculatorPage} />
 				<Stack.Screen name="ExpressRepairPage" component={ExpressRepairPage} />
 				<Stack.Screen name="ExpressSoftwarePage" component={ExpressSoftwarePage} />
   				<Stack.Screen name="ExpressVideoPage" component={ExpressVideoPage} />

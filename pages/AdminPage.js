@@ -359,6 +359,17 @@ export default function AdminPage({ navigation, route }) {
 
               <TouchableOpacity
                 style={styles.actionButton}
+                onPress={() => navigation.navigate("Print3DCalculator")}
+                activeOpacity={0.85}
+              >
+                <View style={styles.actionIconWrap}>
+                  <MaterialIcons name="view-in-ar" size={20} color="#4338ca" />
+                </View>
+                <Text style={styles.buttonText}>Calculateur impression 3D</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
                 onPress={() => navigation.navigate("RepriseListPage")}
                 activeOpacity={0.85}
               >

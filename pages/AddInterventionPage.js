@@ -15,6 +15,7 @@ import {
   StatusBar,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../supabaseClient";
 import * as ImagePicker from "expo-image-picker";
 import CustomAlert from "../components/CustomAlert";
@@ -392,6 +393,8 @@ const [
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
   const skipDirtyRef = useRef(true); // true au montage, pour ignorer l'initialisation des champs
+  // Sortie volontaire sans alerte (ex. "Effacer le brouillon" qui recharge la page)
+  const skipLeaveGuardRef = useRef(false);
 
   useEffect(() => {
     if (skipDirtyRef.current) {
@@ -425,7 +428,7 @@ const [
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
-      if (!hasUnsavedChanges) return;
+      if (!hasUnsavedChanges || skipLeaveGuardRef.current) return;
       e.preventDefault();
       setPendingLeaveAction(() => () => navigation.dispatch(e.data.action));
     });
@@ -495,6 +498,116 @@ const [newFaultCategory, setNewFaultCategory] =
     setAlertOnClose(() => onCloseAction);
     setAlertVisible(true);
   };
+
+  // === Brouillon automatique ===
+  // Les champs saisis sont conservés sur la tablette (même si l'appli est
+  // fermée, plante, ou si l'on quitte la page par erreur) et restaurés à la
+  // prochaine ouverture pour ce client. Effacé seulement après un
+  // enregistrement réussi, ou avec le bouton "Effacer le brouillon".
+  // Photos, étiquette et vidéo sont déjà dans le cloud dès leur prise : on
+  // ne conserve que leurs adresses.
+  const draftKey = `addInterventionDraft:${clientId || "sans-client"}`;
+  const draftAttemptedRef = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    if (draftAttemptedRef.current || !products?.length) return;
+    draftAttemptedRef.current = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(draftKey);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+
+        setReference(d.reference || "");
+        setSerial_number(d.serial_number || "");
+        setDescription(d.description || "");
+        setCost(d.cost || "");
+        setDevisCost(d.devisCost || "");
+        setEstimateMin(d.estimateMin || "");
+        setEstimateMax(d.estimateMax || "");
+        setEstimateType(d.estimateType || "PLAFOND");
+        setPaymentStatus(d.paymentStatus || "non_regle");
+        setPartialPayment(d.partialPayment || "");
+        setStatus(d.status || "default");
+        setPassword(d.password || "");
+        setCommande(d.commande || "");
+        setChargeur(d.chargeur || "Non");
+        setRemarks(d.remarks || "");
+        setAcceptScreenRisk(!!d.acceptScreenRisk);
+        if (d.intakeCheck) setIntakeCheck(d.intakeCheck);
+        setRepairProposalMade(!!d.repairProposalMade);
+        setRepairProposal(d.repairProposal || "");
+        setRepairProposalPrice(d.repairProposalPrice || "");
+        setRepairProposalStatus(d.repairProposalStatus || "pending");
+        setRepairProposalMethod(d.repairProposalMethod || "shop");
+        setRepairProposalComment(d.repairProposalComment || "");
+        setLoanedItemEnabled(!!d.loanedItemEnabled);
+        setLoanedItem(d.loanedItem || "");
+        setWantLabelPhoto(!!d.wantLabelPhoto);
+        setPhotos(Array.isArray(d.photos) ? d.photos : []);
+        setLabelPhoto(d.labelPhoto || null);
+        setIsPhotoTaken(!!d.labelPhoto);
+        setVideoDepot(d.videoDepot || null);
+
+        // Type / marque / modèle : on recharge les listes pour que les
+        // identifiants restaurés retrouvent leur nom.
+        setDeviceType(d.deviceType || "default");
+        setCustomDeviceType(d.customDeviceType || "");
+        setTypeText(d.typeText || "");
+        setTypeQuery(d.typeText || "");
+        const product = products.find((p) => p.nom === d.deviceType);
+        if (product) await loadBrands(product.id);
+        setBrand(d.brand || "");
+        setCustomBrand(d.customBrand || "");
+        setBrandText(d.brandText || "");
+        setBrandQuery(d.brandText || "");
+        if (d.brand && d.brand !== "Autre") await loadModels(d.brand);
+        setModel(d.model || "");
+        setCustomModel(d.customModel || "");
+        setModelText(d.modelText || "");
+        setModelQuery(d.modelText || "");
+
+        setDraftRestored(true);
+      } catch (e) {
+        console.error("Brouillon d'intervention illisible :", e);
+      } finally {
+        setDraftReady(true);
+      }
+    })();
+  }, [products]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const draft = {
+      reference, serial_number, description, cost, devisCost, estimateMin, estimateMax,
+      estimateType, paymentStatus, partialPayment, status, password, commande, chargeur,
+      remarks, acceptScreenRisk, intakeCheck, repairProposalMade, repairProposal,
+      repairProposalPrice, repairProposalStatus, repairProposalMethod, repairProposalComment,
+      loanedItemEnabled, loanedItem, wantLabelPhoto, photos, labelPhoto, videoDepot,
+      deviceType, customDeviceType, typeText, brand, customBrand, brandText,
+      model, customModel, modelText,
+    };
+    const isEmpty =
+      !reference && !serial_number && !description && !cost && !devisCost &&
+      !password && !commande && !remarks && !repairProposal && !loanedItem &&
+      (!deviceType || deviceType === "default") && !photos.length && !labelPhoto && !videoDepot;
+    if (isEmpty) AsyncStorage.removeItem(draftKey).catch(() => {});
+    else AsyncStorage.setItem(draftKey, JSON.stringify(draft)).catch(() => {});
+  }, [
+    draftReady, reference, serial_number, description, cost, devisCost, estimateMin, estimateMax,
+    estimateType, paymentStatus, partialPayment, status, password, commande, chargeur,
+    remarks, acceptScreenRisk, intakeCheck, repairProposalMade, repairProposal,
+    repairProposalPrice, repairProposalStatus, repairProposalMethod, repairProposalComment,
+    loanedItemEnabled, loanedItem, wantLabelPhoto, photos, labelPhoto, videoDepot,
+    deviceType, customDeviceType, typeText, brand, customBrand, brandText,
+    model, customModel, modelText,
+  ]);
+
+  const clearDraft = () => AsyncStorage.removeItem(draftKey).catch(() => {});
+
+  const [discardDraftVisible, setDiscardDraftVisible] = useState(false);
 
   const [deletePhotoConfirmVisible, setDeletePhotoConfirmVisible] =
     useState(false);
@@ -1551,6 +1664,9 @@ repair_proposal_date: repairProposalMade
 
       newInterventionIdRef.current = data?.[0]?.id || null;
       setHasUnsavedChanges(false);
+      // Intervention enregistrée : le brouillon n'a plus lieu d'être.
+      setDraftReady(false);
+      clearDraft();
 
       if (acceptScreenRisk) {
         showAlert(
@@ -1750,6 +1866,20 @@ repair_proposal_date: repairProposalMade
       style={styles.container}
     >
       {clientName && <Text style={styles.clientName}>{`Client: ${clientName}`}</Text>}
+
+      {draftRestored ? (
+        <View style={styles.draftBanner}>
+          <Text style={styles.draftBannerText}>
+            📝 Brouillon restauré : les informations déjà saisies ont été récupérées.
+          </Text>
+          <TouchableOpacity
+            style={styles.draftBannerBtn}
+            onPress={() => setDiscardDraftVisible(true)}
+          >
+            <Text style={styles.draftBannerBtnText}>Effacer le brouillon</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
@@ -3503,6 +3633,23 @@ onPress={() => {
       />
 
       <AlertBox
+        visible={discardDraftVisible}
+        title="Effacer le brouillon ?"
+        message="Tous les champs saisis pour cette intervention seront vidés."
+        cancelText="Annuler"
+        confirmText="Effacer"
+        onClose={() => setDiscardDraftVisible(false)}
+        onConfirm={async () => {
+          setDiscardDraftVisible(false);
+          setDraftReady(false);
+          await clearDraft();
+          // Recharge la page vierge pour ce client
+          skipLeaveGuardRef.current = true;
+          navigation.replace("AddIntervention", route.params);
+        }}
+      />
+
+      <AlertBox
         visible={!!pendingLeaveAction}
         title="Modifications non enregistrées"
         message="Vous allez perdre les informations saisies pour cette intervention. Voulez-vous vraiment quitter ?"
@@ -3776,6 +3923,29 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     color: "#242424",
   },
+
+  draftBanner: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    backgroundColor: "#fef3c7",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  draftBannerText: { flex: 1, color: "#92400e", fontWeight: "600" },
+  draftBannerBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+  },
+  draftBannerBtnText: { color: "#b45309", fontWeight: "700" },
 
   sameDeviceRow: {
     flexDirection: "row",
